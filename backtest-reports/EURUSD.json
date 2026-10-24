@@ -1,0 +1,135 @@
+{
+  "symbol": "EUR/USD",
+  "strategy": "EURUSD · Trend Pullback + London Breakout Filter",
+  "period": {
+    "from": "2026-08-13",
+    "to": "2026-10-23",
+    "days": 71.6
+  },
+  "dataSource": "Yahoo Finance EURUSD=X",
+  "costs": {
+    "spread": "0.8 pips",
+    "slippage": "0.2 pips"
+  },
+  "signals": 3,
+  "filled": 3,
+  "cancelledOrExpired": 0,
+  "closed": 3,
+  "open": 0,
+  "wins": 3,
+  "losses": 0,
+  "breakevens": 0,
+  "winRate": 100,
+  "profitFactor": null,
+  "expectancyR": 0.473,
+  "totalR": 1.42,
+  "avgPlannedRr": 2.28,
+  "maxDrawdownR": 0,
+  "tradesPerMonth": 1.3,
+  "bySession": {
+    "London": {
+      "trades": 3,
+      "totalR": 1.42,
+      "wins": 3,
+      "losses": 0
+    }
+  },
+  "bySetup": {
+    "A": {
+      "trades": 3,
+      "totalR": 1.42,
+      "wins": 3,
+      "losses": 0
+    }
+  },
+  "byWeekday": {
+    "Fri": {
+      "trades": 1,
+      "totalR": 0.45
+    },
+    "Mon": {
+      "trades": 1,
+      "totalR": 0.47
+    },
+    "Tue": {
+      "trades": 1,
+      "totalR": 0.5
+    }
+  },
+  "equityCurve": [
+    {
+      "time": "2026-08-21 08:15",
+      "equityR": 0.45
+    },
+    {
+      "time": "2026-09-07 08:00",
+      "equityR": 0.93
+    },
+    {
+      "time": "2026-09-29 08:00",
+      "equityR": 1.42
+    }
+  ],
+  "trades": [
+    {
+      "id": "EURUSD-A-1787299200",
+      "setup": "A",
+      "direction": "BUY",
+      "signalTime": "2026-08-21 08:15",
+      "session": "London",
+      "weekday": "Fri",
+      "score": 76,
+      "entry": 1.1697,
+      "sl": 1.16863,
+      "tp1": 1.17077,
+      "tp2": 1.17184,
+      "plannedRr": 2,
+      "state": "CLOSED",
+      "outcome": "WIN",
+      "r": 0.453,
+      "events": "FILL@08-21 08:15 TP1@08-21 08:30 BE@08-21 08:30 BE_EXIT@08-21 12:30"
+    },
+    {
+      "id": "EURUSD-A-1788767100",
+      "setup": "A",
+      "direction": "BUY",
+      "signalTime": "2026-09-07 08:00",
+      "session": "London",
+      "weekday": "Mon",
+      "score": 79,
+      "entry": 1.1627,
+      "sl": 1.1609,
+      "tp1": 1.1645,
+      "tp2": 1.1678,
+      "plannedRr": 2.83,
+      "state": "CLOSED",
+      "outcome": "WIN",
+      "r": 0.472,
+      "events": "FILL@09-07 08:00 TP1@09-09 06:15 BE@09-09 06:15 BE_EXIT@09-09 09:45"
+    },
+    {
+      "id": "EURUSD-A-1790667900",
+      "setup": "A",
+      "direction": "SELL",
+      "signalTime": "2026-09-29 08:00",
+      "session": "London",
+      "weekday": "Tue",
+      "score": 86,
+      "entry": 1.1353,
+      "sl": 1.13772,
+      "tp1": 1.13288,
+      "tp2": 1.13046,
+      "plannedRr": 2,
+      "state": "CLOSED",
+      "outcome": "WIN",
+      "r": 0.496,
+      "events": "FILL@09-29 08:00 TP1@09-29 16:45 BE@09-29 16:45 BE_EXIT@09-30 06:00"
+    }
+  ],
+  "warnings": [
+    "Only 3 closed trades: far too few to judge the strategy. Treat every number below as anecdotal.",
+    "History is only 72 days (Yahoo limits 5m/15m data to ~60 days). A 2–3 year test needs broker (MT5) history.",
+    "News filter uses the current ForexFactory week only: past news events are not filtered in this backtest.",
+    "Spread is a fixed config value (feed has no live spread); real spreads widen around news and rollover."
+  ]
+}

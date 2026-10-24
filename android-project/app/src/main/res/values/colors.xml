@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="obsidian_black">#121212</color>
+    <color name="obsidian_surface">#181818</color>
+    <color name="gold_primary">#C5A059</color>
+    <color name="gold_light">#F9E5B6</color>
+    <color name="gold_dark">#96732E</color>
+    <color name="bull_green">#10B981</color>
+    <color name="bear_red">#EF4444</color>
+</resources>

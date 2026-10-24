@@ -1,0 +1,7 @@
+{
+  "name": "Liquidity Dissection - Private Desk",
+  "description": "Professional AI-Powered Quantitative Trading Platform dedicated exclusively to Gold (XAU/USD): Multi-timeframe SMC order flow, ICT liquidity sweeps, dynamic 10-pillar decision engine, 24/7 autonomous scanning, and institutional risk management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

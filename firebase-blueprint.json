@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "app_state": {
+      "fields": {
+        "activationKeys": { "type": "map" },
+        "chatSubscribers": { "type": "map" },
+        "telegramConfig": { "type": "map" },
+        "tradeAuditLogs": { "type": "list" },
+        "aiLearningMemory": { "type": "list" },
+        "users": { "type": "list" },
+        "systemSettings": { "type": "map" },
+        "updatedAt": { "type": "timestamp" }
+      }
+    },
+    "trade_audit_logs": {
+      "fields": {
+        "id": { "type": "string" },
+        "symbol": { "type": "string" },
+        "signalType": { "type": "string" },
+        "outcome": { "type": "string" },
+        "pips": { "type": "number" },
+        "timestamp": { "type": "number" }
+      }
+    }
+  }
+}

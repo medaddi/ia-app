@@ -1,0 +1,40 @@
+{
+  "symbol": "XAU/USD",
+  "strategy": "XAUUSD · Liquidity Sweep + MSS + FVG",
+  "period": {
+    "from": "2026-08-18",
+    "to": "2026-10-23",
+    "days": 66.2
+  },
+  "dataSource": "COMEX GC=F adjusted to spot (basis -11)",
+  "costs": {
+    "spread": "$0.25",
+    "slippage": "$0.05"
+  },
+  "signals": 0,
+  "filled": 0,
+  "cancelledOrExpired": 0,
+  "closed": 0,
+  "open": 0,
+  "wins": 0,
+  "losses": 0,
+  "breakevens": 0,
+  "winRate": null,
+  "profitFactor": null,
+  "expectancyR": null,
+  "totalR": 0,
+  "avgPlannedRr": null,
+  "maxDrawdownR": 0,
+  "tradesPerMonth": 0,
+  "bySession": {},
+  "bySetup": {},
+  "byWeekday": {},
+  "equityCurve": [],
+  "trades": [],
+  "warnings": [
+    "Only 0 closed trades: far too few to judge the strategy. Treat every number below as anecdotal.",
+    "History is only 66 days (Yahoo limits 5m/15m data to ~60 days). A 2–3 year test needs broker (MT5) history.",
+    "News filter uses the current ForexFactory week only: past news events are not filtered in this backtest.",
+    "Spread is a fixed config value (feed has no live spread); real spreads widen around news and rollover."
+  ]
+}
