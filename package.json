@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "lint": "node node_modules/typescript/bin/tsc --noEmit",
-    "test": "node node_modules/tsx/dist/cli.mjs server/strategies/tests/shared.test.ts && node node_modules/tsx/dist/cli.mjs server/strategies/tests/xauusd.test.ts && node node_modules/tsx/dist/cli.mjs server/strategies/tests/eurusd.test.ts && node node_modules/tsx/dist/cli.mjs server/strategies/tests/agent.test.ts && node node_modules/tsx/dist/cli.mjs server/tests/goldRiskEngine.test.ts",
+    "test": "node node_modules/tsx/dist/cli.mjs server/strategies/tests/shared.test.ts && node node_modules/tsx/dist/cli.mjs server/strategies/tests/xauusd.test.ts && node node_modules/tsx/dist/cli.mjs server/strategies/tests/eurusd.test.ts && node node_modules/tsx/dist/cli.mjs server/strategies/tests/agent.test.ts && node node_modules/tsx/dist/cli.mjs server/strategies/tests/telegram.test.ts && node node_modules/tsx/dist/cli.mjs server/tests/goldRiskEngine.test.ts",
     "backtest": "node node_modules/tsx/dist/cli.mjs server/backtest/run.ts"
   },
   "dependencies": {

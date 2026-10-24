@@ -24,7 +24,7 @@ import {
   formatUserPersonalStatsMessage,
 } from "./userTradeManager";
 import { registerDispatchedSignal, canDispatchNewSignal } from "./signalTracker";
-import { validateAndSanitizeSignalLevels } from "./strategiesEngine";
+import { personalizeSignal, recordWatermarks, COPY_PROTECTION } from "./telegramProtection";
 import { INITIAL_SIGNALS } from "../src/data/defaultData";
 
 export interface TelegramConfigServer {
@@ -309,7 +309,7 @@ export function getNotificationHistory(): TelegramLog[] {
  */
 export async function sendTelegramMessage(
   text: string,
-  customConfig?: { botToken?: string; chatId?: string; replyMarkup?: any; replyToMessageId?: number; skipDedup?: boolean }
+  customConfig?: { botToken?: string; chatId?: string; replyMarkup?: any; replyToMessageId?: number; skipDedup?: boolean; protectContent?: boolean }
 ): Promise<{ success: boolean; error?: string; messageId?: number; duplicatePrevented?: boolean }> {
   const cfg = getTelegramConfig();
   const token = customConfig?.botToken || cfg.botToken || process.env.TELEGRAM_BOT_TOKEN;
@@ -360,6 +360,11 @@ export async function sendTelegramMessage(
 
     if (customConfig?.replyToMessageId) {
       payload.reply_to_message_id = customConfig.replyToMessageId;
+    }
+
+    // Telegram blocks forwarding, saving and copying of protected messages
+    if (customConfig?.protectContent) {
+      payload.protect_content = true;
     }
 
     const response = await fetch(url, {
@@ -1875,11 +1880,11 @@ export async function notifySignalToTelegram(signal: any, isPreAlert: boolean = 
     return { sent: false, error: "التنبيهات التحضيرية متوقفة لمنع السبام — يتم إرسال الصفقات المؤكدة A+ فقط." };
   }
 
-  // 0b. Strategy Lock: Telegram bot is locked EXCLUSIVELY to the new NY Silver Bullet / SMC Strategy
-  const stratName = (signal.strategyUsed || signal.strategyName || "").toLowerCase();
-  const isNewStrategy = stratName.includes("silver bullet") || stratName.includes("coretradingengine") || stratName.includes("smc") || signal.symbol?.includes("XAU");
-  if (!isNewStrategy && !force) {
-    return { sent: false, error: "بوت تيليجرام مقفول حصرياً لاستراتيجية NY Silver Bullet و SMC فقط." };
+  // 0b. Strategy lock: only the app's two strategies (XAUUSD and EURUSD) may send signals
+  const stratName = String(signal.strategyUsed || signal.strategyName || "");
+  const isAppStrategy = stratName.startsWith("XAUUSD · ") || stratName.startsWith("EURUSD · ");
+  if (!isAppStrategy && !force) {
+    return { sent: false, error: "Only the XAUUSD and EURUSD strategies can send signals." };
   }
 
   // 1. Strictly check market session status (Global Interbank Market Hours)
@@ -1898,18 +1903,17 @@ export async function notifySignalToTelegram(signal: any, isPreAlert: boolean = 
     return { sent: false, error: "حالة الصفقة NO_TRADE: لم تكتمل شروط التأكيد المؤسساتي." };
   }
 
-  // 2. High-Grade Confluence Threshold (Execution Threshold: Confluence >= 85%)
-  const minRequiredConf = typeof cfg.minConfidence === 'number' ? Math.max(85, cfg.minConfidence) : 85;
-  if (!force && (signal.confidence || 0) < minRequiredConf) {
-    return { sent: false, error: `نسبة التطابق (${signal.confidence}%) أقل من الحد الأدنى المؤسساتي (${minRequiredConf}%). تم الحجب لمنع السبام.` };
+  // 2. Score threshold: the strategies' own SIGNAL threshold (>= 75)
+  const minScore = 75;
+  if (!force && (signal.confidence || 0) < minScore) {
+    return { sent: false, error: `Score ${signal.confidence} < ${minScore}: not a signal.` };
   }
 
-  // 2b. Require Risk-to-Reward ratio >= 2.0 (Mandatory 1:2.0 Net R:R)
-  const rrNum = typeof signal.riskReward === 'string' 
-    ? parseFloat(signal.riskReward.replace(/[^0-9.]/g, '')) 
-    : 2.0;
-  if (!force && rrNum < 1.95) {
-    return { sent: false, error: "نسبة العائد للمخاطرة أقل من 1:2.0. تم رفض الصفقة لحماية الحساب." };
+  // 2b. R:R to TP2 >= 1:2, computed from the levels themselves
+  const riskDist = Math.abs((signal.entryPrice || 0) - (signal.stopLoss || 0));
+  const rrTp2 = riskDist > 0 ? Math.abs((signal.target2 || 0) - (signal.entryPrice || 0)) / riskDist : 0;
+  if (!force && rrTp2 < 2 - 1e-6) {
+    return { sent: false, error: `R:R to TP2 1:${rrTp2.toFixed(2)} < 1:2.` };
   }
 
   // 3. Check asset filter
@@ -1921,37 +1925,18 @@ export async function notifySignalToTelegram(signal: any, isPreAlert: boolean = 
     return { sent: false, error: `Asset ${signal.symbol} not in subscribed list` };
   }
 
-  // 4. Rate-limiting & Deterministic Hash Deduplication (XAUUSD-NYSB-YYYY-MM-DD-DIRECTION-ENTRY)
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const dirStr = (signal.signalType || signal.action || "BUY").toUpperCase();
-  const entryVal = typeof signal.entryPrice === 'number' ? signal.entryPrice.toFixed(2) : "4150.00";
-  const dedupKey = `XAUUSD-NYSB-${dateStr}-${dirStr}-${entryVal}`;
+  // 4. One message per setup: the strategy's setup id is the dedup key
+  const dedupKey = String(signal.id);
   const now = Date.now();
   const lastSent = lastNotifiedSetupTime.get(dedupKey) || 0;
-  if (!force && (now - lastSent < 45 * 60 * 1000)) {
-    return { sent: false, error: "تم إرسال إشارة هذا النموذج مسبقاً لمنع التكرار (Deterministic Deduplication)." };
+  if (!force && lastSent > 0) {
+    return { sent: false, error: "تم إرسال هذه الصفقة مسبقاً (نفس الإعداد)." };
   }
 
-  // Collect target recipients:
-  // 1. All active chat subscribers who entered a valid code in Telegram
-  const activeSubs = getActiveChatSubscribers();
+  // Recipients: activated subscribers + the admin chat only (never every chat that pressed /start)
   const targetChatIds = new Set<string>();
-  for (const s of activeSubs) {
-    if (s.chatId) targetChatIds.add(String(s.chatId));
-  }
-
-  // 2. Also cfg.chatId if provided
-  if (cfg.chatId) {
-    targetChatIds.add(String(cfg.chatId));
-  }
-
-  // 3. Fallback: ensure primary database subscribers are added
-  const db = getLocalDatabase();
-  if (db.chatSubscribers) {
-    for (const cid of Object.keys(db.chatSubscribers)) {
-      targetChatIds.add(String(cid));
-    }
-  }
+  for (const sub of getActiveChatSubscribers()) if (sub.chatId) targetChatIds.add(String(sub.chatId));
+  if (cfg.chatId) targetChatIds.add(String(cfg.chatId));
 
   if (targetChatIds.size === 0) {
     return {
@@ -1960,21 +1945,14 @@ export async function notifySignalToTelegram(signal: any, isPreAlert: boolean = 
     };
   }
 
-  // Sanitize and guarantee mathematical invariants on SL, Entry, and TP
-  const cleanSignal = validateAndSanitizeSignalLevels(signal);
+  // Exact strategy levels: nothing is recalculated here
+  cacheDispatchedSignal(signal);
 
-  // Cache signal for instant fast reaction and inline callback retrieval
-  cacheDispatchedSignal(cleanSignal);
-
-  // Generate clean, concise text message (without image, pure simple text)
-  const message = isPreAlert ? formatPreAlertMessage(cleanSignal) : formatSignalMessage(cleanSignal);
-
-  // Interactive inline buttons so users can tap "دخلت الصفقة" or calculate risk
   const replyMarkup = !isPreAlert ? {
     inline_keyboard: [
       [
-        { text: "🎯 دخلت الصفقة", callback_data: `join_${cleanSignal.id}` },
-        { text: "🧮 لوت محفظتي", callback_data: `risk_${cleanSignal.id}` }
+        { text: "🎯 دخلت الصفقة", callback_data: `join_${signal.id}` },
+        { text: "🧮 لوت محفظتي", callback_data: `risk_${signal.id}` }
       ],
       [
         { text: "⚙️ ضبط المحفظة ($)", callback_data: "my_profile" }
@@ -1982,28 +1960,44 @@ export async function notifySignalToTelegram(signal: any, isPreAlert: boolean = 
     ]
   } : undefined;
 
+  // Parallel delivery in batches under Telegram's ~30 messages/second limit
+  const ids = [...targetChatIds];
+  const BATCH = 25;
+  const watermarks: { ref: string; chatId: string; signalId: string; symbol: string; offset: number; sentAt: string }[] = [];
   let anySuccess = false;
   let lastError: string | undefined;
-
-  for (const targetId of targetChatIds) {
-    // Send clean, direct text message without image ("bla tswira")
-    const userProf = getUserSubscriberProfile(targetId);
-    const userSpecificMessage = isPreAlert ? message : formatSignalMessage(cleanSignal, userProf);
-
-    const res = await sendTelegramMessage(userSpecificMessage, { chatId: targetId, replyMarkup });
-
-    if (res.success) {
-      anySuccess = true;
-      if (res.messageId) {
-        registerSignalMessageId(targetId, res.messageId, signal.id);
-        if (!isPreAlert) {
-          saveConfirmedSignalMessageId(signal.id, signal.symbol, targetId, res.messageId);
+  let firstAckMs: number | null = null;
+  for (let b = 0; b < ids.length; b += BATCH) {
+    const batch = ids.slice(b, b + BATCH);
+    const results = await Promise.allSettled(batch.map(async targetId => {
+      const { signal: personal, offset, ref } = personalizeSignal(signal, targetId);
+      const text = isPreAlert ? formatPreAlertMessage(personal) : `${formatSignalMessage(personal, getUserSubscriberProfile(targetId))}
+🔐 <i>Personal copy · Ref ${ref} · do not share</i>`;
+      const res = await sendTelegramMessage(text, { chatId: targetId, replyMarkup, protectContent: COPY_PROTECTION.protectContent });
+      return { targetId, res, offset, ref };
+    }));
+    for (const r of results) {
+      if (r.status !== "fulfilled") { lastError = String(r.reason); continue; }
+      const { targetId, res, offset, ref } = r.value;
+      if (res.success) {
+        anySuccess = true;
+        firstAckMs ??= Date.now();
+        watermarks.push({ ref, chatId: targetId, signalId: String(signal.id), symbol: String(signal.symbol), offset, sentAt: new Date().toISOString() });
+        if (res.messageId) {
+          registerSignalMessageId(targetId, res.messageId, signal.id);
+          if (!isPreAlert) saveConfirmedSignalMessageId(signal.id, signal.symbol, targetId, res.messageId);
         }
+      } else {
+        lastError = res.error;
       }
-    } else {
-      lastError = res.error;
     }
+    if (b + BATCH < ids.length) await new Promise(r => setTimeout(r, 1050));
   }
+  recordWatermarks(watermarks);
+
+  // Latency from the signal candle close to the first Telegram acknowledgement
+  const latencyMs = firstAckMs !== null && signal.confirmationCloseTime ? firstAckMs - signal.confirmationCloseTime * 1000 : null;
+  if (latencyMs !== null) recordDispatchLatency(String(signal.id), latencyMs, watermarks.length);
 
   if (anySuccess) {
     lastNotifiedSetupTime.set(dedupKey, now);
@@ -2016,7 +2010,7 @@ export async function notifySignalToTelegram(signal: any, isPreAlert: boolean = 
     id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
     type: "SIGNAL",
     title: isPreAlert ? `[تنبيه] ${signal.signalType} ${signal.symbol}` : `[دخول مباشر A+] ${signal.signalType} ${signal.symbol} (${signal.confidence}%)`,
-    details: `Entry: ${signal.entryZone} | SL: ${signal.stopLoss} | TP: ${signal.target1} | Sent to: ${targetChatIds.size} chat(s)`,
+    details: `Entry: ${signal.entryPrice} | SL: ${signal.stopLoss} | TP2: ${signal.target2} | Sent to: ${watermarks.length}/${targetChatIds.size} chat(s)${latencyMs !== null ? ` | ${(latencyMs / 1000).toFixed(1)}s after candle close` : ''}`,
     sentAt: new Date().toLocaleTimeString("ar-MA", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
     status: anySuccess ? "SUCCESS" : "FAILED",
     error: anySuccess ? undefined : lastError,
@@ -2031,6 +2025,17 @@ export async function notifySignalToTelegram(signal: any, isPreAlert: boolean = 
 /**
  * Records a test notification in history
  */
+// Dispatch latency (signal candle close → first Telegram acknowledgement)
+const dispatchLatency: { signalId: string; latencyMs: number; recipients: number; at: string }[] = [];
+export function recordDispatchLatency(signalId: string, latencyMs: number, recipients: number) {
+  dispatchLatency.unshift({ signalId, latencyMs, recipients, at: new Date().toISOString() });
+  if (dispatchLatency.length > 50) dispatchLatency.pop();
+  console.log(`[Telegram] ${signalId} delivered to ${recipients} chat(s) ${(latencyMs / 1000).toFixed(2)}s after candle close`);
+}
+export function getDispatchLatency() {
+  return dispatchLatency;
+}
+
 export function recordNotificationLog(log: Omit<TelegramLog, "id">) {
   const entry: TelegramLog = {
     ...log,

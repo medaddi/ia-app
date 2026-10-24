@@ -449,10 +449,10 @@ export interface CandleSeries {
 const rawSeriesCache = new Map<string, { candles: Candle[]; expires: number }>();
 const RAW_SERIES_TTL_MS = 20000;
 
-async function fetchYahooCandles(ticker: string, interval: string, range: string, decimals: number): Promise<Candle[]> {
+async function fetchYahooCandles(ticker: string, interval: string, range: string, decimals: number, fresh = false): Promise<Candle[]> {
   const key = `${ticker}|${interval}|${range}`;
   const cached = rawSeriesCache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.candles;
+  if (!fresh && cached && cached.expires > Date.now()) return cached.candles;
 
   const res = await fetch(
     `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${interval}&range=${range}`,
@@ -519,7 +519,8 @@ export async function fetchCandleSeries(
   symbol: string = 'XAU/USD',
   timeframe: string = '15M',
   limit: number = 600,
-  livePrice?: number
+  livePrice?: number,
+  opts: { fresh?: boolean } = {}
 ): Promise<CandleSeries> {
   const isEuro = symbol.includes("EUR");
   const decimals = isEuro ? 4 : 2;
@@ -539,7 +540,7 @@ export async function fetchCandleSeries(
   const ticker = isEuro ? 'EURUSD=X' : 'GC=F';
 
   try {
-    let candles = await fetchYahooCandles(ticker, interval, range, decimals);
+    let candles = await fetchYahooCandles(ticker, interval, range, decimals, opts.fresh);
     if (timeframe === '4H') candles = aggregateToBuckets(candles, 14400);
 
     if (candles.length > 15) {

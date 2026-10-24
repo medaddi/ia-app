@@ -12,6 +12,7 @@ import {
   formatSignalMessage,
   formatPreAlertMessage,
   notifySignalToTelegram,
+  getDispatchLatency,
   getNotificationHistory,
   recordNotificationLog,
   initTelegramBotPolling,
@@ -78,6 +79,8 @@ import { askAgent, explainDrawing, detectLang } from "./server/agent/agent";
 import { buildAgentContext } from "./server/agent/context";
 import { buildSystemPrompt } from "./server/agent/systemPrompt";
 import { validateSignal } from "./server/agent/validator";
+import { startCandleCloseScheduler } from "./server/signalScheduler";
+import { COPY_PROTECTION, traceLeak } from "./server/telegramProtection";
 
 import {
   getLocalDatabase,
@@ -1192,7 +1195,16 @@ app.get("/api/exunu/setup", async (req, res) => {
 // Single Telegram dispatch path for trade signals.
 // Sends only a SIGNAL (score >= 75, every required rule passed) from one of the app's two strategies.
 // ----------------------------------------------------
-const sentSetupIds = new Set<string>(); // setup ids already sent to Telegram
+// Setup ids already sent to Telegram, persisted so a restart can never resend a signal
+const SENT_FILE = path.resolve(process.cwd(), "data/sent_setups.json");
+const sentSetupIds = new Set<string>((() => {
+  try { return JSON.parse(fs.readFileSync(SENT_FILE, "utf8")) as string[]; } catch { return []; }
+})());
+const dispatchInFlight = new Set<string>();
+function markSent(id: string) {
+  sentSetupIds.add(id);
+  try { fs.writeFileSync(SENT_FILE, JSON.stringify([...sentSetupIds].slice(-1000))); } catch { /* best effort */ }
+}
 
 async function dispatchSharedSetup(rawSymbol: string, manual: boolean): Promise<{ success: boolean; error?: string; signal?: AISignal; state?: string }> {
   const symbol = rawSymbol.includes("EUR") ? "EUR/USD" : "XAU/USD";
@@ -1208,17 +1220,44 @@ async function dispatchSharedSetup(rawSymbol: string, manual: boolean): Promise<
   if (!manual && !r.canNotify) return { success: false, state, error: r.headline };
   if (manual && !["PENDING", "OPEN"].includes(setup.lifecycle.state)) return { success: false, state, error: `Order is ${setup.lifecycle.state}: too late to send` };
   if (sentSetupIds.has(setup.id)) return { success: false, state, error: "تم إرسال هذه الصفقة مسبقاً." };
+  if (dispatchInFlight.has(setup.id)) return { success: false, state, error: "Already being sent" };
   // Independent re-check: can only reject, never approve what the strategy rejected
   const check = validateSignal(r);
   if (!check.approved) return { success: false, state, error: `Validator rejected: ${check.issues.join("; ")}` };
 
   const signal = convertExunuToAISignal(exunuRes, asset as any);
-  const sendRes = await notifySignalToTelegram(signal, false, manual);
+  dispatchInFlight.add(setup.id);
+  let sendRes: { sent: boolean; error?: string };
+  try {
+    sendRes = await notifySignalToTelegram(signal, false, manual);
+  } finally {
+    dispatchInFlight.delete(setup.id);
+  }
   if (!sendRes.sent) return { success: false, state, error: sendRes.error, signal };
-  sentSetupIds.add(setup.id);
+  markSent(setup.id);
   registerDispatchedSignal(signal as any, asset?.price);
   return { success: true, state, signal };
 }
+
+// Event-driven dispatch: evaluate each strategy the moment its entry candle closes
+startCandleCloseScheduler(async (sym, closeSec, bundle) => {
+  const r = bundle.result;
+  if (!r.canNotify || !r.setup || sentSetupIds.has(r.setup.id)) return;
+  const cfg = getTelegramConfig();
+  if (!cfg.enabled || !cfg.botToken) return;
+  const out = await dispatchSharedSetup(sym, false);
+  console.log(`[CandleClose] ${sym} ${r.setup.id} at close ${new Date(closeSec * 1000).toISOString().slice(11, 19)}: ${out.success ? "sent" : out.error}`);
+});
+
+app.get("/api/telegram/latency", (_req, res) => {
+  res.json({ success: true, deliveries: getDispatchLatency(), protection: COPY_PROTECTION });
+});
+
+app.get("/api/telegram/trace", (req, res) => {
+  const ref = String(req.query.ref || "");
+  if (!ref) return res.status(400).json({ success: false, error: "ref is required" });
+  res.json({ success: true, matches: traceLeak({ ref }) });
+});
 
 app.post("/api/exunu/dispatch-telegram", async (req, res) => {
   try {

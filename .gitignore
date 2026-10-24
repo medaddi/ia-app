@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Runtime Telegram delivery records (contain subscriber chat ids)
+data/signal_watermarks.json
+data/sent_setups.json

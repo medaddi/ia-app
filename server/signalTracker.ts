@@ -742,9 +742,9 @@ export function canDispatchNewSignal(targetSymbol?: string): boolean {
     return false;
   }
 
-  // Anti-Spam Pacing: Minimum 10 seconds between distinct trade signals across different pairs
-  const minInterSignalInterval = 10 * 1000;
-  return now - lastDispatchedSignalTimestamp >= minInterSignalInterval;
+  // No pacing between different pairs: gold and EURUSD can close on the same minute and both must
+  // go out immediately (per-symbol and daily caps above already prevent spam)
+  return true;
 }
 
 /**

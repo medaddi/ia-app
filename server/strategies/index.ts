@@ -65,9 +65,10 @@ export interface StrategyBundle {
   candles: Partial<Record<Tf, Candle[]>>;
 }
 
-export async function loadStrategyCandles(sym: Sym, livePrice?: number) {
+export async function loadStrategyCandles(sym: Sym, livePrice?: number, fresh = false) {
   const def = STRATEGY_DEFS[sym];
-  const series = await Promise.all(def.tfs.map(tf => fetchCandleSeries(sym, PROVIDER_TF[tf], def.limits[tf] || 1000, livePrice)));
+  // `fresh` re-downloads the entry timeframe (candle-close dispatch); higher timeframes use the cache
+  const series = await Promise.all(def.tfs.map(tf => fetchCandleSeries(sym, PROVIDER_TF[tf], def.limits[tf] || 1000, livePrice, { fresh: fresh && tf === def.entryTf })));
   const candles: Partial<Record<Tf, Candle[]>> = {};
   def.tfs.forEach((tf, i) => { candles[tf] = series[i].candles; });
   return { candles, isReal: series.every(s => !s.isSynthetic), source: series[0].source };
@@ -99,15 +100,15 @@ function todayStats(sym: Sym, base: Parameters<typeof replay>[1], nowSec: number
 const cache = new Map<Sym, { bundle: StrategyBundle; expires: number }>();
 const inflight = new Map<Sym, Promise<StrategyBundle>>();
 
-export async function getStrategyResult(rawSymbol: string, opts: { force?: boolean; livePrice?: number } = {}): Promise<StrategyBundle> {
+export async function getStrategyResult(rawSymbol: string, opts: { force?: boolean; fresh?: boolean; livePrice?: number } = {}): Promise<StrategyBundle> {
   const sym = normalizeSymbol(rawSymbol);
   const hit = cache.get(sym);
-  if (!opts.force && hit && hit.expires > Date.now()) return hit.bundle;
+  if (!opts.force && !opts.fresh && hit && hit.expires > Date.now()) return hit.bundle;
   const pending = inflight.get(sym);
-  if (pending) return pending;
+  if (pending && !opts.fresh) return pending;
   const job = (async () => {
-    const livePrice = opts.livePrice && opts.livePrice > 0 ? opts.livePrice : (await fetchLivePrice(sym)).price;
-    const [{ candles, isReal, source }, news] = await Promise.all([loadStrategyCandles(sym, livePrice), loadNewsCalendar()]);
+    const livePrice = opts.livePrice && opts.livePrice > 0 ? opts.livePrice : (await fetchLivePrice(sym, !!opts.fresh)).price;
+    const [{ candles, isReal, source }, news] = await Promise.all([loadStrategyCandles(sym, livePrice, !!opts.fresh), loadNewsCalendar()]);
     const nowSec = Math.floor(Date.now() / 1000);
     const base = { candles, livePrice, spread: null, isRealData: isReal, dataSource: source, news };
     const { day } = isReal ? todayStats(sym, base, nowSec) : { day: { trades: 0, losses: 0 } };
