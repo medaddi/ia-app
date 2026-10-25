@@ -5,6 +5,7 @@ Starts the candle-close scheduler (signals → Telegram) and the Telegram comman
 """
 
 import asyncio
+import re
 import hmac
 import time
 from contextlib import asynccontextmanager
@@ -27,6 +28,7 @@ from .telegram.bot import poll_forever
 
 STARTED = time.time()
 _ready = False
+_setup_error: Optional[str] = None
 
 
 def _prepare() -> None:
@@ -40,10 +42,22 @@ def _prepare() -> None:
     _ready = True
 
 
+def _try_prepare() -> Optional[str]:
+    """Like _prepare, but returns the error (password hidden) instead of crashing the process."""
+    global _setup_error
+    try:
+        _prepare()
+        _setup_error = None
+    except Exception as err:  # a crash here would take the whole serverless function down
+        _setup_error = re.sub(r"://[^/@\s]+@", "://***@", f"{type(err).__name__}: {err}")[:600]
+        print(f"[startup] database setup failed: {_setup_error}")
+    return _setup_error
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if not settings.database_missing:
-        _prepare()
+        _try_prepare()
     stop = asyncio.Event()
     tasks: list[asyncio.Task] = []
     if settings.scheduler_enabled:
@@ -76,7 +90,9 @@ async def ensure_prepared(request: Request, call_next):
         return JSONResponse({"success": False, "status": "error", "database": "missing", "error": msg, "detail": msg}, status_code=503)
     # Serverless hosts do not always run the lifespan startup: prepare on the first request instead
     if not _ready:
-        await asyncio.to_thread(_prepare)
+        err = await asyncio.to_thread(_try_prepare)
+        if err:
+            return JSONResponse({"success": False, "status": "error", "database": "setup failed", "error": err, "detail": err}, status_code=503)
     return await call_next(request)
 
 
