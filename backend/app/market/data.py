@@ -1,0 +1,201 @@
+"""
+Live market data for XAU/USD and EUR/USD.
+- Live price: gold-api.com spot (gold), Yahoo GC=F / EURUSD=X as fallback.
+- Candles: Yahoo Finance. Gold candles come from COMEX futures (GC=F) and are shifted by the live
+  spot-futures basis so every candle is in spot terms. 4H is aggregated from 1H.
+  If the provider fails, an empty series flagged `isSynthetic` is returned and the strategies
+  refuse to analyse it.
+"""
+
+import asyncio
+import math
+import time
+from datetime import datetime, timezone
+
+import httpx
+
+from ..strategies.shared.jsnum import round_to
+from ..strategies.shared.types import Candle
+
+UA = {"Accept": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"}
+PRICE_TTL = 2.0
+RAW_TTL = 20.0
+SLOW_TTL = 300.0
+
+TIMEFRAME_SECONDS = {"1M": 60, "5M": 300, "15M": 900, "1H": 3600, "4H": 14400, "1D": 86400}
+INTERVALS = {"1M": ("1m", "5d"), "5M": ("5m", "60d"), "15M": ("15m", "60d"), "1H": ("1h", "2y"), "4H": ("1h", "2y"), "1D": ("1d", "5y")}
+
+_client: httpx.AsyncClient | None = None
+_price_cache: dict[str, tuple[dict, float]] = {}
+_raw_cache: dict[str, tuple[list[Candle], float]] = {}
+_last_known: dict[str, dict] = {}
+
+
+def client() -> httpx.AsyncClient:
+    global _client
+    if _client is None:
+        _client = httpx.AsyncClient(headers=UA, timeout=8, follow_redirects=True)
+    return _client
+
+
+def is_euro(symbol: str) -> bool:
+    return "EUR" in symbol.upper()
+
+
+def market_session_status(symbol: str = "XAU/USD", now: datetime | None = None) -> dict:
+    """Forex / spot gold hours: Sunday 22:00 UTC to Friday 21:00 UTC (daily 21:00–22:00 rollover stays open)."""
+    d = now or datetime.now(timezone.utc)
+    dow = (d.weekday() + 1) % 7  # Sunday = 0
+    h = d.hour
+    if (dow == 5 and h >= 21) or dow == 6 or (dow == 0 and h < 22):
+        return {"isOpen": False, "labelEn": "MARKET CLOSED · WEEKEND", "labelFr": "Marché fermé (week-end)",
+                "labelAr": "السوق مغلق (عطلة نهاية الأسبوع)", "sessionStage": "WEEKEND_CLOSED", "nextOpen": "Sunday 22:00 GMT"}
+    if h == 21 and 1 <= dow <= 4:
+        return {"isOpen": True, "labelEn": "DAILY ROLLOVER WINDOW", "labelFr": "Rollover quotidien", "labelAr": "فترة التسوية اليومية", "sessionStage": "CME_ROLLOVER"}
+    m = h * 60 + d.minute
+    stage = "ASIAN_RANGE" if m < 8 * 60 else "LONDON_PREP" if m < 14 * 60 else "NY_SILVER_BULLET" if m <= 15 * 60 else "NY_AFTERNOON"
+    label = "EUR/USD · INTERBANK FOREX" if is_euro(symbol) else "XAU/USD · SPOT GOLD"
+    return {"isOpen": True, "labelEn": label, "labelFr": label, "labelAr": label, "sessionStage": stage}
+
+
+def _price_result(symbol: str, price: float, chg_pct: float, high: float, low: float, source: str) -> dict:
+    s = market_session_status(symbol)
+    dec = 4 if is_euro(symbol) else 2
+    return {
+        "symbol": symbol, "price": price, "change24h": chg_pct, "change24hAmount": round_to(price * chg_pct / 100, dec),
+        "high24h": high, "low24h": low, "source": source, "lastUpdated": int(time.time() * 1000),
+        "isMarketOpen": s["isOpen"], "marketStatusLabel": s["labelEn"], "nextOpen": s.get("nextOpen"), "sessionStage": s["sessionStage"],
+    }
+
+
+async def _yahoo_meta(ticker: str) -> dict | None:
+    try:
+        r = await client().get(f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}", params={"interval": "1m", "range": "1d"}, timeout=3.5)
+        if r.status_code != 200:
+            return None
+        return ((r.json().get("chart") or {}).get("result") or [{}])[0].get("meta")
+    except (httpx.HTTPError, ValueError, IndexError):
+        return None
+
+
+async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict:
+    sym = "EUR/USD" if is_euro(symbol) else "XAU/USD"
+    hit = _price_cache.get(sym)
+    if not fresh and hit and hit[1] > time.time():
+        return hit[0]
+    result = None
+    if sym == "XAU/USD":
+        try:
+            r = await client().get("https://api.gold-api.com/price/XAU", timeout=3.5)
+            if r.status_code == 200:
+                d = r.json()
+                p = float(d.get("price") or 0)
+                if 2000 < p < 8000:
+                    chg = float(d.get("chgp") or d.get("changePercent") or 0)
+                    price = round_to(p, 2)
+                    result = _price_result(sym, price, chg, round_to(price + 14.5, 2), round_to(price - 12, 2), "Interbank OTC Spot Feed (gold-api)")
+        except (httpx.HTTPError, ValueError, TypeError):
+            pass
+    if result is None:
+        meta = await _yahoo_meta("EURUSD=X" if sym == "EUR/USD" else "GC=F")
+        p = float((meta or {}).get("regularMarketPrice") or 0)
+        ok = 0.8 < p < 1.6 if sym == "EUR/USD" else 2000 < p < 8000
+        if ok:
+            prev = float(meta.get("previousClose") or meta.get("chartPreviousClose") or p) or p
+            dec = 4 if sym == "EUR/USD" else 2
+            price = round_to(p, dec)
+            result = _price_result(sym, price, round_to((p - prev) / prev * 100, 2),
+                                   float(meta.get("regularMarketDayHigh") or price), float(meta.get("regularMarketDayLow") or price),
+                                   "Interbank Forex EURUSD=X" if sym == "EUR/USD" else "COMEX / Interbank Gold Feed (GC=F)")
+    if result is None:
+        last = _last_known.get(sym)
+        if last:
+            s = market_session_status(sym)
+            return {**last, "lastUpdated": int(time.time() * 1000), "isMarketOpen": s["isOpen"], "marketStatusLabel": s["labelEn"],
+                    "sessionStage": s["sessionStage"], "source": last["source"] + " (last known)"}
+        return _price_result(sym, 0, 0, 0, 0, "unavailable")
+    _last_known[sym] = result
+    _price_cache[sym] = (result, time.time() + PRICE_TTL)
+    return result
+
+
+async def _yahoo_candles(ticker: str, interval: str, rng: str, decimals: int, fresh: bool) -> list[Candle]:
+    key = f"{ticker}|{interval}|{rng}"
+    hit = _raw_cache.get(key)
+    if not fresh and hit and hit[1] > time.time():
+        return hit[0]
+    r = await client().get(f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}", params={"interval": interval, "range": rng})
+    r.raise_for_status()
+    res = ((r.json().get("chart") or {}).get("result") or [None])[0] or {}
+    ts = res.get("timestamp") or []
+    q = ((res.get("indicators") or {}).get("quote") or [{}])[0]
+    o, h, lo, c, v = (q.get(k) or [] for k in ("open", "high", "low", "close", "volume"))
+    out: list[Candle] = []
+    for i, t in enumerate(ts):
+        vals = [arr[i] if i < len(arr) else None for arr in (o, h, lo, c)]
+        if all(isinstance(x, (int, float)) and not math.isnan(x) for x in vals):
+            out.append(Candle(int(t), *(round_to(x, decimals) for x in vals), (v[i] if i < len(v) else 0) or 0))
+    # Intraday series refresh every 20s; hourly/daily history changes slowly
+    _raw_cache[key] = (out, time.time() + (SLOW_TTL if interval in ("1h", "1d") else RAW_TTL))
+    return out
+
+
+def aggregate(candles: list[Candle], bucket_sec: int) -> list[Candle]:
+    out: list[Candle] = []
+    for c in candles:
+        t = c.time - (c.time % bucket_sec)
+        if out and out[-1].time == t:
+            last = out[-1]
+            last.high = max(last.high, c.high)
+            last.low = min(last.low, c.low)
+            last.close = c.close
+            last.volume = (last.volume or 0) + (c.volume or 0)
+        else:
+            out.append(Candle(t, c.open, c.high, c.low, c.close, c.volume))
+    return out
+
+
+async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", limit: int = 600, live_price: float | None = None, fresh: bool = False) -> dict:
+    euro = is_euro(symbol)
+    decimals = 4 if euro else 2
+    step = TIMEFRAME_SECONDS.get(timeframe, 900)
+    spot = live_price if live_price and live_price > 0 else (await fetch_live_price(symbol))["price"]
+    interval, rng = INTERVALS.get(timeframe, INTERVALS["15M"])
+    ticker = "EURUSD=X" if euro else "GC=F"
+    try:
+        candles = await _yahoo_candles(ticker, interval, rng, decimals, fresh)
+        if timeframe == "4H":
+            candles = aggregate(candles, 14400)
+        if len(candles) > 15:
+            candles = [Candle(c.time, c.open, c.high, c.low, c.close, c.volume) for c in candles[-limit:]]
+            last = candles[-1]
+            # Spot-futures basis (gold only). Ignore implausible gaps (stale spot feed, contract roll day).
+            basis = 0.0
+            if not euro and spot:
+                raw = spot - last.close
+                if abs(raw) / spot < 0.02:
+                    basis = round_to(raw, 2)
+            if basis:
+                for c in candles:
+                    c.open, c.high, c.low, c.close = (round_to(x + basis, decimals) for x in (c.open, c.high, c.low, c.close))
+            # Live tick only touches the candle that is still forming
+            now = int(time.time())
+            if spot and market_session_status(symbol)["isOpen"]:
+                bucket = now - now % step
+                tail = candles[-1]
+                if tail.time == bucket:
+                    tail.close = round_to(spot, decimals)
+                    tail.high = max(tail.high, tail.close)
+                    tail.low = min(tail.low, tail.close)
+                elif tail.time < bucket and now - bucket < step:
+                    candles.append(Candle(bucket, tail.close, max(tail.close, spot), min(tail.close, spot), round_to(spot, decimals), 0))
+            sign = "+" if basis >= 0 else ""
+            return {"candles": candles, "isSynthetic": False, "basis": basis, "fetchedAt": int(time.time() * 1000),
+                    "source": "Yahoo Finance EURUSD=X" if euro else f"COMEX GC=F adjusted to spot (basis {sign}{basis:g})"}
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as err:
+        print(f"[market] candle feed unavailable for {symbol} {timeframe}: {err}")
+    return {"candles": [], "isSynthetic": True, "basis": 0, "fetchedAt": int(time.time() * 1000), "source": "Live feed unavailable"}
+
+
+async def fetch_many(symbol: str, timeframes: list[str], limits: dict, live_price: float | None, fresh_tf: str | None = None) -> list[dict]:
+    return await asyncio.gather(*(fetch_candle_series(symbol, tf, limits.get(tf, 1000), live_price, fresh=(tf == fresh_tf)) for tf in timeframes))

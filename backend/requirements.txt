@@ -1,0 +1,8 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+SQLAlchemy==2.0.36
+psycopg2-binary==2.9.10
+httpx==0.28.1
+pydantic==2.10.4
+tzdata==2024.2
+pytest==8.3.4

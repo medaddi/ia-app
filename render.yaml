@@ -1,0 +1,30 @@
+# Render blueprint for the Python API (free plan). Frontend is deployed separately on Vercel (frontend/vercel.json).
+# Free web services sleep after 15 min without traffic: point a free uptime pinger (e.g. cron-job.org or
+# UptimeRobot) at https://<service>.onrender.com/api/health every 10 minutes so signals keep going out.
+# The free disk is wiped on every deploy/restart: use a free Postgres (Neon or Supabase) as DATABASE_URL.
+services:
+  - type: web
+    name: exunu-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_ACCESS_CODE
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

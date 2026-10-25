@@ -1,194 +1,89 @@
-# 🚀 TradingAI Pro — منصة التحليل الفني المؤسساتي وإشارات التداول الذكية 24/24
+# EXUNU — XAUUSD & EURUSD strategies, signals and trade journal
 
-منصة تداول مالية متكاملة (**Full-Stack: React 19 + Vite + Express + Node.js + Telegram Bot + AI Analysis**) تعمل 24/24 لمتابعة أسواق الذهب (**XAU/USD**)، العملات المشفرة (**BTC/USDT**)، الفوركس (**EUR/USD**, **GBP/USD**)، والأسهم (**NVDA**)، مبنية وفق أحدث أساليب كبار المتداولين والمؤسسات (**Smart Money Concepts - SMC**).
+> **Darija:** l'app daba fiha joj dossiers: `frontend/` (React, f Vercel) o `backend/` (Python FastAPI, f Render).
+> Backend fih: users, trades li khditi, l'historique, win rate o ch7al mn trade, parametres dyal l'app o capital,
+> o joj stratégies (Gold o EURUSD) li kaysifto signal l Telegram mni katsed la bougie. Kolchi bla flous (free tier).
 
----
-
-## ⚡ التشغيل المحلي السريع بدون أي مشاكل (Local Setup in 3 Steps)
-
-### 1️⃣ المتطلبات الأولية (Prerequisites)
-تأكد أن حاسوبك يتوفر على:
-- **Node.js**: الإصدار 18 أو 20 أو 22 (يمكنك تحميله مجاناً من [nodejs.org](https://nodejs.org/)).
-- **npm**: يأتي تلقائياً مع Node.js.
-
-تأكد من التثبيت بفتح الـ Terminal وكتابة:
-```bash
-node -v
-npm -v
+```
+frontend/   React 19 + Vite + Tailwind + lightweight-charts   → Vercel (free)
+backend/    Python 3.12 + FastAPI + SQLAlchemy                  → Render (free) + Neon/Supabase Postgres (free)
+docs/       STRATEGIES.md: the exact rules of both strategies
 ```
 
----
+## What the backend does
 
-### 2️⃣ تثبيت الحزم (Installation)
-ادخل لمجلد المشروع في الـ Terminal ونفذ الأمر التالي:
+| Area | Endpoints |
+|---|---|
+| Login | `POST /api/auth/login` (username + access code) · `GET /api/auth/me` · `POST /api/auth/logout` |
+| Users (admin) | `GET/POST /api/users` · `PATCH/DELETE /api/users/{id}` |
+| My capital & risk | `GET/PUT /api/me` |
+| Trades taken | `GET/POST /api/trades` · `PATCH/DELETE /api/trades/{id}` · `POST /api/trades/{id}/close` · `POST /api/trades/{id}/breakeven` |
+| History & win rate | `GET /api/stats` (win rate, wins/losses, P&L, current capital, profit factor, drawdown, equity curve) · `GET /api/trades?status=closed` |
+| Strategy results | `GET /api/signals/performance` (every signal sent, followed candle by candle until TP/SL) |
+| App parameters | `GET/PUT /api/settings` |
+| Strategies & chart | `GET /api/exunu/setup` · `GET /api/exunu/candles` · `GET /api/signals` · `GET /api/backtest` |
+| AI agent | `POST /api/agent/ask` · `POST /api/agent/explain-drawing` |
+| Telegram (admin) | `GET/POST /api/telegram/config` · `/test` · `/dispatch-now` · `/activation/*` · `/subscribers` · `/trace` |
+| Market | `GET /api/market/assets` · `/candles` · `/ticker` · `GET /api/news` · `GET /api/sentiment` |
+
+Interactive docs: `http://localhost:8000/docs`.
+
+Signals: at every M5 (gold) / M15 (EURUSD) candle close the scheduler runs the strategy on fresh candles and,
+only for a SIGNAL (score ≥ 75, every required rule passed), sends it to the activated Telegram subscribers with
+`protect_content`, a personal micro-offset and a reference code (anti copy-trading). A subscriber who taps
+**🎯 دخلت الصفقة** gets the trade in their journal; its result is closed automatically with the strategy's lifecycle.
+
+## Run locally
+
+Backend (Python 3.12):
+
 ```bash
-npm install
-```
-*(هذا الأمر سيقوم بتحميل كافة المكتبات المطلوبة للواجهة الأمامية والسيرفر الخلفي)*.
-
----
-
-### 3️⃣ إعداد ملف البيئة (`.env`)
-قم بإنشاء ملف باسم `.env` في المجلد الرئيسي للمشروع (أو انسخ من `.env.example`):
-
-```bash
+cd backend
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt
 cp .env.example .env
+.venv/Scripts/uvicorn app.main:app --reload --port 8000
 ```
 
-محتوى ملف `.env`:
-```env
-# 1. مفتاح الذكاء الاصطناعي (اختياري - يوجد محرك محلي احتياطي):
-GEMINI_API_KEY="your_gemini_api_key_here"
+(macOS / Linux: `.venv/bin/...`.) On the first start an admin account is created; if `ADMIN_ACCESS_CODE` is empty
+the generated code is printed in the console.
 
-# 2. إعدادات بوت تليجرام لإرسال الإشارات لهاتفك (اختياري):
-TELEGRAM_BOT_TOKEN="123456789:ABCdefGHIjklMNOpqr..."
-TELEGRAM_CHAT_ID="987654321"
-```
+Frontend (Node 20+), in a second terminal:
 
-> 💡 **كيفاش تجيب Bot Token و Chat ID ديال تليجرام بدقيقة واحدة؟**
-> 1. دخل لتليجرام وابحث عن **@BotFather** واضغط على `/newbot`، سيعطيك الـ **Token**.
-> 2. ابحث عن **@userinfobot** واضغط `/start`، سيعطيك الـ **Chat ID** الشخصي ديالك (أو حط الـ ID ديال القناة/الجروب).
-> 3. يمكنك أيضاً إدخالهم مباشرة من داخل واجهة التطبيق عبر زر **"بوت تليجرام"** وحفظهم بكل سهولة!
-
----
-
-### 4️⃣ تشغيل التطبيق (Run the App)
-
-#### أ) وضع التطوير (Development Mode - الموصى به):
 ```bash
+cd frontend
+npm install
 npm run dev
 ```
-افتح المتصفح على الرابط التالي:
-👉 **`http://localhost:3000`**
 
-#### ب) وضع الإنتاج (Production Mode):
+Open http://localhost:3000. Vite forwards `/api` to the backend on port 8000.
+
+Tests (strategy parity with the original TypeScript version, API, Telegram):
+
 ```bash
-npm run build
-npm start
+cd backend
+.venv/Scripts/python -m pytest -q
 ```
 
----
+Import the old app's data (users, activation codes, Telegram subscribers and settings):
 
-## 📱 شكل رسالة تليجرام البسيطة والواضحة (Clean Telegram Message)
-
-تم تبسيط رسالة تليجرام لتكون مباشرة وغير معقدة، واضحة جداً بالهاتف:
-1. **شنو دير مباشرة (BUY / SELL + السعر)**
-2. **الستوب لوس (Stop Loss) والأهداف (TP1 & TP2) باينين بوضوح**
-3. **خطة إدارة الصفقة (حجز الأرباح ونقل الستوب)**
-4. **شرح مبسط ومقنع لعلاش دخلنا الصفقة**
-
-### 🟢 مثال لرسالة صفقة مؤكدة (Confirmed Signal):
-```
-🟢 صفقة مؤكدة: XAU/USD (الذهب)
-⚡ القرار: شراء دابا (BUY NOW) [1H] — ⭐ Grade A+
-
-━━━━━━━━━━━━━━━━━━━━━
-📍 سعر / منطقة الدخول: 4288.50 - 4292.00
-🛑 الستوب لوس (Stop Loss): 4274.00
-🎯 الهدف 1 (TP1): 4322.00
-🚀 الهدف 2 (TP2): 4342.00
-⚖️ العائد للمخاطرة (R:R): 1:3.25
-━━━━━━━━━━━━━━━━━━━━━
-
-🛡️ شنو دير دابا (إدارة الصفقة):
-1. دخل باللوت ديالك المحسوب (ما تفوتش 1% مخاطرة).
-2. ملي يوصل السعر لـ TP1 (4322.00): سد 50% أو 60% من الربح، وحول الستوب لوس فوراً لنقطة الدخول (Breakeven).
-3. خلي باقي الصفقة يوصل لـ TP2 (4342.00) بدون أي مخاطرة.
-4. الستوب لوس صارم ومحمي (خلف منطقة سحب السيولة).
-
-━━━━━━━━━━━━━━━━━━━━━
-💡 علاش دخلنا هاد الصفقة (التحليل):
-• سحب سيولة قاع جلسة لندن أسفل 4276 مع ذيل رفض قوي.
-• إعادة اختبار Order Block شرائي معتمد داخل منطقة التخفيض (Discount Zone).
-• تأكيد كسر هيكل السوق الداخلي (MSS) مع تدفق سيولة شرائية قوية.
-• توافق مع الاتجاه الصاعد العام على الفريم اليومي.
+```bash
+cd backend
+.venv/Scripts/python -m scripts.migrate_legacy ../data/db.json
 ```
 
-### ⏳ مثال لرسالة التحضير المسبق (Pre-Alert - وجد راسك):
-```
-⏳ وجد راسك! (PRE-ALERT) — صفقة قادمة
+## Deploy for free
 
-🟢 الأصل: XAU/USD (الذهب)
-⚡ الاتجاه المتوقع: شراء قادم (BUY SETUP) [1H]
-⭐ درجة الصفقة: Grade A+ (91%)
+1. **Database:** create a free Postgres on [Neon](https://neon.tech) (or Supabase) and copy its connection string.
+   Render's free disk is erased on every restart, so SQLite is only for local use.
+2. **Backend on Render:** New → Blueprint → this repository (`render.yaml`). Set `DATABASE_URL`, `ADMIN_ACCESS_CODE`,
+   `CORS_ORIGINS` (your Vercel URL), and optionally `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GEMINI_API_KEY`.
+   To import the old data, run the migration once from your PC with `DATABASE_URL` pointing at Neon.
+3. **Keep it awake:** free Render services sleep after 15 minutes without requests, and a sleeping server sends no
+   signals. Add a free monitor on [cron-job.org](https://cron-job.org) or UptimeRobot that calls
+   `https://<your-service>.onrender.com/api/health` every 10 minutes (one service running all month fits in the
+   750 free hours).
+4. **Frontend on Vercel:** New Project → root directory `frontend` → environment variable
+   `VITE_API_URL=https://<your-service>.onrender.com` → Deploy.
 
-━━━━━━━━━━━━━━━━━━━━━
-📍 منطقة المراقبة والدخول: 4288.50 - 4292.00
-
-👉 شنو دير دابا:
-1. حل منصة التداول (MT4 / MT5 / Exness) وافتح شارت XAU/USD.
-2. احسب اللوت ديالك (ريسك ما يفوتش 1% من رأس المال).
-3. ما تدخلش دابا! تسنى إشعار الدخول الفوري (CONFIRMED ENTRY) ملي نتأكدو من الشمعة.
-
-━━━━━━━━━━━━━━━━━━━━━
-💡 علاش كنراقبو هاد الفرصة:
-• سحب سيولة قاع لندن (SSL Swept @ 4276.30)
-• اختبار منطقة كتل الأوامر: 4285.00 - 4291.50 (1H Bullish Demand Block)
-```
-
----
-
-## 🔐 نظام التفعيل الذكي فالتليجرام (Interactive Bot & Start-on-Redemption)
-
-البوت ونظام الترخيص مبنيان بدقة لضمان إدارة المشتركين:
-
-1. **المدة لا تبدأ إلا بعد إدخال الكود (Start on User Entry):**
-   - عند إنشاء أي كود (ساعة، 24 ساعة، أسبوع، شهر)، الكود كيبقى في حالة **جاهز للتفعيل (Pending)**، والوقت **ما كيبداش ينقص نهائياً** حتى يدخل المستخدم الكود عنده في تليجرام أو التطبيق.
-
-2. **أول مرة كيدير المستخدم `/start` فالبوت:**
-   - إذا كان أول مرة أو حسابه غير مفعّل، البوت كيجاوبو باسمه:
-     > *"👋 مرحباً بك يا [اسمه] في بوت TradingAI Pro... البوت محمي بنظام كود التفعيل. باش تخدم الخدمة وتبدا توصلك الصفقات مباشرة، يرجى إدخال كود التفعيل ديالك دابا هنا فالشات:"*
-
-3. **إدخال كود خاطئ:**
-   - البوت كيرد عليه:
-     > *"❌ كود التفعيل غير صحيح أو منتهي الصلاحية! ⚠️ عاود كتب الكود وتأكد منو مزيان."*
-
-4. **تأكيد التفعيل وبدء العد التنازلي باسم المستخدم:**
-   - عند إدخال الكود الصحيح، السيرفر كيسجل اسم المستخدم وكيجاوبو فوراً:
-     > *"🎉 صافي راه تفعّل وخدم ليك يا [اسمه]! ⏱️ المدة بدات كتحسب من دابا: [المدة] 📅 غادي يتسالى لك نهار: [التاريخ] 🚀 دابا البوت شغال عندك 24/24 وغادي يبداو يوصلوك الصفقات!"*
-   - ويتم إشعار الأدمن في لوحة التحكم وظهور اسم المستخدم وحالته ضمن قائمة **المشتركون المفعلون (Active Telegram Subscribers)**.
-
-5. **الإيقاف التلقائي بعد انتهاء المدة (Auto-Expiration & Cutoff):**
-   - بمجرد ما تنتهي مدة الكود، السيرفر **كيقطع عليه الصفقات أوتوماتيكياً** وما كايبقا يوصلو حتى إشعار.
-   - البوت كيرسل ليه رسالة تنبيهية تلقائية:
-     > *"⏰ انتهت مدة صلاحية كود التفعيل ديالك يا [اسمه]! 🔒 البوت توقف عن إرسال الصفقات تلقائياً. 👉 باش تعاود تفعل الخدمة، دخل كود تفعيل جديد هنا فالشات."*
-
-6. **أوامر البوت المفيدة:**
-   - `/start` : بدء واستقبال رسالة الترحيب وطلب الكود.
-   - `/status` : فحص الوقت المتبقي للكود وتاريخ الانتهاء.
-   - كود VIP الرئيسي المعتمد: `PRO-TRADER-2026-VIP`، بالإضافة إلى إمكانية توليد أكواد غير محدودة من لوحة التحكم بالتطبيق.
-
----
-
-## 🛠️ حل المشاكل الشائعة محلياً (Troubleshooting)
-
-| المشكلة | السبب | الحل السريع |
-|---|---|---|
-| `Port 3000 is already in use` | يوجد برنامج آخر يستعمل البورت 3000 | أوقف التطبيق السابق أو اكتب في التيرمينال: `npx kill-port 3000` ثم أعد `npm run dev` |
-| `Cannot find module` | حزم لم يتم تحميلها بعد | نفذ: `npm install` |
-| `Telegram message failed to send` | الـ Bot Token أو Chat ID خاطئ | تأكد أنك ضغطت `/start` في البوت بتليجرام قبل الإرسال، وتأكد من الـ Chat ID |
-| كود تفعيل البوت (Activation Code) | يطلب كود ترخيص البوت | الكود المعتمد المرفق مدى الحياة: `PRO-TRADER-2026-VIP` |
-
----
-
-## 📁 هيكلة ملفات المشروع (Project Structure)
-```
-├── server.ts                  # سيرفر Express + محرك التحليل وحساب مؤشرات SMC
-├── server/
-│   ├── telegram.ts            # خدمة إرسال تنبيهات تليجرام والتنسيق المبسط
-│   ├── activation.ts          # نظام ترخيص وأكواد تفعيل البوت
-│   └── gemini.ts              # ربط الذكاء الاصطناعي مع Google Gemini
-├── src/
-│   ├── App.tsx                # المكون الرئيسي للواجهة
-│   ├── types.ts               # تعريفات البيانات والصفقات وهيكل السوق
-│   └── components/
-│       ├── AISignalsSection.tsx          # كروت الصفقات مع فلاتر A+ وقائمة التأكيدات
-│       ├── TechnicalAnalysisPanel.tsx    # التحليل الفني، كتل الأوامر وسحب السيولة
-│       ├── RiskManagementCalculator.tsx  # حاسبة اللوت وإدارة رأس المال
-│       └── TelegramConfigModal.tsx       # نافذة إعدادات واختبار تليجرام
-```
-
----
-
-> ⚠️ **تنبيه إدارة المخاطر:**
-> التداول في الأسواق المالية ينطوي على مخاطر. التزم دائماً باللوت المحسوب (1% مخاطرة فقط)، والتزم دائماً بوقف الخسارة (Stop Loss) دون تعديله أو إلغائه.
+Only one process may run the Telegram bot for a given token: stop any old server using the same bot.
