@@ -5,6 +5,7 @@ Starts the candle-close scheduler (signals → Telegram) and the Telegram comman
 """
 
 import asyncio
+import os
 import re
 import hmac
 import time
@@ -82,12 +83,20 @@ for r in (account.router, market.router, strategy.router, settings_api.router):
     app.include_router(r)
 
 
+def _deployment_info() -> dict:
+    """Which Vercel deployment answered, and which database variable NAMES it sees (never their values)."""
+    sha = os.environ.get("VERCEL_GIT_COMMIT_SHA", "")
+    return {"environment": os.environ.get("VERCEL_ENV"), "branch": os.environ.get("VERCEL_GIT_COMMIT_REF"), "commit": sha[:7] or None,
+            "databaseVariablesSeen": sorted(k for k in os.environ if ("DATABASE" in k or "POSTGRES" in k or k.startswith("STORAGE")) and os.environ[k])}
+
+
 @app.middleware("http")
 async def ensure_prepared(request: Request, call_next):
     if settings.database_missing:
         msg = ("No database configured: connect a Neon/Postgres database to this Vercel project "
                "(Storage → Neon) or set DATABASE_URL for Production, then redeploy.")
-        return JSONResponse({"success": False, "status": "error", "database": "missing", "error": msg, "detail": msg}, status_code=503)
+        return JSONResponse({"success": False, "status": "error", "database": "missing", "error": msg, "detail": msg,
+                             "deployment": _deployment_info()}, status_code=503)
     # Serverless hosts do not always run the lifespan startup: prepare on the first request instead
     if not _ready:
         err = await asyncio.to_thread(_try_prepare)
