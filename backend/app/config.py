@@ -37,7 +37,7 @@ class Settings:
     database_url: str = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL", "")
     cors_origins: list[str] = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",") if o.strip()]
     admin_username: str = os.environ.get("ADMIN_USERNAME", "admin")
-    admin_access_code: str = os.environ.get("ADMIN_ACCESS_CODE", "ADMIN123")
+    admin_access_code: str = os.environ.get("ADMIN_ACCESS_CODE", "")
     session_days: int = int(os.environ.get("SESSION_DAYS", "30"))
     telegram_bot_token: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_id: str = os.environ.get("TELEGRAM_CHAT_ID", "")
