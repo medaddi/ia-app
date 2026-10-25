@@ -5,10 +5,12 @@ Starts the candle-close scheduler (signals → Telegram) and the Telegram comman
 """
 
 import asyncio
+import hmac
 import time
 from contextlib import asynccontextmanager
+from typing import Optional
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -70,3 +72,13 @@ async def validation_error(_: Request, exc: RequestValidationError):
 def health():
     """Also the keep-alive target for an uptime pinger (Render free sleeps after 15 min idle)."""
     return {"status": "ok", "uptimeSeconds": int(time.time() - STARTED), "scheduler": settings.scheduler_enabled, "telegramPolling": settings.telegram_polling}
+
+
+@app.api_route("/api/cron/tick", methods=["GET", "POST"])
+async def cron_tick(authorization: Optional[str] = Header(None)):
+    """One scheduled strategy pass for serverless hosts; protect it with CRON_SECRET."""
+    if not settings.cron_secret:
+        raise HTTPException(503, "CRON_SECRET is not configured")
+    if not hmac.compare_digest(authorization or "", f"Bearer {settings.cron_secret}"):
+        raise HTTPException(401, "Invalid cron authorization")
+    return {"success": True, "results": await scheduler.tick()}

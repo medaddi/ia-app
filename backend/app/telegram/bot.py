@@ -89,6 +89,14 @@ async def bot_info(token: str) -> dict:
     return {"success": True, "id": me.get("id"), "username": me.get("username"), "firstName": me.get("first_name")}
 
 
+async def set_webhook(token: str, url: str, secret: str) -> dict:
+    """Register Telegram command delivery for a serverless deployment."""
+    if not token or not url or not secret:
+        return {"success": False, "error": "Telegram webhook URL and secret are required"}
+    data = await call(token, "setWebhook", {"url": url, "secret_token": secret, "allowed_updates": ["message"]})
+    return {"success": bool(data.get("ok")), "error": data.get("description")}
+
+
 # ---------------------------------------------------------------- message
 
 def format_signal_message(signal: dict) -> str:
@@ -348,5 +356,5 @@ def recent_signals(db: Session, limit: int = 50) -> list[dict]:
     return [signal_json(s) for s in db.scalars(select(Signal).order_by(Signal.sent_at.desc()).limit(limit))]
 
 
-__all__ = ["dispatch_setup", "send_message", "bot_info", "format_signal_message", "activate", "active_subscribers", "trace_leak",
+__all__ = ["dispatch_setup", "send_message", "bot_info", "set_webhook", "handle_update", "format_signal_message", "activate", "active_subscribers", "trace_leak",
            "poll_forever", "history", "recent_signals", "market_session_status"]

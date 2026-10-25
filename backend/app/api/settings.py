@@ -1,21 +1,32 @@
 """App parameters, Telegram configuration, activation codes, and subscribers."""
 
+import hmac
 import secrets
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import admin_user
-from ..db import get_db
+from ..config import settings
+from ..db import SessionLocal, get_db
 from ..models import ActivationKey, Signal, Subscriber, User
 from ..store import get_setting, public_telegram, set_setting
 from ..strategies.service import normalize_symbol
 from ..telegram import bot
 
 router = APIRouter(prefix="/api")
+
+
+async def _register_webhook(token: str) -> None:
+    if not (settings.on_vercel and settings.telegram_webhook_url and settings.telegram_webhook_secret):
+        return
+    result = await bot.set_webhook(token, settings.telegram_webhook_url, settings.telegram_webhook_secret)
+    if not result["success"]:
+        raise HTTPException(502, f"Telegram webhook setup failed: {result.get('error') or 'unknown error'}")
 
 
 @router.get("/settings")
@@ -41,10 +52,12 @@ def telegram_config(_: User = Depends(admin_user), db: Session = Depends(get_db)
 
 
 @router.post("/telegram/config")
-def telegram_config_set(body: dict = Body(...), _: User = Depends(admin_user), db: Session = Depends(get_db)):
+async def telegram_config_set(body: dict = Body(...), _: User = Depends(admin_user), db: Session = Depends(get_db)):
     patch = {k: v for k, v in body.items() if k in ("chatId", "enabled", "minConfidence", "assets", "protectContent", "personalOffsets")}
     if body.get("botToken"):  # an empty token field keeps the saved one
         patch["botToken"] = str(body["botToken"]).strip()
+    if patch.get("botToken"):
+        await _register_webhook(patch["botToken"])
     return {"success": True, "config": public_telegram(set_setting(db, "telegram", patch))}
 
 
@@ -59,8 +72,26 @@ async def telegram_switch_bot(body: dict = Body(...), _: User = Depends(admin_us
     info = await bot.bot_info(token)
     if not info["success"]:
         raise HTTPException(400, f"Bot token rejected by Telegram: {info.get('error')}")
+    await _register_webhook(token)
     set_setting(db, "telegram", {"botToken": token, **({"chatId": str(body["chatId"])} if body.get("chatId") else {})})
     return {"success": True, "bot": info}
+
+
+@router.post("/telegram/webhook")
+async def telegram_webhook(request: Request, x_telegram_bot_api_secret_token: Optional[str] = Header(None)):
+    """Telegram command receiver. Enabled when a webhook secret is configured on Vercel."""
+    expected = settings.telegram_webhook_secret
+    if not expected or not hmac.compare_digest(x_telegram_bot_api_secret_token or "", expected):
+        raise HTTPException(403, "Invalid Telegram webhook secret")
+    update = await request.json()
+    if not isinstance(update, dict):
+        raise HTTPException(400, "Invalid Telegram update")
+    with SessionLocal() as db:
+        token = get_setting(db, "telegram").get("botToken", "")
+    if not token:
+        raise HTTPException(503, "Telegram bot is not configured")
+    await bot.handle_update(token, update)
+    return {"ok": True}
 
 
 @router.post("/telegram/test")

@@ -136,8 +136,8 @@ export function LoginScreen({ onLoginSuccess, lang, theme }: LoginScreenProps) {
               <div className="relative">
                 <input
                   id="login-access"
-                  type="text"
-                  autoComplete="off"
+                  type="password"
+                  autoComplete="current-password"
                   spellCheck={false}
                   value={accessCode}
                   onChange={(e) => setAccessCode(e.target.value)}

@@ -37,7 +37,8 @@ class Settings:
     database_url: str = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL", "")
     cors_origins: list[str] = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",") if o.strip()]
     admin_username: str = os.environ.get("ADMIN_USERNAME", "admin")
-    admin_access_code: str = os.environ.get("ADMIN_ACCESS_CODE", "")
+    # Bootstrap credential for a fresh database. Set ADMIN_ACCESS_CODE in production to override it.
+    admin_access_code: str = os.environ.get("ADMIN_ACCESS_CODE") or "admin1234"
     session_days: int = int(os.environ.get("SESSION_DAYS", "30"))
     telegram_bot_token: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_id: str = os.environ.get("TELEGRAM_CHAT_ID", "")
@@ -49,11 +50,14 @@ class Settings:
     telegram_polling: bool = _bool("TELEGRAM_POLLING", not ON_VERCEL)
     cron_secret: str = os.environ.get("CRON_SECRET", "")
     telegram_webhook_secret: str = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+    telegram_webhook_url: str = os.environ.get("TELEGRAM_WEBHOOK_URL", "")
 
     @property
     def db_url(self) -> str:
         url = self.database_url
         if not url:
+            if self.on_vercel:
+                raise RuntimeError("Set DATABASE_URL (or POSTGRES_URL) to a persistent PostgreSQL database on Vercel")
             Path(self.data_dir).mkdir(parents=True, exist_ok=True)
             return f"sqlite:///{Path(self.data_dir) / 'exunu.db'}"
         # Render / Heroku style URLs
