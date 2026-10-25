@@ -43,10 +43,10 @@ def test_next_candle_close():
     assert next_close_sec(on_close, 900) == datetime(2026, 10, 27, 8, 30, tzinfo=timezone.utc).timestamp()
 
 
-def test_message_prints_exact_levels_and_lot():
-    msg = bot.format_signal_message({**EURO, "confirmationCheckPassed": True, "confirmationCloseTime": 1790668800}, capital=5000, risk_pct=1)
+def test_message_prints_exact_levels_only():
+    msg = bot.format_signal_message({**EURO, "confirmationCheckPassed": True, "confirmationCloseTime": 1790668800})
     assert "1.13530" in msg and "1.13772" in msg and "1.13046" in msg
-    assert "(24 pips)" in msg and "<b>Lot:</b> <code>0.20</code>" in msg
+    assert "(24 pips)" in msg and "Lot" not in msg and "risk" not in msg
 
 
 def test_signal_messages_are_protected(monkeypatch):

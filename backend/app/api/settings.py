@@ -1,8 +1,7 @@
-"""App parameters, Telegram configuration, activation codes, subscribers and the risk calculator."""
+"""App parameters, Telegram configuration, activation codes, and subscribers."""
 
 import secrets
 from datetime import datetime, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -14,22 +13,20 @@ from ..db import get_db
 from ..models import ActivationKey, Signal, Subscriber, User
 from ..store import get_setting, public_telegram, set_setting
 from ..strategies.service import normalize_symbol
-from ..strategies.shared.jsnum import round_to
 from ..telegram import bot
-from ..trading import contract_size, lot_for
 
 router = APIRouter(prefix="/api")
 
 
 @router.get("/settings")
 def settings_get(db: Session = Depends(get_db)):
-    return {"app": get_setting(db, "app"), "risk": get_setting(db, "risk")}
+    return {"app": get_setting(db, "app")}
 
 
 @router.put("/settings")
 def settings_put(body: dict = Body(...), _: User = Depends(admin_user), db: Session = Depends(get_db)):
     out = {}
-    for key in ("app", "risk"):
+    for key in ("app",):
         if isinstance(body.get(key), dict):
             out[key] = set_setting(db, key, body[key])
     return {"success": True, **settings_get(db), **out}
@@ -101,7 +98,7 @@ def telegram_subscribers(_: User = Depends(admin_user), db: Session = Depends(ge
     for s in db.scalars(select(Subscriber).order_by(Subscriber.activated_at.desc())):
         exp = s.expires_at.replace(tzinfo=timezone.utc) if s.expires_at and not s.expires_at.tzinfo else s.expires_at
         out.append({"chatId": s.chat_id, "firstName": s.first_name, "code": s.code, "activatedAt": s.activated_at.isoformat() if s.activated_at else None,
-                    "expiresAt": exp.isoformat() if exp else None, "active": bool(exp and exp > now), "capital": s.capital, "riskPct": s.risk_pct})
+                    "expiresAt": exp.isoformat() if exp else None, "active": bool(exp and exp > now)})
     return {"subscribers": out}
 
 
@@ -156,46 +153,3 @@ def activation_revoke(code: str, _: User = Depends(admin_user), db: Session = De
     k.revoked = True
     db.commit()
     return {"success": True}
-
-
-# ---------------------------------------------------------------- risk calculator
-
-class RiskIn(BaseModel):
-    accountBalance: float = Field(1000, gt=0)
-    riskPercent: float = Field(1, gt=0, le=100)
-    entryPrice: float = Field(gt=0)
-    stopLossPrice: Optional[float] = Field(None, gt=0)
-    stopLoss: Optional[float] = Field(None, gt=0)
-    target1Price: Optional[float] = None
-    target1: Optional[float] = None
-    target2Price: Optional[float] = None
-    target2: Optional[float] = None
-    symbol: str = "XAU/USD"
-
-
-@router.post("/risk/calculate")
-def risk_calculate(body: RiskIn):
-    sym = normalize_symbol(body.symbol)
-    sl = body.stopLossPrice or body.stopLoss
-    if not sl or sl == body.entryPrice:
-        raise HTTPException(400, "A stop loss different from the entry is required")
-    entry = body.entryPrice
-    t1 = body.target1Price or body.target1
-    t2 = body.target2Price or body.target2
-    risk_amount = round_to(body.accountBalance * body.riskPercent / 100, 2)
-    price_risk = abs(entry - sl)
-    pip = 0.1 if sym == "XAU/USD" else 0.0001
-    lots = lot_for(sym, body.accountBalance, body.riskPercent, entry, sl)
-    real_risk = round_to(lots * price_risk * contract_size(sym), 2)
-    reward = lambda t: round_to(abs(t - entry) / price_risk * real_risk, 2) if t else None  # noqa: E731
-    pct = body.riskPercent
-    status = "HIGH_RISK" if pct > 3 else "MODERATE" if pct > 1.5 else "SAFE"
-    advice = {"HIGH_RISK": "Risk above 3% per trade: a losing streak causes a deep drawdown.",
-              "MODERATE": "Acceptable risk; prefer 1% around high-impact news.",
-              "SAFE": "Good risk management: at most 1.5% per trade."}[status]
-    return {
-        "accountBalance": body.accountBalance, "riskPercent": pct, "maxLossDollars": risk_amount, "entryPrice": entry, "stopLossPrice": sl,
-        "pipsRisked": round_to(price_risk / pip, 1), "recommendedLotSize": lots, "actualRiskDollars": real_risk,
-        "belowMinLot": lots == 0, "riskRewardRatio": round_to(abs(t1 - entry) / price_risk, 2) if t1 else None,
-        "potentialProfitT1": reward(t1), "potentialProfitT2": reward(t2), "riskEvaluation": advice, "riskEvaluationAr": advice, "status": status,
-    }

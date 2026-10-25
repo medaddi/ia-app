@@ -1,4 +1,4 @@
-"""Login, users (admin), the user's own profile/capital, trades taken, history and statistics."""
+"""Login, user accounts (admin), each user's trades with the lot they took, history, statistics and daily loss limit."""
 
 from datetime import datetime, timezone
 from typing import Literal, Optional
@@ -12,7 +12,7 @@ from ..auth import admin_user, bearer, current_user, hash_code, login, logout, u
 from ..db import get_db
 from ..models import Signal, Trade, User
 from ..strategies.service import normalize_symbol
-from ..trading import close_trade, lot_for, signal_json, stats, trade_json
+from ..trading import close_trade, signal_json, stats, today_status, trade_json
 
 router = APIRouter(prefix="/api")
 
@@ -44,27 +44,31 @@ def auth_logout(token: str = Depends(bearer), db: Session = Depends(get_db)):
     return {"success": True}
 
 
-# ---------------------------------------------------------------- profile (capital / risk)
+# ---------------------------------------------------------------- profile (daily loss limit)
 
 class ProfileIn(BaseModel):
-    capital: Optional[float] = Field(None, gt=0)
-    riskPct: Optional[float] = Field(None, gt=0, le=10)
+    dailyLossLimit: Optional[float] = Field(None, ge=0)  # $; 0 = no limit
     telegramChatId: Optional[str] = None
     accessCode: Optional[str] = Field(None, min_length=6)
 
 
+def _user_trades(db: Session, user_id: int) -> list[Trade]:
+    return db.scalars(select(Trade).where(Trade.user_id == user_id).order_by(Trade.opened_at.desc())).all()
+
+
+def _stats_with_today(trades: list[Trade], u: User) -> dict:
+    return {**stats(trades, "trade"), "today": today_status(trades, u.daily_loss_limit)}
+
+
 @router.get("/me")
 def me(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    trades = db.scalars(select(Trade).where(Trade.user_id == u.id)).all()
-    return {"user": user_json(u), "stats": stats(trades, "trade", u.capital)}
+    return {"user": user_json(u), "stats": _stats_with_today(_user_trades(db, u.id), u)}
 
 
 @router.put("/me")
 def me_update(body: ProfileIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
-    if body.capital is not None:
-        u.capital = body.capital
-    if body.riskPct is not None:
-        u.risk_pct = body.riskPct
+    if body.dailyLossLimit is not None:
+        u.daily_loss_limit = body.dailyLossLimit or None
     if body.telegramChatId is not None:
         u.telegram_chat_id = body.telegramChatId.strip() or None
     if body.accessCode:
@@ -73,21 +77,17 @@ def me_update(body: ProfileIn, u: User = Depends(current_user), db: Session = De
     return {"success": True, "user": user_json(u)}
 
 
-# ---------------------------------------------------------------- users (admin)
+# ---------------------------------------------------------------- users (admin: accounts only)
 
 class UserIn(BaseModel):
     username: str = Field(min_length=2, max_length=64)
     accessCode: str = Field(min_length=6)
     role: Literal["admin", "user"] = "user"
-    capital: float = Field(1000, gt=0)
-    riskPct: float = Field(1, gt=0, le=10)
 
 
 class UserPatch(BaseModel):
     role: Optional[Literal["admin", "user"]] = None
     active: Optional[bool] = None
-    capital: Optional[float] = Field(None, gt=0)
-    riskPct: Optional[float] = Field(None, gt=0, le=10)
     accessCode: Optional[str] = Field(None, min_length=6)
 
 
@@ -95,9 +95,29 @@ class UserPatch(BaseModel):
 def users_list(_: User = Depends(admin_user), db: Session = Depends(get_db)):
     out = []
     for u in db.scalars(select(User).order_by(User.id)):
-        s = stats(db.scalars(select(Trade).where(Trade.user_id == u.id)).all(), "trade", u.capital)
-        out.append({**user_json(u), "stats": {k: s[k] for k in ("total", "open", "closed", "wins", "losses", "winRate", "totalPnl", "currentCapital")}})
+        trades = _user_trades(db, u.id)
+        s = stats(trades, "trade")
+        out.append({**user_json(u), "stats": {k: s[k] for k in ("total", "open", "closed", "wins", "losses", "winRate", "totalPnl", "totalLots")},
+                    "today": today_status(trades, u.daily_loss_limit)})
     return {"users": out}
+
+
+@router.get("/users/stats")
+def users_stats(db: Session = Depends(get_db)):
+    """Aggregate of every user's trades (no personal details)."""
+    s = stats(db.scalars(select(Trade)).all(), "trade")
+    s.pop("pnlCurve", None)
+    return {"success": True, "users": db.query(User).count(), "stats": s}
+
+
+@router.get("/users/{user_id}")
+def users_detail(user_id: int, _: User = Depends(admin_user), db: Session = Depends(get_db)):
+    """One user's statistics and full trade history (admin)."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    trades = _user_trades(db, u.id)
+    return {"user": user_json(u), "stats": _stats_with_today(trades, u), "trades": [trade_json(t) for t in trades]}
 
 
 @router.post("/users")
@@ -105,7 +125,7 @@ def users_create(body: UserIn, _: User = Depends(admin_user), db: Session = Depe
     name = body.username.strip().lower()
     if db.scalar(select(User.id).where(User.username == name)):
         raise HTTPException(409, "Username already exists")
-    u = User(username=name, access_code_hash=hash_code(body.accessCode), role=body.role, capital=body.capital, risk_pct=body.riskPct)
+    u = User(username=name, access_code_hash=hash_code(body.accessCode), role=body.role)
     db.add(u)
     db.commit()
     return {"success": True, "user": user_json(u)}
@@ -118,10 +138,10 @@ def users_update(user_id: int, body: UserPatch, admin: User = Depends(admin_user
         raise HTTPException(404, "User not found")
     if u.id == admin.id and (body.active is False or body.role == "user"):
         raise HTTPException(400, "You cannot disable or demote yourself")
-    for field, attr in (("role", "role"), ("active", "active"), ("capital", "capital"), ("riskPct", "risk_pct")):
-        v = getattr(body, field)
-        if v is not None:
-            setattr(u, attr, v)
+    if body.role is not None:
+        u.role = body.role
+    if body.active is not None:
+        u.active = body.active
     if body.accessCode:
         u.access_code_hash = hash_code(body.accessCode)
     db.commit()
@@ -140,7 +160,7 @@ def users_delete(user_id: int, admin: User = Depends(admin_user), db: Session = 
     return {"success": True}
 
 
-# ---------------------------------------------------------------- trades
+# ---------------------------------------------------------------- trades (each with the lot the user took)
 
 class TradeIn(BaseModel):
     symbol: str
@@ -150,7 +170,7 @@ class TradeIn(BaseModel):
     tp1: Optional[float] = None
     tp2: Optional[float] = None
     tp3: Optional[float] = None
-    lots: Optional[float] = Field(None, gt=0)
+    lots: float = Field(gt=0, le=100)
     signalId: Optional[str] = None
     notes: str = ""
 
@@ -164,7 +184,7 @@ class TradePatch(BaseModel):
     tp1: Optional[float] = None
     tp2: Optional[float] = None
     tp3: Optional[float] = None
-    lots: Optional[float] = Field(None, gt=0)
+    lots: Optional[float] = Field(None, gt=0, le=100)
     notes: Optional[str] = None
 
 
@@ -194,10 +214,12 @@ def trades_create(body: TradeIn, u: User = Depends(current_user), db: Session = 
     sym = normalize_symbol(body.symbol)
     if (body.direction == "BUY") != (body.sl < body.entry):
         raise HTTPException(400, "Stop loss must be below entry for a BUY and above entry for a SELL")
-    lots = body.lots or lot_for(sym, u.capital, u.risk_pct, body.entry, body.sl) or 0.01
+    today = today_status(_user_trades(db, u.id), u.daily_loss_limit)
+    if today["reached"]:
+        raise HTTPException(403, f"Daily loss limit reached ({today['pnl']}$ / -{today['limit']}$): no new trades until the next trading day")
     sig = db.get(Signal, body.signalId.removeprefix("sig-")) if body.signalId else None
     t = Trade(user_id=u.id, signal_id=sig.id if sig else None, symbol=sym, direction=body.direction, entry=body.entry, sl=body.sl,
-              tp1=body.tp1, tp2=body.tp2, tp3=body.tp3, lots=lots, capital=u.capital, risk_pct=u.risk_pct, source="app", notes=body.notes)
+              tp1=body.tp1, tp2=body.tp2, tp3=body.tp3, lots=body.lots, source="app", notes=body.notes)
     db.add(t)
     db.commit()
     return {"success": True, "trade": trade_json(t)}
@@ -230,7 +252,7 @@ def trades_breakeven(trade_id: int, u: User = Depends(current_user), db: Session
     if t.status != "OPEN":
         raise HTTPException(400, "Trade is closed")
     t.breakeven = True
-    t.notes = (t.notes + "\n" if t.notes else "") + f"SL moved to breakeven {t.entry} ({datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC), risk recorded on the original stop"
+    t.notes = (t.notes + "\n" if t.notes else "") + f"SL moved to breakeven {t.entry} ({datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC)"
     db.commit()
     return {"success": True, "trade": trade_json(t)}
 
@@ -244,7 +266,7 @@ def trades_delete(trade_id: int, u: User = Depends(current_user), db: Session = 
 
 @router.get("/stats")
 def my_stats(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    return stats(db.scalars(select(Trade).where(Trade.user_id == u.id)).all(), "trade", u.capital)
+    return _stats_with_today(_user_trades(db, u.id), u)
 
 
 # ---------------------------------------------------------------- strategy signal performance (public)
@@ -254,12 +276,3 @@ def signals_performance(db: Session = Depends(get_db)):
     rows = db.scalars(select(Signal).order_by(Signal.sent_at.desc())).all()
     return {"success": True, "stats": stats(rows, "signal"), "signals": [signal_json(s) for s in rows[:100]],
             "activeTrades": [signal_json(s) for s in rows if s.state in ("PENDING", "OPEN", "TP1_HIT", "TP2_HIT")]}
-
-
-@router.get("/users/stats")
-def users_stats(db: Session = Depends(get_db)):
-    """Aggregate of every user's trades (no personal details)."""
-    trades = db.scalars(select(Trade)).all()
-    s = stats(trades, "trade", 0)
-    s.pop("equityCurve", None)
-    return {"success": True, "users": db.query(User).count(), "stats": s}

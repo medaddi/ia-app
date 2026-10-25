@@ -5,7 +5,6 @@ import { LiveTickerBar } from './components/LiveTickerBar';
 import { SignalPerformanceTracker } from './components/SignalPerformanceTracker';
 import { NewsAISection } from './components/NewsAISection';
 import { SentimentRadar } from './components/SentimentRadar';
-import { RiskManagementCalculator } from './components/RiskManagementCalculator';
 import { TelegramSettingsModal } from './components/TelegramSettingsModal';
 import { ToolsSidebarDrawer } from './components/ToolsSidebarDrawer';
 import { LoginScreen } from './components/LoginScreen';
@@ -18,6 +17,7 @@ import { ExunuTerminalView } from './components/ExunuTerminalView';
 import { LDEmblem } from './components/LiquidityDissectionLogo';
 import { AgentPanel } from './components/AgentPanel';
 import { AccountView, AppUser } from './components/AccountView';
+import { AdminView } from './components/AdminView';
 import { Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -78,8 +78,7 @@ export default function App() {
   const [sentiment, setSentiment] = useState<SentimentData | null>(null);
   const selectedAsset = assets.find(a => a.symbol === selectedSymbol) || assets[0] || null;
 
-  // Risk prefill & Assistant drawer & Telegram Modal & Tools Drawer
-  const [prefillSignal, setPrefillSignal] = useState<AISignal | null>(null);
+  // Assistant drawer & Telegram Modal & Tools Drawer
   const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(false);
   const [isTelegramOpen, setIsTelegramOpen] = useState<boolean>(false);
   const [isToolsDrawerOpen, setIsToolsDrawerOpen] = useState<boolean>(false);
@@ -135,14 +134,6 @@ export default function App() {
   useEffect(() => { if (currentUser) loadSentiment(); }, [selectedSymbol]);
 
   const setSelectedAsset = (a: MarketAsset | null) => { if (a) setSelectedSymbol(a.symbol); };
-
-  const handleSelectSignalForRisk = (sig: AISignal) => {
-    setPrefillSignal(sig);
-    setActiveTab('risk');
-    // Also set active asset if matching
-    const matchingAsset = assets.find((a) => a.symbol === sig.symbol);
-    if (matchingAsset) setSelectedAsset(matchingAsset);
-  };
 
   const isAr = lang === 'ar';
   const isFr = lang === 'fr';
@@ -317,7 +308,7 @@ export default function App() {
             >
               <InternalPageTemplate
                 title={isFr ? 'Audit & Registre de Performance' : isAr ? 'سجل التدقيق والأداء الموثق' : 'Audit & Performance Ledger'}
-                subtitle={isFr ? 'Transparence totale: taux de réussite réel, facteur de profit et conformité au risque de 1%.' : isAr ? 'تدقيق شامل وشفاف: نسبة النجاح، صفقات المستخدمين، وانضباط إدارة المخاطر.' : 'Transparent institutional verification: live win rate, user audit logs, and 1% risk audit.'}
+                subtitle={isFr ? 'Transparence totale: taux de réussite réel et facteur de profit des signaux.' : isAr ? 'نسبة النجاح الحقيقية ومعامل الربح ديال الإشارات.' : 'Real win rate and profit factor of the signals.'}
                 badge={{ label: 'Verified Ledger · 99.8%', variant: 'gold' }}
                 breadcrumbs={[
                   { label: 'Private Desk', onClick: () => setActiveTab('overview') },
@@ -363,29 +354,24 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'risk' && (
+          {activeTab === 'admin' && currentUser?.role === 'admin' && (
             <motion.div
-              key="risk"
+              key="admin"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.22, ease: 'easeOut' }}
             >
               <InternalPageTemplate
-                title={isFr ? 'Gestionnaire de Risque 1% & Taille de Lot' : isAr ? 'حاسبة إدارة المخاطر 1% وحجم اللوت' : '1% Risk Engine & Position Sizing'}
-                subtitle={isFr ? 'Calcul mathématique précis du lot en fonction de la distance du Stop Loss.' : isAr ? 'حساب دقيق لحجم اللوت لمنع خسارة أكثر من 1% من رأس المال مهما حدث.' : 'Exact mathematical position sizing based on stop loss distance and portfolio risk allocation.'}
-                badge={{ label: '1.0% Rule Enforced', variant: 'gold' }}
+                title={isFr ? 'Administration des utilisateurs' : isAr ? 'إدارة المستخدمين' : 'User administration'}
+                subtitle={isFr ? 'Créez les comptes. Chaque utilisateur indique ses lots et a ses propres statistiques.' : isAr ? 'كتصاوب الحسابات. كل مستخدم كيدخل اللوت ديالو وعندو الإحصائيات ديالو.' : 'Create accounts. Each user enters their own lots and has their own statistics.'}
+                badge={{ label: 'Admin', variant: 'gold' }}
                 breadcrumbs={[
                   { label: 'Private Desk', onClick: () => setActiveTab('overview') },
-                  { label: isFr ? 'Risque' : isAr ? 'إدارة المخاطر' : 'Risk Management' }
+                  { label: 'Admin' }
                 ]}
               >
-                <RiskManagementCalculator
-                  asset={selectedAsset}
-                  prefillSignal={prefillSignal}
-                  lang={lang}
-                  theme={theme}
-                />
+                <AdminView lang={lang} theme={theme} me={currentUser} />
               </InternalPageTemplate>
             </motion.div>
           )}
@@ -400,7 +386,7 @@ export default function App() {
             >
               <InternalPageTemplate
                 title={isFr ? 'Mon compte, trades & historique' : isAr ? 'حسابي، صفقاتي والسجل' : 'My account, trades & history'}
-                subtitle={isFr ? 'Capital, trades pris, taux de réussite et paramètres.' : isAr ? 'رأس المال، الصفقات، نسبة النجاح والإعدادات.' : 'Capital, trades taken, win rate and parameters.'}
+                subtitle={isFr ? 'Trades pris avec votre lot, historique, taux de réussite et perte journalière max.' : isAr ? 'الصفقات باللوت ديالك، السجل، نسبة النجاح والخسارة اليومية.' : 'Trades taken with your lot, history, win rate and daily loss limit.'}
                 badge={{ label: currentUser.role === 'admin' ? 'Admin' : 'Trader', variant: 'gold' }}
                 breadcrumbs={[
                   { label: 'Private Desk', onClick: () => setActiveTab('overview') },
@@ -453,10 +439,10 @@ export default function App() {
             <div className="p-3.5 rounded-xl border border-white/[0.06] bg-surface hover:border-gold-500/40 transition-all duration-150">
               <div className="flex items-center gap-2 mb-1.5">
                 <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                <span className="font-bold text-xs text-amber-400">3. Risk Management</span>
+                <span className="font-bold text-xs text-amber-400">3. Trade journal</span>
               </div>
               <p className="text-xs leading-relaxed text-zinc-400">
-                {isAr ? 'حساب دقيق لحجم اللوت بناء على رأس المال ووقف الخسارة (1% Max)' : 'Strict 1% max capital risk calculation & position sizing'}
+                {isAr ? 'كل مستخدم كيسجل اللوت ديالو، الإحصائيات والخسارة اليومية القصوى' : 'Each user logs their lot, stats and daily loss limit'}
               </p>
             </div>
 

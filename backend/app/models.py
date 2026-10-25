@@ -1,6 +1,6 @@
 """
 Database tables.
-  users          app accounts (username + access code), with their capital and risk %
+  users          app accounts (username + access code) and each user's daily loss limit
   sessions       login tokens
   activation_keys / subscribers   Telegram access codes and the chats that activated one
   signals        every signal the strategies sent, with its tracked outcome (strategy win rate)
@@ -28,8 +28,11 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     access_code_hash: Mapped[str] = mapped_column(String(200))
     role: Mapped[str] = mapped_column(String(16), default="user")  # admin | user
-    capital: Mapped[float] = mapped_column(Float, default=1000)
+    daily_loss_limit: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # $; None = no limit
+    # Legacy columns, no longer used (kept so existing databases keep working)
+    capital: Mapped[float] = mapped_column(Float, default=0)
     risk_pct: Mapped[float] = mapped_column(Float, default=1)
+    default_lot: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -106,9 +109,9 @@ class Trade(Base):
     tp1: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     tp2: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     tp3: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    lots: Mapped[float] = mapped_column(Float, default=0.01)
-    capital: Mapped[float] = mapped_column(Float, default=0)  # account size when the trade was opened
-    risk_pct: Mapped[float] = mapped_column(Float, default=1)
+    lots: Mapped[float] = mapped_column(Float)  # the lot the user really took
+    capital: Mapped[float] = mapped_column(Float, default=0)  # legacy, unused
+    risk_pct: Mapped[float] = mapped_column(Float, default=1)  # legacy, unused
     status: Mapped[str] = mapped_column(String(10), default="OPEN")  # OPEN | CLOSED
     result: Mapped[Optional[str]] = mapped_column(String(12), nullable=True)  # WIN | LOSS | BREAKEVEN
     exit_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

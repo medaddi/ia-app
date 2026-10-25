@@ -5,6 +5,7 @@ Presents the strategy result of the app's two strategies as the 4-agent EXUNU vi
 part of the same deterministic result the chart and Telegram use.
 """
 
+import re
 import time
 from typing import Optional
 
@@ -20,6 +21,14 @@ def _grade(score: float) -> str:
 def _legacy_status(r: dict) -> str:
     """Only a SIGNAL is a confirmed entry."""
     return "CONFIRMED_ENTRY" if r["status"] == "SIGNAL" else "WAITING_CONFIRMATION" if r["status"] == "WATCH" else "NO_SETUP"
+
+
+_LOT_LABEL = re.compile(r" · [0-9.]+ lot / \$1k$")
+
+
+def _without_lot_labels(drawings: list[dict]) -> list[dict]:
+    """The app has no capital setting: drop the strategy's "lot per $1k" note from the trade box labels."""
+    return [{**d, "text": _LOT_LABEL.sub("", d["text"])} if d.get("layer") == "trade" and d.get("text") else d for d in drawings]
 
 
 def build_exunu_result(r: dict) -> dict:
@@ -47,7 +56,7 @@ def build_exunu_result(r: dict) -> dict:
     else:
         liquidity_summary = "No liquidity event in the setup window"
     risk_summary = (f"{s['entryType']} {s['direction']} {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])}p) · TP1 {f(s['tp1'])} · "
-                    f"TP2 {f(s['tp2'])} 1:{to_fixed(s['rrTp2'], 1)} · {js_str(s['lots'].get('1000$', 0))} lot per $1k at 1%") if s else "No levels: no setup"
+                    f"TP2 {f(s['tp2'])} 1:{to_fixed(s['rrTp2'], 1)}") if s else "No levels: no setup"
     cto_summary = f"{r['status']} · score {r['score']}/100 · {r['headline']}"
 
     return {
@@ -92,7 +101,7 @@ def build_exunu_result(r: dict) -> dict:
         "summary_ar": r["headlineAr"],
         "explanation": build_explanation(r),
         "timestamp": now_ms,
-        "strategy": r,
+        "strategy": {**r, "drawings": _without_lot_labels(r["drawings"])},
     }
 
 

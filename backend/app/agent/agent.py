@@ -100,7 +100,7 @@ def deterministic_answer(results: list[dict], lang: str) -> str:
             v = validate_signal(r)
             issues = "" if v["approved"] else f" · ✘ {'; '.join(v['issues'])}"
             plan = (f"{s['direction']} {s['entryType']} · {t['entry']} {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])} pips) · TP1 {f(s['tp1'])} · "
-                    f"TP2 {f(s['tp2'])} (1:{to_fixed(s['rrTp2'], 1)}) · TP3 {f(s['tp3'])} · {js_str(s['lots'].get('1000$', 0))} {t['lot']} · score {js_str(v['score'])}/100{issues}")
+                    f"TP2 {f(s['tp2'])} (1:{to_fixed(s['rrTp2'], 1)}) · TP3 {f(s['tp3'])} · score {js_str(v['score'])}/100{issues}")
         elif s and r["status"] == "WATCH":
             plan = f"WATCH (score {r['score']} < 75): {s['direction']} {f(s['entry'])} / SL {f(s['sl'])} / TP2 {f(s['tp2'])} — {t['noTrade']}"
         else:

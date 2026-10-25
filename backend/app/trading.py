@@ -1,6 +1,7 @@
 """
-Trade bookkeeping: P&L of a trade, statistics (win rate, counts, profit factor, equity curve)
-and the outcome tracker that follows every sent signal with the strategy's own lifecycle.
+Trade bookkeeping: P&L of a trade from the lot the user took, statistics (win rate, counts,
+profit factor, cumulative P&L curve), the daily loss limit, and the outcome tracker that
+follows every sent signal with the strategy's own lifecycle.
 """
 
 from datetime import datetime, timezone
@@ -13,22 +14,13 @@ from .models import Signal, Trade
 from .strategies.replay import outcome
 from .strategies.service import STRATEGY_DEFS, normalize_symbol
 from .strategies.shared.jsnum import round_to
+from .strategies.shared.sessions import trading_day_key
 
 CONTRACT = {"XAU/USD": 100, "EUR/USD": 100_000}
-LOT_STEP = 0.01
 
 
 def contract_size(symbol: str) -> int:
     return CONTRACT[normalize_symbol(symbol)]
-
-
-def lot_for(symbol: str, capital: float, risk_pct: float, entry: float, sl: float) -> float:
-    """(capital × risk%) / (SL distance × contract size), rounded down to 0.01."""
-    per_lot = abs(entry - sl) * contract_size(symbol)
-    if per_lot <= 0 or capital <= 0:
-        return 0
-    lots = int((capital * risk_pct / 100) / per_lot / LOT_STEP + 1e-9) * LOT_STEP
-    return round_to(lots, 2) if lots >= 0.01 else 0
 
 
 def trade_pnl(t: Trade, exit_price: float) -> tuple[float, float]:
@@ -56,7 +48,7 @@ def close_trade(t: Trade, exit_price: float, r_multiple: Optional[float] = None)
 def trade_json(t: Trade) -> dict:
     return {
         "id": t.id, "userId": t.user_id, "chatId": t.chat_id, "signalId": t.signal_id, "symbol": t.symbol, "direction": t.direction,
-        "entry": t.entry, "sl": t.sl, "tp1": t.tp1, "tp2": t.tp2, "tp3": t.tp3, "lots": t.lots, "capital": t.capital, "riskPct": t.risk_pct,
+        "entry": t.entry, "sl": t.sl, "tp1": t.tp1, "tp2": t.tp2, "tp3": t.tp3, "lots": t.lots,
         "riskAmount": round_to(abs(t.entry - t.sl) * t.lots * contract_size(t.symbol), 2),
         "status": t.status, "result": t.result, "exitPrice": t.exit_price, "pnl": t.pnl, "rMultiple": t.r_multiple, "breakeven": t.breakeven,
         "source": t.source, "notes": t.notes,
@@ -70,7 +62,7 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
     return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).isoformat()
 
 
-def stats(items: Iterable, kind: str = "trade", starting_capital: float = 0) -> dict:
+def stats(items: Iterable, kind: str = "trade") -> dict:
     """Works for trades (pnl in $) and signals (R only). Win rate excludes breakevens."""
     rows = list(items)
     is_trade = kind == "trade"
@@ -106,18 +98,19 @@ def stats(items: Iterable, kind: str = "trade", starting_capital: float = 0) -> 
     if is_trade:
         pnl = [x.pnl or 0 for x in closed]
         out["totalPnl"] = round_to(sum(pnl), 2)
-        out["startingCapital"] = starting_capital
-        out["currentCapital"] = round_to(starting_capital + sum(pnl), 2)
-        out["returnPct"] = round_to(sum(pnl) / starting_capital * 100, 2) if starting_capital > 0 else None
-        curve, eq = [], starting_capital
+        out["totalLots"] = round_to(sum(x.lots for x in rows), 2)
+        out["bestPnl"] = round_to(max(pnl), 2) if pnl else None
+        out["worstPnl"] = round_to(min(pnl), 2) if pnl else None
+        # Cumulative P&L of closed trades (from the lots taken), starting at 0
+        curve, eq = [], 0.0
         for x in sorted(closed, key=lambda t: _iso(t.closed_at) or ""):
             eq += x.pnl or 0
-            curve.append({"time": _iso(x.closed_at), "equity": round_to(eq, 2)})
-        out["equityCurve"] = curve
-        peak, dd = starting_capital, 0.0
+            curve.append({"time": _iso(x.closed_at), "pnl": round_to(eq, 2)})
+        out["pnlCurve"] = curve
+        peak, dd = 0.0, 0.0
         for p in curve:
-            peak = max(peak, p["equity"])
-            dd = max(dd, peak - p["equity"])
+            peak = max(peak, p["pnl"])
+            dd = max(dd, peak - p["pnl"])
         out["maxDrawdown"] = round_to(dd, 2)
     by_symbol: dict[str, dict] = {}
     for x in closed:
@@ -131,6 +124,20 @@ def stats(items: Iterable, kind: str = "trade", starting_capital: float = 0) -> 
         b["winRate"] = round_to(b["wins"] / decided_b * 100, 1) if decided_b else None
     out["bySymbol"] = by_symbol
     return out
+
+
+def today_status(trades: Iterable[Trade], limit: Optional[float], now: Optional[datetime] = None) -> dict:
+    """Today's realised P&L against the user's daily loss limit. The trading day rolls over at 17:00 New York."""
+    day = trading_day_key(int((now or datetime.now(timezone.utc)).timestamp()))
+    closed_today = [t for t in trades if t.status == "CLOSED" and t.closed_at and trading_day_key(int(_aware(t.closed_at).timestamp())) == day]
+    pnl = round_to(sum(t.pnl or 0 for t in closed_today), 2)
+    reached = bool(limit) and pnl <= -float(limit)
+    return {"day": day, "pnl": pnl, "trades": len(closed_today), "limit": limit, "reached": reached,
+            "remaining": round_to(float(limit) + pnl, 2) if limit else None}
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def signal_json(s: Signal) -> dict:

@@ -16,17 +16,18 @@ from typing import Optional
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..agent.validator import validate_signal
 from ..db import SessionLocal
 from ..market.data import market_session_status
-from ..models import ActivationKey, Signal, Subscriber, Trade, Watermark
+from ..models import ActivationKey, Signal, Subscriber, Watermark
 from ..store import get_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import both_results, normalize_symbol
 from ..strategies.shared.jsnum import fmt_time, js_round, to_fixed
-from ..trading import lot_for, signal_json, stats
+from ..trading import signal_json, stats
 from .protection import personalize_signal
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -90,7 +91,7 @@ async def bot_info(token: str) -> dict:
 
 # ---------------------------------------------------------------- message
 
-def format_signal_message(signal: dict, capital: float = 0, risk_pct: float = 1) -> str:
+def format_signal_message(signal: dict) -> str:
     """Only the strategy's own levels are printed; nothing is filled in by default."""
     buy = signal.get("signalType") == "BUY"
     symbol = normalize_symbol(signal.get("symbol", ""))
@@ -124,19 +125,12 @@ def format_signal_message(signal: dict, capital: float = 0, risk_pct: float = 1)
         lines.append(f"🎯 <b>TP3:</b> <code>{p(tp3)}</code> (1:{rr_of(tp3)})")
     conf = signal.get("confidence")
     lines.append(f"🧠 <code>{signal.get('strategyUsed') or 'EXUNU'}</code>")
-    lines.append(f"⚖️ <b>Score:</b> <code>{conf if isinstance(conf, (int, float)) else '—'}/100</code> · risk 1% per trade")
+    lines.append(f"⚖️ <b>Score:</b> <code>{conf if isinstance(conf, (int, float)) else '—'}/100</code>")
     if signal.get("confirmationCheckPassed") and signal.get("confirmationCloseTime"):
         lines.append(f"✅ <b>Signal:</b> {fmt_time(signal['confirmationCloseTime'])} candle close")
     if signal.get("invalidationCondition"):
         lines.append(f"⛔ <b>Invalidation:</b> {signal['invalidationCondition']}")
-    if capital > 0:
-        lots = lot_for(symbol, capital, risk_pct or 1, entry, sl)
-        lines.append(f"💼 <b>Lot:</b> <code>{to_fixed(lots, 2) if lots >= 0.01 else 'below 0.01'}</code> (${capital:,.0f} | {risk_pct or 1:g}%)")
     return "\n".join(lines)
-
-
-def _signal_keyboard(signal_id: str) -> dict:
-    return {"inline_keyboard": [[{"text": "🎯 دخلت الصفقة", "callback_data": f"join_{signal_id}"}, {"text": "🧮 لوت محفظتي", "callback_data": f"risk_{signal_id}"}]]}
 
 
 # ---------------------------------------------------------------- subscribers
@@ -208,19 +202,30 @@ async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
         if not recipients:
             return {"success": False, "state": state, "error": "No active subscribers"}
         signal = to_ai_signal(res)
+        # Claim the setup in the database first: its id is the primary key, so two concurrent ticks
+        # (serverless functions, several workers) can never both send it
+        row = Signal(id=setup["id"], symbol=symbol, setup=setup["setup"], direction=setup["direction"], entry_type=setup["entryType"],
+                     entry=setup["entry"], sl=setup["sl"], tp1=setup["tp1"], tp2=setup["tp2"], tp3=setup["tp3"], rr_tp2=setup["rrTp2"],
+                     score=r["score"], signal_time=setup["signalTime"], recipients=0, state=setup["lifecycle"]["state"],
+                     params=setup["params"], payload=signal)
+        db.add(row)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            return {"success": False, "state": state, "error": "This setup was already sent."}
         _in_flight.add(setup["id"])
         try:
             sent, first_ack, last_error = await _send_to_all(cfg, signal, recipients, db)
         finally:
             _in_flight.discard(setup["id"])
         if not sent:
+            db.delete(row)  # nobody received it: release the claim so it can be retried
+            db.commit()
             log_event("SIGNAL", f"{signal['signalType']} {symbol}", "No chat received it", False, last_error)
             return {"success": False, "state": state, "error": last_error or "Send failed", "signal": signal}
         latency = int(first_ack - setup["signalTime"] * 1000) if first_ack else None
-        db.add(Signal(id=setup["id"], symbol=symbol, setup=setup["setup"], direction=setup["direction"], entry_type=setup["entryType"],
-                      entry=setup["entry"], sl=setup["sl"], tp1=setup["tp1"], tp2=setup["tp2"], tp3=setup["tp3"], rr_tp2=setup["rrTp2"],
-                      score=r["score"], signal_time=setup["signalTime"], recipients=sent, latency_ms=latency,
-                      state=setup["lifecycle"]["state"], params=setup["params"], payload=signal))
+        row.recipients, row.latency_ms = sent, latency
         db.commit()
         details = f"Entry {setup['entry']} | SL {setup['sl']} | TP2 {setup['tp2']} | {sent}/{len(recipients)} chat(s)"
         if latency is not None:
@@ -241,10 +246,8 @@ async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session) -
 
         async def one(chat_id: str):
             personal, offset, ref = personalize_signal(signal, chat_id, cfg.get("personalOffsets", True))
-            sub = recipients[chat_id]
-            text = (f"{format_signal_message(personal, sub.capital if sub else 0, sub.risk_pct if sub else 1)}\n"
-                    f"🔐 <i>Personal copy · Ref {ref} · do not share</i>")
-            out = await send_message(cfg["botToken"], chat_id, text, _signal_keyboard(signal["id"]), cfg.get("protectContent", True))
+            text = f"{format_signal_message(personal)}\n🔐 <i>Personal copy · Ref {ref} · do not share</i>"
+            out = await send_message(cfg["botToken"], chat_id, text, None, cfg.get("protectContent", True))
             return chat_id, out, offset, ref
 
         for chat_id, out, offset, ref in await asyncio.gather(*(one(c) for c in batch)):
@@ -272,16 +275,10 @@ HELP = """<b>EXUNU bot</b>
 /status — your subscription
 /signal — current analysis of XAUUSD and EURUSD
 /stats — signal win rate
-/capital 1000 — your account size (lot size on every signal)
-/risk 1 — risk % per trade
-/mytrades — your trades
 Send your activation code to activate."""
 
 
 async def handle_update(token: str, upd: dict) -> None:
-    if "callback_query" in upd:
-        await _handle_callback(token, upd["callback_query"])
-        return
     msg = upd.get("message") or {}
     text = (msg.get("text") or "").strip()
     chat_id = str((msg.get("chat") or {}).get("id") or "")
@@ -299,10 +296,8 @@ async def handle_update(token: str, upd: dict) -> None:
         elif low.startswith("/help"):
             reply = HELP
         elif low.startswith("/status"):
-            reply = (f"✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>\n💰 Capital ${sub.capital:,.0f} · risk {sub.risk_pct:g}%" if active
+            reply = (f"✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>" if active
                      else "⛔ Not activated. Send your activation code.")
-        elif low.startswith(("/capital", "/balance", "/solde")) or low.startswith(("/risk", "/risque")):
-            reply = _set_profile(db, chat_id, name, low, active)
         elif low.startswith(("/signal", "/live", "/now")):
             reply = await _analysis_text()
         elif low.startswith(("/stats", "/winrate", "/performance")):
@@ -310,36 +305,13 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = (f"📊 <b>Signals</b>: {s['total']} sent · {s['closed']} closed · {s['open']} open\n"
                      f"✅ {s['wins']} wins · ❌ {s['losses']} losses · ➖ {s['breakevens']} BE\n"
                      f"🎯 Win rate: <b>{s['winRate'] if s['winRate'] is not None else '—'}%</b> · total {s['totalR']}R")
-        elif low.startswith(("/mytrades", "/trades")):
-            trades = db.scalars(select(Trade).where(Trade.chat_id == chat_id).order_by(Trade.id.desc()).limit(10)).all()
-            reply = "\n".join(f"#{t.id} {t.direction} {t.symbol} {t.entry} · {t.status}{f' {t.result} {t.pnl:+.2f}$' if t.pnl is not None else ''}" for t in trades) or "No trades yet."
         elif re.fullmatch(r"[A-Za-z0-9\-_]{4,64}", text) and not text.startswith("/"):
             out = activate(db, chat_id, text, name)
-            reply = (f"🎉 Activated ({out.get('label') or 'access'}) until <b>{out['expiresAt'][:10]}</b>.\nSet your capital: <code>/capital 1000</code>"
+            reply = (f"🎉 Activated ({out.get('label') or 'access'}) until <b>{out['expiresAt'][:10]}</b>."
                      if out["success"] else f"⛔ {out['error']}.")
         else:
             reply = HELP
     await send_message(token, chat_id, reply)
-
-
-def _set_profile(db: Session, chat_id: str, name: str, low: str, active: bool) -> str:
-    if not active:
-        return "⛔ Activate first: send your activation code."
-    m = re.search(r"(\d+(?:[.,]\d+)?)", low)
-    if not m:
-        return "Usage: <code>/capital 1000</code> or <code>/risk 1</code>"
-    v = float(m.group(1).replace(",", "."))
-    sub = db.get(Subscriber, chat_id)
-    if low.startswith("/risk") or low.startswith("/risque"):
-        if not 0.1 <= v <= 5:
-            return "Risk must be between 0.1% and 5%."
-        sub.risk_pct = v
-    else:
-        if v <= 0:
-            return "Capital must be positive."
-        sub.capital = v
-    db.commit()
-    return f"✅ Saved: capital ${sub.capital:,.0f} · risk {sub.risk_pct:g}% per trade. The lot size is printed on every signal."
 
 
 async def _analysis_text() -> str:
@@ -351,38 +323,6 @@ async def _analysis_text() -> str:
     return "\n\n".join(parts)
 
 
-async def _handle_callback(token: str, cq: dict) -> None:
-    data = cq.get("data") or ""
-    chat_id = str(((cq.get("message") or {}).get("chat") or {}).get("id") or "")
-    await call(token, "answerCallbackQuery", {"callback_query_id": cq.get("id")})
-    if not chat_id:
-        return
-    with SessionLocal() as db:
-        sub = db.get(Subscriber, chat_id)
-        signal_id = data.split("_", 1)[1] if "_" in data else ""
-        sig = db.get(Signal, signal_id.removeprefix("sig-")) if signal_id else None
-        if not sig:
-            await send_message(token, chat_id, "Signal not found (it may be older than the history).")
-            return
-        personal, _, _ = personalize_signal(sig.payload, chat_id)
-        capital = sub.capital if sub and sub.capital > 0 else 1000
-        risk_pct = sub.risk_pct if sub else 1
-        lots = lot_for(sig.symbol, capital, risk_pct, personal["entryPrice"], personal["stopLoss"]) or 0.01
-        if data.startswith("risk_"):
-            await send_message(token, chat_id, f"🧮 {sig.symbol}: <b>{lots:.2f} lot</b> for ${capital:,.0f} at {risk_pct:g}% risk.\nSet yours with <code>/capital</code> and <code>/risk</code>.")
-            return
-        if data.startswith("join_"):
-            exists = db.scalar(select(Trade.id).where(Trade.chat_id == chat_id, Trade.signal_id == sig.id))
-            if exists:
-                await send_message(token, chat_id, "Already recorded in your trades.")
-                return
-            db.add(Trade(chat_id=chat_id, signal_id=sig.id, symbol=sig.symbol, direction=sig.direction, entry=personal["entryPrice"],
-                         sl=personal["stopLoss"], tp1=personal["target1"], tp2=personal["target2"], tp3=personal.get("target3"),
-                         lots=lots, capital=capital, risk_pct=risk_pct, source="telegram"))
-            db.commit()
-            await send_message(token, chat_id, f"✅ Trade recorded: {sig.direction} {sig.symbol} {personal['entryPrice']} · {lots:.2f} lot. Its result is tracked automatically.")
-
-
 async def poll_forever(stop: asyncio.Event) -> None:
     """Long polling for chat commands. Only one process may poll a bot token at a time."""
     offset = 0
@@ -392,7 +332,7 @@ async def poll_forever(stop: asyncio.Event) -> None:
         if not token:
             await asyncio.sleep(30)
             continue
-        data = await call(token, "getUpdates", {"offset": offset, "timeout": 25, "allowed_updates": ["message", "callback_query"]})
+        data = await call(token, "getUpdates", {"offset": offset, "timeout": 25, "allowed_updates": ["message"]})
         if not data.get("ok"):
             await asyncio.sleep(5)
             continue

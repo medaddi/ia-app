@@ -9,7 +9,6 @@ from .models import Setting
 
 DEFAULTS: dict[str, dict] = {
     "app": {"appName": "EXUNU Trading", "defaultLanguage": "fr", "theme": "dark", "requireAuth": True},
-    "risk": {"defaultCapital": 1000, "defaultRiskPct": 1, "maxRiskPct": 3},
     "telegram": {
         "botToken": "", "chatId": "", "enabled": True, "minConfidence": 75, "assets": ["XAU/USD", "EUR/USD"],
         "protectContent": True, "personalOffsets": True,

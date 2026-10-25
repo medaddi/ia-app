@@ -1,7 +1,7 @@
 # EXUNU — XAUUSD & EURUSD strategies, signals and trade journal
 
 > **Darija:** l'app daba fiha joj dossiers: `frontend/` (React, f Vercel) o `backend/` (Python FastAPI, f Render).
-> Backend fih: users, trades li khditi, l'historique, win rate o ch7al mn trade, parametres dyal l'app o capital,
+> Backend fih: users (admin kaycree les comptes), trades li khditi b lot dyalek, l'historique, win rate o ch7al mn trade, daily loss limit dyal kol user,
 > o joj stratégies (Gold o EURUSD) li kaysifto signal l Telegram mni katsed la bougie. Kolchi bla flous (free tier).
 
 ```
@@ -16,9 +16,9 @@ docs/       STRATEGIES.md: the exact rules of both strategies
 |---|---|
 | Login | `POST /api/auth/login` (username + access code) · `GET /api/auth/me` · `POST /api/auth/logout` |
 | Users (admin) | `GET/POST /api/users` · `PATCH/DELETE /api/users/{id}` |
-| My capital & risk | `GET/PUT /api/me` |
-| Trades taken | `GET/POST /api/trades` · `PATCH/DELETE /api/trades/{id}` · `POST /api/trades/{id}/close` · `POST /api/trades/{id}/breakeven` |
-| History & win rate | `GET /api/stats` (win rate, wins/losses, P&L, current capital, profit factor, drawdown, equity curve) · `GET /api/trades?status=closed` |
+| My daily loss limit | `GET/PUT /api/me` (no new trade once today's closed trades lose this amount) |
+| Trades taken (with the lot) | `GET/POST /api/trades` · `PATCH/DELETE /api/trades/{id}` · `POST /api/trades/{id}/close` · `POST /api/trades/{id}/breakeven` |
+| History & win rate | `GET /api/stats` (win rate, wins/losses, P&L from the lots taken, total lots, profit factor, drawdown, P&L curve, today vs daily limit) · `GET /api/trades?status=closed` |
 | Strategy results | `GET /api/signals/performance` (every signal sent, followed candle by candle until TP/SL) |
 | App parameters | `GET/PUT /api/settings` |
 | Strategies & chart | `GET /api/exunu/setup` · `GET /api/exunu/candles` · `GET /api/signals` · `GET /api/backtest` |
@@ -30,8 +30,9 @@ Interactive docs: `http://localhost:8000/docs`.
 
 Signals: at every M5 (gold) / M15 (EURUSD) candle close the scheduler runs the strategy on fresh candles and,
 only for a SIGNAL (score ≥ 75, every required rule passed), sends it to the activated Telegram subscribers with
-`protect_content`, a personal micro-offset and a reference code (anti copy-trading). A subscriber who taps
-**🎯 دخلت الصفقة** gets the trade in their journal; its result is closed automatically with the strategy's lifecycle.
+`protect_content`, a personal micro-offset and a reference code (anti copy-trading). In the app, each user enters
+the lot they took on the signal; the trade then closes automatically with the strategy's lifecycle, and once the
+day's losses reach the user's daily loss limit no new trade is accepted until the next trading day (17:00 New York).
 
 ## Run locally
 

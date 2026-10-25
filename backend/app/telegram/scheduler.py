@@ -37,12 +37,32 @@ async def _on_close(sym: str, close: int) -> None:
         if any(c.time == close - tf_sec for c in entry):
             break
         await asyncio.sleep(RETRY)
+    print(f"[candle-close] {sym} at {iso(close)[11:19]}: {await process_bundle(sym, bundle)}")
+
+
+async def process_bundle(sym: str, bundle: dict) -> str:
+    """Updates the outcome of the signals already sent and dispatches a fresh SIGNAL. Returns what happened."""
     r = bundle["result"]
     with SessionLocal() as db:
-        update_signal_outcomes(db, sym, bundle["candles"].get(d.entryTf) or [])
+        update_signal_outcomes(db, sym, bundle["candles"].get(STRATEGY_DEFS[sym].entryTf) or [])
     if r["canNotify"] and r["setup"]:
         out = await dispatch_setup(sym, manual=False)
-        print(f"[candle-close] {sym} {r['setup']['id']} at {iso(close)[11:19]}: {'sent' if out['success'] else out['error']}")
+        return f"{r['setup']['id']}: {'sent to ' + str(out.get('recipients')) + ' chat(s)' if out['success'] else out['error']}"
+    return f"{r['status']} · {r['headline']}"
+
+
+async def tick() -> dict:
+    """One pass for serverless hosting (called every minute by an external pinger): same work as a candle close."""
+    out = {}
+    for sym in STRATEGY_DEFS:
+        if not market_session_status(sym)["isOpen"]:
+            out[sym] = "market closed"
+            continue
+        try:
+            out[sym] = await process_bundle(sym, await get_strategy_result(sym, fresh=True))
+        except Exception as err:  # one symbol failing must not stop the other
+            out[sym] = f"error: {err!r}"
+    return out
 
 
 async def run_symbol(sym: str, stop: asyncio.Event) -> None:

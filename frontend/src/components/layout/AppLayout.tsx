@@ -25,6 +25,7 @@ import {
   Cpu,
   LineChart,
   Wallet,
+  UserCog,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MarketAsset, Language } from '../../types';
@@ -237,14 +238,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       badge: undefined,
     },
     {
-      id: 'risk',
-      labelEn: 'Risk Engine',
-      labelFr: 'Gestion du Risque',
-      labelAr: 'إدارة المخاطر',
-      icon: ShieldAlert,
-      badge: '1.0%',
-    },
-    {
       id: 'account',
       labelEn: 'My account & trades',
       labelFr: 'Compte & trades',
@@ -252,6 +245,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       icon: Wallet,
       badge: undefined,
     },
+    ...(currentUser?.role === 'admin' ? [{
+      id: 'admin',
+      labelEn: 'Admin · users',
+      labelFr: 'Admin · utilisateurs',
+      labelAr: 'الإدارة · المستخدمون',
+      icon: UserCog,
+      badge: undefined,
+    }] : []),
     {
       id: 'assistant',
       labelEn: 'AI Terminal',

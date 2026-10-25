@@ -1,22 +1,94 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { History, Plus, Settings2, ShieldCheck, Target, UserPlus, Users, Wallet } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { History, OctagonAlert, Plus, ShieldOff, Target, Wallet, Zap } from 'lucide-react';
 import { apiJson } from '../api';
 import { AISignal, Language, MarketAsset } from '../types';
 import { Button, Card, Field, Notice, Stat, fmtDate, fmtMoney, fmtPct, fmtR, inputCls, tr } from './ui';
 
-export interface AppUser { id: number; username: string; role: 'admin' | 'user'; capital: number; riskPct: number; active?: boolean; lastLoginAt?: string | null }
+export interface AppUser {
+  id: number; username: string; role: 'admin' | 'user'; dailyLossLimit?: number | null; active?: boolean; lastLoginAt?: string | null;
+}
 
-interface Trade {
+export interface Trade {
   id: number; symbol: string; direction: 'BUY' | 'SELL'; entry: number; sl: number; tp1: number | null; tp2: number | null; tp3: number | null;
-  lots: number; capital: number; riskPct: number; riskAmount: number; status: 'OPEN' | 'CLOSED'; result: string | null; exitPrice: number | null;
+  lots: number; riskAmount: number; status: 'OPEN' | 'CLOSED'; result: string | null; exitPrice: number | null;
   pnl: number | null; rMultiple: number | null; breakeven: boolean; source: string; notes: string; openedAt: string; closedAt: string | null; signalId: string | null;
 }
-interface Stats {
+
+export interface Today { day: string; pnl: number; trades: number; limit: number | null; reached: boolean; remaining: number | null }
+
+export interface Stats {
   total: number; open: number; closed: number; cancelledOrExpired: number; wins: number; losses: number; breakevens: number; winRate: number | null;
-  totalR: number; profitFactor: number | null; totalPnl: number; startingCapital: number; currentCapital: number; returnPct: number | null;
-  maxDrawdown: number; equityCurve: { time: string; equity: number }[];
+  totalR: number; profitFactor: number | null; totalPnl: number; totalLots: number; bestPnl: number | null; worstPnl: number | null;
+  maxDrawdown: number; pnlCurve: { time: string; pnl: number }[]; today: Today;
 }
-interface AdminUserRow extends AppUser { stats: { total: number; open: number; closed: number; wins: number; losses: number; winRate: number | null; totalPnl: number; currentCapital: number } }
+
+const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
+
+function PnlLine({ points }: { points: { pnl: number }[] }) {
+  if (points.length < 1) return null;
+  const vals = [0, ...points.map(p => p.pnl)];
+  const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
+  const d = vals.map((v, i) => `${(i / (vals.length - 1)) * 100},${30 - ((v - min) / span) * 28 - 1}`).join(' ');
+  return (
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-16 mt-3" role="img" aria-label="Cumulative P&L">
+      <polyline points={d} fill="none" strokeWidth="1.5" vectorEffect="non-scaling-stroke" className={vals[vals.length - 1] >= 0 ? 'stroke-emerald-500' : 'stroke-rose-500'} />
+    </svg>
+  );
+}
+
+/** One user's statistics, computed from the lots they took (own page and admin user detail). */
+export function StatsGrid({ isLight, lang, stats }: { isLight: boolean; lang: Language; stats: Stats | null }) {
+  const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
+  const s = stats;
+  const today = s?.today;
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        <Stat isLight={isLight} label="P&L" value={fmtMoney(s?.totalPnl)} tone={(s?.totalPnl ?? 0) >= 0 ? 'good' : 'bad'} />
+        <Stat isLight={isLight} label={t('Today', "Aujourd'hui", 'اليوم')} value={today ? `${fmtMoney(today.pnl)}${today.limit ? ` / -${fmtMoney(today.limit)}` : ''}` : '—'} tone={today?.reached ? 'bad' : undefined} />
+        <Stat isLight={isLight} label={t('Trades', 'Trades', 'الصفقات')} value={s ? `${s.total} (${s.open} ${t('open', 'ouverts', 'مفتوحة')})` : '—'} />
+        <Stat isLight={isLight} label={t('Wins / losses', 'Gains / pertes', 'ربح / خسارة')} value={s ? `${s.wins} / ${s.losses}` : '—'} />
+        <Stat isLight={isLight} label={t('Win rate', 'Taux de réussite', 'نسبة النجاح')} value={fmtPct(s?.winRate)} tone="gold" />
+        <Stat isLight={isLight} label={t('Total lots', 'Lots au total', 'مجموع اللوت')} value={s ? s.totalLots.toFixed(2) : '—'} />
+        <Stat isLight={isLight} label={t('Profit factor', 'Profit factor', 'معامل الربح')} value={s?.profitFactor ?? '—'} />
+        <Stat isLight={isLight} label={t('Max drawdown', 'Drawdown max', 'أقصى تراجع')} value={fmtMoney(s?.maxDrawdown)} tone="bad" />
+      </div>
+      {s && s.pnlCurve.length > 0 && <PnlLine points={s.pnlCurve} />}
+    </>
+  );
+}
+
+/** Read-only trade list used for history. */
+export function TradesTable({ isLight, lang, trades }: { isLight: boolean; lang: Language; trades: Trade[] }) {
+  const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
+  if (!trades.length) return <p className="text-xs text-slate-500">{t('No trades yet.', 'Aucun trade.', 'لا توجد صفقات بعد.')}</p>;
+  const tone = (r: string | null) => (r === 'WIN' ? 'text-emerald-500' : r === 'LOSS' ? 'text-rose-500' : 'text-slate-400');
+  return (
+    <div className="overflow-x-auto"><table className="w-full text-xs tabular-nums">
+      <thead className="text-slate-500 text-left"><tr>
+        {[t('Opened', 'Ouvert', 'الفتح'), t('Closed', 'Clôturé', 'الإغلاق'), t('Pair', 'Paire', 'الزوج'), t('Side', 'Sens', 'الاتجاه'), 'Entry', 'SL', t('Exit', 'Sortie', 'الخروج'), 'Lot', t('Result', 'Résultat', 'النتيجة'), 'R', 'P&L']
+          .map(h => <th key={h} className="px-1.5 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
+      </tr></thead>
+      <tbody>
+        {trades.map(x => (
+          <tr key={x.id} className={`border-t ${isLight ? 'border-paper-line' : 'border-line'}`}>
+            <td className="px-1.5 py-1.5 font-mono whitespace-nowrap">{fmtDate(x.openedAt)}</td>
+            <td className="px-1.5 py-1.5 font-mono whitespace-nowrap">{x.status === 'OPEN' ? <span className="text-gold-500">{t('open', 'ouvert', 'مفتوحة')}</span> : fmtDate(x.closedAt)}</td>
+            <td className="px-1.5 py-1.5">{x.symbol}{x.signalId && <span className="ms-1 text-gold-500" title="signal">●</span>}</td>
+            <td className={`px-1.5 py-1.5 font-semibold ${x.direction === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`}>{x.direction}</td>
+            <td className="px-1.5 py-1.5 font-mono">{x.entry}</td>
+            <td className="px-1.5 py-1.5 font-mono">{x.sl}</td>
+            <td className="px-1.5 py-1.5 font-mono">{x.exitPrice ?? '—'}</td>
+            <td className="px-1.5 py-1.5 font-mono">{x.lots}</td>
+            <td className={`px-1.5 py-1.5 font-semibold ${tone(x.result)}`}>{x.result ?? '—'}</td>
+            <td className={`px-1.5 py-1.5 font-mono ${tone(x.result)}`}>{fmtR(x.rMultiple)}</td>
+            <td className={`px-1.5 py-1.5 font-mono ${tone(x.result)}`}>{fmtMoney(x.pnl)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table></div>
+  );
+}
 
 interface AccountViewProps {
   lang: Language;
@@ -27,36 +99,19 @@ interface AccountViewProps {
   assets: MarketAsset[];
 }
 
-const EMPTY = { symbol: 'XAU/USD', direction: 'BUY' as 'BUY' | 'SELL', entry: '', sl: '', tp1: '', tp2: '', lots: '', signalId: '' };
-const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
-
-function EquityLine({ points, start }: { points: { equity: number }[]; start: number }) {
-  if (points.length < 1) return null;
-  const vals = [start, ...points.map(p => p.equity)];
-  const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
-  const d = vals.map((v, i) => `${(i / (vals.length - 1)) * 100},${30 - ((v - min) / span) * 28 - 1}`).join(' ');
-  const up = vals[vals.length - 1] >= start;
-  return (
-    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-16" role="img" aria-label="Equity curve">
-      <polyline points={d} fill="none" strokeWidth="1.5" vectorEffect="non-scaling-stroke" className={up ? 'stroke-emerald-500' : 'stroke-rose-500'} />
-    </svg>
-  );
-}
+const EMPTY = { symbol: 'XAU/USD', direction: 'BUY' as 'BUY' | 'SELL', entry: '', sl: '', tp1: '', tp2: '', lots: '' };
 
 export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', user, onUserChange, signals, assets }) => {
   const isLight = theme === 'light';
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
   const [stats, setStats] = useState<Stats | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [profile, setProfile] = useState({ capital: String(user.capital), riskPct: String(user.riskPct) });
+  const [lossLimit, setLossLimit] = useState(user.dailyLossLimit ? String(user.dailyLossLimit) : '');
   const [form, setForm] = useState(EMPTY);
+  const [signalLots, setSignalLots] = useState<Record<string, string>>({});
   const [exitPrices, setExitPrices] = useState<Record<number, string>>({});
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
-  const [newUser, setNewUser] = useState({ username: '', accessCode: '', role: 'user', capital: '1000' });
-  const [appSettings, setAppSettings] = useState<{ app: any; risk: any } | null>(null);
-  const isAdmin = user.role === 'admin';
 
   const run = async (fn: () => Promise<string | void>) => {
     setBusy(true);
@@ -76,11 +131,6 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
       const [s, tl] = await Promise.all([apiJson<Stats>('/api/stats'), apiJson<{ trades: Trade[] }>('/api/trades')]);
       setStats(s);
       setTrades(tl.trades);
-      if (isAdmin) {
-        const [u, st] = await Promise.all([apiJson<{ users: AdminUserRow[] }>('/api/users'), apiJson('/api/settings')]);
-        setUsers(u.users);
-        setAppSettings(st);
-      }
     } catch (e: any) {
       setMsg({ kind: 'error', text: e.message });
     }
@@ -88,112 +138,144 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
 
   useEffect(() => { load(); }, [user.id]);
 
+  const blocked = !!stats?.today.reached;
   const priceOf = (sym: string) => assets.find(a => a.symbol === sym)?.price;
-  const liveSignal = signals.find(s => s.isActionableNow && s.entryPrice > 0);
+  const live = signals.filter(s => s.isActionableNow && s.entryPrice > 0);
+  const takenSignalIds = new Set(trades.map(x => x.signalId).filter(Boolean).map(id => `sig-${id}`));
   const open = trades.filter(x => x.status === 'OPEN');
   const closed = trades.filter(x => x.status === 'CLOSED');
 
-  const preview = useMemo(() => {
-    const entry = num(form.entry), sl = num(form.sl);
-    if (!entry || !sl || entry === sl) return null;
-    const contract = form.symbol === 'XAU/USD' ? 100 : 100000;
-    const lots = num(form.lots) ?? Math.floor(((user.capital * user.riskPct) / 100) / (Math.abs(entry - sl) * contract) / 0.01 + 1e-9) * 0.01;
-    return { lots: Math.max(lots, 0), risk: Math.abs(entry - sl) * contract * Math.max(lots, 0) };
-  }, [form, user.capital, user.riskPct]);
-
-  const fromSignal = (s: AISignal) => setForm({
-    symbol: s.symbol, direction: s.signalType === 'SELL' ? 'SELL' : 'BUY', entry: String(s.entryPrice), sl: String(s.stopLoss),
-    tp1: String(s.target1 || ''), tp2: String(s.target2 || ''), lots: '', signalId: s.id,
+  const addTrade = (body: Record<string, unknown>, okText: string) => run(async () => {
+    await apiJson('/api/trades', { method: 'POST', body: JSON.stringify(body) });
+    await load();
+    return okText;
   });
 
-  const head = (cols: string[]) => (
-    <thead className="text-slate-500 text-left"><tr>{cols.map(h => <th key={h} className="px-1.5 py-1.5 font-medium whitespace-nowrap">{h}</th>)}</tr></thead>
-  );
   const rowCls = `border-t ${isLight ? 'border-paper-line' : 'border-line'}`;
-  const resultTone = (r: string | null) => (r === 'WIN' ? 'text-emerald-500' : r === 'LOSS' ? 'text-rose-500' : 'text-slate-400');
 
   return (
     <div className="space-y-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
 
-      <Card isLight={isLight} icon={<Wallet className="w-4 h-4" />} title={t('My capital', 'Mon capital', 'رأس مالي')}
+      <Card isLight={isLight} icon={<Wallet className="w-4 h-4" />} title={t('My statistics', 'Mes statistiques', 'الإحصائيات ديالي')}
         right={<span className="text-xs text-slate-500">{user.username} · {user.role}</span>}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
-          <Stat isLight={isLight} label={t('Starting capital', 'Capital initial', 'رأس المال')} value={fmtMoney(stats?.startingCapital)} />
-          <Stat isLight={isLight} label={t('Current capital', 'Capital actuel', 'الرصيد الحالي')} value={fmtMoney(stats?.currentCapital)} tone="gold" />
-          <Stat isLight={isLight} label="P&L" value={fmtMoney(stats?.totalPnl)} tone={(stats?.totalPnl ?? 0) >= 0 ? 'good' : 'bad'} />
-          <Stat isLight={isLight} label={t('Return', 'Rendement', 'العائد')} value={fmtPct(stats?.returnPct)} />
-          <Stat isLight={isLight} label={t('Trades', 'Trades', 'الصفقات')} value={stats ? `${stats.total} (${stats.open} ${t('open', 'ouverts', 'مفتوحة')})` : '—'} />
-          <Stat isLight={isLight} label={t('Wins / losses', 'Gains / pertes', 'ربح / خسارة')} value={stats ? `${stats.wins} / ${stats.losses}` : '—'} />
-          <Stat isLight={isLight} label={t('Win rate', 'Taux de réussite', 'نسبة النجاح')} value={fmtPct(stats?.winRate)} tone="gold" />
-          <Stat isLight={isLight} label={t('Max drawdown', 'Drawdown max', 'أقصى تراجع')} value={fmtMoney(stats?.maxDrawdown)} tone="bad" />
-        </div>
-        {stats && stats.equityCurve.length > 0 && <EquityLine points={stats.equityCurve} start={stats.startingCapital} />}
-        <div className="flex flex-wrap items-end gap-2 mt-3">
-          <Field label={t('Capital ($)', 'Capital ($)', 'رأس المال ($)')}><input inputMode="decimal" value={profile.capital} onChange={e => setProfile({ ...profile, capital: e.target.value })} className={inputCls(isLight)} /></Field>
-          <Field label={t('Risk per trade (%)', 'Risque par trade (%)', 'المخاطرة لكل صفقة (%)')}><input inputMode="decimal" value={profile.riskPct} onChange={e => setProfile({ ...profile, riskPct: e.target.value })} className={inputCls(isLight)} /></Field>
+        <StatsGrid isLight={isLight} lang={lang} stats={stats} />
+      </Card>
+
+      <Card isLight={isLight} icon={<ShieldOff className="w-4 h-4" />} title={t('Daily loss limit', 'Perte journalière max', 'الخسارة اليومية القصوى')}>
+        <div className="flex flex-wrap items-end gap-2">
+          <Field label={t('Max loss per day ($, empty = none)', 'Perte max par jour ($, vide = aucune)', 'أقصى خسارة فالنهار ($، فارغ = بلا حد)')}>
+            <input inputMode="decimal" value={lossLimit} placeholder="—" onChange={e => setLossLimit(e.target.value)} className={inputCls(isLight)} />
+          </Field>
           <Button disabled={busy} onClick={() => run(async () => {
-            const r = await apiJson('/api/me', { method: 'PUT', body: JSON.stringify({ capital: Number(profile.capital), riskPct: Number(profile.riskPct) }) });
+            const r = await apiJson('/api/me', { method: 'PUT', body: JSON.stringify({ dailyLossLimit: lossLimit ? Number(lossLimit) : 0 }) });
             onUserChange(r.user);
             await load();
-            return t('Saved. Lot sizes now use this capital and risk.', 'Enregistré. Les lots utilisent ce capital et ce risque.', 'تم الحفظ. اللوت يحسب الآن بهذا الرأسمال والمخاطرة.');
+            return t('Saved', 'Enregistré', 'تم الحفظ');
           })}>{t('Save', 'Enregistrer', 'حفظ')}</Button>
+          <p className="text-xs text-slate-500 basis-full">
+            {t('When your closed trades of the day lose this amount, no new trade can be added until the next trading day (17:00 New York).',
+              "Quand vos trades clôturés du jour perdent ce montant, plus aucun trade ne peut être ajouté jusqu'au jour de trading suivant (17:00 New York).",
+              'ملي توصل الخسارة ديال الصفقات المسدودة اليوم لهاد المبلغ، ما تقدرش تزيد حتى صفقة حتى النهار الجاي (17:00 نيويورك).')}
+          </p>
         </div>
       </Card>
 
-      <Card isLight={isLight} icon={<Plus className="w-4 h-4" />} title={t('Record a trade I took', 'Enregistrer un trade pris', 'تسجيل صفقة دخلتها')}
-        right={liveSignal && <Button variant="ghost" onClick={() => fromSignal(liveSignal)}><Target className="w-3.5 h-3.5" />{t(`Use ${liveSignal.symbol} signal`, `Signal ${liveSignal.symbol}`, `إشارة ${liveSignal.symbol}`)}</Button>}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-          <Field label={t('Pair', 'Paire', 'الزوج')}>
-            <select value={form.symbol} onChange={e => setForm({ ...form, symbol: e.target.value })} className={inputCls(isLight)}>
-              <option>XAU/USD</option><option>EUR/USD</option>
-            </select>
-          </Field>
-          <Field label={t('Side', 'Sens', 'الاتجاه')}>
-            <select value={form.direction} onChange={e => setForm({ ...form, direction: e.target.value as 'BUY' | 'SELL' })} className={inputCls(isLight)}>
-              <option>BUY</option><option>SELL</option>
-            </select>
-          </Field>
-          {(['entry', 'sl', 'tp1', 'tp2', 'lots'] as const).map(k => (
-            <Field key={k} label={k === 'entry' ? 'Entry' : k === 'sl' ? 'Stop loss' : k === 'lots' ? t('Lots (auto)', 'Lots (auto)', 'اللوت (تلقائي)') : k.toUpperCase()}>
-              <input inputMode="decimal" value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} placeholder={k === 'entry' && priceOf(form.symbol) ? String(priceOf(form.symbol)) : ''} className={inputCls(isLight)} />
-            </Field>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
-          <span className="text-xs text-slate-500">
-            {preview ? t(`${preview.lots.toFixed(2)} lot · risk ${fmtMoney(preview.risk)} (${user.riskPct}% of ${fmtMoney(user.capital)})`, `${preview.lots.toFixed(2)} lot · risque ${fmtMoney(preview.risk)}`, `${preview.lots.toFixed(2)} لوت · مخاطرة ${fmtMoney(preview.risk)}`) : t('Lot size is computed from your capital and risk when left empty.', 'Le lot est calculé depuis votre capital et risque si vide.', 'يحسب اللوت من رأس مالك ونسبة المخاطرة إذا ترك فارغاً.')}
+      {blocked && (
+        <Notice kind="error">
+          <span className="inline-flex items-center gap-1.5"><OctagonAlert className="w-3.5 h-3.5" />
+            {t(`Daily loss limit reached (${fmtMoney(stats!.today.pnl)} / -${fmtMoney(stats!.today.limit)}). No more trades today.`,
+              `Perte journalière max atteinte (${fmtMoney(stats!.today.pnl)} / -${fmtMoney(stats!.today.limit)}). Plus de trades aujourd'hui.`,
+              `وصلتي للخسارة اليومية القصوى (${fmtMoney(stats!.today.pnl)} / -${fmtMoney(stats!.today.limit)}). ما كاين حتى صفقة اليوم.`)}
           </span>
-          <Button disabled={busy || !num(form.entry) || !num(form.sl)} onClick={() => run(async () => {
-            await apiJson('/api/trades', { method: 'POST', body: JSON.stringify({ symbol: form.symbol, direction: form.direction, entry: num(form.entry), sl: num(form.sl), tp1: num(form.tp1), tp2: num(form.tp2), lots: num(form.lots), signalId: form.signalId || undefined }) });
-            setForm(EMPTY);
-            await load();
-            return t('Trade recorded', 'Trade enregistré', 'تم تسجيل الصفقة');
-          })}>{t('Add trade', 'Ajouter', 'إضافة')}</Button>
-        </div>
-      </Card>
+        </Notice>
+      )}
+
+      {!blocked && (
+        <Card isLight={isLight} icon={<Zap className="w-4 h-4" />} title={t('Live signals', 'Signaux en cours', 'الإشارات الحالية')}>
+          {!live.length ? (
+            <p className="text-xs text-slate-500">{t('No live signal right now. When a strategy gives a signal it appears here: enter the lot you took and it goes into your history.',
+              "Aucun signal en cours. Quand une stratégie donne un signal, il apparaît ici : indiquez le lot pris et il entre dans votre historique.",
+              'لا توجد إشارة حالياً. ملي تطلع صفقة كتبان هنا: دخل اللوت لي دخلتي بيه وكتمشي للسجل ديالك.')}</p>
+          ) : (
+            <div className="space-y-2">
+              {live.map(s => {
+                const lot = signalLots[s.id] ?? '';
+                return (
+                  <div key={s.id} className={`flex flex-wrap items-end justify-between gap-3 rounded-xl border p-3 ${isLight ? 'border-paper-line' : 'border-line'}`}>
+                    <div className="text-xs">
+                      <div className={`font-semibold ${s.signalType === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`}>{s.signalType} {s.entryType} · {s.symbol}</div>
+                      <div className="font-mono text-slate-400">Entry {s.entryPrice} · SL {s.stopLoss} · TP1 {s.target1} · TP2 {s.target2} · score {s.confidence}</div>
+                    </div>
+                    {takenSignalIds.has(s.id) ? <span className="text-xs text-gold-500">{t('In your trades', 'Dans vos trades', 'مسجلة في صفقاتك')}</span> : (
+                      <div className="flex items-end gap-2">
+                        <Field label={t('Lot I took', 'Lot pris', 'اللوت لي دخلت بيه')}>
+                          <input inputMode="decimal" value={lot} placeholder="0.10" onChange={e => setSignalLots({ ...signalLots, [s.id]: e.target.value })} className={`${inputCls(isLight)} w-24`} />
+                        </Field>
+                        <Button disabled={busy || !(Number(lot) > 0)} onClick={() => addTrade({
+                          symbol: s.symbol, direction: s.signalType, entry: s.entryPrice, sl: s.stopLoss, tp1: s.target1, tp2: s.target2, tp3: s.target3,
+                          lots: Number(lot), signalId: s.id,
+                        }, t('Trade recorded: its result follows the signal automatically.', 'Trade enregistré : son résultat suit le signal automatiquement.', 'تم تسجيل الصفقة: النتيجة كتتبع الإشارة أوتوماتيكياً.'))}>
+                          <Target className="w-3.5 h-3.5" />{t('I took it', "Je l'ai pris", 'دخلت الصفقة')}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {!blocked && (
+        <Card isLight={isLight} icon={<Plus className="w-4 h-4" />} title={t('Record another trade', 'Enregistrer un autre trade', 'تسجيل صفقة أخرى')}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+            <Field label={t('Pair', 'Paire', 'الزوج')}>
+              <select value={form.symbol} onChange={e => setForm({ ...form, symbol: e.target.value })} className={inputCls(isLight)}><option>XAU/USD</option><option>EUR/USD</option></select>
+            </Field>
+            <Field label={t('Side', 'Sens', 'الاتجاه')}>
+              <select value={form.direction} onChange={e => setForm({ ...form, direction: e.target.value as 'BUY' | 'SELL' })} className={inputCls(isLight)}><option>BUY</option><option>SELL</option></select>
+            </Field>
+            {(['entry', 'sl', 'tp1', 'tp2', 'lots'] as const).map(k => (
+              <Field key={k} label={k === 'entry' ? 'Entry' : k === 'sl' ? 'Stop loss' : k === 'lots' ? t('Lot taken', 'Lot pris', 'اللوت') : k.toUpperCase()}>
+                <input inputMode="decimal" value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })} placeholder={k === 'entry' && priceOf(form.symbol) ? String(priceOf(form.symbol)) : ''} className={inputCls(isLight)} />
+              </Field>
+            ))}
+          </div>
+          <div className="flex justify-end mt-3">
+            <Button disabled={busy || !num(form.entry) || !num(form.sl) || !(Number(form.lots) > 0)} onClick={async () => {
+              await addTrade({ symbol: form.symbol, direction: form.direction, entry: num(form.entry), sl: num(form.sl), tp1: num(form.tp1), tp2: num(form.tp2), lots: num(form.lots) },
+                t('Trade recorded', 'Trade enregistré', 'تم تسجيل الصفقة'));
+              setForm(EMPTY);
+            }}>{t('Add trade', 'Ajouter', 'إضافة')}</Button>
+          </div>
+        </Card>
+      )}
 
       <Card isLight={isLight} icon={<Target className="w-4 h-4" />} title={`${t('Open trades', 'Trades ouverts', 'الصفقات المفتوحة')} (${open.length})`}>
         {!open.length ? <p className="text-xs text-slate-500">{t('No open trade.', 'Aucun trade ouvert.', 'لا توجد صفقات مفتوحة.')}</p> : (
           <div className="overflow-x-auto"><table className="w-full text-xs tabular-nums">
-            {head([t('Opened', 'Ouvert', 'الفتح'), t('Pair', 'Paire', 'الزوج'), t('Side', 'Sens', 'الاتجاه'), 'Entry', 'SL', 'TP2', 'Lots', t('Risk', 'Risque', 'المخاطرة'), t('Exit price', 'Prix de sortie', 'سعر الخروج'), ''])}
+            <thead className="text-slate-500 text-left"><tr>
+              {[t('Opened', 'Ouvert', 'الفتح'), t('Pair', 'Paire', 'الزوج'), t('Side', 'Sens', 'الاتجاه'), 'Entry', 'SL', 'TP2', 'Lot', t('At stop', 'Au stop', 'عند الوقف'), t('Exit price', 'Prix de sortie', 'سعر الخروج'), '']
+                .map(h => <th key={h} className="px-1.5 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
+            </tr></thead>
             <tbody>
               {open.map(x => (
                 <tr key={x.id} className={rowCls}>
                   <td className="px-1.5 py-1.5 font-mono whitespace-nowrap">{fmtDate(x.openedAt)}</td>
-                  <td className="px-1.5 py-1.5">{x.symbol}{x.signalId && <span className="ms-1 text-gold-500" title={t('Tracked automatically from the strategy signal', 'Suivi automatique du signal', 'متابعة تلقائية من الإشارة')}>●</span>}</td>
+                  <td className="px-1.5 py-1.5">{x.symbol}{x.signalId && <span className="ms-1 text-gold-500" title={t('Closed automatically with the signal', 'Clôturé automatiquement avec le signal', 'كيتسد أوتوماتيكياً مع الإشارة')}>●</span>}</td>
                   <td className={`px-1.5 py-1.5 font-semibold ${x.direction === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`}>{x.direction}</td>
                   <td className="px-1.5 py-1.5 font-mono">{x.entry}</td>
                   <td className="px-1.5 py-1.5 font-mono">{x.breakeven ? <span className="text-gold-500">BE</span> : x.sl}</td>
                   <td className="px-1.5 py-1.5 font-mono">{x.tp2 ?? '—'}</td>
                   <td className="px-1.5 py-1.5 font-mono">{x.lots}</td>
-                  <td className="px-1.5 py-1.5 font-mono">{fmtMoney(x.riskAmount)}</td>
+                  <td className="px-1.5 py-1.5 font-mono text-rose-500">-{fmtMoney(x.riskAmount)}</td>
                   <td className="px-1.5 py-1.5"><input inputMode="decimal" aria-label="exit price" value={exitPrices[x.id] ?? ''} placeholder={String(priceOf(x.symbol) ?? '')}
                     onChange={e => setExitPrices({ ...exitPrices, [x.id]: e.target.value })} className={`${inputCls(isLight)} w-24 py-1`} /></td>
                   <td className="px-1.5 py-1.5 whitespace-nowrap space-x-1">
                     <Button className="py-1" disabled={busy} onClick={() => run(async () => {
-                      const exit = Number(exitPrices[x.id] || priceOf(x.symbol));
-                      await apiJson(`/api/trades/${x.id}/close`, { method: 'POST', body: JSON.stringify({ exitPrice: exit }) });
+                      await apiJson(`/api/trades/${x.id}/close`, { method: 'POST', body: JSON.stringify({ exitPrice: Number(exitPrices[x.id] || priceOf(x.symbol)) }) });
                       await load();
                     })}>{t('Close', 'Clôturer', 'إغلاق')}</Button>
                     {!x.breakeven && <Button variant="ghost" className="py-1" disabled={busy} onClick={() => run(async () => { await apiJson(`/api/trades/${x.id}/breakeven`, { method: 'POST' }); await load(); })}>BE</Button>}
@@ -207,90 +289,8 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
       </Card>
 
       <Card isLight={isLight} icon={<History className="w-4 h-4" />} title={`${t('History', 'Historique', 'السجل')} (${closed.length})`}>
-        {!closed.length ? <p className="text-xs text-slate-500">{t('Closed trades appear here.', 'Les trades clôturés apparaissent ici.', 'تظهر الصفقات المغلقة هنا.')}</p> : (
-          <div className="overflow-x-auto"><table className="w-full text-xs tabular-nums">
-            {head([t('Closed', 'Clôturé', 'الإغلاق'), t('Pair', 'Paire', 'الزوج'), t('Side', 'Sens', 'الاتجاه'), 'Entry', t('Exit', 'Sortie', 'الخروج'), 'Lots', t('Result', 'Résultat', 'النتيجة'), 'R', 'P&L'])}
-            <tbody>
-              {closed.map(x => (
-                <tr key={x.id} className={rowCls}>
-                  <td className="px-1.5 py-1.5 font-mono whitespace-nowrap">{fmtDate(x.closedAt)}</td>
-                  <td className="px-1.5 py-1.5">{x.symbol}</td>
-                  <td className={`px-1.5 py-1.5 font-semibold ${x.direction === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`}>{x.direction}</td>
-                  <td className="px-1.5 py-1.5 font-mono">{x.entry}</td>
-                  <td className="px-1.5 py-1.5 font-mono">{x.exitPrice ?? '—'}</td>
-                  <td className="px-1.5 py-1.5 font-mono">{x.lots}</td>
-                  <td className={`px-1.5 py-1.5 font-semibold ${resultTone(x.result)}`}>{x.result}</td>
-                  <td className={`px-1.5 py-1.5 font-mono ${resultTone(x.result)}`}>{fmtR(x.rMultiple)}</td>
-                  <td className={`px-1.5 py-1.5 font-mono ${resultTone(x.result)}`}>{fmtMoney(x.pnl)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table></div>
-        )}
+        <TradesTable isLight={isLight} lang={lang} trades={closed} />
       </Card>
-
-      {isAdmin && (
-        <>
-          <Card isLight={isLight} icon={<Users className="w-4 h-4" />} title={`${t('Users', 'Utilisateurs', 'المستخدمون')} (${users.length})`}>
-            <div className="overflow-x-auto mb-3"><table className="w-full text-xs tabular-nums">
-              {head([t('User', 'Utilisateur', 'المستخدم'), t('Role', 'Rôle', 'الدور'), t('Capital', 'Capital', 'رأس المال'), t('Trades', 'Trades', 'الصفقات'), t('Win rate', 'Réussite', 'النجاح'), 'P&L', t('Last login', 'Dernière connexion', 'آخر دخول'), ''])}
-              <tbody>
-                {users.map(u => (
-                  <tr key={u.id} className={`${rowCls} ${u.active === false ? 'opacity-40' : ''}`}>
-                    <td className="px-1.5 py-1.5 font-semibold">{u.username}</td>
-                    <td className="px-1.5 py-1.5">{u.role}</td>
-                    <td className="px-1.5 py-1.5 font-mono">{fmtMoney(u.stats.currentCapital)}</td>
-                    <td className="px-1.5 py-1.5 font-mono">{u.stats.total} ({u.stats.open})</td>
-                    <td className="px-1.5 py-1.5 font-mono">{fmtPct(u.stats.winRate)}</td>
-                    <td className={`px-1.5 py-1.5 font-mono ${u.stats.totalPnl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtMoney(u.stats.totalPnl)}</td>
-                    <td className="px-1.5 py-1.5 font-mono">{fmtDate(u.lastLoginAt)}</td>
-                    <td className="px-1.5 py-1.5 whitespace-nowrap">
-                      {u.id !== user.id && (
-                        <Button variant="ghost" className="py-1" disabled={busy} onClick={() => run(async () => { await apiJson(`/api/users/${u.id}`, { method: 'PATCH', body: JSON.stringify({ active: u.active === false }) }); await load(); })}>
-                          {u.active === false ? t('Enable', 'Activer', 'تفعيل') : t('Disable', 'Désactiver', 'تعطيل')}
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table></div>
-            <div className="flex flex-wrap items-end gap-2">
-              <Field label={t('Username', "Nom d'utilisateur", 'اسم المستخدم')}><input value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} className={inputCls(isLight)} /></Field>
-              <Field label={t('Access code (min 6)', "Code d'accès (min 6)", 'رمز الدخول (6 على الأقل)')}><input value={newUser.accessCode} onChange={e => setNewUser({ ...newUser, accessCode: e.target.value })} className={inputCls(isLight)} /></Field>
-              <Field label={t('Capital ($)', 'Capital ($)', 'رأس المال')}><input inputMode="decimal" value={newUser.capital} onChange={e => setNewUser({ ...newUser, capital: e.target.value })} className={inputCls(isLight)} /></Field>
-              <Field label={t('Role', 'Rôle', 'الدور')}>
-                <select value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} className={inputCls(isLight)}><option value="user">user</option><option value="admin">admin</option></select>
-              </Field>
-              <Button disabled={busy || newUser.username.length < 2 || newUser.accessCode.length < 6} onClick={() => run(async () => {
-                await apiJson('/api/users', { method: 'POST', body: JSON.stringify({ ...newUser, capital: Number(newUser.capital) }) });
-                setNewUser({ username: '', accessCode: '', role: 'user', capital: '1000' });
-                await load();
-                return t('User created', 'Utilisateur créé', 'تم إنشاء المستخدم');
-              })}><UserPlus className="w-3.5 h-3.5" />{t('Create', 'Créer', 'إنشاء')}</Button>
-            </div>
-          </Card>
-
-          {appSettings && (
-            <Card isLight={isLight} icon={<Settings2 className="w-4 h-4" />} title={t('App parameters', "Paramètres de l'app", 'إعدادات التطبيق')}>
-              <div className="flex flex-wrap items-end gap-2">
-                <Field label={t('App name', "Nom de l'app", 'اسم التطبيق')}><input value={appSettings.app.appName} onChange={e => setAppSettings({ ...appSettings, app: { ...appSettings.app, appName: e.target.value } })} className={inputCls(isLight)} /></Field>
-                <Field label={t('Default language', 'Langue par défaut', 'اللغة الافتراضية')}>
-                  <select value={appSettings.app.defaultLanguage} onChange={e => setAppSettings({ ...appSettings, app: { ...appSettings.app, defaultLanguage: e.target.value } })} className={inputCls(isLight)}>
-                    <option value="fr">Français</option><option value="en">English</option><option value="ar">العربية</option>
-                  </select>
-                </Field>
-                <Field label={t('Default capital for new users', 'Capital par défaut', 'رأس المال الافتراضي')}><input inputMode="decimal" value={appSettings.risk.defaultCapital} onChange={e => setAppSettings({ ...appSettings, risk: { ...appSettings.risk, defaultCapital: Number(e.target.value) } })} className={inputCls(isLight)} /></Field>
-                <Field label={t('Default risk %', 'Risque par défaut %', 'المخاطرة الافتراضية %')}><input inputMode="decimal" value={appSettings.risk.defaultRiskPct} onChange={e => setAppSettings({ ...appSettings, risk: { ...appSettings.risk, defaultRiskPct: Number(e.target.value) } })} className={inputCls(isLight)} /></Field>
-                <Button disabled={busy} onClick={() => run(async () => {
-                  setAppSettings(await apiJson('/api/settings', { method: 'PUT', body: JSON.stringify(appSettings) }));
-                  return t('Saved', 'Enregistré', 'تم الحفظ');
-                })}><ShieldCheck className="w-3.5 h-3.5" />{t('Save', 'Enregistrer', 'حفظ')}</Button>
-              </div>
-            </Card>
-          )}
-        </>
-      )}
     </div>
   );
 };

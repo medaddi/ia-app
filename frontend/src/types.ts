@@ -120,6 +120,7 @@ export interface MastersTradingVerification {
 }
 
 export interface AISignal {
+  entryType?: "LIMIT" | "MARKET";
   id: string;
   symbol: string;
   assetName: string;

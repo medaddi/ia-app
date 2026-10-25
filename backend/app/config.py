@@ -25,10 +25,16 @@ def _bool(name: str, default: bool) -> bool:
     return default if v is None else v.strip().lower() in ("1", "true", "yes", "on")
 
 
+# Vercel runs the API as short-lived functions: no background loops, only /tmp is writable
+ON_VERCEL = bool(os.environ.get("VERCEL"))
+
+
 class Settings:
-    data_dir: str = os.environ.get("DATA_DIR", str(BACKEND_DIR / "data"))
-    # SQLite file locally; set DATABASE_URL to a Postgres URL (Neon / Supabase) in production
-    database_url: str = os.environ.get("DATABASE_URL", "")
+    on_vercel: bool = ON_VERCEL
+    data_dir: str = os.environ.get("DATA_DIR", "/tmp/exunu" if ON_VERCEL else str(BACKEND_DIR / "data"))
+    # SQLite file locally; set DATABASE_URL to a Postgres URL (Neon / Supabase) in production.
+    # The Vercel Neon integration names it POSTGRES_URL.
+    database_url: str = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL", "")
     cors_origins: list[str] = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",") if o.strip()]
     admin_username: str = os.environ.get("ADMIN_USERNAME", "admin")
     admin_access_code: str = os.environ.get("ADMIN_ACCESS_CODE", "")
@@ -37,8 +43,12 @@ class Settings:
     telegram_chat_id: str = os.environ.get("TELEGRAM_CHAT_ID", "")
     gemini_api_key: str = os.environ.get("GEMINI_API_KEY", "")
     gemini_model: str = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-    scheduler_enabled: bool = _bool("SCHEDULER_ENABLED", True)
-    telegram_polling: bool = _bool("TELEGRAM_POLLING", True)
+    # Always-on server: in-process candle-close scheduler and Telegram long polling.
+    # Serverless (Vercel): an external pinger calls /api/cron/tick and Telegram uses a webhook instead.
+    scheduler_enabled: bool = _bool("SCHEDULER_ENABLED", not ON_VERCEL)
+    telegram_polling: bool = _bool("TELEGRAM_POLLING", not ON_VERCEL)
+    cron_secret: str = os.environ.get("CRON_SECRET", "")
+    telegram_webhook_secret: str = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 
     @property
     def db_url(self) -> str:

@@ -105,16 +105,6 @@ export const ToolsSidebarDrawer: React.FC<ToolsSidebarDrawerProps> = ({
       icon: Trophy,
     },
     {
-      id: 'risk',
-      labelAr: 'إدارة المخاطر (Risk Management)',
-      labelFr: 'Gestion du Risque (1%)',
-      labelEn: 'Risk Management',
-      descAr: 'حساب اللوت الدقيق وقاعدة 1% لحماية رأس المال',
-      descFr: 'Calculateur de lot & règle stricte de 1%',
-      descEn: 'Lot size calculator & 1% portfolio risk protection',
-      icon: Calculator,
-    },
-    {
       id: 'telegram',
       labelAr: 'إعدادات تيليجرام (Telegram)',
       labelFr: 'Configuration Telegram',

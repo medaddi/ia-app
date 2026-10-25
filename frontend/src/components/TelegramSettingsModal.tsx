@@ -17,7 +17,7 @@ interface Config {
 }
 interface LogRow { id: string; type: string; title: string; details: string; sentAt: string; status: string; error?: string | null }
 interface Code { code: string; label: string; durationHours: number; multiUse: boolean; usedCount: number; revoked: boolean; createdAt: string }
-interface Sub { chatId: string; firstName: string; code: string | null; expiresAt: string | null; active: boolean; capital: number; riskPct: number }
+interface Sub { chatId: string; firstName: string; code: string | null; expiresAt: string | null; active: boolean }
 
 const ASSETS = ['XAU/USD', 'EUR/USD'];
 const DURATIONS = [{ h: 24, l: '1 d' }, { h: 168, l: '7 d' }, { h: 720, l: '30 d' }, { h: 2160, l: '90 d' }, { h: 8760, l: '1 y' }];
@@ -191,7 +191,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
                 {subs.map(s => (
                   <div key={s.chatId} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isLight ? 'border-paper-line' : 'border-line'}`}>
                     <span className={s.active ? 'text-emerald-500' : 'text-slate-500'}>{s.firstName || s.chatId}</span>
-                    <span className="text-slate-500">{s.active ? `→ ${fmtDate(s.expiresAt).slice(0, 10)}` : t('expired', 'expiré', 'منتهي')} · ${s.capital}</span>
+                    <span className="text-slate-500">{s.active ? `→ ${fmtDate(s.expiresAt).slice(0, 10)}` : t('expired', 'expiré', 'منتهي')}</span>
                     <button aria-label="remove" onClick={() => run(async () => { await apiJson(`/api/telegram/subscribers/${s.chatId}`, { method: 'DELETE' }); await load(); })} className="text-slate-500 hover:text-rose-500 cursor-pointer"><Trash2 className="w-3 h-3" /></button>
                   </div>
                 ))}

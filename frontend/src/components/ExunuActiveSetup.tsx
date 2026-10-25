@@ -19,14 +19,12 @@ const ORDER: Record<string, string> = {
   PENDING: 'Order pending', OPEN: 'In trade', TP1_HIT: 'TP1 hit · stop at breakeven', TP2_HIT: 'TP2 hit · runner open',
   CLOSED: 'Closed', CANCELLED: 'Cancelled (TP1 before fill)', EXPIRED: 'Expired (not filled)',
 };
-const CAPITALS = ['500$', '1000$', '5000$', '10000$'] as const;
 
 /** Side panel: bias, setup checklist (✔/✘), confluence score, levels and the reason for entry or rejection. */
 export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, result, explanation }) => {
   const [copied, setCopied] = useState(false);
   const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [sendMsg, setSendMsg] = useState('');
-  const [capital, setCapital] = useState<(typeof CAPITALS)[number]>('1000$');
 
   if (!result) {
     return <div className="p-6 bg-surface border border-line rounded-[var(--radius-card)] min-h-[320px] flex items-center justify-center text-sm text-slate-400">Loading strategy…</div>;
@@ -101,7 +99,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
             { l: 'TP1 · 1R · close 50%', v: f(s.tp1), sub: 'then stop to breakeven', tone: 'text-emerald-300' },
             { l: `TP2 · 1:${s.rrTp2.toFixed(1)}`, v: f(s.tp2), sub: s.tp2Source, tone: 'text-emerald-300' },
             { l: 'TP3', v: f(s.tp3), sub: s.tp3Source, tone: 'text-emerald-300' },
-            { l: 'Lot at 1% risk', v: `${s.lots[capital] ?? 0}`, sub: `account ${capital}`, tone: 'text-white' },
+            { l: 'Stop distance', v: f(s.slDistance), sub: `${s.slPips} pips`, tone: 'text-white' },
           ].map(x => (
             <div key={x.l} className="bg-surface p-3 min-w-0">
               <div className="text-xs text-slate-500 truncate">{x.l}</div>
@@ -111,15 +109,6 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
           ))}
         </div>
       )}
-      {s && (
-        <div role="radiogroup" aria-label="Account size" className="px-4 pt-3 grid grid-cols-4 gap-1.5">
-          {CAPITALS.map(c => (
-            <button key={c} role="radio" aria-checked={capital === c} onClick={() => setCapital(c)}
-              className={`h-8 rounded-md font-mono text-xs border transition-colors ${capital === c ? 'border-gold-500/50 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-slate-200'}`}>{c}</button>
-          ))}
-        </div>
-      )}
-
       {/* Checklist */}
       <div className="p-4 border-b border-line">
         <h4 className="text-xs font-semibold text-slate-300 mb-2">Setup checklist</h4>
