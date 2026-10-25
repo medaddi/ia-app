@@ -14,23 +14,35 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api import account, market, settings as settings_api, strategy
 from .auth import ensure_admin
 from .config import settings
-from .db import SessionLocal, init_db
+from .db import SessionLocal, engine, init_db
 from .telegram import scheduler
 from .telegram.bot import poll_forever
 
 STARTED = time.time()
+_ready = False
+
+
+def _prepare() -> None:
+    """Creates the tables and the first admin (idempotent)."""
+    global _ready
+    if _ready:
+        return
+    init_db()
+    with SessionLocal() as db:
+        ensure_admin(db)
+    _ready = True
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_db()
-    with SessionLocal() as db:
-        ensure_admin(db)
+    _prepare()
     stop = asyncio.Event()
     tasks: list[asyncio.Task] = []
     if settings.scheduler_enabled:
@@ -55,6 +67,14 @@ for r in (account.router, market.router, strategy.router, settings_api.router):
     app.include_router(r)
 
 
+@app.middleware("http")
+async def ensure_prepared(request: Request, call_next):
+    # Serverless hosts do not always run the lifespan startup: prepare on the first request instead
+    if not _ready:
+        await asyncio.to_thread(_prepare)
+    return await call_next(request)
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_error(_: Request, exc: StarletteHTTPException):
     msg = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
@@ -70,8 +90,14 @@ async def validation_error(_: Request, exc: RequestValidationError):
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
-    """Also the keep-alive target for an uptime pinger (Render free sleeps after 15 min idle)."""
-    return {"status": "ok", "uptimeSeconds": int(time.time() - STARTED), "scheduler": settings.scheduler_enabled, "telegramPolling": settings.telegram_polling}
+    """Database-aware health check and keep-alive target."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return JSONResponse({"status": "error", "database": "unavailable"}, status_code=503)
+    return {"status": "ok", "database": "ok", "uptimeSeconds": int(time.time() - STARTED),
+            "scheduler": settings.scheduler_enabled, "telegramPolling": settings.telegram_polling}
 
 
 @app.api_route("/api/cron/tick", methods=["GET", "POST"])

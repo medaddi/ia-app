@@ -9,7 +9,9 @@ This repository deploys as two Vercel projects that share the same Git repositor
 
 ## 1. Create a persistent database
 
-Create a PostgreSQL database with Neon, Supabase, or another hosted provider. Copy its pooled or direct connection URL and add it to the **backend** Vercel project as `DATABASE_URL` for Production. Vercel's function filesystem is temporary, so do not use SQLite for deployed data.
+In Vercel, open the **backend project → Storage/Marketplace → Neon → Install**, select the Free plan if available, choose a nearby region, and connect the database to the backend project. Marketplace integrations can inject their connection variables into the project. The backend reads `DATABASE_URL` or `POSTGRES_URL`; use a pooled connection URL for serverless traffic (Neon URLs with `-pooler` and `sslmode=require`). If no variable was injected, add the pooled connection string as `DATABASE_URL` in the backend project's Production environment, then redeploy. Vercel's function filesystem is temporary, so do not use SQLite for deployed data.
+
+The app creates its tables from `backend/app/models.py` on first startup and safely serializes schema setup if Vercel starts multiple functions at once. Do not import the root `database_schema.sql`: it is a legacy MySQL schema from an older version and does not match this backend. The local `backend/data/exunu.db` is not uploaded or migrated automatically.
 
 ## 2. Configure and deploy the backend
 
@@ -27,9 +29,9 @@ Add these Production environment variables to the backend project:
 | `SCHEDULER_ENABLED` | `false` |
 | `TELEGRAM_POLLING` | `false` |
 
-Use `https://ia-app-tawny.vercel.app` as the Production Domain. On the first start against an empty database, the app creates the admin account from `ADMIN_USERNAME` and `ADMIN_ACCESS_CODE`. Existing accounts are kept; changing the environment variable does not reset an existing admin password.
+Use `https://ia-app-tawny.vercel.app` as the Production Domain. On an empty database, the app creates the admin account from `ADMIN_USERNAME` and `ADMIN_ACCESS_CODE`. If the configured admin row already exists with an older password hash, signing in with `admin1234` updates that row's stored hash.
 
-After deploying, `https://ia-app-tawny.vercel.app/api/health` should return JSON with `"status":"ok"`.
+After deploying, `https://ia-app-tawny.vercel.app/api/health` should return JSON with `"status":"ok"` and `"database":"ok"`. This confirms the API can reach PostgreSQL. To confirm writes persist, create a test user or trade in the app, reload it, and confirm the record remains.
 
 ## 3. Configure and deploy the frontend
 

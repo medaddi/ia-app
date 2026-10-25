@@ -142,7 +142,7 @@ export function LoginScreen({ onLoginSuccess, lang, theme }: LoginScreenProps) {
                   value={accessCode}
                   onChange={(e) => setAccessCode(e.target.value)}
                   placeholder="••••••••"
-                  className={`w-full px-4 py-3.5 rounded-xl text-sm font-mono font-bold tracking-wider uppercase border outline-none transition focus:ring-2 focus:ring-gold-500/40 ${
+                  className={`w-full px-4 py-3.5 rounded-xl text-sm font-mono font-bold tracking-wider border outline-none transition focus:ring-2 focus:ring-gold-500/40 ${
                     isLight
                       ? 'bg-paper border-paper-line-2 text-ink-strong focus:bg-white focus:border-gold-500'
                       : 'bg-surface-2 border-line-2 text-white placeholder:text-slate-600 focus:border-gold-500'
