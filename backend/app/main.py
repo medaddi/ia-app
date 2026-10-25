@@ -42,7 +42,8 @@ def _prepare() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    _prepare()
+    if not settings.database_missing:
+        _prepare()
     stop = asyncio.Event()
     tasks: list[asyncio.Task] = []
     if settings.scheduler_enabled:
@@ -69,6 +70,10 @@ for r in (account.router, market.router, strategy.router, settings_api.router):
 
 @app.middleware("http")
 async def ensure_prepared(request: Request, call_next):
+    if settings.database_missing:
+        msg = ("No database configured: connect a Neon/Postgres database to this Vercel project "
+               "(Storage → Neon) or set DATABASE_URL for Production, then redeploy.")
+        return JSONResponse({"success": False, "status": "error", "database": "missing", "error": msg, "detail": msg}, status_code=503)
     # Serverless hosts do not always run the lifespan startup: prepare on the first request instead
     if not _ready:
         await asyncio.to_thread(_prepare)

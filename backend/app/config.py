@@ -53,11 +53,15 @@ class Settings:
     telegram_webhook_url: str = os.environ.get("TELEGRAM_WEBHOOK_URL", "")
 
     @property
+    def database_missing(self) -> bool:
+        return self.on_vercel and not self.database_url
+
+    @property
     def db_url(self) -> str:
         url = self.database_url
         if not url:
-            if self.on_vercel:
-                raise RuntimeError("Set DATABASE_URL (or POSTGRES_URL) to a persistent PostgreSQL database on Vercel")
+            # On Vercel the app still starts (so it can explain the problem), but every request answers 503
+            # until a persistent database is connected: see main.ensure_prepared
             Path(self.data_dir).mkdir(parents=True, exist_ok=True)
             return f"sqlite:///{Path(self.data_dir) / 'exunu.db'}"
         # Render / Heroku style URLs
