@@ -5,15 +5,19 @@ import copy
 from sqlalchemy.orm import Session
 
 from .config import settings as env
+from .strategies.alexg.config import ALEXG_CONFIGS
 from .models import Setting
 
 DEFAULTS: dict[str, dict] = {
     "app": {"appName": "LiquidityDissection", "defaultLanguage": "fr", "theme": "dark", "requireAuth": True},
     "telegram": {
-        "botToken": "", "chatId": "", "enabled": True, "minConfidence": 75, "assets": ["XAU/USD", "EUR/USD", "GBP/USD"],
+        "botToken": "", "chatId": "", "enabled": True, "minConfidence": 75, "assets": ["XAU/USD", *ALEXG_CONFIGS],
         "protectContent": True, "personalOffsets": True,
     },
 }
+
+
+OLD_DEFAULT_ASSETS = [["EUR/USD", "XAU/USD"], ["EUR/USD", "GBP/USD", "XAU/USD"]]
 
 
 def get_setting(db: Session, key: str) -> dict:
@@ -25,6 +29,9 @@ def get_setting(db: Session, key: str) -> dict:
         # Environment variables win when the database has no value
         value["botToken"] = value.get("botToken") or env.telegram_bot_token
         value["chatId"] = value.get("chatId") or env.telegram_chat_id
+        # A list saved before the FXAlexG pairs existed = "every instrument": send the new pairs too
+        if sorted(value.get("assets") or []) in OLD_DEFAULT_ASSETS:
+            value["assets"] = list(DEFAULTS["telegram"]["assets"])
     return value
 
 

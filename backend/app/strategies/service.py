@@ -1,7 +1,7 @@
 """
 Strategy service: the app's strategies, one per instrument.
   XAUUSD → H1 Trend Breakout (trend, breakout and entry on H1)
-  EURUSD, GBPUSD → Trend Pullback + London Breakout Filter (bias D1/H4, zones H1, entry M15), same rules
+  Forex (EUR/USD, GBP/USD and the FXAlexG pairs) → FXAlexG Set & Forget Break & Retest (bias W1/D1, setup and entry H4), same rules
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
 """
@@ -10,53 +10,27 @@ import asyncio
 import time
 from typing import Optional
 
-from ..agent.explain import build_explanation
 from functools import partial
 
+from ..agent.explain import build_explanation
 from ..market.data import canonical, fetch_live_price, fetch_many, market_session_status
-from .eurusd.config import EUR_CONFIG
-from .eurusd.strategy import evaluate_eurusd
-from .gbpusd.config import GBP_CONFIG
+from .alexg.config import ALEXG_CONFIGS
+from .alexg.strategy import evaluate_alexg
 from .replay import ReplayState, StrategyDef, replay, stats_at
-from .shared.common import active_window
 from .shared.jsnum import fmt_utc_minute
 from .shared.news import load_news_calendar
-from .shared.sessions import in_local_window, trading_day_key, zoned_parts
-from .shared.structure import detect_swings
+from .shared.sessions import trading_day_key
 from .shared.types import TF_SEC, Candle, closed_only
+from .xauusd.config import XAU_CONFIG
 from .xauusd.strategy import evaluate_xauusd
 
 PROVIDER_TF = {"M5": "5M", "M15": "15M", "H1": "1H", "H4": "4H", "D1": "1D"}
 
 
-def _fx_can_signal(cfg: dict):
-    s = cfg["sessions"]
-    fc = s["fridayCutoff"]
-
-    def can(close: int) -> bool:
-        friday = zoned_parts(close - 1, fc["tz"]).weekday == 5 and not in_local_window(close - 1, fc["tz"], "00:00", fc["time"])
-        return not friday and active_window(close - 1, s["windows"]) is not None
-    return can
-
-
-def _fx_trail(cfg: dict):
-    def trail(entry: list[Candle], side: str):
-        swings = detect_swings(entry, cfg["structure"]["swingN"])
-        buf = cfg["risk"]["slBufferPips"] * cfg["spec"]["pipSize"]
-        buy = side == "BUY"
-        kind = "LOW" if buy else "HIGH"
-
-        # Runner trails behind the latest confirmed M15 swing; the lifecycle only moves the stop forward
-        def level(i: int) -> Optional[float]:
-            pts = [s for s in swings if s.kind == kind and s.confirmedIndex <= i]
-            return (pts[-1].price - buf if buy else pts[-1].price + buf) if pts else None
-        return level
-    return trail
-
-
 def _fx_def(cfg: dict) -> StrategyDef:
-    return StrategyDef(entryTf="M15", run=partial(evaluate_eurusd, cfg=cfg), tfs=["M15", "H1", "H4", "D1"],
-                       limits={"M15": 8000, "H1": 5000, "H4": 2000, "D1": 800}, canSignalAt=_fx_can_signal(cfg), trail=_fx_trail(cfg))
+    # Evaluated at every H4 close; D1 / W1 are built from H1 inside the strategy (same Yahoo request)
+    return StrategyDef(entryTf="H4", run=partial(evaluate_alexg, cfg=cfg), tfs=["H4", "H1"],
+                       limits={"H4": 3200, "H1": 12500}, canSignalAt=lambda close: True)
 
 
 STRATEGY_DEFS: dict[str, StrategyDef] = {
@@ -65,10 +39,9 @@ STRATEGY_DEFS: dict[str, StrategyDef] = {
         limits={"H1": 5000},
         canSignalAt=lambda close: True,  # every H1 close while the market is open
     ),
-    "EUR/USD": _fx_def(EUR_CONFIG),
-    "GBP/USD": _fx_def(GBP_CONFIG),
+    **{pair: _fx_def(cfg) for pair, cfg in ALEXG_CONFIGS.items()},
 }
-CONFIGS = {"XAU/USD": None, "EUR/USD": EUR_CONFIG, "GBP/USD": GBP_CONFIG}  # XAU config lives in xauusd.config
+CONFIGS = {"XAU/USD": XAU_CONFIG, **ALEXG_CONFIGS}
 
 
 def normalize_symbol(s: str) -> str:

@@ -4,10 +4,11 @@ import { Send, RefreshCw, Activity } from 'lucide-react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import type { ExunuSMCResult } from '../strategyTypes';
+import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, type InstrumentSymbol } from '../instruments';
 import type { StrategyResult } from '../strategyTypes';
 
 interface ExunuTerminalViewProps {
-  initialSymbol?: 'XAU/USD' | 'EUR/USD' | 'GBP/USD';
+  initialSymbol?: InstrumentSymbol;
   onOpenTelegram?: () => void;
   lang?: string;
 }
@@ -18,15 +19,14 @@ const REVIEW_AS_OF = (() => {
 })();
 const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
 
-const INSTRUMENTS = {
-  'XAU/USD': { label: 'Gold', entryTf: 'H1', timeframes: ['M15', 'H1', 'H4', 'D1'] },
-  'EUR/USD': { label: 'Euro / Dollar', entryTf: 'M15', timeframes: ['M15', 'H1', 'H4', 'D1'] },
-  'GBP/USD': { label: 'Pound / Dollar', entryTf: 'M15', timeframes: ['M15', 'H1', 'H4', 'D1'] },
-} as const;
+// Gold: H1 trend breakout · forex: FXAlexG break & retest on H4
+const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, {
+  label: INSTRUMENT_LABELS[s], entryTf: s === 'XAU/USD' ? 'H1' : 'H4', timeframes: ['M15', 'H1', 'H4', 'D1'],
+}])) as Record<InstrumentSymbol, { label: string; entryTf: string; timeframes: string[] }>;
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', H1: '1H', H4: '4H', D1: '1D' };
 
 export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onOpenTelegram, lang = 'en' }) => {
-  const [symbol, setSymbol] = useState<'XAU/USD' | 'EUR/USD' | 'GBP/USD'>(initialSymbol);
+  const [symbol, setSymbol] = useState<InstrumentSymbol>(initialSymbol);
   const [timeframe, setTimeframe] = useState<string>(INSTRUMENTS[initialSymbol].entryTf);
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
   const [bundle, setBundle] = useState<ExunuSMCResult | null>(null);
@@ -102,15 +102,15 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
       <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-4 py-3 bg-surface border border-line rounded-[var(--radius-card)]">
         <div className="flex items-center gap-3 min-w-0">
           <div className="hidden sm:block">
-            <div className="text-sm font-semibold tracking-wide text-white">EXUNU <span className="text-gold-300">Terminal</span></div>
+            <div className="text-sm font-semibold tracking-wide text-white">LiquidityDissection <span className="text-gold-300">Terminal</span></div>
             <div className="text-xs text-slate-500">{result?.strategyName ?? 'Loading…'}</div>
           </div>
-          <div role="tablist" aria-label="Instrument" className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5">
-            {(Object.keys(INSTRUMENTS) as ('XAU/USD' | 'EUR/USD' | 'GBP/USD')[]).map(id => (
+          <div role="tablist" aria-label="Instrument" className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5 overflow-x-auto max-w-full">
+            {INSTRUMENT_SYMBOLS.map(id => (
               <button key={id} role="tab" aria-selected={symbol === id}
                 onClick={() => { setSymbol(id); setTimeframe(INSTRUMENTS[id].entryTf); }}
-                className={`h-9 px-3 rounded-md text-xs font-medium transition-colors ${symbol === id ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>
-                <span className="font-mono">{id}</span><span className="hidden md:inline text-slate-500"> · {INSTRUMENTS[id].label}</span>
+                className={`h-9 px-3 shrink-0 rounded-md text-xs font-medium transition-colors ${symbol === id ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>
+                <span className="font-mono">{id}</span><span className="hidden 2xl:inline text-slate-500"> · {INSTRUMENTS[id].label}</span>
               </button>
             ))}
           </div>

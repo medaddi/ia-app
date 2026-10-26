@@ -1,3 +1,4 @@
+import type { InstrumentSymbol, StrategySymbol } from './instruments';
 /**
  * Shapes returned by the Python backend for the two strategies (backend/app/strategies).
  * The chart, the side panel and the agent all read this one result.
@@ -8,8 +9,8 @@ export type Side = "BUY" | "SELL";
 export type StrategyStatus = "SIGNAL" | "WATCH" | "IGNORE" | "NO_TRADE";
 
 export interface InstrumentSpec {
-  symbol: "XAUUSD" | "EURUSD" | "GBPUSD";
-  displaySymbol: "XAU/USD" | "EUR/USD" | "GBP/USD";
+  symbol: StrategySymbol;
+  displaySymbol: InstrumentSymbol;
   decimals: number;
   pipSize: number;
   contractSize: number;
@@ -29,7 +30,7 @@ export interface ChecklistItem {
 }
 
 export interface SignalJson {
-  symbol: "XAUUSD" | "EURUSD" | "GBPUSD";
+  symbol: StrategySymbol;
   strategy: string;
   setup: string;
   direction: Side;
@@ -141,7 +142,7 @@ export interface StrategyResult {
 
 export interface ExunuSMCResult {
   terminal: string;
-  symbol: "XAU/USD" | "EUR/USD" | "GBP/USD";
+  symbol: InstrumentSymbol;
   current_price: number;
   status: "CONFIRMED_ENTRY" | "WAITING_CONFIRMATION" | "NO_SETUP";
   action: "BUY" | "SELL" | "WAIT";

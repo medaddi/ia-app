@@ -109,3 +109,16 @@ def test_settings_and_telegram_config(client, admin):
     assert not client.post("/api/telegram/activation/apply", headers=admin, json={"chatId": "888", "code": codes[0]}).json()["success"]
     assert client.get("/api/telegram/subscribers", headers=admin).json()["subscribers"][0]["active"]
     assert client.post("/api/risk/calculate", json={}).status_code == 404  # removed
+
+
+def test_admin_code_change_is_final(client, admin):
+    """The starting admin code stops working once the admin sets a new one."""
+    from app.config import settings
+
+    client.post("/api/users", headers=admin, json={"username": "boss", "accessCode": "first-code-1", "role": "admin"})
+    me = login(client, "boss", "first-code-1")
+    assert client.put("/api/me", headers=me, json={"accessCode": "second-code-2"}).status_code == 200
+    assert client.post("/api/auth/login", json={"username": "boss", "accessCode": "first-code-1"}).status_code == 401
+    assert client.post("/api/auth/login", json={"username": "boss", "accessCode": "second-code-2"}).status_code == 200
+    # The default bootstrap code is not a master key
+    assert client.post("/api/auth/login", json={"username": settings.admin_username, "accessCode": "admin1234"}).status_code == 401

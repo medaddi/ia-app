@@ -1,8 +1,8 @@
-# LiquidityDissection — XAUUSD & EURUSD strategies, signals and trade journal
+# LiquidityDissection — gold & forex strategies, signals and trade journal
 
 > **Darija:** l'app daba fiha joj dossiers: `frontend/` (React, f Vercel) o `backend/` (Python FastAPI, f Render).
 > Backend fih: users (admin kaycree les comptes), trades li khditi b lot dyalek, l'historique, win rate o ch7al mn trade, daily loss limit dyal kol user,
-> o joj stratégies (Gold o EURUSD) li kaysifto signal l Telegram mni katsed la bougie. Kolchi bla flous (free tier).
+> o joj stratégies: Gold (H1 breakout) o forex b tari9at FXAlexG (break & retest, set & forget) 3la 8 dyal les paires, kaysifto signal l Telegram mni katsed la bougie. Kolchi bla flous (free tier).
 
 ```
 frontend/   React 19 + Vite + Tailwind + lightweight-charts   → Vercel (free)
@@ -28,7 +28,7 @@ docs/       STRATEGIES.md: the exact rules of both strategies
 
 Interactive docs: `http://localhost:8000/docs`.
 
-Signals: at every M5 (gold) / M15 (EURUSD) candle close the scheduler runs the strategy on fresh candles and,
+Signals: at every H1 (gold) / H4 (forex) candle close the scheduler runs the strategy on fresh candles and,
 only for a SIGNAL (score ≥ 75, every required rule passed), sends it to the activated Telegram subscribers with
 `protect_content`, a personal micro-offset and a reference code (anti copy-trading). In the app, each user enters
 the lot they took on the signal; the trade then closes automatically with the strategy's lifecycle, and once the

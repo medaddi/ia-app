@@ -3,7 +3,7 @@ Anti copy-trading protection for Telegram signals.
 
 1. protect_content: Telegram blocks forwarding, saving and copying of signal messages.
 2. Personal micro-offset: every subscriber gets the SAME trade shifted by a tiny, deterministic
-   amount (gold: 1–9 cents, EURUSD: 0.1–0.9 pip). Entry, SL and all TPs move together, so the
+   amount (gold: 1–9 cents, forex: 0.1–0.9 pip). Entry, SL and all TPs move together, so the
    stop distance, R:R and lot size are identical, but no two accounts send identical orders
    (brokers / prop firms flag identical copy trades).
 3. Personal reference code: printed on the message and logged with the offset, so a leaked
@@ -42,7 +42,7 @@ def reference_code(chat_id: str, signal_id: str) -> str:
 
 def personal_offset(symbol: str, chat_id: str, signal_id: str) -> float:
     """Signed offset in price units for this subscriber and this signal (never zero)."""
-    gold = "EUR" not in symbol
+    gold = "XAU" in symbol.upper()  # every other symbol is a forex pair (pips)
     h = hash32(f"off|{chat_id}|{signal_id}")
     ticks = 1 + h % MAX_OFFSET_TICKS
     sign = 1 if (h >> 16) & 1 else -1
@@ -54,7 +54,7 @@ def personalize_signal(signal: dict, chat_id: str, enabled: bool = True) -> tupl
     ref = reference_code(chat_id, str(signal["id"]))
     if not enabled:
         return signal, 0.0, ref
-    gold = "EUR" not in str(signal["symbol"])
+    gold = "XAU" in str(signal["symbol"]).upper()
     d = 2 if gold else 5
     offset = personal_offset(str(signal["symbol"]), chat_id, str(signal["id"]))
 

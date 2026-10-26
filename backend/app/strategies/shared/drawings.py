@@ -100,10 +100,13 @@ def trade_drawings(setup: dict, entry_tf: str, lot_text: str) -> list[dict]:
     lc = setup["lifecycle"]
     cancel = next((e for e in lc["events"] if e["type"] in ("CANCEL", "EXPIRE")), None)
     end = lc["exitTime"] if lc["fillTime"] is not None else cancel["time"] if cancel else setup["expiresAt"]
-    rr_text = f"1:{to_fixed(setup['rrTp2'], 1)}"
+    # Set & forget (no breakeven): the box runs to the single target TP3
+    single = setup.get("params", {}).get("breakeven", True) is False
+    goal, goal_name = (setup["tp3"], "TP") if single else (setup["tp2"], "TP2")
+    rr_text = f"1:{to_fixed(abs(goal - setup['entry']) / abs(setup['entry'] - setup['sl']), 1)}"
     s = js_str
     out = [
-        {"id": f"TR-TP-{sid}", "layer": "trade", "kind": "box", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "p2": setup["tp2"], "text": f"TP2 {s(setup['tp2'])} · {rr_text}", "color": "bull"},
+        {"id": f"TR-TP-{sid}", "layer": "trade", "kind": "box", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "p2": goal, "text": f"{goal_name} {s(goal)} · {rr_text}", "color": "bull"},
         {"id": f"TR-SL-{sid}", "layer": "trade", "kind": "box", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "p2": setup["sl"], "text": f"SL {s(setup['sl'])} · {s(setup['slPips'])}p" + (f" · {lot_text}" if lot_text else ""), "color": "bear"},
         {"id": f"TR-EN-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "text": f"Entry {s(setup['entry'])}", "color": "entry", "style": "solid"},
         {"id": f"TR-T1-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["tp1"], "text": f"TP1 {s(setup['tp1'])}", "color": "bull", "style": "dashed"},

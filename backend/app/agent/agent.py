@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 import httpx
 
 from ..config import settings
+from ..strategies.alexg.config import ALEXG_CONFIGS
 from ..strategies.shared.jsnum import finite, fmt_utc_minute, iso, js_str, round_to, to_fixed
 from .explain import build_explanation
 from .system_prompt import build_system_prompt
@@ -39,10 +40,19 @@ def symbols_from_question(text: str) -> list[str]:
     wanted = []
     if re.search(r"(xau|gold|dhab|dahab|ذهب|\bor\b)", t):
         wanted.append("XAUUSD")
-    if re.search(r"(eur|euro|يورو|اليورو)", t):
+    # Exact pairs first ("eurchf", "nzd/cad", "aud cad"), then the usual nicknames
+    for pair in ALEXG_CONFIGS:
+        a, b = pair.lower().split("/")
+        if re.search(rf"{a}\s*[/ _-]?\s*{b}", t):
+            wanted.append(pair.replace("/", ""))
+    if not any(w.startswith("EUR") for w in wanted) and re.search(r"(eur|euro|يورو|اليورو)", t):
         wanted.append("EURUSD")
-    if re.search(r"(gbp|cable|pound|sterling|livre|جنيه|الباوند|باوند|pound)", t):
+    if "GBPUSD" not in wanted and re.search(r"(gbp|cable|pound|sterling|livre|جنيه|الباوند|باوند)", t):
         wanted.append("GBPUSD")
+    if not any(w in ("USDCAD", "NZDCAD", "AUDCAD") for w in wanted) and re.search(r"(loonie|\bcad\b)", t):
+        wanted.append("USDCAD")
+    if not any(w.startswith("NZD") for w in wanted) and re.search(r"(kiwi|\bnzd\b)", t):
+        wanted.append("NZDUSD")
     return wanted or ["XAUUSD", "EURUSD", "GBPUSD"]
 
 

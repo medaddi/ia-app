@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { INSTRUMENT_SYMBOLS } from '../instruments';
 import { Bot, Check, Copy, KeyRound, Send, ShieldCheck, Trash2, Users, X, Zap } from 'lucide-react';
 import { apiJson } from '../api';
 import { Language } from '../types';
@@ -19,7 +20,7 @@ interface LogRow { id: string; type: string; title: string; details: string; sen
 interface Code { code: string; label: string; durationHours: number; multiUse: boolean; usedCount: number; revoked: boolean; createdAt: string }
 interface Sub { chatId: string; firstName: string; code: string | null; expiresAt: string | null; active: boolean }
 
-const ASSETS = ['XAU/USD', 'EUR/USD', 'GBP/USD'];
+const ASSETS: readonly string[] = INSTRUMENT_SYMBOLS;
 const DURATIONS = [{ h: 24, l: '1 d' }, { h: 168, l: '7 d' }, { h: 720, l: '30 d' }, { h: 2160, l: '90 d' }, { h: 8760, l: '1 y' }];
 
 /** Admin settings of the Telegram bot. The bot token is stored on the server only and never sent back to the browser. */

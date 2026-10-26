@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from ..agent.validator import validate_signal
 from ..db import SessionLocal
-from ..market.data import market_session_status
+from ..market.data import FX_TICKERS, market_session_status
 from ..models import ActivationKey, Signal, Subscriber, Watermark
 from ..store import get_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
@@ -127,11 +127,15 @@ def format_signal_message(signal: dict) -> str:
         "",
         f"📍 <b>Entry:</b> <code>{p(entry)}</code>{f' (valid until {expires})' if order_type == 'LIMIT' and expires else ''}",
         f"🛑 <b>SL:</b> <code>{p(sl)}</code> ({pips(sl)} pips)",
-        f"🎯 <b>TP1:</b> <code>{p(tp1)}</code> (1:{rr_of(tp1)} · close 50%, SL → breakeven)",
-        f"🎯 <b>TP2:</b> <code>{p(tp2)}</code> (1:{rr_of(tp2)})",
     ]
-    if tp3 is not None:
-        lines.append(f"🎯 <b>TP3:</b> <code>{p(tp3)}</code> (1:{rr_of(tp3)})")
+    if sj.get("setup") == "BREAK_RETEST" and tp3 is not None:
+        # FXAlexG set & forget: one target, no partials, no breakeven
+        lines.append(f"🎯 <b>TP:</b> <code>{p(tp3)}</code> (1:{rr_of(tp3)} · set & forget, no partials, no breakeven)")
+    else:
+        lines.append(f"🎯 <b>TP1:</b> <code>{p(tp1)}</code> (1:{rr_of(tp1)} · close 50%, SL → breakeven)")
+        lines.append(f"🎯 <b>TP2:</b> <code>{p(tp2)}</code> (1:{rr_of(tp2)})")
+        if tp3 is not None:
+            lines.append(f"🎯 <b>TP3:</b> <code>{p(tp3)}</code> (1:{rr_of(tp3)})")
     conf = signal.get("confidence")
     lines.append(f"🧠 <code>{signal.get('strategyUsed') or 'LiquidityDissection'}</code>")
     lines.append(f"⚖️ <b>Score:</b> <code>{conf if isinstance(conf, (int, float)) else '—'}/100</code>")
@@ -285,6 +289,7 @@ COMMANDS = [
     ("gold", "Gold (XAU/USD) analysis"),
     ("euro", "EUR/USD analysis"),
     ("gbp", "GBP/USD analysis"),
+    *((pair.replace("/", "").lower(), f"{pair} analysis") for pair in FX_TICKERS if pair not in ("EUR/USD", "GBP/USD")),
     ("open", "Signals still running"),
     ("history", "Last 10 signals and their result"),
     ("stats", "Win rate and results (30 days and all time)"),
@@ -299,7 +304,9 @@ COMMANDS = [
     ("help", "All commands"),
 ]
 HELP = "<b>LiquidityDissection bot</b>\n" + "\n".join(f"/{c} — {d}" for c, d in COMMANDS) + "\nSend your activation code to activate."
-PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD", "/gbp": "GBP/USD", "/cable": "GBP/USD", "/pound": "GBP/USD"}
+NEWS_CCYS = {"USD", *(c for pair in FX_TICKERS for c in pair.split("/"))}
+PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD", "/gbp": "GBP/USD", "/cable": "GBP/USD", "/pound": "GBP/USD",
+                "/loonie": "USD/CAD", "/kiwi": "NZD/USD", **{"/" + pair.replace("/", "").lower(): pair for pair in FX_TICKERS}}
 STATE_TXT = {"PENDING": "⏳ pending", "OPEN": "🟡 open", "TP1_HIT": "🟢 TP1 hit, SL at entry", "TP2_HIT": "🟢 TP2 hit", "CLOSED": "closed",
              "CANCELLED": "⚪ cancelled", "EXPIRED": "⚪ expired"}
 
@@ -343,6 +350,9 @@ async def _levels_text() -> str:
         lv = " · ".join(f"{x.get('label') or x['kind']} <code>{_p(sym, x['price'])}</code>" for x in (f.get("levels") or [])[:6])
         rng = f.get("range20h")
         extra = f"\n20h high <code>{_p(sym, rng['high'])}</code> · 20h low <code>{_p(sym, rng['low'])}</code>" if rng else ""
+        aoi = f.get("areasOfInterest") or []
+        if aoi:
+            extra += "\nAOI " + " · ".join(f"{a['kind']} <code>{_p(sym, a['price'])}</code>" for a in aoi)
         out.append(f"<b>{sym}</b>\n{lv or '—'}{extra}")
     return "\n\n".join(out)
 
@@ -350,10 +360,10 @@ async def _levels_text() -> str:
 async def _news_text() -> str:
     cal = await load_news_calendar()
     now = int(time.time())
-    up = sorted((e for e in cal["events"] if e["time"] > now - 1800 and e.get("impact") == "High" and e.get("currency") in ("USD", "EUR", "GBP")),
+    up = sorted((e for e in cal["events"] if e["time"] > now - 1800 and e.get("impact") == "High" and e.get("currency") in NEWS_CCYS),
                 key=lambda e: e["time"])[:8]
     if not up:
-        return "📰 No high-impact USD/EUR/GBP news in the calendar."
+        return "📰 No high-impact news for the app's currencies in the calendar."
     return "📰 <b>High-impact news (UTC)</b>\n" + "\n".join(f"{fmt_utc_minute(e['time'])} · {e['currency']} {e['title']}" for e in up) + \
         "\n<i>No signal is sent 30 min before and after these.</i>"
 
@@ -369,7 +379,8 @@ def _market_text() -> str:
 
 RULES = """<b>How the signals work</b>
 🥇 <b>Gold (H1 Trend Breakout)</b>: trend by EMA50 vs EMA200; an H1 candle closes beyond the 20-hour high/low with a strong body → market entry. SL beyond the last 4 candles (1–3× ATR). TP1 1R (close 50%, SL to entry), TP2 2R, TP3 3R.
-💶 <b>EUR/USD and 💷 GBP/USD (Trend Pullback, same rules)</b>: H4 trend; pullback into H1 order block / Fib 50–61.8% / EMA50 with an engulfing, pin bar or CHoCH on M15 → market entry. TP1 1R, TP2 next H1 level (≥ 2R), runner trails.
+💱 <b>Forex: EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF (FXAlexG Set & Forget Break & Retest, same rules)</b>: weekly and daily trend must agree (pro-trend only). Look left for an H4 level touched twice, wait for an H4 close through it, then a retest with an engulfing or pin bar → market entry. SL behind the candle, one target at 3R: no partials, no breakeven, no anticipation.
+📊 Backtest 2 years: only GBP/USD was profitable (+20.8R); the other pairs lost. Their signals are sent anyway.
 Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.
 ⚠️ Past results do not guarantee future results: risk only what you can lose."""
 

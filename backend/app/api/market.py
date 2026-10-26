@@ -1,4 +1,4 @@
-"""Prices, candles, the economic calendar (as news) and a price-action sentiment gauge. XAU/USD, EUR/USD and GBP/USD."""
+"""Prices, candles, the economic calendar (as news) and a price-action sentiment gauge. XAU/USD and the forex pairs."""
 
 import asyncio
 import time
@@ -18,7 +18,14 @@ ASSETS = {
     "XAU/USD": {"id": "xauusd", "name": "Spot Gold", "arabicName": "الذهب الفوري", "frenchName": "Or au comptant", "category": "commodities", "pipSize": 0.1, "decimalPlaces": 2},
     "EUR/USD": {"id": "eurusd", "name": "Euro / US Dollar", "arabicName": "اليورو / الدولار", "frenchName": "Euro / Dollar US", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
     "GBP/USD": {"id": "gbpusd", "name": "British Pound / US Dollar", "arabicName": "الباوند / الدولار", "frenchName": "Livre sterling / Dollar US", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
+    "USD/CAD": {"id": "usdcad", "name": "US Dollar / Canadian Dollar", "arabicName": "الدولار / الدولار الكندي", "frenchName": "Dollar US / Dollar canadien", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
+    "NZD/USD": {"id": "nzdusd", "name": "New Zealand Dollar / US Dollar", "arabicName": "الدولار النيوزيلندي / الدولار", "frenchName": "Dollar néo-zélandais / Dollar US", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
+    "EUR/CHF": {"id": "eurchf", "name": "Euro / Swiss Franc", "arabicName": "اليورو / الفرنك السويسري", "frenchName": "Euro / Franc suisse", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
+    "NZD/CAD": {"id": "nzdcad", "name": "New Zealand Dollar / Canadian Dollar", "arabicName": "الدولار النيوزيلندي / الدولار الكندي", "frenchName": "Dollar néo-zélandais / Dollar canadien", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
+    "AUD/CAD": {"id": "audcad", "name": "Australian Dollar / Canadian Dollar", "arabicName": "الدولار الأسترالي / الدولار الكندي", "frenchName": "Dollar australien / Dollar canadien", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
+    "AUD/CHF": {"id": "audchf", "name": "Australian Dollar / Swiss Franc", "arabicName": "الدولار الأسترالي / الفرنك السويسري", "frenchName": "Dollar australien / Franc suisse", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
 }
+NEWS_CCYS = {"USD", *(c for sym in ASSETS if sym != "XAU/USD" for c in sym.split("/"))}
 
 
 def _trend(sym: str) -> tuple[str, int]:
@@ -102,12 +109,12 @@ async def news_items() -> list[dict]:
     cal = await load_news_calendar()
     now = int(time.time())
     out = []
-    for e in sorted((e for e in cal["events"] if e.get("currency") in ("USD", "EUR", "GBP") and e.get("impact") in ("High", "Medium")),
+    for e in sorted((e for e in cal["events"] if e.get("currency") in NEWS_CCYS and e.get("impact") in ("High", "Medium")),
                     key=lambda e: abs(e["time"] - now))[:40]:
         cur = e["currency"]
         high = e["impact"] == "High"
         lock = high and abs(e["time"] - now) <= 30 * 60
-        asset = "XAU/USD, EUR/USD & GBP/USD" if cur == "USD" else f"{cur}/USD"
+        asset = ", ".join(sym for sym in ASSETS if cur in sym or (cur == "USD" and sym == "XAU/USD"))
         out.append({
             "id": f"cal-{cur}-{e['time']}-{zlib.crc32(e['title'].encode()) % 100000}", "title": f"{cur} · {e['title']}", "titleAr": f"{cur} · {e['title']}",
             "source": cal["source"], "timeAgo": _ago(e["time"], now), "category": _category(e["title"]), "impactAsset": asset,

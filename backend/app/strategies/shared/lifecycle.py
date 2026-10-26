@@ -7,7 +7,8 @@ a SELL fills at bid and exits at ask. Stops get extra slippage. When one candle 
 SL and a target, SL is assumed first (conservative).
 
 `params` keys (camelCase, stored with the setup): side, entryType, entry, sl, tp1, tp2,
-tp3 (None = trail only), expiryTime, marketFillTime, cancelIfTp1BeforeFill, partials, spread, slippage.
+tp3 (None = trail only), expiryTime, marketFillTime, cancelIfTp1BeforeFill, partials, spread, slippage,
+breakeven (optional, default True: stop to entry at TP1; False = set & forget).
 """
 
 from typing import Callable, Optional
@@ -83,8 +84,9 @@ def simulate_lifecycle(c: list[Candle], p: dict, start_index: int,
 
         stop_hit = (x.low <= stop) if buy else (x.high + spread >= stop)
         if stop_hit:
-            slip = slippage if stage == 0 else 0
-            return close(x.time, stop - slip if buy else stop + slip, "SL" if stage == 0 else "BE_EXIT" if stage == 1 else "TRAIL_EXIT")
+            original = stop == p["sl"]  # set & forget keeps the original stop after TP1/TP2
+            slip = slippage if original else 0
+            return close(x.time, stop - slip if buy else stop + slip, "SL" if original else "BE_EXIT" if stage == 1 else "TRAIL_EXIT")
 
         def reached(tp: float) -> bool:
             return x.high >= tp if buy else x.low + spread <= tp
@@ -93,10 +95,12 @@ def simulate_lifecycle(c: list[Candle], p: dict, start_index: int,
             acc["realised"] += partials[0] * r(p["tp1"])
             acc["remaining"] -= partials[0]
             stage = 1
-            stop = res["fillPrice"]
+            if p.get("breakeven", True):
+                stop = res["fillPrice"]
             res["state"] = "TP1_HIT"
             events.append({"time": x.time, "type": "TP1", "price": p["tp1"]})
-            events.append({"time": x.time, "type": "BE", "price": stop})
+            if p.get("breakeven", True):
+                events.append({"time": x.time, "type": "BE", "price": stop})
         if stage == 1 and reached(p["tp2"]):
             acc["realised"] += partials[1] * r(p["tp2"])
             acc["remaining"] -= partials[1]

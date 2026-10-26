@@ -1,16 +1,16 @@
 # LiquidityDissection — the two strategies
 
-The app runs **exactly two** rule-based strategies, one per instrument. Nothing else creates
+The app runs **exactly two** rule-based strategies: one for gold and one for every forex pair. Nothing else creates
 signals or sends Telegram messages. Every rule below is code; every parameter lives in the
 strategy's config file. Same closed candles → same result, every time.
 
-| | XAUUSD (Gold) | EURUSD and GBPUSD (same rules) |
+| | XAUUSD (Gold) | Forex: EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF |
 |---|---|---|
-| Name | H1 Trend Breakout | Trend Pullback + London Breakout Filter |
-| Code | `backend/app/strategies/xauusd/strategy.py` | `backend/app/strategies/eurusd/strategy.py` |
-| Config | `backend/app/strategies/xauusd/config.py` | `backend/app/strategies/eurusd/config.py` |
-| Timeframes | Trend, setup and entry on H1 | Bias D1 + H4 · Zones H1 · Entry M15 |
-| Order | MARKET (close of the breakout candle) | MARKET (close of the confirmation candle) |
+| Name | H1 Trend Breakout | FXAlexG Set & Forget Break & Retest |
+| Code | `backend/app/strategies/xauusd/strategy.py` | `backend/app/strategies/alexg/strategy.py` |
+| Config | `backend/app/strategies/xauusd/config.py` | `backend/app/strategies/alexg/config.py` |
+| Timeframes | Trend, setup and entry on H1 | Bias W1 + D1 · Setup and entry H4 |
+| Order | MARKET (close of the breakout candle) | MARKET (close of the retest candle), one 3R target |
 
 ## Shared definitions (`backend/app/strategies/shared/`)
 
@@ -46,37 +46,51 @@ strategy's config file. Same closed candles → same result, every time.
 
 7 of 9 quarters were positive (2025-Q2 −4.1R). Median stop $34 (10–90%: $14–$65), about 6 trades per month. Past results do not guarantee future results.
 
-## Strategy 2 — EURUSD and GBPUSD "Trend Pullback + London Breakout Filter"
+## Strategy 2 — Forex "FXAlexG Set & Forget Break & Retest" (8 pairs, same rules)
 
-One forex strategy for both pairs: GBPUSD uses exactly the EURUSD rules and parameters
-(`backend/app/strategies/gbpusd/config.py`); only the instrument and the news currencies (GBP + USD:
-BoE, Bailey, MPC…) differ. Backtest on the same 74 days (Aug–Oct 2026, M15): EURUSD 3 signals, 3 wins,
-+1.42R; GBPUSD 3 signals, 3 losses, −3.1R. Far too few trades to judge either pair; GBPUSD is
-followed separately in the Performance page and in the bot's /stats.
+The method the forex trader FXAlexG shows in his videos, written as code: EUR/USD, GBP/USD, USD/CAD,
+NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF (the pairs he trades). One config per pair
+(`backend/app/strategies/alexg/config.py`): only the instrument, the assumed spread and the news currencies differ.
+The agent answers forex questions with his thinking (top-down, pro-trend, no anticipation, set & forget) but never claims to be him.
 
-1. **Bias (H4, with a Daily filter)** — bullish if the H4 close > EMA 200, EMA 50 > EMA 200, and the H4 swings are HH/HL; bearish is the mirror. Daily filter: no buy within 15 pips of daily resistance / PWH (no sell within 15 pips of daily support / PWL).
-2. **Windows** — London 07:00–10:30 and the London/NY overlap 13:00–16:00 (London time). No new trades on Friday after 14:00 London.
-3. **Setup A — trend pullback (main)**
-   1. Trend confirmed (bias above).
-   2. Pullback into **at least 2 of 3**: H1 order block, Fib 50–61.8% of the last H1 impulse leg, EMA 50 (M15).
-   3. RSI(14, M15) at the pullback between 40–50 for buys, 50–60 for sells.
-   4. Confirmation candle on M15: engulfing, pin bar (wick ≥ 2 × body), or M15 CHoCH.
-   5. **MARKET entry** at the close of the confirmation candle.
-4. **Setup B — Asian range false breakout (secondary)**
-   1. Asian range 00:00–06:00 London, between 12 and 40 pips.
-   2. In the London window, a candle breaks one side and **closes back inside**.
-   3. Trade toward the other side **only if it matches the H4 bias**. TP2 = the opposite side of the range (R:R ≥ 1:2, else skip).
-5. **Risk**
-   - SL beyond the zone/swing + 3 pips, or 1.5 × ATR(14, M15), **whichever is wider**; must be **8–25 pips**.
-   - TP1 = 1R (close 50%, SL to breakeven). TP2 = next H1 level at ≥ 2R, else 2R. TP3 = trail behind confirmed M15 swings (3R shown as a reference). Minimum R:R 1:2.
-6. **Filters** — no trade 30 minutes around high-impact EUR/USD news (ECB, Lagarde, EU/US CPI, NFP, FOMC); spread ≤ 1.5 pips; max 3 trades per day; stop after 2 losses.
-7. **Score weights** — bias 15, window 10, zone confluence 20, trigger 15, momentum (RSI) 10, R:R 15, room to the next H1 level 10, volatility 5.
+1. **Top-down** — weekly bias = last closed weekly close vs EMA 20 (weekly); the last closed daily close vs EMA 20 (daily) must agree.
+   Pro-trend only: weekly and daily disagree = no trade (FXAlexG calls counter-trend trades high risk).
+2. **Look left** — areas of interest are H4 swing highs (buys) / lows (sells) of the last 120 H4 candles that price touched at least twice
+   (within 0.3 × ATR). "If it happened here before, it will likely happen again."
+3. **Break** — an H4 candle CLOSES beyond the level in the trend direction (within the last 30 H4 candles), price moves ≥ 1.5 × ATR(14, H4)
+   away, and no H4 close comes back through the level by more than 0.5 × ATR.
+4. **Retest, no anticipation** — an H4 candle comes back to the level (± 0.5 × ATR), closes on the right side and is a bullish / bearish
+   engulfing or a pin bar (wick ≥ 2 × body and ≥ 60% of the candle). **MARKET entry** at that close (valid 60 min).
+5. **Set & forget** — SL beyond the confirmation and previous candle ± 0.5 × ATR (15–120 pips, else no trade). **One target at 3R**:
+   TP1 (1R) and TP2 (2R) are progress marks only — no partial close, no breakeven, no management. One trade per pair at a time.
+6. **Filters** — no trade 30 min around high-impact news of the pair's two currencies; spread ≤ 4 pips; max 2 trades per day per pair, stop after 1 loss.
+7. **Score weights** — trend 25, area of interest 20, break 20, retest 20, stop 5, target 10.
+
+D1 and W1 are built from H1 with the 22:00 UTC rollover; H4 is aggregated from H1 (same Yahoo request).
+
+### Backtest (Oct 2024 – Oct 2026, 2 years H1 → H4, spread + 0.2 pip slippage)
+
+| Pair | Trades | Win rate | Total | 1st / 2nd half | Costs ×2 |
+|---|---|---|---|---|---|
+| **GBP/USD** | 38 | 39% | **+20.8R** | +16.5 / +4.3 | +15.6R |
+| USD/CAD | 31 | 26% | −0.3R | −0.7 / +0.4 | −1.6R |
+| NZD/CAD | 35 | 26% | −0.4R | −5.8 / +5.4 | −5.8R |
+| EUR/USD | 46 | 24% | −3.3R | +11.4 / −14.7 | −4.6R |
+| NZD/USD | 28 | 21% | −5.2R | +3.3 / −8.5 | −6.5R |
+| AUD/CHF | 36 | 19% | −10.3R | −0.5 / −9.8 | −17.7R |
+| EUR/CHF | 39 | 18% | −12.5R | −10.5 / −2.0 | −14.1R |
+| AUD/CAD | 51 | 12% | −29.9R | −13.2 / −16.8 | −32.9R |
+
+Only GBP/USD was profitable and robust. The other seven pairs were added and send signals on the user's explicit request.
+His real trading is discretionary (head & shoulders, "4 weekly candles then a slowdown"…); this mechanical version cannot
+capture everything he sees, which is one reason the results differ from his. The earlier EUR/USD "Trend Pullback + London Breakout"
+code is kept in `backend/app/strategies/eurusd/` (parity tests) but no longer used.
 
 ## Risk (both)
 
-1% of equity per trade. Lot = (equity × risk%) / (SL distance × contract size), rounded **down**
-to the lot step (gold = 100 oz per lot, EURUSD = 100,000 units). If even 0.01 lot would risk
-more than 1%, the lot shows 0.
+Each user chooses the lot they took on a signal in the app; P&L = price move × lots × contract size (gold 100 oz,
+forex 100,000 units), converted to USD for CAD- and CHF-quoted pairs with the latest USD/CAD, EUR/USD and EUR/CHF prices.
+Each user's daily loss limit blocks new trades for the rest of the trading day.
 
 ## On the chart (`frontend/src/chart-overlays/drawingsPrimitive.ts`)
 

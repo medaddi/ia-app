@@ -40,6 +40,8 @@ class Settings:
     admin_username: str = os.environ.get("ADMIN_USERNAME", "admin")
     # Bootstrap credential for a fresh database. Set ADMIN_ACCESS_CODE in production to override it.
     admin_access_code: str = os.environ.get("ADMIN_ACCESS_CODE") or "admin1234"
+    # Recovery: set ADMIN_RESET=true for one deploy to reset the admin's code to ADMIN_ACCESS_CODE, then remove it
+    admin_reset: bool = _bool("ADMIN_RESET", False)
     session_days: int = int(os.environ.get("SESSION_DAYS", "30"))
     telegram_bot_token: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_id: str = os.environ.get("TELEGRAM_CHAT_ID", "")

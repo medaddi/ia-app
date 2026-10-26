@@ -9,10 +9,8 @@ import asyncio
 import sys
 from datetime import datetime, timezone
 
-from .strategies.eurusd.config import EUR_CONFIG
-from .strategies.gbpusd.config import GBP_CONFIG
 from .strategies.replay import outcome, replay
-from .strategies.service import STRATEGY_DEFS, load_strategy_candles, normalize_symbol
+from .strategies.service import CONFIGS, STRATEGY_DEFS, load_strategy_candles, normalize_symbol
 from .strategies.shared.common import active_window
 from .strategies.shared.jsnum import fmt_utc_minute, iso, round_to
 from .strategies.shared.news import load_news_calendar
@@ -23,7 +21,7 @@ WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 def _cfg(sym: str) -> dict:
-    return {"XAU/USD": XAU_CONFIG, "EUR/USD": EUR_CONFIG, "GBP/USD": GBP_CONFIG}[sym]
+    return CONFIGS[sym]
 
 
 def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
@@ -80,7 +78,7 @@ def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
     if len(closed) < 30:
         warnings.append(f"Only {len(closed)} closed trades: far too few to judge the strategy. Treat every number below as anecdotal.")
     if days < 180:
-        warnings.append(f"History is only {days:.0f} days (Yahoo limits 5m/15m data to ~60 days). A 2–3 year test needs broker (MT5) history.")
+        warnings.append(f"History is only {days:.0f} days. A 2–3 year test needs broker (MT5) history.")
     warnings.append("News filter uses the current ForexFactory week only: past news events are not filtered in this backtest.")
     warnings.append("Spread is a fixed config value (feed has no live spread); real spreads widen around news and rollover.")
     if len(closed) >= 10 and total_r <= 0:

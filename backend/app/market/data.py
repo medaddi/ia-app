@@ -1,5 +1,5 @@
 """
-Live market data for XAU/USD and EUR/USD.
+Live market data for XAU/USD and the forex pairs (EUR/USD, GBP/USD and the FXAlexG pairs).
 - Live price: gold-api.com spot (gold), Yahoo GC=F / EURUSD=X as fallback.
 - Candles: Yahoo Finance. Gold candles come from COMEX futures (GC=F) and are shifted by the live
   spot-futures basis so every candle is in spot terms. 4H is aggregated from 1H.
@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 
 import httpx
 
+from ..strategies.alexg.config import PAIRS
 from ..strategies.shared.jsnum import round_to
 from ..strategies.shared.types import Candle
 
@@ -39,14 +40,18 @@ def client() -> httpx.AsyncClient:
 
 
 # Forex pairs served from Yahoo; gold has its own spot feed and a futures-to-spot basis
-FX_TICKERS = {"EUR/USD": "EURUSD=X", "GBP/USD": "GBPUSD=X"}
+FX_TICKERS = {pair: ticker for pair, (_, ticker) in PAIRS.items()}
 
 
 def canonical(symbol: str) -> str:
-    """'gbpusd', 'GBP/USD', 'GBPUSD' → 'GBP/USD'; anything else that is not forex → 'XAU/USD'."""
-    s = (symbol or "").upper().replace("/", "").replace(" ", "")
+    """'gbpusd', 'GBP/USD', 'GBPUSD' → 'GBP/USD'; 'EUR' → 'EUR/USD'; anything else that is not forex → 'XAU/USD'."""
+    s = (symbol or "").upper().replace("/", "").replace(" ", "").replace("_", "").replace("-", "")
     for pair in FX_TICKERS:
-        if pair.replace("/", "") in s or (len(s) >= 3 and s[:3] == pair[:3] and pair[:3] != "USD"):
+        if pair.replace("/", "") in s:
+            return pair
+    # Bare currency ("EUR", "GBP"): first pair quoting it against USD, then any pair starting with it
+    for pair in sorted(FX_TICKERS, key=lambda p: "USD" not in p):
+        if len(s) >= 3 and s[:3] == pair[:3] and pair[:3] != "USD":
             return pair
     return "XAU/USD"
 
@@ -73,7 +78,7 @@ def market_session_status(symbol: str = "XAU/USD", now: datetime | None = None) 
 
 def _price_result(symbol: str, price: float, chg_pct: float, high: float, low: float, source: str) -> dict:
     s = market_session_status(symbol)
-    dec = 4 if is_fx(symbol) else 2
+    dec = 5 if is_fx(symbol) else 2
     return {
         "symbol": symbol, "price": price, "change24h": chg_pct, "change24hAmount": round_to(price * chg_pct / 100, dec),
         "high24h": high, "low24h": low, "source": source, "lastUpdated": int(time.time() * 1000),
@@ -113,10 +118,10 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
         fx = sym in FX_TICKERS
         meta = await _yahoo_meta(FX_TICKERS[sym] if fx else "GC=F")
         p = float((meta or {}).get("regularMarketPrice") or 0)
-        ok = 0.8 < p < 2.0 if fx else 2000 < p < 8000
+        ok = 0.3 < p < 3.0 if fx else 2000 < p < 8000
         if ok:
             prev = float(meta.get("previousClose") or meta.get("chartPreviousClose") or p) or p
-            dec = 4 if fx else 2
+            dec = 5 if fx else 2
             price = round_to(p, dec)
             result = _price_result(sym, price, round_to((p - prev) / prev * 100, 2),
                                    float(meta.get("regularMarketDayHigh") or price), float(meta.get("regularMarketDayLow") or price),
@@ -172,7 +177,7 @@ def aggregate(candles: list[Candle], bucket_sec: int) -> list[Candle]:
 async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", limit: int = 600, live_price: float | None = None, fresh: bool = False) -> dict:
     sym = canonical(symbol)
     euro = sym in FX_TICKERS  # any forex pair (no futures basis)
-    decimals = 4 if euro else 2
+    decimals = 5 if euro else 2
     step = TIMEFRAME_SECONDS.get(timeframe, 900)
     spot = live_price if live_price and live_price > 0 else (await fetch_live_price(symbol))["price"]
     interval, rng = INTERVALS.get(timeframe, INTERVALS["15M"])

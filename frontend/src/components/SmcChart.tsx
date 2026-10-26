@@ -1,5 +1,6 @@
 import { apiFetch } from '../api';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { InstrumentSymbol } from '../instruments';
 import {
   createChart,
   CandlestickSeries,
@@ -28,7 +29,7 @@ export interface SmcChartCandle {
 }
 
 interface SmcChartProps {
-  symbol: 'XAU/USD' | 'EUR/USD' | 'GBP/USD';
+  symbol: InstrumentSymbol;
   candles: SmcChartCandle[];
   result: StrategyResult | null;
   timeframe: string;

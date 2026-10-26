@@ -1,10 +1,11 @@
 import { apiFetch } from '../api';
 import React, { useState } from 'react';
+import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X, Clock, CalendarClock } from 'lucide-react';
 import type { StrategyResult } from '../strategyTypes';
 
 interface ExunuActiveSetupProps {
-  symbol: 'XAU/USD' | 'EUR/USD' | 'GBP/USD';
+  symbol: InstrumentSymbol;
   result: StrategyResult | null;
   explanation?: string;
 }

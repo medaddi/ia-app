@@ -16,9 +16,9 @@ interface Msg {
 }
 
 const QUICK: Record<string, string[]> = {
-  fr: ['Analyse XAUUSD maintenant', 'Pourquoi pas de trade sur EURUSD ?', 'Quel est le biais du gold ?'],
-  en: ['Analyse XAUUSD now', 'Why no trade on EURUSD?', 'What is the gold bias?'],
-  ar: ['حلل الذهب الآن', 'لماذا لا توجد صفقة على اليورو؟', 'ما هو اتجاه الذهب؟'],
+  fr: ['Analyse XAUUSD maintenant', 'Pourquoi pas de trade sur GBPUSD ?', 'Où est le break & retest sur EURCHF ?'],
+  en: ['Analyse XAUUSD now', 'Why no trade on GBPUSD?', 'Where is the break & retest on EURCHF?'],
+  ar: ['حلل الذهب الآن', 'لماذا لا توجد صفقة على الباوند؟', 'أين الكسر وإعادة الاختبار على EURCHF؟'],
 };
 
 /** Minimal formatting: **bold** and line breaks. Text is rendered as React nodes (no HTML injection). */
@@ -86,7 +86,7 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({ isOpen, onClose, lang })
             <span className="w-8 h-8 rounded-lg bg-gold-500/15 text-gold-300 flex items-center justify-center"><Bot className="w-4 h-4" aria-hidden="true" /></span>
             <div className="min-w-0">
               <div className="text-sm font-semibold text-white">LiquidityDissection Agent</div>
-              <div className="text-xs text-slate-500 truncate">Answers only from the XAUUSD and EURUSD strategy data</div>
+              <div className="text-xs text-slate-500 truncate">Answers only from the gold and forex strategy data</div>
             </div>
           </div>
           <button onClick={onClose} className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white" aria-label="Close"><X className="w-4 h-4" /></button>

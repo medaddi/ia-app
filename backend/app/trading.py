@@ -10,17 +10,42 @@ from typing import Iterable, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .market import data as market_data
 from .models import Signal, Trade
 from .strategies.replay import outcome
 from .strategies.service import STRATEGY_DEFS, normalize_symbol
 from .strategies.shared.jsnum import round_to
 from .strategies.shared.sessions import trading_day_key
 
-CONTRACT = {"XAU/USD": 100, "EUR/USD": 100_000, "GBP/USD": 100_000}
+# Units per lot: gold 100 oz, every forex pair 100,000 units of the base currency
+CONTRACT = {sym: 100 if sym == "XAU/USD" else 100_000 for sym in STRATEGY_DEFS}
+# Used only until the app has seen a live price for the conversion pair
+FALLBACK_USD_PER = {"CAD": 0.72, "CHF": 1.25}
 
 
-def contract_size(symbol: str) -> int:
-    return CONTRACT[normalize_symbol(symbol)]
+def _last_price(sym: str) -> float:
+    return float((market_data._last_known.get(sym) or {}).get("price") or 0)
+
+
+def usd_per_quote(symbol: str) -> float:
+    """US dollars per 1 unit of the pair's quote currency (P&L of a CAD/CHF-quoted pair is converted to USD)."""
+    sym = normalize_symbol(symbol)
+    quote = sym.split("/")[1]
+    if quote == "USD":
+        return 1.0
+    if quote == "CAD":
+        usdcad = _last_price("USD/CAD")
+        return 1 / usdcad if usdcad > 0 else FALLBACK_USD_PER["CAD"]
+    if quote == "CHF":
+        eurusd, eurchf = _last_price("EUR/USD"), _last_price("EUR/CHF")
+        return eurusd / eurchf if eurusd > 0 and eurchf > 0 else FALLBACK_USD_PER["CHF"]
+    return 1.0
+
+
+def contract_size(symbol: str) -> float:
+    """US dollars per 1.0 price move per lot."""
+    sym = normalize_symbol(symbol)
+    return CONTRACT[sym] * usd_per_quote(sym)
 
 
 def trade_pnl(t: Trade, exit_price: float) -> tuple[float, float]:

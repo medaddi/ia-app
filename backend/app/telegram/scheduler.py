@@ -1,6 +1,6 @@
 """
 Candle-close scheduler: evaluates each strategy the moment its entry candle closes
-(gold M5, EURUSD M15) instead of waiting for a polling loop.
+(gold H1, forex H4) instead of waiting for a polling loop.
 At close + GRACE it re-downloads the entry timeframe (no cache), and retries every RETRY
 until the provider has published the closed bar, then dispatches a fresh SIGNAL and updates
 the outcome of the signals already sent.

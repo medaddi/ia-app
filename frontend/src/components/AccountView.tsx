@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { INSTRUMENT_SYMBOLS } from '../instruments';
 import { History, OctagonAlert, Plus, ShieldOff, Target, Wallet, Zap } from 'lucide-react';
 import { apiJson } from '../api';
 import { AISignal, Language, MarketAsset } from '../types';
@@ -232,7 +233,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
         <Card isLight={isLight} icon={<Plus className="w-4 h-4" />} title={t('Record another trade', 'Enregistrer un autre trade', 'تسجيل صفقة أخرى')}>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
             <Field label={t('Pair', 'Paire', 'الزوج')}>
-              <select value={form.symbol} onChange={e => setForm({ ...form, symbol: e.target.value })} className={inputCls(isLight)}><option>XAU/USD</option><option>EUR/USD</option><option>GBP/USD</option></select>
+              <select value={form.symbol} onChange={e => setForm({ ...form, symbol: e.target.value })} className={inputCls(isLight)}>{INSTRUMENT_SYMBOLS.map(x => <option key={x}>{x}</option>)}</select>
             </Field>
             <Field label={t('Side', 'Sens', 'الاتجاه')}>
               <select value={form.direction} onChange={e => setForm({ ...form, direction: e.target.value as 'BUY' | 'SELL' })} className={inputCls(isLight)}><option>BUY</option><option>SELL</option></select>

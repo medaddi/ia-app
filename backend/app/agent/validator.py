@@ -4,8 +4,7 @@ own numbers and the strategy config. It can only LOWER the score or REJECT, neve
 something the strategy rejected.
 """
 
-from ..strategies.eurusd.config import EUR_CONFIG
-from ..strategies.gbpusd.config import GBP_CONFIG
+from ..strategies.alexg.config import ALEXG_CONFIGS
 from ..strategies.shared.jsnum import js_str, to_fixed
 from ..strategies.shared.risk import rr, score_checklist
 from ..strategies.xauusd.config import XAU_CONFIG
@@ -39,16 +38,21 @@ def validate_signal(r: dict) -> dict:
         if s["entryType"] != "MARKET":
             issues.append("Gold breakout entries are MARKET orders")
     else:
-        R = (GBP_CONFIG if r["symbol"] == "GBPUSD" else EUR_CONFIG)["risk"]
+        cfg = ALEXG_CONFIGS[r["spec"]["displaySymbol"]]
+        R = cfg["risk"]
         pips = dist / r["spec"]["pipSize"]
-        if rr_tp2 < R["minRr"] - 1e-9:
-            issues.append(f"R:R to TP2 {to_fixed(rr_tp2, 2)} < {R['minRr']}")
-        if pips < R["minSlPips"] - 1e-6 or pips > R["maxSlPips"] + 1e-6:
+        # Set & forget: the whole position runs to the single target (TP3)
+        rr_target = rr(s["entry"], s["sl"], s["tp3"])
+        if rr_target < R["targetR"] - 0.01:
+            issues.append(f"R:R to the target {to_fixed(rr_target, 2)} < {R['targetR']}")
+        if pips < R["minSlPips"] - 0.01 or pips > R["maxSlPips"] + 0.01:
             issues.append(f"Stop {to_fixed(pips, 1)} pips outside {R['minSlPips']}–{R['maxSlPips']}")
+        if s["entryType"] != "MARKET":
+            issues.append("Break & retest entries are MARKET orders")
     for c in r["checklist"]:
         if c["required"] and not c["passed"]:
             issues.append(f"Required rule failed: {c['rule']}")
-    thresholds = {"XAUUSD": XAU_CONFIG, "GBPUSD": GBP_CONFIG}.get(r["symbol"], EUR_CONFIG)["scoring"]["thresholds"]
+    thresholds = (XAU_CONFIG if r["symbol"] == "XAUUSD" else ALEXG_CONFIGS[r["spec"]["displaySymbol"]])["scoring"]["thresholds"]
     score = min(r["score"], score_checklist(r["checklist"]))
     if score < thresholds["signal"]:
         issues.append(f"Score {js_str(score)} < {thresholds['signal']}")

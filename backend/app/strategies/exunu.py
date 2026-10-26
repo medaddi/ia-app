@@ -10,6 +10,7 @@ import time
 from typing import Optional
 
 from ..agent.explain import build_explanation
+from .alexg.config import NAMES as ASSET_NAMES
 from .service import get_strategy_result, get_strategy_result_as_of, normalize_symbol
 from .shared.jsnum import iso, js_str, to_fixed
 
@@ -127,7 +128,7 @@ def to_ai_signal(res: dict, live_price: Optional[float] = None) -> dict:
     return {
         "id": f"sig-{s['id']}" if s else f"sig-{r['symbol'].lower()}",
         "symbol": sym,
-        "assetName": {"EUR/USD": "Euro / US Dollar", "GBP/USD": "British Pound / US Dollar"}.get(sym, "Spot Gold (XAU/USD)"),
+        "assetName": ASSET_NAMES.get(sym, "Spot Gold (XAU/USD)"),
         "signalType": res["action"],
         "signalLabel": f"{s['direction']} SIGNAL" if confirmed else f"{s['direction'] if s else 'undefined'} WATCH" if r["status"] == "WATCH" else "NO TRADE",
         "entryZone": to_fixed(s["entry"], d) if s else "",

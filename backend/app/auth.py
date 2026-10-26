@@ -44,20 +44,9 @@ def user_json(u: User) -> dict:
 
 def login(db: Session, username: str, code: str) -> Optional[dict]:
     u = db.scalar(select(User).where(User.username == username.strip().lower()))
-    if not u or not u.active:
+    # Only the code saved for this account works (ADMIN_ACCESS_CODE is just the first admin's starting code)
+    if not u or not u.active or not check_code(code.strip(), u.access_code_hash):
         return None
-    submitted_code = code.strip()
-    is_configured_admin = u.role == "admin" and u.username == settings.admin_username.strip().lower()
-    bootstrap_code_matches = is_configured_admin and any(
-        hmac.compare_digest(submitted_code.casefold(), expected.strip().casefold())
-        for expected in ("admin1234", settings.admin_access_code)
-        if expected
-    )
-    if not bootstrap_code_matches and not check_code(submitted_code, u.access_code_hash):
-        return None
-    # Keep the persisted hash aligned when the configured bootstrap code recovers an older admin row.
-    if bootstrap_code_matches and not check_code("admin1234", u.access_code_hash):
-        u.access_code_hash = hash_code("admin1234")
     now = datetime.now(timezone.utc)
     db.execute(delete(SessionToken).where(SessionToken.expires_at < now))
     token = secrets.token_urlsafe(32)
@@ -98,8 +87,14 @@ def bearer(authorization: Optional[str] = Header(None)) -> str:
 
 
 def ensure_admin(db: Session) -> None:
-    """Creates the first admin account on an empty database."""
+    """Creates the first admin account on an empty database. ADMIN_RESET=true resets that admin's code to ADMIN_ACCESS_CODE."""
     if db.scalar(select(User.id).limit(1)) is not None:
+        if settings.admin_reset:
+            admin = db.scalar(select(User).where(User.username == settings.admin_username.lower()))
+            if admin:
+                admin.access_code_hash, admin.role, admin.active = hash_code(settings.admin_access_code), "admin", True
+                db.commit()
+                print(f"[auth] ADMIN_RESET: access code of '{admin.username}' reset to ADMIN_ACCESS_CODE; remove ADMIN_RESET now")
         return
     code = settings.admin_access_code or secrets.token_urlsafe(9)
     db.add(User(username=settings.admin_username.lower(), access_code_hash=hash_code(code), role="admin"))

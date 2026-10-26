@@ -14,6 +14,7 @@ import { MarketsTableView } from './components/MarketsTableView';
 import { AppLayout } from './components/layout/AppLayout';
 import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
 import { ExunuTerminalView } from './components/ExunuTerminalView';
+import { isInstrument } from './instruments';
 import { LDEmblem } from './components/LiquidityDissectionLogo';
 import { AgentPanel } from './components/AgentPanel';
 import { AccountView, AppUser } from './components/AccountView';
@@ -165,7 +166,7 @@ export default function App() {
         <p className={`text-xs text-center max-w-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
           {backendDown
             ? (lang === 'fr' ? 'Le serveur se réveille (hébergement gratuit), cela peut prendre une minute…' : isAr ? 'الخادم يستيقظ (استضافة مجانية)، قد يستغرق ذلك دقيقة…' : 'The server is waking up (free hosting), this can take a minute…')
-            : (lang === 'fr' ? 'Chargement des stratégies XAUUSD et EURUSD…' : isAr ? 'جاري تحميل استراتيجيتي الذهب واليورو…' : 'Loading the XAUUSD and EURUSD strategies…')}
+            : (lang === 'fr' ? 'Chargement des stratégies or et forex…' : isAr ? 'جاري تحميل استراتيجيات الذهب والفوركس…' : 'Loading the gold and forex strategies…')}
         </p>
         <div className={`mt-5 h-0.5 w-40 overflow-hidden rounded-full ${isLight ? 'bg-paper-line-2' : 'bg-line'}`}>
           <div className="h-full w-1/2 rounded-full bg-gold-gradient animate-shimmer" />
@@ -284,7 +285,7 @@ export default function App() {
               transition={{ duration: 0.22, ease: 'easeOut' }}
             >
               <InternalPageTemplate
-                title={isFr ? 'Stratégies : XAUUSD & EURUSD' : isAr ? 'الاستراتيجيات: الذهب واليورو' : 'Strategies: XAUUSD & EURUSD'}
+                title={isFr ? 'Stratégies : or & forex (FXAlexG)' : isAr ? 'الاستراتيجيات: الذهب والفوركس (FXAlexG)' : 'Strategies: gold & forex (FXAlexG)'}
                 subtitle={isFr ? 'Règles déterministes, checklist et score en direct pour chaque instrument.' : isAr ? 'قواعد ثابتة، قائمة شروط ونقاط مباشرة لكل أداة.' : 'Deterministic rules, live checklist and score for each instrument.'}
                 badge={{ label: 'v1.0.0 · 2 strategies', variant: 'gold' }}
                 breadcrumbs={[
@@ -293,7 +294,7 @@ export default function App() {
                 ]}
               >
                 {/* Same shared SMC analysis as the dashboard, agents and Telegram */}
-                <ExunuTerminalView initialSymbol={(['EUR/USD', 'GBP/USD'].includes(selectedAsset?.symbol || '') ? selectedAsset!.symbol : 'XAU/USD') as any} lang={lang} />
+                <ExunuTerminalView initialSymbol={isInstrument(selectedAsset?.symbol) ? selectedAsset.symbol : 'XAU/USD'} lang={lang} />
               </InternalPageTemplate>
             </motion.div>
           )}

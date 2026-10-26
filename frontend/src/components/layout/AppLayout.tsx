@@ -293,7 +293,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           <span className="text-zinc-700 hidden sm:inline" aria-hidden="true">|</span>
           <div className="hidden sm:flex items-center gap-1.5 text-zinc-400 font-mono text-xs">
             <span className="text-zinc-500 uppercase">ENGINE</span>
-            <span className="text-gold-500 font-bold">XAUUSD SWEEP+MSS+FVG · EURUSD TREND PULLBACK</span>
+            <span className="text-gold-500 font-bold">XAUUSD H1 BREAKOUT · FOREX FXALEXG BREAK &amp; RETEST</span>
           </div>
         </div>
 
@@ -470,7 +470,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder={isFr ? 'Rechercher XAU/USD, EUR/USD, GBP/USD' : isAr ? 'بحث: XAU/USD، EUR/USD، GBP/USD' : 'Search XAU/USD, EUR/USD, GBP/USD'}
+                placeholder={isFr ? 'Rechercher XAU/USD, EUR/USD, USD/CAD…' : isAr ? 'بحث: XAU/USD، EUR/USD، USD/CAD…' : 'Search XAU/USD, EUR/USD, USD/CAD…'}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
