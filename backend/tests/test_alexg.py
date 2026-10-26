@@ -103,4 +103,4 @@ def test_pairs_and_message():
     assert ALEXG_CONFIGS["NZD/CAD"]["filters"]["news"]["currencies"] == ["NZD", "CAD"]
     msg = format_signal_message({"symbol": "GBP/USD", "signalType": "BUY", "entryPrice": 1.3, "stopLoss": 1.298, "target1": 1.302, "target2": 1.304,
                                  "target3": 1.306, "confidence": 90, "signalJson": {"setup": "BREAK_RETEST", "entry_type": "MARKET"}})
-    assert "TP:</b> <code>1.30600</code> (1:3.0 · set & forget" in msg and "TP1" not in msg
+    assert "TP <code>1.30600</code> · 1:3.0" in msg and "TP1" not in msg

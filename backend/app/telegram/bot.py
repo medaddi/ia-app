@@ -22,13 +22,13 @@ from sqlalchemy.orm import Session
 from ..agent.validator import validate_signal
 from ..db import SessionLocal
 from ..market.data import FX_TICKERS, market_session_status
-from ..models import ActivationKey, Signal, Subscriber, Watermark
+from ..models import ActivationKey, Signal, Subscriber, User, Watermark
 from ..store import get_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
 from ..strategies.shared.news import load_news_calendar
 from ..strategies.shared.jsnum import fmt_time, fmt_utc_minute, js_round, to_fixed
-from ..trading import signal_json, stats
+from ..trading import lot_for_risk, signal_json, stats
 from .protection import personalize_signal
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -100,56 +100,83 @@ async def set_webhook(token: str, url: str, secret: str) -> dict:
 
 # ---------------------------------------------------------------- message
 
-def format_signal_message(signal: dict) -> str:
-    """Only the strategy's own levels are printed; nothing is filled in by default."""
-    buy = signal.get("signalType") == "BUY"
-    symbol = normalize_symbol(signal.get("symbol", ""))
-    gold = symbol == "XAU/USD"
-    decimals = 2 if gold else 5
-    pip = 0.1 if gold else 0.0001
-
+def _levels(signal: dict) -> Optional[dict]:
+    """The strategy's own levels of a signal, or None if one is missing."""
     def num(v):
         return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else None
 
     entry, sl, tp1, tp2, tp3 = (num(signal.get(k)) for k in ("entryPrice", "stopLoss", "target1", "target2", "target3"))
     if None in (entry, sl, tp1, tp2):
-        return f"⚠️ {symbol}: signal levels incomplete, not sent."
-    risk = abs(entry - sl)
-    pips = lambda v: int(js_round(abs(v - entry) / pip))  # noqa: E731
-    rr_of = lambda v: to_fixed(abs(v - entry) / risk, 1) if risk > 0 else "—"  # noqa: E731
-    p = lambda v: f"{'$' if gold else ''}{to_fixed(v, decimals)}"  # noqa: E731
+        return None
     sj = signal.get("signalJson") or {}
-    order_type = sj.get("entry_type") or signal.get("entryType") or "LIMIT"
-    expires = sj.get("expires_at", "")[11:16] + " UTC" if sj.get("expires_at") else None
-    setup = f" · Setup {sj['setup']}" if sj.get("setup") else ""
-    lines = [
-        f"{'🟢' if buy else '🔴'} <b>{'BUY' if buy else 'SELL'} {order_type} | {symbol}{setup}</b>",
-        "",
-        f"📍 <b>Entry:</b> <code>{p(entry)}</code>{f' (valid until {expires})' if order_type == 'LIMIT' and expires else ''}",
-        f"🛑 <b>SL:</b> <code>{p(sl)}</code> ({pips(sl)} pips)",
-    ]
-    if sj.get("setup") == "BREAK_RETEST" and tp3 is not None:
-        # FXAlexG set & forget: one target, no partials, no breakeven
-        lines.append(f"🎯 <b>TP:</b> <code>{p(tp3)}</code> (1:{rr_of(tp3)} · set & forget, no partials, no breakeven)")
+    symbol = normalize_symbol(signal.get("symbol", ""))
+    gold = symbol == "XAU/USD"
+    return {"symbol": symbol, "buy": signal.get("signalType") == "BUY", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
+            "single": sj.get("setup") == "BREAK_RETEST" and tp3 is not None,  # FXAlexG set & forget: one target
+            "orderType": sj.get("entry_type") or signal.get("entryType") or "LIMIT", "expires": sj.get("expires_at"),
+            "decimals": 2 if gold else 5, "pip": 0.1 if gold else 0.0001}
+
+
+def format_signal_message(signal: dict, lot: Optional[dict] = None, ref: Optional[str] = None) -> str:
+    """Short message: side, entry, SL, target(s) and this person's lot. Prices are tap-to-copy for MetaTrader.
+    `lot`: None = no lot line (a group chat), {} = subscriber without a risk set, else lot_for_risk()."""
+    L = _levels(signal)
+    if not L:
+        return f"⚠️ {normalize_symbol(signal.get('symbol', ''))}: signal levels incomplete, not sent."
+    entry, sl = L["entry"], L["sl"]
+    risk = abs(entry - sl)
+    c = lambda v: f"<code>{to_fixed(v, L['decimals'])}</code>"  # noqa: E731
+    pips = lambda v: int(js_round(abs(v - entry) / L["pip"]))  # noqa: E731
+    rr_of = lambda v: to_fixed(abs(v - entry) / risk, 1) if risk > 0 else "—"  # noqa: E731
+    order = "" if L["orderType"] == "MARKET" else f" {L['orderType'].lower()}"
+    lines = [f"{'🟢' if L['buy'] else '🔴'} <b>{'BUY' if L['buy'] else 'SELL'}{order} {L['symbol']}</b>", "",
+             f"Entry {c(entry)}", f"SL {c(sl)} · {pips(sl)} pips"]
+    if L["single"]:
+        lines.append(f"TP {c(L['tp3'])} · 1:{rr_of(L['tp3'])}")
     else:
-        lines.append(f"🎯 <b>TP1:</b> <code>{p(tp1)}</code> (1:{rr_of(tp1)} · close 50%, SL → breakeven)")
-        lines.append(f"🎯 <b>TP2:</b> <code>{p(tp2)}</code> (1:{rr_of(tp2)})")
-        if tp3 is not None:
-            lines.append(f"🎯 <b>TP3:</b> <code>{p(tp3)}</code> (1:{rr_of(tp3)})")
-    conf = signal.get("confidence")
-    lines.append(f"🧠 <code>{signal.get('strategyUsed') or 'LiquidityDissection'}</code>")
-    lines.append(f"⚖️ <b>Score:</b> <code>{conf if isinstance(conf, (int, float)) else '—'}/100</code>")
-    if signal.get("confirmationCheckPassed") and signal.get("confirmationCloseTime"):
-        lines.append(f"✅ <b>Signal:</b> {fmt_time(signal['confirmationCloseTime'])} candle close")
-    if signal.get("invalidationCondition"):
-        lines.append(f"⛔ <b>Invalidation:</b> {signal['invalidationCondition']}")
+        lines.append(f"TP1 {c(L['tp1'])} · close 50%, SL → entry")
+        lines.append(f"TP2 {c(L['tp2'])} · 1:{rr_of(L['tp2'])}")
+        if L["tp3"] is not None:
+            lines.append(f"TP3 {c(L['tp3'])} · 1:{rr_of(L['tp3'])}")
+    if lot and lot.get("lots"):
+        warn = " · min lot, above your risk" if lot["tooSmall"] else ""
+        lines.append(f"Lot <code>{lot['lots']:.2f}</code> · risk ${lot['actualRisk']:g}{warn}")
+    elif lot is not None:
+        lines.append("Lot: send /risk 80 to get your lot for $80")
+    if L["orderType"] == "LIMIT" and L["expires"]:
+        lines.append(f"⏱ valid until {L['expires'][11:16]} UTC")
+    if ref:
+        lines.append(f"\n🔐 <i>Personal copy · Ref {ref}</i>")
     return "\n".join(lines)
+
+
+def copy_keyboard(signal: dict, lot: Optional[dict] = None) -> Optional[dict]:
+    """One button per value (Telegram copy_text): tap, then paste it in MetaTrader."""
+    L = _levels(signal)
+    if not L:
+        return None
+    f = lambda v: to_fixed(v, L["decimals"])  # noqa: E731
+    btn = lambda label, v: {"text": f"📋 {label}", "copy_text": {"text": v}}  # noqa: E731
+    rows = [[btn("Entry", f(L["entry"])), btn("SL", f(L["sl"]))]]
+    if L["single"]:
+        rows[0].append(btn("TP", f(L["tp3"])))
+    else:
+        rows.append([btn("TP1", f(L["tp1"])), btn("TP2", f(L["tp2"]))] + ([btn("TP3", f(L["tp3"]))] if L["tp3"] is not None else []))
+    if lot and lot.get("lots"):
+        rows.append([btn(f"Lot {lot['lots']:.2f}", f"{lot['lots']:.2f}")])
+    return {"inline_keyboard": rows}
 
 
 # ---------------------------------------------------------------- subscribers
 
 def _aware(dt: Optional[datetime]) -> Optional[datetime]:
     return dt if dt is None or dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def chat_risks(db: Session, chat_ids: list[str]) -> dict[str, Optional[float]]:
+    """$ risked per signal by each subscriber (/risk in the bot, else the linked app account). Non-subscriber chats are left out."""
+    users = {u.telegram_chat_id: u.risk_usd for u in db.scalars(select(User).where(User.telegram_chat_id.in_(chat_ids)))}
+    return {s.chat_id: s.risk_usd or users.get(s.chat_id) for s in db.scalars(select(Subscriber).where(Subscriber.chat_id.in_(chat_ids)))}
 
 
 def active_subscribers(db: Session) -> list[Subscriber]:
@@ -254,13 +281,17 @@ async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session) -
     first_ack: Optional[float] = None
     last_error: Optional[str] = None
     marks: list[Watermark] = []
+    risks = chat_risks(db, ids)
     for b in range(0, len(ids), BATCH):
         batch = ids[b:b + BATCH]
 
         async def one(chat_id: str):
             personal, offset, ref = personalize_signal(signal, chat_id, cfg.get("personalOffsets", True))
-            text = f"{format_signal_message(personal)}\n🔐 <i>Personal copy · Ref {ref} · do not share</i>"
-            out = await send_message(cfg["botToken"], chat_id, text, None, cfg.get("protectContent", True))
+            # Lot for this person's $ risk with the strategy's stop (the offset moves entry and SL together)
+            risk = risks.get(chat_id)
+            lot = lot_for_risk(str(signal["symbol"]), personal["entryPrice"], personal["stopLoss"], risk) if risk else ({} if chat_id in risks else None)
+            out = await send_message(cfg["botToken"], chat_id, format_signal_message(personal, lot, ref), copy_keyboard(personal, lot),
+                                     cfg.get("protectContent", True))
             return chat_id, out, offset, ref
 
         for chat_id, out, offset, ref in await asyncio.gather(*(one(c) for c in batch)):
@@ -300,6 +331,7 @@ COMMANDS = [
     ("status", "Your subscription"),
     ("stop", "Pause signals"),
     ("resume", "Resume signals"),
+    ("risk", "Your risk per trade in $ (/risk 80) → your lot in every signal"),
     ("myid", "Your Telegram chat id"),
     ("help", "All commands"),
 ]
@@ -385,6 +417,27 @@ Only signals with every rule passed and a score ≥ 75 are sent, at the candle c
 ⚠️ Past results do not guarantee future results: risk only what you can lose."""
 
 
+def _risk_reply(db: Session, sub: Optional[Subscriber], active: bool, text: str) -> str:
+    """/risk → current value · /risk 80 → $80 per trade · /risk 0 → off. Also saved on the linked app account."""
+    if not active or not sub:
+        return "⛔ Not activated. Send your activation code."
+    parts = text.split()
+    if len(parts) < 2:
+        return (f"💵 Your risk per trade: <b>${sub.risk_usd:g}</b>. Each signal comes with the lot for it; the SL stays where the strategy puts it."
+                if sub.risk_usd else "💵 No risk set. Send <code>/risk 80</code> to risk $80 per trade: every signal will then give you the lot to enter.")
+    try:
+        value = float(parts[1].replace("$", "").replace(",", "."))
+    except ValueError:
+        return "Send a number in $, for example <code>/risk 80</code>."
+    if value < 0 or value > 1_000_000:
+        return "Send a number in $, for example <code>/risk 80</code>."
+    sub.risk_usd = value or None
+    for u in db.scalars(select(User).where(User.telegram_chat_id == sub.chat_id)):
+        u.risk_usd = sub.risk_usd
+    db.commit()
+    return f"✅ Risk set to <b>${value:g}</b> per trade. Your next signals include the lot for it." if value else "Risk removed: signals come without a lot."
+
+
 async def handle_update(token: str, upd: dict) -> None:
     msg = upd.get("message") or {}
     text = (msg.get("text") or "").strip()
@@ -403,6 +456,8 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = HELP
         elif cmd == "/myid":
             reply = f"🆔 Your chat id: <code>{chat_id}</code>"
+        elif cmd == "/risk":
+            reply = _risk_reply(db, sub, active, text)
         elif cmd == "/status":
             reply = ((f"✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>"
                       + ("\n⏸ Signals paused: send /resume" if sub.muted else "")) if active else "⛔ Not activated. Send your activation code.")

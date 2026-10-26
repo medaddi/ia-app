@@ -10,9 +10,9 @@ from sqlalchemy.orm import Session
 
 from ..auth import admin_user, bearer, current_user, hash_code, login, logout, user_json
 from ..db import get_db
-from ..models import Signal, Trade, User
+from ..models import Signal, Subscriber, Trade, User
 from ..strategies.service import normalize_symbol
-from ..trading import close_trade, signal_json, stats, today_status, trade_json
+from ..trading import close_trade, lot_for_risk, signal_json, stats, today_status, trade_json
 
 router = APIRouter(prefix="/api")
 
@@ -48,6 +48,7 @@ def auth_logout(token: str = Depends(bearer), db: Session = Depends(get_db)):
 
 class ProfileIn(BaseModel):
     dailyLossLimit: Optional[float] = Field(None, ge=0)  # $; 0 = no limit
+    riskUsd: Optional[float] = Field(None, ge=0)  # $ per signal; 0 = not set
     telegramChatId: Optional[str] = None
     accessCode: Optional[str] = Field(None, min_length=6)
 
@@ -71,10 +72,25 @@ def me_update(body: ProfileIn, u: User = Depends(current_user), db: Session = De
         u.daily_loss_limit = body.dailyLossLimit or None
     if body.telegramChatId is not None:
         u.telegram_chat_id = body.telegramChatId.strip() or None
+    if body.riskUsd is not None:
+        u.risk_usd = body.riskUsd or None
+    sub = db.get(Subscriber, u.telegram_chat_id) if u.telegram_chat_id else None
+    if sub:  # one risk for the app and the Telegram bot
+        if body.riskUsd is not None:
+            sub.risk_usd = u.risk_usd
+        elif u.risk_usd is None:
+            u.risk_usd = sub.risk_usd  # linking keeps the risk already set with /risk
     if body.accessCode:
         u.access_code_hash = hash_code(body.accessCode)
     db.commit()
     return {"success": True, "user": user_json(u)}
+
+
+@router.get("/lot")
+def lot(symbol: str, entry: float, sl: float, riskUsd: Optional[float] = None, u: User = Depends(current_user)):
+    """The lot for my risk in $ with the signal's own stop."""
+    risk = riskUsd if riskUsd is not None else (u.risk_usd or 0)
+    return {"success": True, "symbol": normalize_symbol(symbol), **lot_for_risk(symbol, entry, sl, risk)}
 
 
 # ---------------------------------------------------------------- users (admin: accounts only)

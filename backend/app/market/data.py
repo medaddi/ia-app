@@ -23,8 +23,8 @@ PRICE_TTL = 2.0
 RAW_TTL = 20.0
 SLOW_TTL = 300.0
 
-TIMEFRAME_SECONDS = {"1M": 60, "5M": 300, "15M": 900, "1H": 3600, "4H": 14400, "1D": 86400}
-INTERVALS = {"1M": ("1m", "5d"), "5M": ("5m", "60d"), "15M": ("15m", "60d"), "1H": ("1h", "2y"), "4H": ("1h", "2y"), "1D": ("1d", "5y")}
+TIMEFRAME_SECONDS = {"1M": 60, "5M": 300, "15M": 900, "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800}
+INTERVALS = {"1M": ("1m", "5d"), "5M": ("5m", "60d"), "15M": ("15m", "60d"), "1H": ("1h", "2y"), "4H": ("1h", "2y"), "1D": ("1d", "5y"), "1W": ("1wk", "10y")}
 
 _client: httpx.AsyncClient | None = None
 _price_cache: dict[str, tuple[dict, float]] = {}
@@ -155,7 +155,7 @@ async def _yahoo_candles(ticker: str, interval: str, rng: str, decimals: int, fr
         if all(isinstance(x, (int, float)) and not math.isnan(x) for x in vals):
             out.append(Candle(int(t), *(round_to(x, decimals) for x in vals), (v[i] if i < len(v) else 0) or 0))
     # Intraday series refresh every 20s; hourly/daily history changes slowly
-    _raw_cache[key] = (out, time.time() + (SLOW_TTL if interval in ("1h", "1d") else RAW_TTL))
+    _raw_cache[key] = (out, time.time() + (SLOW_TTL if interval in ("1h", "1d", "1wk") else RAW_TTL))
     return out
 
 
@@ -203,7 +203,13 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
             if spot and market_session_status(symbol)["isOpen"]:
                 bucket = now - now % step
                 tail = candles[-1]
-                if tail.time == bucket:
+                if step >= 86400:
+                    # Daily / weekly bars follow the provider's own session start: only update the bar in progress
+                    if tail.time <= now < tail.time + step:
+                        tail.close = round_to(spot, decimals)
+                        tail.high = max(tail.high, tail.close)
+                        tail.low = min(tail.low, tail.close)
+                elif tail.time == bucket:
                     tail.close = round_to(spot, decimals)
                     tail.high = max(tail.high, tail.close)
                     tail.low = min(tail.low, tail.close)

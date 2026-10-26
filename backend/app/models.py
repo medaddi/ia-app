@@ -29,6 +29,7 @@ class User(Base):
     access_code_hash: Mapped[str] = mapped_column(String(200))
     role: Mapped[str] = mapped_column(String(16), default="user")  # admin | user
     daily_loss_limit: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # $; None = no limit
+    risk_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # $ risked per signal → the lot shown to this user
     # Legacy columns, no longer used (kept so existing databases keep working)
     capital: Mapped[float] = mapped_column(Float, default=0)
     risk_pct: Mapped[float] = mapped_column(Float, default=1)
@@ -69,6 +70,7 @@ class Subscriber(Base):
     risk_pct: Mapped[float] = mapped_column(Float, default=1)
     expired_notified: Mapped[bool] = mapped_column(Boolean, default=False)
     muted: Mapped[bool] = mapped_column(Boolean, default=False)  # /stop pauses signals, /resume turns them back on
+    risk_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # /risk 80 → each signal comes with the lot for $80
 
 
 class Signal(Base):

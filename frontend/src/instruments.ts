@@ -10,3 +10,13 @@ export const INSTRUMENT_LABELS: Record<InstrumentSymbol, string> = {
 };
 
 export const isInstrument = (s: string | undefined | null): s is InstrumentSymbol => !!s && (INSTRUMENT_SYMBOLS as readonly string[]).includes(s);
+
+// What the chart shows for each strategy: the timeframes it reads and the moving averages its rules use
+export interface ChartSpec { entryTf: string; timeframes: string[]; emas: number[]; emaNote: string }
+export const CHART_SPEC: Record<'gold' | 'forex', ChartSpec> = {
+  // H1 Trend Breakout: EMA50 vs EMA200 and the 20-hour range, all on H1
+  gold: { entryTf: 'H1', timeframes: ['M15', 'H1', 'H4', 'D1'], emas: [50, 200], emaNote: 'trend on H1' },
+  // FXAlexG: weekly → daily → H4 top-down; EMA20 is the trend filter on W1 and D1
+  forex: { entryTf: 'H4', timeframes: ['H1', 'H4', 'D1', 'W1'], emas: [20], emaNote: 'trend on D1 / W1' },
+};
+export const chartSpec = (s: InstrumentSymbol): ChartSpec => CHART_SPEC[s === 'XAU/USD' ? 'gold' : 'forex'];

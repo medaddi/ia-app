@@ -34,13 +34,17 @@ interface SmcChartProps {
   result: StrategyResult | null;
   timeframe: string;
   timeframes: string[];
+  entryTf: string; // the timeframe the strategy decides on (its candle close = new evaluation)
+  emas: number[]; // the moving averages the strategy's rules use
+  emaNote: string;
+  updatedAt: number; // ms of the last live reload (0 = review mode)
   onTimeframeChange: (tf: string) => void;
   isLoading?: boolean;
   onRefresh?: () => void;
   lang?: string;
 }
 
-const TF_SEC: Record<string, number> = { M5: 300, M15: 900, H1: 3600, H4: 14400, D1: 86400 };
+const TF_SEC: Record<string, number> = { M5: 300, M15: 900, H1: 3600, H4: 14400, D1: 86400, W1: 604800 };
 type Layer = DrawingLayer | 'ema';
 const LAYERS: { key: Layer; label: string }[] = [
   { key: 'sessions', label: 'Sessions' },
@@ -51,11 +55,20 @@ const LAYERS: { key: Layer; label: string }[] = [
   { key: 'fvg', label: 'FVG' },
   { key: 'ob', label: 'OB' },
   { key: 'fib', label: 'Fib' },
-  { key: 'ema', label: 'EMA 50/200' },
+  { key: 'ema', label: 'EMA' },
   { key: 'trade', label: 'Trade' },
 ];
 const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Record<Layer, boolean>;
 const LAYER_KEY = 'exunu_chart_layers_v1';
+const ALWAYS_SHOWN: Layer[] = ['ema', 'trade'];
+
+const fmtLeft = (sec: number) => {
+  const s = Math.max(0, Math.floor(sec));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m ${String(s % 60).padStart(2, '0')}s`;
+};
+const str = (v: unknown) => (typeof v === 'string' ? v : '');
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 const PAL = {
   dark: { bg: '#0D1016', grid: 'rgba(255,255,255,0.035)', text: '#8D96A6', border: '#1F2430', bull: '#16C784', bear: '#EA3943', ema50: '#4B85B8', ema200: '#C9A04A' },
@@ -74,13 +87,12 @@ function ema(values: number[], period: number): (number | null)[] {
 
 const readTheme = (): OverlayTheme => (typeof document !== 'undefined' && !document.documentElement.classList.contains('dark') ? 'light' : 'dark');
 
-export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, timeframe, timeframes, onTimeframeChange, isLoading, onRefresh, lang = 'en' }) => {
+export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, timeframe, timeframes, entryTf, emas, emaNote, updatedAt, onTimeframeChange, isLoading, onRefresh, lang = 'en' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volRef = useRef<ISeriesApi<'Histogram'> | null>(null);
-  const ema50Ref = useRef<ISeriesApi<'Line'> | null>(null);
-  const ema200Ref = useRef<ISeriesApi<'Line'> | null>(null);
+  const emaRefs = useRef<ISeriesApi<'Line'>[]>([]);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const primitiveRef = useRef<DrawingsPrimitive | null>(null);
   const fitKeyRef = useRef('');
@@ -91,6 +103,8 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   langRef.current = lang;
   const symbolRef = useRef(symbol);
   symbolRef.current = symbol;
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => { const id = setInterval(() => setNowMs(Date.now()), 1000); return () => clearInterval(id); }, []);
   const [layers, setLayers] = useState<Record<Layer, boolean>>(() => {
     try { return { ...DEFAULT_LAYERS, ...JSON.parse(localStorage.getItem(LAYER_KEY) || '{}') }; } catch { return DEFAULT_LAYERS; }
   });
@@ -137,8 +151,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     });
     const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.88, bottom: 0 } });
-    const e50 = chart.addSeries(LineSeries, { color: p.ema50, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    const e200 = chart.addSeries(LineSeries, { color: p.ema200, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    const emaLines = [p.ema50, p.ema200].map(color => chart.addSeries(LineSeries, { color, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }));
     const prim = new DrawingsPrimitive();
     cs.attachPrimitive(prim);
 
@@ -169,8 +182,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     chartRef.current = chart;
     candleRef.current = cs;
     volRef.current = vol;
-    ema50Ref.current = e50;
-    ema200Ref.current = e200;
+    emaRefs.current = emaLines;
     markersRef.current = createSeriesMarkers(cs, []);
     primitiveRef.current = prim;
     fitKeyRef.current = '';
@@ -200,15 +212,18 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     volRef.current?.setData(bars.map(b => ({ time: b.time as Time, value: b.volume || 0, color: b.close >= b.open ? 'rgba(22,199,132,0.22)' : 'rgba(234,57,67,0.22)' })));
     const closes = bars.map(b => b.close);
     const toLine = (vals: (number | null)[]) => bars.flatMap((b, i) => (vals[i] === null ? [] : [{ time: b.time as Time, value: vals[i] as number }]));
-    ema50Ref.current?.setData(layers.ema ? toLine(ema(closes, 50)) : []);
-    ema200Ref.current?.setData(layers.ema ? toLine(ema(closes, 200)) : []);
-    ema50Ref.current?.applyOptions({ color: p.ema50 });
+    // Only the averages this strategy's rules use (gold EMA 50/200, forex EMA 20)
+    emaRefs.current.forEach((line, k) => {
+      const period = emas[k];
+      line.setData(layers.ema && period ? toLine(ema(closes, period)) : []);
+      line.applyOptions({ color: k === 0 ? p.ema50 : p.ema200, title: period ? `EMA${period}` : '' });
+    });
     const key = `${symbol}-${timeframe}-${theme}`;
     if (fitKeyRef.current !== key && bars.length) {
       fitKeyRef.current = key;
       chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 140), to: bars.length + 10 });
     }
-  }, [bars, symbol, timeframe, theme, layers.ema]);
+  }, [bars, symbol, timeframe, theme, layers.ema, emas]);
 
   // Drawings + entry arrow
   useEffect(() => {
@@ -228,6 +243,42 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
 
   const last = bars[bars.length - 1];
   const ohlc = hover.c || last;
+
+  // The numbers this strategy decides on, straight from its own output (no recomputation here)
+  const facts = (result?.facts ?? {}) as Record<string, unknown>;
+  const pip = result?.spec.pipSize ?? (symbol === 'XAU/USD' ? 0.1 : 0.0001);
+  const trendTone = (t: string) => (t === 'bullish' ? 'text-emerald-400' : t === 'bearish' ? 'text-rose-400' : 'text-slate-300');
+  const keyFacts: { label: string; value: string; tone?: string }[] = [];
+  if (result?.dataQuality.ok) {
+    if (symbol === 'XAU/USD') {
+      const rng = facts.range20h as { high?: number; low?: number } | undefined;
+      keyFacts.push({ label: 'H1 trend', value: str(facts.trend) || '—', tone: trendTone(str(facts.trend)) });
+      if (num(facts.ema50) !== null) keyFacts.push({ label: 'EMA50', value: fmt(num(facts.ema50)!) });
+      if (num(facts.ema200) !== null) keyFacts.push({ label: 'EMA200', value: fmt(num(facts.ema200)!) });
+      if (num(facts.atrH1) !== null) keyFacts.push({ label: 'ATR H1', value: `$${num(facts.atrH1)!.toFixed(2)}` });
+      if (rng?.high && rng?.low) keyFacts.push({ label: '20h range', value: `${fmt(rng.low)} – ${fmt(rng.high)}` });
+    } else {
+      keyFacts.push({ label: 'W1', value: str(facts.weeklyTrend) || '—', tone: trendTone(str(facts.weeklyTrend)) });
+      keyFacts.push({ label: 'D1', value: str(facts.dailyTrend) || '—', tone: trendTone(str(facts.dailyTrend)) });
+      if (num(facts.atrH4) !== null) keyFacts.push({ label: 'ATR H4', value: `${(num(facts.atrH4)! / pip).toFixed(1)} pips` });
+      const aoi = (facts.areasOfInterest as { kind: string; price: number }[] | undefined) ?? [];
+      aoi.slice(0, 3).forEach((a, k) => keyFacts.push({ label: k === 0 ? 'AOI' : '', value: `${a.kind} ${fmt(a.price)}`, tone: a.kind === 'support' ? 'text-emerald-300' : 'text-rose-300' }));
+    }
+  }
+  const entrySec = TF_SEC[entryTf] || 3600;
+  const nowSec = nowMs / 1000;
+  const nextClose = Math.ceil(nowSec / entrySec) * entrySec;
+  if (result?.market.isOpen && updatedAt) keyFacts.push({ label: `Next ${entryTf} close`, value: fmtLeft(nextClose - nowSec), tone: 'text-gold-300' });
+  if (result?.news.next) keyFacts.push({ label: 'News', value: result.news.next, tone: result.news.blocked ? 'text-rose-300' : undefined });
+  const lastTrade = facts.lastTrade as { state: string; outcome: string | null; r: number | null } | null | undefined;
+  if (lastTrade) keyFacts.push({ label: 'Last trade', value: lastTrade.outcome ? `${lastTrade.outcome} ${lastTrade.r !== null ? `${lastTrade.r > 0 ? '+' : ''}${lastTrade.r.toFixed(2)}R` : ''}` : lastTrade.state,
+    tone: lastTrade.outcome === 'WIN' ? 'text-emerald-300' : lastTrade.outcome === 'LOSS' ? 'text-rose-300' : 'text-gold-200' });
+
+  // Only the layers this strategy actually draws (plus its averages and the trade)
+  const present = new Set((result?.drawings ?? []).map(d => d.layer));
+  const shownLayers = LAYERS.filter(l => ALWAYS_SHOWN.includes(l.key) || present.has(l.key as DrawingLayer))
+    .map(l => (l.key === 'ema' ? { ...l, label: `EMA ${emas.join('/')} · ${emaNote}` } : l));
+  const age = updatedAt ? Math.max(0, Math.round((nowMs - updatedAt) / 1000)) : null;
   const hoverIsSignal = !!(setup && hover.c && signalBarTime !== null && hover.c.time <= signalBarTime && hover.c.time + tfSec > signalBarTime);
   const statusTone = result?.status === 'SIGNAL' ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'
     : result?.status === 'WATCH' ? 'bg-gold-500/15 text-gold-200 ring-gold-500/30'
@@ -284,6 +335,18 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
         </span>
       </div>
 
+      {/* Key numbers of the strategy */}
+      {keyFacts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-2 border-b border-line text-xs font-mono" aria-label="Strategy key levels">
+          {keyFacts.map((k, i) => (
+            <span key={i} className="whitespace-nowrap">
+              {k.label && <span className="text-slate-500">{k.label} </span>}
+              <span className={k.tone ?? 'text-slate-200'}>{k.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Chart */}
       <div className="relative h-[440px] sm:h-[540px]">
         <div ref={containerRef} className="absolute inset-0" />
@@ -319,7 +382,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       {/* Layers + provenance */}
       <div className="flex flex-col gap-2 px-3 sm:px-4 py-2 border-t border-line text-xs">
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Chart layers">
-          {LAYERS.map(l => (
+          {shownLayers.map(l => (
             <button key={l.key} aria-pressed={layers[l.key]} onClick={() => setLayers(s => ({ ...s, [l.key]: !s[l.key] }))}
               className={`h-7 px-2.5 rounded-md border transition-colors ${layers[l.key] ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-500 hover:text-slate-300'}`}>
               {l.label}
@@ -327,7 +390,10 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
           ))}
         </div>
         <span className="font-mono text-slate-500 truncate">
-          {result ? `${result.strategyName} · ${result.dataQuality.source} · closed candles only · click a drawing to explain it` : ''}
+          {age !== null && (
+            <span className={age > 15 ? 'text-rose-300' : 'text-emerald-400'}>{age > 15 ? `● Stale · ${age}s` : `● Live · ${age}s ago`} · every 5 s · </span>
+          )}
+          {result ? `${result.strategyName} · ${result.dataQuality.source} · decides at each ${entryTf} close · click a drawing to explain it` : ''}
         </span>
       </div>
     </div>

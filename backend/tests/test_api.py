@@ -122,3 +122,12 @@ def test_admin_code_change_is_final(client, admin):
     assert client.post("/api/auth/login", json={"username": "boss", "accessCode": "second-code-2"}).status_code == 200
     # The default bootstrap code is not a master key
     assert client.post("/api/auth/login", json={"username": settings.admin_username, "accessCode": "admin1234"}).status_code == 401
+
+
+def test_risk_in_dollars_gives_the_lot(client, admin):
+    client.post("/api/users", headers=admin, json={"username": "risky", "accessCode": "secret-321"})
+    me = login(client, "risky", "secret-321")
+    assert client.put("/api/me", headers=me, json={"riskUsd": 80}).json()["user"]["riskUsd"] == 80
+    lot = client.get("/api/lot?symbol=XAU/USD&entry=4000&sl=3995", headers=me).json()
+    assert lot["lots"] == 0.16 and lot["actualRisk"] == 80  # $5 × 100 oz = $500 per lot → 0.16
+    assert client.put("/api/me", headers=me, json={"riskUsd": 0}).json()["user"]["riskUsd"] is None

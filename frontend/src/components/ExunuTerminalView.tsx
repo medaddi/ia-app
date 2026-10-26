@@ -4,7 +4,7 @@ import { Send, RefreshCw, Activity } from 'lucide-react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import type { ExunuSMCResult } from '../strategyTypes';
-import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, type InstrumentSymbol } from '../instruments';
+import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, chartSpec, type ChartSpec, type InstrumentSymbol } from '../instruments';
 import type { StrategyResult } from '../strategyTypes';
 
 interface ExunuTerminalViewProps {
@@ -19,11 +19,10 @@ const REVIEW_AS_OF = (() => {
 })();
 const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
 
-// Gold: H1 trend breakout · forex: FXAlexG break & retest on H4
-const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, {
-  label: INSTRUMENT_LABELS[s], entryTf: s === 'XAU/USD' ? 'H1' : 'H4', timeframes: ['M15', 'H1', 'H4', 'D1'],
-}])) as Record<InstrumentSymbol, { label: string; entryTf: string; timeframes: string[] }>;
-const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', H1: '1H', H4: '4H', D1: '1D' };
+// Gold: H1 trend breakout · forex: FXAlexG break & retest (W1 → D1 → H4)
+const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, { label: INSTRUMENT_LABELS[s], ...chartSpec(s) }])) as Record<InstrumentSymbol, ChartSpec & { label: string }>;
+const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
+const LIVE_MS = 5000; // the analysis and the chart are both reloaded every 5 seconds
 
 export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onOpenTelegram, lang = 'en' }) => {
   const [symbol, setSymbol] = useState<InstrumentSymbol>(initialSymbol);
@@ -31,8 +30,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
   const [bundle, setBundle] = useState<ExunuSMCResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const lastSetupRef = useRef<string>('');
-  const lastCandleLoadRef = useRef<number>(0);
+  const [updatedAt, setUpdatedAt] = useState<number>(0);
 
   const result: StrategyResult | null = bundle?.strategy ?? null;
   const inst = INSTRUMENTS[symbol];
@@ -42,7 +40,6 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
       const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400${asOfParam}`, { cache: 'no-store' });
       const json = await res.json();
       if (json.success && Array.isArray(json.candles)) setCandles(json.candles);
-      lastCandleLoadRef.current = Date.now();
     } catch {
       // keep the last good candles
     }
@@ -61,39 +58,33 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const refreshAll = useCallback(async () => {
     setIsLoading(true);
-    await Promise.all([loadStrategy(symbol), loadCandles(symbol, timeframe)]);
+    const [b] = await Promise.all([loadStrategy(symbol), loadCandles(symbol, timeframe)]);
+    if (b) setUpdatedAt(Date.now());
     setIsLoading(false);
   }, [symbol, timeframe, loadStrategy, loadCandles]);
 
   useEffect(() => { setBundle(null); setCandles([]); refreshAll(); }, [symbol, timeframe]);
 
-  // Live loop: strategy every 3s; candles reload on a new setup or every 30s; the forming candle follows the tick
+  // Live loop: every 5 s the strategy re-runs and the candles (with the forming one) are reloaded together,
+  // so the drawings, the checklist and the chart always come from the same moment. Paused while the tab is hidden.
   useEffect(() => {
     if (REVIEW_AS_OF > 0) return;
+    let busy = false;
     const id = setInterval(async () => {
-      const b = await loadStrategy(symbol);
-      if (!b) return;
-      const key = `${b.strategy.setup?.id ?? ''}|${b.strategy.setup?.lifecycle.state ?? ''}`;
-      if (key !== lastSetupRef.current || Date.now() - lastCandleLoadRef.current > 30000) {
-        lastSetupRef.current = key;
-        loadCandles(symbol, timeframe);
-      } else if (b.current_price > 0) {
-        setCandles(prev => {
-          if (!prev.length) return prev;
-          const next = [...prev];
-          const l = next[next.length - 1];
-          next[next.length - 1] = { ...l, close: b.current_price, high: Math.max(l.high, b.current_price), low: Math.min(l.low, b.current_price) };
-          return next;
-        });
-      }
-    }, 3000);
+      if (busy || document.hidden) return;
+      busy = true;
+      const [b] = await Promise.all([loadStrategy(symbol), loadCandles(symbol, timeframe)]);
+      if (b) setUpdatedAt(Date.now());
+      busy = false;
+    }, LIVE_MS);
     return () => clearInterval(id);
   }, [symbol, timeframe, loadStrategy, loadCandles]);
 
   const agents = bundle ? [
     { name: 'Structure', summary: bundle.agents.structure_agent.summary, ok: result?.bias.direction !== 'NEUTRAL' },
-    { name: 'Liquidity', summary: bundle.agents.liquidity_agent.summary, ok: !!result?.checklist.find(c => (c.key === 'sweep' || c.key === 'zone' || c.key === 'breakout') && c.passed) },
-    { name: 'Risk', summary: bundle.agents.risk_agent.summary, ok: !!result?.checklist.find(c => c.key === 'rr' && c.passed) },
+    { name: result?.symbol === 'XAUUSD' ? 'Breakout' : 'Level', summary: bundle.agents.liquidity_agent.summary,
+      ok: !!result?.checklist.find(c => ['sweep', 'zone', 'breakout', 'retest'].includes(c.key) && c.passed) },
+    { name: 'Risk', summary: bundle.agents.risk_agent.summary, ok: !!result?.setup && !!result.checklist.find(c => ['rr', 'stop'].includes(c.key) && c.passed) },
     { name: 'CTO', summary: bundle.agents.cto_agent.summary, ok: result?.status === 'SIGNAL' },
   ] : [];
 
@@ -135,7 +126,8 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-8 min-w-0">
-          <SmcChart symbol={symbol} candles={candles} result={result} timeframe={timeframe} timeframes={[...inst.timeframes]}
+          <SmcChart symbol={symbol} candles={candles} result={result} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
+            emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
             onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
         </div>
         <div className="lg:col-span-4 min-w-0">

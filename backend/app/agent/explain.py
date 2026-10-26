@@ -66,7 +66,7 @@ def build_explanation(r: dict, lang: str = "en") -> str:
         if a.get("breakRetest"):
             br = a["breakRetest"]
             parts.append(f"Look left: area of interest {f(br['level'])} ({br['touches']} touches). Price broke it with an H4 close, moved away to {f(br['extreme'])}, "
-                         f"came back to retest it and printed a {br['pattern']}; market entry at the close {f(s['entry'])} (no anticipation).")
+                         f"came back to retest it and printed {'an' if br['pattern'] == 'engulfing' else 'a'} {br['pattern']}; market entry at the close {f(s['entry'])} (no anticipation).")
             parts.append(f"Set & forget: stop {f(s['sl'])} ({js_str(s['slPips'])} pips), one target {f(s['tp3'])} ({s['tp3Source']}); "
                          f"TP1 {f(s['tp1'])} and TP2 {f(s['tp2'])} are progress marks only, no partials, no breakeven.")
         else:

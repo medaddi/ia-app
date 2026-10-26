@@ -244,6 +244,8 @@ def evaluate_alexg(inp: dict, cfg: dict) -> dict:
             break
         if aligned and s.kind != ("HIGH" if w == 1 else "LOW"):
             continue
+        if any(abs(s.price - o.price) <= A["touchAtr"] * ctx.atr[last] for o in aoi):
+            continue  # the same area seen twice
         aoi.append(s)
         if len(aoi) >= 3:
             break

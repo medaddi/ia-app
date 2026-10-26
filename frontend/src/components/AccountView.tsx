@@ -6,7 +6,8 @@ import { AISignal, Language, MarketAsset } from '../types';
 import { Button, Card, Field, Notice, Stat, fmtDate, fmtMoney, fmtPct, fmtR, inputCls, tr } from './ui';
 
 export interface AppUser {
-  id: number; username: string; role: 'admin' | 'user'; dailyLossLimit?: number | null; active?: boolean; lastLoginAt?: string | null;
+  id: number; username: string; role: 'admin' | 'user'; dailyLossLimit?: number | null; riskUsd?: number | null; telegramChatId?: string | null;
+  active?: boolean; lastLoginAt?: string | null;
 }
 
 export interface Trade {
@@ -108,6 +109,10 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
   const [stats, setStats] = useState<Stats | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [lossLimit, setLossLimit] = useState(user.dailyLossLimit ? String(user.dailyLossLimit) : '');
+  const [riskUsd, setRiskUsd] = useState(user.riskUsd ? String(user.riskUsd) : '');
+  const [chatId, setChatId] = useState(user.telegramChatId || '');
+  // Lot for my $ risk on each live signal, computed by the backend with the signal's own stop
+  const [lotFor, setLotFor] = useState<Record<string, { lots: number; actualRisk: number; tooSmall: boolean }>>({});
   const [form, setForm] = useState(EMPTY);
   const [signalLots, setSignalLots] = useState<Record<string, string>>({});
   const [exitPrices, setExitPrices] = useState<Record<number, string>>({});
@@ -142,6 +147,15 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
   const blocked = !!stats?.today.reached;
   const priceOf = (sym: string) => assets.find(a => a.symbol === sym)?.price;
   const live = signals.filter(s => s.isActionableNow && s.entryPrice > 0);
+  const liveKey = live.map(s => `${s.id}:${s.stopLoss}`).join('|');
+  useEffect(() => {
+    if (!user.riskUsd || !live.length) { setLotFor({}); return; }
+    let stop = false;
+    Promise.all(live.map(s => apiJson<{ lots: number; actualRisk: number; tooSmall: boolean }>(
+      `/api/lot?symbol=${encodeURIComponent(s.symbol)}&entry=${s.entryPrice}&sl=${s.stopLoss}`).then(r => [s.id, r] as const).catch(() => null)))
+      .then(rows => { if (!stop) setLotFor(Object.fromEntries(rows.filter(Boolean) as [string, any][])); });
+    return () => { stop = true; };
+  }, [liveKey, user.riskUsd]);
   const takenSignalIds = new Set(trades.map(x => x.signalId).filter(Boolean).map(id => `sig-${id}`));
   const open = trades.filter(x => x.status === 'OPEN');
   const closed = trades.filter(x => x.status === 'CLOSED');
@@ -163,18 +177,31 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
         <StatsGrid isLight={isLight} lang={lang} stats={stats} />
       </Card>
 
-      <Card isLight={isLight} icon={<ShieldOff className="w-4 h-4" />} title={t('Daily loss limit', 'Perte journalière max', 'الخسارة اليومية القصوى')}>
+      <Card isLight={isLight} icon={<ShieldOff className="w-4 h-4" />} title={t('My risk', 'Mon risque', 'المخاطرة ديالي')}>
         <div className="flex flex-wrap items-end gap-2">
+          <Field label={t('Risk per trade ($) → your lot', 'Risque par trade ($) → votre lot', 'شحال كتخاطر ف كل صفقة ($) → اللوت ديالك')}>
+            <input inputMode="decimal" value={riskUsd} placeholder="80" onChange={e => setRiskUsd(e.target.value)} className={inputCls(isLight)} />
+          </Field>
           <Field label={t('Max loss per day ($, empty = none)', 'Perte max par jour ($, vide = aucune)', 'أقصى خسارة فالنهار ($، فارغ = بلا حد)')}>
             <input inputMode="decimal" value={lossLimit} placeholder="—" onChange={e => setLossLimit(e.target.value)} className={inputCls(isLight)} />
           </Field>
+          <Field label={t('Telegram chat id (/myid in the bot)', 'Chat id Telegram (/myid dans le bot)', 'Chat id ديال تيليغرام (/myid ف البوت)')}>
+            <input inputMode="numeric" value={chatId} placeholder="123456789" onChange={e => setChatId(e.target.value)} className={inputCls(isLight)} />
+          </Field>
           <Button disabled={busy} onClick={() => run(async () => {
-            const r = await apiJson('/api/me', { method: 'PUT', body: JSON.stringify({ dailyLossLimit: lossLimit ? Number(lossLimit) : 0 }) });
+            const r = await apiJson('/api/me', { method: 'PUT', body: JSON.stringify({
+              dailyLossLimit: lossLimit ? Number(lossLimit) : 0, telegramChatId: chatId.trim(),
+              // Only when changed here, so a risk set with /risk in the bot is not wiped
+              ...((Number(riskUsd) || 0) !== (user.riskUsd || 0) ? { riskUsd: Number(riskUsd) || 0 } : {}),
+            }) });
             onUserChange(r.user);
             await load();
             return t('Saved', 'Enregistré', 'تم الحفظ');
           })}>{t('Save', 'Enregistrer', 'حفظ')}</Button>
           <p className="text-xs text-slate-500 basis-full">
+            {t('Each signal gives you the lot that loses your risk if the stop is hit; the stop stays where the strategy puts it. With your Telegram chat id, the bot uses the same risk (or send /risk 80 to the bot). ',
+              "Chaque signal vous donne le lot qui perd votre risque si le stop est touché ; le stop reste où la stratégie le place. Avec votre chat id Telegram, le bot utilise le même risque (ou envoyez /risk 80 au bot). ",
+              'كل إشارة كتعطيك اللوت لي كيخسر المبلغ ديالك إلا ضرب الستوب؛ الستوب كيبقى فين حطاتو الاستراتيجية. مع chat id ديال تيليغرام، البوت كيستعمل نفس المخاطرة (ولا صيفط /risk 80 للبوت). ')}
             {t('When your closed trades of the day lose this amount, no new trade can be added until the next trading day (17:00 New York).',
               "Quand vos trades clôturés du jour perdent ce montant, plus aucun trade ne peut être ajouté jusqu'au jour de trading suivant (17:00 New York).",
               'ملي توصل الخسارة ديال الصفقات المسدودة اليوم لهاد المبلغ، ما تقدرش تزيد حتى صفقة حتى النهار الجاي (17:00 نيويورك).')}
@@ -201,12 +228,24 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
           ) : (
             <div className="space-y-2">
               {live.map(s => {
-                const lot = signalLots[s.id] ?? '';
+                const rec = lotFor[s.id];
+                const lot = signalLots[s.id] ?? (rec ? rec.lots.toFixed(2) : '');
                 return (
                   <div key={s.id} className={`flex flex-wrap items-end justify-between gap-3 rounded-xl border p-3 ${isLight ? 'border-paper-line' : 'border-line'}`}>
                     <div className="text-xs">
                       <div className={`font-semibold ${s.signalType === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`}>{s.signalType} {s.entryType} · {s.symbol}</div>
-                      <div className="font-mono text-slate-400">Entry {s.entryPrice} · SL {s.stopLoss} · TP1 {s.target1} · TP2 {s.target2} · score {s.confidence}</div>
+                      <div className="font-mono text-slate-400">
+                        {/* Forex (FXAlexG set & forget) has one target; gold has TP1 / TP2 / TP3 */}
+                        Entry {s.entryPrice} · SL {s.stopLoss} · {s.symbol === 'XAU/USD' ? `TP1 ${s.target1} · TP2 ${s.target2} · TP3 ${s.target3}` : `TP ${s.target3}`} · score {s.confidence}
+                      </div>
+                      {rec ? (
+                        <div className="font-mono text-gold-500 mt-0.5">
+                          {t(`Your lot: ${rec.lots.toFixed(2)} (risk $${rec.actualRisk})`, `Votre lot : ${rec.lots.toFixed(2)} (risque $${rec.actualRisk})`, `اللوت ديالك: ${rec.lots.toFixed(2)} (مخاطرة $${rec.actualRisk})`)}
+                          {rec.tooSmall && t(' · minimum lot, above your risk', ' · lot minimum, au-dessus de votre risque', ' · أقل لوت، فوق المخاطرة ديالك')}
+                        </div>
+                      ) : !user.riskUsd && (
+                        <div className="text-slate-500 mt-0.5">{t('Set your risk per trade above to get your lot.', 'Indiquez votre risque par trade ci-dessus pour avoir votre lot.', 'دخل شحال كتخاطر فوق باش تاخد اللوت ديالك.')}</div>
+                      )}
                     </div>
                     {takenSignalIds.has(s.id) ? <span className="text-xs text-gold-500">{t('In your trades', 'Dans vos trades', 'مسجلة في صفقاتك')}</span> : (
                       <div className="flex items-end gap-2">

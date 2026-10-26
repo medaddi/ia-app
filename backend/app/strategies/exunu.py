@@ -51,17 +51,27 @@ def build_exunu_result(r: dict) -> dict:
         bo = a["breakout"]
         liquidity_summary = (f"H1 close {f(bo['close'])} {'above' if bo['direction'] == 'BUY' else 'below'} the {bo['lookback']}h "
                              f"{'high' if bo['direction'] == 'BUY' else 'low'} {f(bo['level'])} (range {f(bo['rangeLow'])}–{f(bo['rangeHigh'])})")
+    elif a.get("breakRetest"):
+        br = a["breakRetest"]
+        liquidity_summary = (f"Area of interest {f(br['level'])} ({br['touches']} touches) broken, moved to {f(br['extreme'])}, "
+                             f"retested with {'an' if br['pattern'] == 'engulfing' else 'a'} {br['pattern']}")
     elif a.get("leg"):
         leg, ob = a["leg"], a.get("ob")
         liquidity_summary = f"Pullback into Fib 50–61.8% {f(min(leg['fib50'], leg['fib618']))}–{f(max(leg['fib50'], leg['fib618']))}"
         if ob:
             liquidity_summary += f" + H1 OB {f(ob['bottom'])}–{f(ob['top'])}"
+    elif facts.get("areasOfInterest"):
+        liquidity_summary = "Areas of interest: " + " · ".join(f"{x['kind']} {f(x['price'])}" for x in facts["areasOfInterest"])
     elif facts.get("asianRange"):
         liquidity_summary = f"Asian range {f(facts['asianRange']['low'])}–{f(facts['asianRange']['high'])}"
     else:
         liquidity_summary = "No liquidity event in the setup window"
-    risk_summary = (f"{s['entryType']} {s['direction']} {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])}p) · TP1 {f(s['tp1'])} · "
-                    f"TP2 {f(s['tp2'])} 1:{to_fixed(s['rrTp2'], 1)}") if s else "No levels: no setup"
+    if s and s["params"].get("breakeven", True) is False:  # set & forget: one target
+        risk_summary = (f"{s['entryType']} {s['direction']} {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])}p) · "
+                        f"TP {f(s['tp3'])} 1:{to_fixed(abs(s['tp3'] - s['entry']) / abs(s['entry'] - s['sl']), 1)} · no partials, no breakeven")
+    else:
+        risk_summary = (f"{s['entryType']} {s['direction']} {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])}p) · TP1 {f(s['tp1'])} · "
+                        f"TP2 {f(s['tp2'])} 1:{to_fixed(s['rrTp2'], 1)}") if s else "No levels: no setup"
     cto_summary = f"{r['status']} · score {r['score']}/100 · {r['headline']}"
 
     return {

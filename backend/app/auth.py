@@ -37,7 +37,7 @@ def _aware(dt: datetime) -> datetime:
 
 
 def user_json(u: User) -> dict:
-    return {"id": u.id, "username": u.username, "role": u.role, "dailyLossLimit": u.daily_loss_limit,
+    return {"id": u.id, "username": u.username, "role": u.role, "dailyLossLimit": u.daily_loss_limit, "riskUsd": u.risk_usd,
             "telegramChatId": u.telegram_chat_id, "active": u.active,
             "createdAt": _aware(u.created_at).isoformat(), "lastLoginAt": _aware(u.last_login_at).isoformat() if u.last_login_at else None}
 

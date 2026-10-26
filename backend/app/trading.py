@@ -48,6 +48,20 @@ def contract_size(symbol: str) -> float:
     return CONTRACT[sym] * usd_per_quote(sym)
 
 
+LOT_STEP, MIN_LOT = 0.01, 0.01
+
+
+def lot_for_risk(symbol: str, entry: float, sl: float, risk_usd: float) -> dict:
+    """Lot that loses `risk_usd` if the strategy's stop is hit (rounded DOWN to 0.01; the stop never moves)."""
+    per_lot = abs(entry - sl) * contract_size(symbol)  # $ lost per 1.00 lot at the stop
+    if per_lot <= 0 or risk_usd <= 0:
+        return {"lots": 0.0, "riskUsd": risk_usd, "actualRisk": 0.0, "perLot": 0.0, "tooSmall": False}
+    lots = int(risk_usd / per_lot / LOT_STEP + 1e-9) * LOT_STEP
+    too_small = lots < MIN_LOT
+    lots = round_to(max(lots, MIN_LOT), 2)
+    return {"lots": lots, "riskUsd": risk_usd, "actualRisk": round_to(lots * per_lot, 2), "perLot": round_to(per_lot, 2), "tooSmall": too_small}
+
+
 def trade_pnl(t: Trade, exit_price: float) -> tuple[float, float]:
     """(P&L in account currency, R multiple) for closing the whole position at `exit_price`."""
     sign = 1 if t.direction == "BUY" else -1
