@@ -15,7 +15,7 @@ from ..config import settings
 from ..db import SessionLocal, get_db
 from ..models import ActivationKey, Signal, Subscriber, User
 from ..store import get_setting, public_telegram, set_setting
-from ..strategies.service import normalize_symbol
+from ..strategies.service import STRATEGY_DEFS, normalize_symbol
 from ..telegram import bot
 
 router = APIRouter(prefix="/api")
@@ -106,7 +106,7 @@ async def telegram_test(body: dict = Body(default={}), _: User = Depends(admin_u
 
 @router.post("/telegram/dispatch-now")
 async def telegram_dispatch_now(body: dict = Body(default={}), _: User = Depends(admin_user)):
-    symbols = [normalize_symbol(body["symbol"])] if body.get("symbol") else ["XAU/USD", "EUR/USD"]
+    symbols = [normalize_symbol(body["symbol"])] if body.get("symbol") else list(STRATEGY_DEFS)
     results = {s: await bot.dispatch_setup(s, manual=True) for s in symbols}
     return {"success": any(r["success"] for r in results.values()),
             "results": {s: {k: v for k, v in r.items() if k != "signal"} for s, r in results.items()}}

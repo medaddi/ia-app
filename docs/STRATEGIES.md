@@ -4,7 +4,7 @@ The app runs **exactly two** rule-based strategies, one per instrument. Nothing 
 signals or sends Telegram messages. Every rule below is code; every parameter lives in the
 strategy's config file. Same closed candles → same result, every time.
 
-| | XAUUSD (Gold) | EURUSD |
+| | XAUUSD (Gold) | EURUSD and GBPUSD (same rules) |
 |---|---|---|
 | Name | H1 Trend Breakout | Trend Pullback + London Breakout Filter |
 | Code | `backend/app/strategies/xauusd/strategy.py` | `backend/app/strategies/eurusd/strategy.py` |
@@ -46,7 +46,13 @@ strategy's config file. Same closed candles → same result, every time.
 
 7 of 9 quarters were positive (2025-Q2 −4.1R). Median stop $34 (10–90%: $14–$65), about 6 trades per month. Past results do not guarantee future results.
 
-## Strategy 2 — EURUSD "Trend Pullback + London Breakout Filter"
+## Strategy 2 — EURUSD and GBPUSD "Trend Pullback + London Breakout Filter"
+
+One forex strategy for both pairs: GBPUSD uses exactly the EURUSD rules and parameters
+(`backend/app/strategies/gbpusd/config.py`); only the instrument and the news currencies (GBP + USD:
+BoE, Bailey, MPC…) differ. Backtest on the same 74 days (Aug–Oct 2026, M15): EURUSD 3 signals, 3 wins,
++1.42R; GBPUSD 3 signals, 3 losses, −3.1R. Far too few trades to judge either pair; GBPUSD is
+followed separately in the Performance page and in the bot's /stats.
 
 1. **Bias (H4, with a Daily filter)** — bullish if the H4 close > EMA 200, EMA 50 > EMA 200, and the H4 swings are HH/HL; bearish is the mirror. Daily filter: no buy within 15 pips of daily resistance / PWH (no sell within 15 pips of daily support / PWL).
 2. **Windows** — London 07:00–10:30 and the London/NY overlap 13:00–16:00 (London time). No new trades on Friday after 14:00 London.

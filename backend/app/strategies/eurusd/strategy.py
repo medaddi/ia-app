@@ -1,5 +1,6 @@
 """
-EURUSD — "Trend Pullback + London Breakout Filter"
+Forex (EURUSD, GBPUSD) — "Trend Pullback + London Breakout Filter"
+The same rules run on every forex pair; each pair has its own config (spec, news currencies).
 
 Bias (H4, Daily filter): bullish if H4 close > EMA200, EMA50 > EMA200 and H4 swings are HH/HL;
 bearish mirror. No buys within 15 pips of daily resistance / PWH (mirror for sells).
@@ -115,7 +116,7 @@ def evaluate_eurusd(inp: dict, cfg: dict = EUR_CONFIG) -> dict:
     ev, nxt = news["event"], news["next"]
     result["news"] = {
         "blocked": news["blocked"],
-        "detail": f"{ev['currency']} {ev['title']} at {fmt_time(ev['time'])}" if ev else "No high-impact EUR/USD news within ±30 min",
+        "detail": f"{ev['currency']} {ev['title']} at {fmt_time(ev['time'])}" if ev else f"No high-impact {'/'.join(FIL['news']['currencies'])} news within ±30 min",
         "next": f"{nxt['currency']} {nxt['title']} {fmt_utc_minute(nxt['time'])} UTC" if nxt else None,
         "source": inp["news"]["source"],
     }
@@ -159,7 +160,7 @@ def evaluate_eurusd(inp: dict, cfg: dict = EUR_CONFIG) -> dict:
             item("volatility", "Normal volatility (ATR H1 vs 20-day average)", "تقلب طبيعي", 0.5 <= vol["ratio"] <= 2.5,
                  f"ATR H1 {js_str(pips(vol['now']))} pips = {to_fixed(vol['ratio'] * 100, 0)}% of average", W["volatility"], False,
                  1 if 0.8 <= vol["ratio"] <= 1.8 else 0.5),
-            item("news", "No high-impact EUR/USD news ±30 min", "لا أخبار قوية لليورو أو الدولار", not nb["blocked"],
+            item("news", f"No high-impact {'/'.join(FIL['news']['currencies'])} news ±30 min", "لا أخبار قوية لليورو أو الدولار", not nb["blocked"],
                  f"{nev['currency']} {nev['title']} at {fmt_time(nev['time'])}" if nev else "Clear", 0, True),
             item("spread", f"Spread <= {js_str(FIL['maxSpreadPips'])} pips", "السبريد مقبول", spread_pips <= FIL["maxSpreadPips"],
                  f"Spread {to_fixed(spread_pips, 1)} pips{' (assumed, no live spread in feed)' if inp['spread'] is None else ''}", 0, True),
@@ -284,7 +285,7 @@ def evaluate_eurusd(inp: dict, cfg: dict = EUR_CONFIG) -> dict:
                     structural_sl = zone_edge + R["slBufferPips"] * pip
                 direction = "BUY" if buy else "SELL"
                 trigger = "Engulfing" if engulf else "Pin bar" if pin else "M15 CHoCH"
-                setup = build_setup(f"EURUSD-A-{c.time}", "A", direction, idx, entry, structural_sl, None, {
+                setup = build_setup(f"{spec['symbol']}-A-{c.time}", "A", direction, idx, entry, structural_sl, None, {
                     "leg": {"start": leg_start, "end": leg_end, "fib50": f50, "fib618": f618},
                     "ob": {"top": ob.top, "bottom": ob.bottom} if ob else None,
                     "ema50": ema50m15[idx], "pullback": pb_extreme, "trigger": trigger,
@@ -327,7 +328,7 @@ def evaluate_eurusd(inp: dict, cfg: dict = EUR_CONFIG) -> dict:
             entry = round_to(c.close, d)
             structural_sl = sw.extreme - R["slBufferPips"] * pip if direction == "BUY" else sw.extreme + R["slBufferPips"] * pip
             opposite = asia.high if direction == "BUY" else asia.low
-            setup = build_setup(f"EURUSD-B-{c.time}", "B", direction, sw.index, entry, structural_sl,
+            setup = build_setup(f"{spec['symbol']}-B-{c.time}", "B", direction, sw.index, entry, structural_sl,
                                 {"price": opposite, "label": f"Asian range {'high' if direction == 'BUY' else 'low'}"},
                                 {"sweep": sw.to_dict(), "asia": {"high": asia.high, "low": asia.low}})
             checklist = [

@@ -4,7 +4,7 @@ import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X, Clock, CalendarCloc
 import type { StrategyResult } from '../strategyTypes';
 
 interface ExunuActiveSetupProps {
-  symbol: 'XAU/USD' | 'EUR/USD';
+  symbol: 'XAU/USD' | 'EUR/USD' | 'GBP/USD';
   result: StrategyResult | null;
   explanation?: string;
 }

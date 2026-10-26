@@ -7,7 +7,7 @@ import type { ExunuSMCResult } from '../strategyTypes';
 import type { StrategyResult } from '../strategyTypes';
 
 interface ExunuTerminalViewProps {
-  initialSymbol?: 'XAU/USD' | 'EUR/USD';
+  initialSymbol?: 'XAU/USD' | 'EUR/USD' | 'GBP/USD';
   onOpenTelegram?: () => void;
   lang?: string;
 }
@@ -21,11 +21,12 @@ const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
 const INSTRUMENTS = {
   'XAU/USD': { label: 'Gold', entryTf: 'H1', timeframes: ['M15', 'H1', 'H4', 'D1'] },
   'EUR/USD': { label: 'Euro / Dollar', entryTf: 'M15', timeframes: ['M15', 'H1', 'H4', 'D1'] },
+  'GBP/USD': { label: 'Pound / Dollar', entryTf: 'M15', timeframes: ['M15', 'H1', 'H4', 'D1'] },
 } as const;
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', H1: '1H', H4: '4H', D1: '1D' };
 
 export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onOpenTelegram, lang = 'en' }) => {
-  const [symbol, setSymbol] = useState<'XAU/USD' | 'EUR/USD'>(initialSymbol);
+  const [symbol, setSymbol] = useState<'XAU/USD' | 'EUR/USD' | 'GBP/USD'>(initialSymbol);
   const [timeframe, setTimeframe] = useState<string>(INSTRUMENTS[initialSymbol].entryTf);
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
   const [bundle, setBundle] = useState<ExunuSMCResult | null>(null);
@@ -105,7 +106,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             <div className="text-xs text-slate-500">{result?.strategyName ?? 'Loading…'}</div>
           </div>
           <div role="tablist" aria-label="Instrument" className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5">
-            {(Object.keys(INSTRUMENTS) as ('XAU/USD' | 'EUR/USD')[]).map(id => (
+            {(Object.keys(INSTRUMENTS) as ('XAU/USD' | 'EUR/USD' | 'GBP/USD')[]).map(id => (
               <button key={id} role="tab" aria-selected={symbol === id}
                 onClick={() => { setSymbol(id); setTimeframe(INSTRUMENTS[id].entryTf); }}
                 className={`h-9 px-3 rounded-md text-xs font-medium transition-colors ${symbol === id ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>

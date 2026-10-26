@@ -5,6 +5,7 @@ something the strategy rejected.
 """
 
 from ..strategies.eurusd.config import EUR_CONFIG
+from ..strategies.gbpusd.config import GBP_CONFIG
 from ..strategies.shared.jsnum import js_str, to_fixed
 from ..strategies.shared.risk import rr, score_checklist
 from ..strategies.xauusd.config import XAU_CONFIG
@@ -38,7 +39,7 @@ def validate_signal(r: dict) -> dict:
         if s["entryType"] != "MARKET":
             issues.append("Gold breakout entries are MARKET orders")
     else:
-        R = EUR_CONFIG["risk"]
+        R = (GBP_CONFIG if r["symbol"] == "GBPUSD" else EUR_CONFIG)["risk"]
         pips = dist / r["spec"]["pipSize"]
         if rr_tp2 < R["minRr"] - 1e-9:
             issues.append(f"R:R to TP2 {to_fixed(rr_tp2, 2)} < {R['minRr']}")
@@ -47,7 +48,7 @@ def validate_signal(r: dict) -> dict:
     for c in r["checklist"]:
         if c["required"] and not c["passed"]:
             issues.append(f"Required rule failed: {c['rule']}")
-    thresholds = (XAU_CONFIG if r["symbol"] == "XAUUSD" else EUR_CONFIG)["scoring"]["thresholds"]
+    thresholds = {"XAUUSD": XAU_CONFIG, "GBPUSD": GBP_CONFIG}.get(r["symbol"], EUR_CONFIG)["scoring"]["thresholds"]
     score = min(r["score"], score_checklist(r["checklist"]))
     if score < thresholds["signal"]:
         issues.append(f"Score {js_str(score)} < {thresholds['signal']}")

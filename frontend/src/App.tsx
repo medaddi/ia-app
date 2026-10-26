@@ -293,7 +293,7 @@ export default function App() {
                 ]}
               >
                 {/* Same shared SMC analysis as the dashboard, agents and Telegram */}
-                <ExunuTerminalView initialSymbol={selectedAsset?.symbol?.includes('EUR') ? 'EUR/USD' : 'XAU/USD'} lang={lang} />
+                <ExunuTerminalView initialSymbol={(['EUR/USD', 'GBP/USD'].includes(selectedAsset?.symbol || '') ? selectedAsset!.symbol : 'XAU/USD') as any} lang={lang} />
               </InternalPageTemplate>
             </motion.div>
           )}

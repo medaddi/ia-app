@@ -16,7 +16,7 @@ from .strategies.service import STRATEGY_DEFS, normalize_symbol
 from .strategies.shared.jsnum import round_to
 from .strategies.shared.sessions import trading_day_key
 
-CONTRACT = {"XAU/USD": 100, "EUR/USD": 100_000}
+CONTRACT = {"XAU/USD": 100, "EUR/USD": 100_000, "GBP/USD": 100_000}
 
 
 def contract_size(symbol: str) -> int:

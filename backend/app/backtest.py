@@ -10,6 +10,7 @@ import sys
 from datetime import datetime, timezone
 
 from .strategies.eurusd.config import EUR_CONFIG
+from .strategies.gbpusd.config import GBP_CONFIG
 from .strategies.replay import outcome, replay
 from .strategies.service import STRATEGY_DEFS, load_strategy_candles, normalize_symbol
 from .strategies.shared.common import active_window
@@ -21,6 +22,10 @@ from .strategies.xauusd.config import XAU_CONFIG
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
+def _cfg(sym: str) -> dict:
+    return {"XAU/USD": XAU_CONFIG, "EUR/USD": EUR_CONFIG, "GBP/USD": GBP_CONFIG}[sym]
+
+
 def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
     d = STRATEGY_DEFS[sym]
     entry = candles.get(d.entryTf) or []
@@ -30,7 +35,7 @@ def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
     base = {"candles": candles, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": source, "news": news}
     state = replay(d, base, frm, to)
     index_of = {c.time: i for i, c in enumerate(entry)}
-    windows = (XAU_CONFIG if sym == "XAU/USD" else EUR_CONFIG)["sessions"]["windows"]
+    windows = _cfg(sym)["sessions"]["windows"]
 
     trades = []
     for e in state.emitted:
@@ -81,9 +86,9 @@ def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
     if len(closed) >= 10 and total_r <= 0:
         warnings.append("Net result is negative or flat over this sample.")
     costs = ({"spread": f"${XAU_CONFIG['filters']['assumedSpread']}", "slippage": f"${XAU_CONFIG['filters']['slippage']}"} if sym == "XAU/USD"
-             else {"spread": f"{EUR_CONFIG['filters']['assumedSpreadPips']} pips", "slippage": f"{EUR_CONFIG['filters']['slippagePips']} pips"})
+             else {"spread": f"{_cfg(sym)['filters']['assumedSpreadPips']} pips", "slippage": f"{_cfg(sym)['filters']['slippagePips']} pips"})
     return {
-        "symbol": sym, "strategy": (XAU_CONFIG if sym == "XAU/USD" else EUR_CONFIG)["name"],
+        "symbol": sym, "strategy": _cfg(sym)["name"],
         "period": {"from": iso(frm)[:10], "to": iso(to)[:10], "days": round_to(days, 1)}, "dataSource": source, "costs": costs,
         "signals": len(trades), "filled": sum(t["state"] not in ("CANCELLED", "EXPIRED", "PENDING") for t in trades),
         "cancelledOrExpired": sum(t["state"] in ("CANCELLED", "EXPIRED") for t in trades), "closed": len(closed),

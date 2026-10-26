@@ -284,6 +284,7 @@ COMMANDS = [
     ("signal", "Current analysis of every pair"),
     ("gold", "Gold (XAU/USD) analysis"),
     ("euro", "EUR/USD analysis"),
+    ("gbp", "GBP/USD analysis"),
     ("open", "Signals still running"),
     ("history", "Last 10 signals and their result"),
     ("stats", "Win rate and results (30 days and all time)"),
@@ -298,7 +299,7 @@ COMMANDS = [
     ("help", "All commands"),
 ]
 HELP = "<b>LiquidityDissection bot</b>\n" + "\n".join(f"/{c} — {d}" for c, d in COMMANDS) + "\nSend your activation code to activate."
-PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD"}
+PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD", "/gbp": "GBP/USD", "/cable": "GBP/USD", "/pound": "GBP/USD"}
 STATE_TXT = {"PENDING": "⏳ pending", "OPEN": "🟡 open", "TP1_HIT": "🟢 TP1 hit, SL at entry", "TP2_HIT": "🟢 TP2 hit", "CLOSED": "closed",
              "CANCELLED": "⚪ cancelled", "EXPIRED": "⚪ expired"}
 
@@ -349,10 +350,10 @@ async def _levels_text() -> str:
 async def _news_text() -> str:
     cal = await load_news_calendar()
     now = int(time.time())
-    up = sorted((e for e in cal["events"] if e["time"] > now - 1800 and e.get("impact") == "High" and e.get("currency") in ("USD", "EUR")),
+    up = sorted((e for e in cal["events"] if e["time"] > now - 1800 and e.get("impact") == "High" and e.get("currency") in ("USD", "EUR", "GBP")),
                 key=lambda e: e["time"])[:8]
     if not up:
-        return "📰 No high-impact USD/EUR news in the calendar."
+        return "📰 No high-impact USD/EUR/GBP news in the calendar."
     return "📰 <b>High-impact news (UTC)</b>\n" + "\n".join(f"{fmt_utc_minute(e['time'])} · {e['currency']} {e['title']}" for e in up) + \
         "\n<i>No signal is sent 30 min before and after these.</i>"
 
@@ -368,7 +369,7 @@ def _market_text() -> str:
 
 RULES = """<b>How the signals work</b>
 🥇 <b>Gold (H1 Trend Breakout)</b>: trend by EMA50 vs EMA200; an H1 candle closes beyond the 20-hour high/low with a strong body → market entry. SL beyond the last 4 candles (1–3× ATR). TP1 1R (close 50%, SL to entry), TP2 2R, TP3 3R.
-💶 <b>EUR/USD (Trend Pullback)</b>: H4 trend; pullback into H1 order block / Fib 50–61.8% / EMA50 with an engulfing, pin bar or CHoCH on M15 → market entry. TP1 1R, TP2 next H1 level (≥ 2R), runner trails.
+💶 <b>EUR/USD and 💷 GBP/USD (Trend Pullback, same rules)</b>: H4 trend; pullback into H1 order block / Fib 50–61.8% / EMA50 with an engulfing, pin bar or CHoCH on M15 → market entry. TP1 1R, TP2 next H1 level (≥ 2R), runner trails.
 Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.
 ⚠️ Past results do not guarantee future results: risk only what you can lose."""
 

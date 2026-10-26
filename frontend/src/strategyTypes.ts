@@ -8,8 +8,8 @@ export type Side = "BUY" | "SELL";
 export type StrategyStatus = "SIGNAL" | "WATCH" | "IGNORE" | "NO_TRADE";
 
 export interface InstrumentSpec {
-  symbol: "XAUUSD" | "EURUSD";
-  displaySymbol: "XAU/USD" | "EUR/USD";
+  symbol: "XAUUSD" | "EURUSD" | "GBPUSD";
+  displaySymbol: "XAU/USD" | "EUR/USD" | "GBP/USD";
   decimals: number;
   pipSize: number;
   contractSize: number;
@@ -29,7 +29,7 @@ export interface ChecklistItem {
 }
 
 export interface SignalJson {
-  symbol: "XAUUSD" | "EURUSD";
+  symbol: "XAUUSD" | "EURUSD" | "GBPUSD";
   strategy: string;
   setup: string;
   direction: Side;
@@ -141,7 +141,7 @@ export interface StrategyResult {
 
 export interface ExunuSMCResult {
   terminal: string;
-  symbol: "XAU/USD" | "EUR/USD";
+  symbol: "XAU/USD" | "EUR/USD" | "GBP/USD";
   current_price: number;
   status: "CONFIRMED_ENTRY" | "WAITING_CONFIRMATION" | "NO_SETUP";
   action: "BUY" | "SELL" | "WAIT";

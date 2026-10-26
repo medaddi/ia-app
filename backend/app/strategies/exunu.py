@@ -127,7 +127,7 @@ def to_ai_signal(res: dict, live_price: Optional[float] = None) -> dict:
     return {
         "id": f"sig-{s['id']}" if s else f"sig-{r['symbol'].lower()}",
         "symbol": sym,
-        "assetName": "Euro / US Dollar" if sym == "EUR/USD" else "Spot Gold (XAU/USD)",
+        "assetName": {"EUR/USD": "Euro / US Dollar", "GBP/USD": "British Pound / US Dollar"}.get(sym, "Spot Gold (XAU/USD)"),
         "signalType": res["action"],
         "signalLabel": f"{s['direction']} SIGNAL" if confirmed else f"{s['direction'] if s else 'undefined'} WATCH" if r["status"] == "WATCH" else "NO TRADE",
         "entryZone": to_fixed(s["entry"], d) if s else "",

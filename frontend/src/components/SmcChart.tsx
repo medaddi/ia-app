@@ -28,7 +28,7 @@ export interface SmcChartCandle {
 }
 
 interface SmcChartProps {
-  symbol: 'XAU/USD' | 'EUR/USD';
+  symbol: 'XAU/USD' | 'EUR/USD' | 'GBP/USD';
   candles: SmcChartCandle[];
   result: StrategyResult | null;
   timeframe: string;

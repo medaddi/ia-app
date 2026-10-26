@@ -470,7 +470,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder={isFr ? 'Rechercher XAU/USD ou EUR/USD' : isAr ? 'بحث: XAU/USD أو EUR/USD' : 'Search XAU/USD or EUR/USD'}
+                placeholder={isFr ? 'Rechercher XAU/USD, EUR/USD, GBP/USD' : isAr ? 'بحث: XAU/USD، EUR/USD، GBP/USD' : 'Search XAU/USD, EUR/USD, GBP/USD'}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);

@@ -1,7 +1,7 @@
 """
-Strategy service: the ONLY two strategies in the app.
+Strategy service: the app's strategies, one per instrument.
   XAUUSD → H1 Trend Breakout (trend, breakout and entry on H1)
-  EURUSD → Trend Pullback + London Breakout Filter (bias D1/H4, zones H1, entry M15)
+  EURUSD, GBPUSD → Trend Pullback + London Breakout Filter (bias D1/H4, zones H1, entry M15), same rules
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
 """
@@ -11,9 +11,12 @@ import time
 from typing import Optional
 
 from ..agent.explain import build_explanation
-from ..market.data import fetch_live_price, fetch_many, market_session_status
+from functools import partial
+
+from ..market.data import canonical, fetch_live_price, fetch_many, market_session_status
 from .eurusd.config import EUR_CONFIG
 from .eurusd.strategy import evaluate_eurusd
+from .gbpusd.config import GBP_CONFIG
 from .replay import ReplayState, StrategyDef, replay, stats_at
 from .shared.common import active_window
 from .shared.jsnum import fmt_utc_minute
@@ -26,25 +29,34 @@ from .xauusd.strategy import evaluate_xauusd
 PROVIDER_TF = {"M5": "5M", "M15": "15M", "H1": "1H", "H4": "4H", "D1": "1D"}
 
 
-def _eur_can_signal(close: int) -> bool:
-    s = EUR_CONFIG["sessions"]
+def _fx_can_signal(cfg: dict):
+    s = cfg["sessions"]
     fc = s["fridayCutoff"]
-    friday = zoned_parts(close - 1, fc["tz"]).weekday == 5 and not in_local_window(close - 1, fc["tz"], "00:00", fc["time"])
-    return not friday and active_window(close - 1, s["windows"]) is not None
+
+    def can(close: int) -> bool:
+        friday = zoned_parts(close - 1, fc["tz"]).weekday == 5 and not in_local_window(close - 1, fc["tz"], "00:00", fc["time"])
+        return not friday and active_window(close - 1, s["windows"]) is not None
+    return can
 
 
-def _eur_trail(entry: list[Candle], side: str):
-    swings = detect_swings(entry, EUR_CONFIG["structure"]["swingN"])
-    buf = EUR_CONFIG["risk"]["slBufferPips"] * EUR_CONFIG["spec"]["pipSize"]
-    buy = side == "BUY"
-    kind = "LOW" if buy else "HIGH"
+def _fx_trail(cfg: dict):
+    def trail(entry: list[Candle], side: str):
+        swings = detect_swings(entry, cfg["structure"]["swingN"])
+        buf = cfg["risk"]["slBufferPips"] * cfg["spec"]["pipSize"]
+        buy = side == "BUY"
+        kind = "LOW" if buy else "HIGH"
 
-    # Runner trails behind the latest confirmed M15 swing; the lifecycle only moves the stop forward
-    def level(i: int) -> Optional[float]:
-        pts = [s for s in swings if s.kind == kind and s.confirmedIndex <= i]
-        return (pts[-1].price - buf if buy else pts[-1].price + buf) if pts else None
+        # Runner trails behind the latest confirmed M15 swing; the lifecycle only moves the stop forward
+        def level(i: int) -> Optional[float]:
+            pts = [s for s in swings if s.kind == kind and s.confirmedIndex <= i]
+            return (pts[-1].price - buf if buy else pts[-1].price + buf) if pts else None
+        return level
+    return trail
 
-    return level
+
+def _fx_def(cfg: dict) -> StrategyDef:
+    return StrategyDef(entryTf="M15", run=partial(evaluate_eurusd, cfg=cfg), tfs=["M15", "H1", "H4", "D1"],
+                       limits={"M15": 8000, "H1": 5000, "H4": 2000, "D1": 800}, canSignalAt=_fx_can_signal(cfg), trail=_fx_trail(cfg))
 
 
 STRATEGY_DEFS: dict[str, StrategyDef] = {
@@ -53,16 +65,14 @@ STRATEGY_DEFS: dict[str, StrategyDef] = {
         limits={"H1": 5000},
         canSignalAt=lambda close: True,  # every H1 close while the market is open
     ),
-    "EUR/USD": StrategyDef(
-        entryTf="M15", run=evaluate_eurusd, tfs=["M15", "H1", "H4", "D1"],
-        limits={"M15": 8000, "H1": 5000, "H4": 2000, "D1": 800},
-        canSignalAt=_eur_can_signal, trail=_eur_trail,
-    ),
+    "EUR/USD": _fx_def(EUR_CONFIG),
+    "GBP/USD": _fx_def(GBP_CONFIG),
 }
+CONFIGS = {"XAU/USD": None, "EUR/USD": EUR_CONFIG, "GBP/USD": GBP_CONFIG}  # XAU config lives in xauusd.config
 
 
 def normalize_symbol(s: str) -> str:
-    return "EUR/USD" if "EUR" in (s or "").upper() else "XAU/USD"
+    return canonical(s)
 
 
 async def load_strategy_candles(sym: str, live_price: Optional[float] = None, fresh: bool = False) -> dict:
@@ -149,6 +159,9 @@ async def get_strategy_result_as_of(raw_symbol: str, as_of: int) -> dict:
     return {"result": result, "candles": cut}
 
 
-async def both_results() -> list[dict]:
-    x, e = await asyncio.gather(get_strategy_result("XAU/USD"), get_strategy_result("EUR/USD"))
-    return [x["result"], e["result"]]
+async def all_results() -> list[dict]:
+    """Current result of every instrument, in STRATEGY_DEFS order."""
+    return [b["result"] for b in await asyncio.gather(*(get_strategy_result(sym) for sym in STRATEGY_DEFS))]
+
+
+both_results = all_results  # older name

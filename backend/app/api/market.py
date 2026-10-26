@@ -1,4 +1,4 @@
-"""Prices, candles, the economic calendar (as news) and a price-action sentiment gauge. XAU/USD and EUR/USD only."""
+"""Prices, candles, the economic calendar (as news) and a price-action sentiment gauge. XAU/USD, EUR/USD and GBP/USD."""
 
 import asyncio
 import time
@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api")
 ASSETS = {
     "XAU/USD": {"id": "xauusd", "name": "Spot Gold", "arabicName": "الذهب الفوري", "frenchName": "Or au comptant", "category": "commodities", "pipSize": 0.1, "decimalPlaces": 2},
     "EUR/USD": {"id": "eurusd", "name": "Euro / US Dollar", "arabicName": "اليورو / الدولار", "frenchName": "Euro / Dollar US", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
+    "GBP/USD": {"id": "gbpusd", "name": "British Pound / US Dollar", "arabicName": "الباوند / الدولار", "frenchName": "Livre sterling / Dollar US", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
 }
 
 
@@ -101,12 +102,12 @@ async def news_items() -> list[dict]:
     cal = await load_news_calendar()
     now = int(time.time())
     out = []
-    for e in sorted((e for e in cal["events"] if e.get("currency") in ("USD", "EUR") and e.get("impact") in ("High", "Medium")),
+    for e in sorted((e for e in cal["events"] if e.get("currency") in ("USD", "EUR", "GBP") and e.get("impact") in ("High", "Medium")),
                     key=lambda e: abs(e["time"] - now))[:40]:
         cur = e["currency"]
         high = e["impact"] == "High"
         lock = high and abs(e["time"] - now) <= 30 * 60
-        asset = "XAU/USD & EUR/USD" if cur == "USD" else "EUR/USD"
+        asset = "XAU/USD, EUR/USD & GBP/USD" if cur == "USD" else f"{cur}/USD"
         out.append({
             "id": f"cal-{cur}-{e['time']}-{zlib.crc32(e['title'].encode()) % 100000}", "title": f"{cur} · {e['title']}", "titleAr": f"{cur} · {e['title']}",
             "source": cal["source"], "timeAgo": _ago(e["time"], now), "category": _category(e["title"]), "impactAsset": asset,

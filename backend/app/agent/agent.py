@@ -36,13 +36,14 @@ def detect_lang(text: str) -> str:
 
 def symbols_from_question(text: str) -> list[str]:
     t = text.lower()
-    gold = bool(re.search(r"(xau|gold|dhab|dahab|ذهب|\bor\b)", t))
-    eur = bool(re.search(r"(eur|euro|يورو|اليورو)", t))
-    if gold and not eur:
-        return ["XAUUSD"]
-    if eur and not gold:
-        return ["EURUSD"]
-    return ["XAUUSD", "EURUSD"]
+    wanted = []
+    if re.search(r"(xau|gold|dhab|dahab|ذهب|\bor\b)", t):
+        wanted.append("XAUUSD")
+    if re.search(r"(eur|euro|يورو|اليورو)", t):
+        wanted.append("EURUSD")
+    if re.search(r"(gbp|cable|pound|sterling|livre|جنيه|الباوند|باوند|pound)", t):
+        wanted.append("GBPUSD")
+    return wanted or ["XAUUSD", "EURUSD", "GBPUSD"]
 
 
 L = {
@@ -225,7 +226,7 @@ def explain_drawing(r: dict, drawing: dict, lang: str) -> str:
             return f"مستوى {text} عند {f(p1)}: سيولة (أوامر وقف) تتجمع هنا."
         return f"{text} at {f(p1)}: {LEVEL_WHAT.get(text, 'key level')}. Stops rest beyond it, which is why the strategy watches for a sweep here."
     if layer == "fib":
-        return f"فيبوناتشي {text} لآخر موجة اندفاع H1 عند {f(p1)}." if ar else f"Fibonacci {text} of the last H1 impulse leg at {f(p1)}; the EURUSD pullback zone is 50–61.8%."
+        return f"فيبوناتشي {text} لآخر موجة اندفاع H1 عند {f(p1)}." if ar else f"Fibonacci {text} of the last H1 impulse leg at {f(p1)}; the forex pullback zone is 50–61.8%."
     if layer == "sessions":
         return f"جلسة {text}." if ar else f"{text} session window ({time_(drawing.get('t1'))} → {time_(drawing.get('t2'))})."
     if layer == "trade" and r["setup"]:

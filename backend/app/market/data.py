@@ -38,8 +38,21 @@ def client() -> httpx.AsyncClient:
     return _client
 
 
-def is_euro(symbol: str) -> bool:
-    return "EUR" in symbol.upper()
+# Forex pairs served from Yahoo; gold has its own spot feed and a futures-to-spot basis
+FX_TICKERS = {"EUR/USD": "EURUSD=X", "GBP/USD": "GBPUSD=X"}
+
+
+def canonical(symbol: str) -> str:
+    """'gbpusd', 'GBP/USD', 'GBPUSD' → 'GBP/USD'; anything else that is not forex → 'XAU/USD'."""
+    s = (symbol or "").upper().replace("/", "").replace(" ", "")
+    for pair in FX_TICKERS:
+        if pair.replace("/", "") in s or (len(s) >= 3 and s[:3] == pair[:3] and pair[:3] != "USD"):
+            return pair
+    return "XAU/USD"
+
+
+def is_fx(symbol: str) -> bool:
+    return canonical(symbol) in FX_TICKERS
 
 
 def market_session_status(symbol: str = "XAU/USD", now: datetime | None = None) -> dict:
@@ -54,13 +67,13 @@ def market_session_status(symbol: str = "XAU/USD", now: datetime | None = None) 
         return {"isOpen": True, "labelEn": "DAILY ROLLOVER WINDOW", "labelFr": "Rollover quotidien", "labelAr": "فترة التسوية اليومية", "sessionStage": "CME_ROLLOVER"}
     m = h * 60 + d.minute
     stage = "ASIAN_RANGE" if m < 8 * 60 else "LONDON_PREP" if m < 14 * 60 else "NY_SILVER_BULLET" if m <= 15 * 60 else "NY_AFTERNOON"
-    label = "EUR/USD · INTERBANK FOREX" if is_euro(symbol) else "XAU/USD · SPOT GOLD"
+    label = f"{canonical(symbol)} · INTERBANK FOREX" if is_fx(symbol) else "XAU/USD · SPOT GOLD"
     return {"isOpen": True, "labelEn": label, "labelFr": label, "labelAr": label, "sessionStage": stage}
 
 
 def _price_result(symbol: str, price: float, chg_pct: float, high: float, low: float, source: str) -> dict:
     s = market_session_status(symbol)
-    dec = 4 if is_euro(symbol) else 2
+    dec = 4 if is_fx(symbol) else 2
     return {
         "symbol": symbol, "price": price, "change24h": chg_pct, "change24hAmount": round_to(price * chg_pct / 100, dec),
         "high24h": high, "low24h": low, "source": source, "lastUpdated": int(time.time() * 1000),
@@ -79,7 +92,7 @@ async def _yahoo_meta(ticker: str) -> dict | None:
 
 
 async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict:
-    sym = "EUR/USD" if is_euro(symbol) else "XAU/USD"
+    sym = canonical(symbol)
     hit = _price_cache.get(sym)
     if not fresh and hit and hit[1] > time.time():
         return hit[0]
@@ -97,16 +110,17 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
         except (httpx.HTTPError, ValueError, TypeError):
             pass
     if result is None:
-        meta = await _yahoo_meta("EURUSD=X" if sym == "EUR/USD" else "GC=F")
+        fx = sym in FX_TICKERS
+        meta = await _yahoo_meta(FX_TICKERS[sym] if fx else "GC=F")
         p = float((meta or {}).get("regularMarketPrice") or 0)
-        ok = 0.8 < p < 1.6 if sym == "EUR/USD" else 2000 < p < 8000
+        ok = 0.8 < p < 2.0 if fx else 2000 < p < 8000
         if ok:
             prev = float(meta.get("previousClose") or meta.get("chartPreviousClose") or p) or p
-            dec = 4 if sym == "EUR/USD" else 2
+            dec = 4 if fx else 2
             price = round_to(p, dec)
             result = _price_result(sym, price, round_to((p - prev) / prev * 100, 2),
                                    float(meta.get("regularMarketDayHigh") or price), float(meta.get("regularMarketDayLow") or price),
-                                   "Interbank Forex EURUSD=X" if sym == "EUR/USD" else "COMEX / Interbank Gold Feed (GC=F)")
+                                   f"Interbank Forex {FX_TICKERS[sym]}" if fx else "COMEX / Interbank Gold Feed (GC=F)")
     if result is None:
         last = _last_known.get(sym)
         if last:
@@ -156,12 +170,13 @@ def aggregate(candles: list[Candle], bucket_sec: int) -> list[Candle]:
 
 
 async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", limit: int = 600, live_price: float | None = None, fresh: bool = False) -> dict:
-    euro = is_euro(symbol)
+    sym = canonical(symbol)
+    euro = sym in FX_TICKERS  # any forex pair (no futures basis)
     decimals = 4 if euro else 2
     step = TIMEFRAME_SECONDS.get(timeframe, 900)
     spot = live_price if live_price and live_price > 0 else (await fetch_live_price(symbol))["price"]
     interval, rng = INTERVALS.get(timeframe, INTERVALS["15M"])
-    ticker = "EURUSD=X" if euro else "GC=F"
+    ticker = FX_TICKERS[sym] if euro else "GC=F"
     try:
         candles = await _yahoo_candles(ticker, interval, rng, decimals, fresh)
         if timeframe == "4H":
@@ -191,7 +206,7 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
                     candles.append(Candle(bucket, tail.close, max(tail.close, spot), min(tail.close, spot), round_to(spot, decimals), 0))
             sign = "+" if basis >= 0 else ""
             return {"candles": candles, "isSynthetic": False, "basis": basis, "fetchedAt": int(time.time() * 1000),
-                    "source": "Yahoo Finance EURUSD=X" if euro else f"COMEX GC=F adjusted to spot (basis {sign}{basis:g})"}
+                    "source": f"Yahoo Finance {ticker}" if euro else f"COMEX GC=F adjusted to spot (basis {sign}{basis:g})"}
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as err:
         print(f"[market] candle feed unavailable for {symbol} {timeframe}: {err}")
     return {"candles": [], "isSynthetic": True, "basis": 0, "fetchedAt": int(time.time() * 1000), "source": "Live feed unavailable"}
