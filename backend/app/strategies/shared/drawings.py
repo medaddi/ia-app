@@ -104,7 +104,7 @@ def trade_drawings(setup: dict, entry_tf: str, lot_text: str) -> list[dict]:
     s = js_str
     out = [
         {"id": f"TR-TP-{sid}", "layer": "trade", "kind": "box", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "p2": setup["tp2"], "text": f"TP2 {s(setup['tp2'])} · {rr_text}", "color": "bull"},
-        {"id": f"TR-SL-{sid}", "layer": "trade", "kind": "box", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "p2": setup["sl"], "text": f"SL {s(setup['sl'])} · {s(setup['slPips'])}p · {lot_text}", "color": "bear"},
+        {"id": f"TR-SL-{sid}", "layer": "trade", "kind": "box", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "p2": setup["sl"], "text": f"SL {s(setup['sl'])} · {s(setup['slPips'])}p" + (f" · {lot_text}" if lot_text else ""), "color": "bear"},
         {"id": f"TR-EN-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "text": f"Entry {s(setup['entry'])}", "color": "entry", "style": "solid"},
         {"id": f"TR-T1-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["tp1"], "text": f"TP1 {s(setup['tp1'])}", "color": "bull", "style": "dashed"},
         {"id": f"TR-T3-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["tp3"], "text": f"TP3 {s(setup['tp3'])}", "color": "bull", "style": "dotted"},

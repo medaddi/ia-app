@@ -46,6 +46,10 @@ def build_exunu_result(r: dict) -> dict:
         sw = a["sweep"]
         poi = f" · POI {a['poi']['kind']} {f(a['poi']['bottom'])}–{f(a['poi']['top'])}" if a.get("poi") else ""
         liquidity_summary = f"{sw['level']['label']} {f(sw['level']['price'])} swept (wick {f(sw['extreme'])}){poi}"
+    elif a.get("breakout"):
+        bo = a["breakout"]
+        liquidity_summary = (f"H1 close {f(bo['close'])} {'above' if bo['direction'] == 'BUY' else 'below'} the {bo['lookback']}h "
+                             f"{'high' if bo['direction'] == 'BUY' else 'low'} {f(bo['level'])} (range {f(bo['rangeLow'])}–{f(bo['rangeHigh'])})")
     elif a.get("leg"):
         leg, ob = a["leg"], a.get("ob")
         liquidity_summary = f"Pullback into Fib 50–61.8% {f(min(leg['fib50'], leg['fib618']))}–{f(max(leg['fib50'], leg['fib618']))}"

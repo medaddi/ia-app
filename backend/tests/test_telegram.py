@@ -8,7 +8,7 @@ from app.telegram.protection import hash32, personal_offset, personalize_signal,
 from app.telegram.scheduler import next_close_sec
 
 GOLD = {"id": "sig-XAUUSD-1-2", "symbol": "XAU/USD", "signalType": "BUY", "entryPrice": 4000.25, "stopLoss": 3995.95, "target1": 4004.55,
-        "target2": 4012, "target3": 4016.3, "confidence": 94, "strategyUsed": "XAUUSD · Liquidity Sweep + MSS + FVG"}
+        "target2": 4012, "target3": 4016.3, "confidence": 94, "strategyUsed": "XAUUSD · H1 Trend Breakout"}
 EURO = {"id": "sig-EURUSD-B-3", "symbol": "EUR/USD", "signalType": "SELL", "entryPrice": 1.1353, "stopLoss": 1.13772, "target1": 1.13288,
         "target2": 1.13046, "target3": 1.12804, "confidence": 86, "strategyUsed": "EURUSD · Trend Pullback + London Breakout Filter"}
 

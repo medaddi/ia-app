@@ -1,37 +1,98 @@
 """
-XAUUSD (Gold) — "Liquidity Sweep + MSS + FVG"
+XAUUSD (Gold) — "H1 Trend Breakout"
 
-Bias (H4 + H1): bullish if H1 close > EMA200(H1) AND the last H4 structure break is bullish;
-bearish mirror; disagreement = no trade.
-Kill zones: London 08:00–11:00 London time, New York 08:30–11:30 New York time.
-Sequence (M5, all required, in order):
-  1. Sweep of a key level against the bias (Asian low/PDL/PWL/EQL/round number for buys).
-  2. Within 6 M5 candles: MSS/CHoCH in the bias direction with displacement (body > 1.5× avg body 20).
-  3. The displacement leaves an FVG (else an OB).
-  4. LIMIT entry at FVG 50% (or OB 50%).
-Risk: SL beyond the sweep wick + 0.2 × ATR(14, M5) + spread, $2–$8. TP1 = 1R (50%, SL to BE),
-TP2 = nearest opposing liquidity (min 1:2), TP3 = next H1 level or 3R. Pending order expires
-after 45 minutes or when TP1 trades first.
+Trend (H1): BUY only if EMA50 > EMA200 and the close is above EMA200; SELL only on the mirror.
+Entry: an H1 candle CLOSES beyond the highest high (buys) / lowest low (sells) of the previous 20 H1
+candles with a body > 0.5 × ATR(14). MARKET entry at that close.
+Stop: beyond the extreme of the last 4 candles ± 0.2 × ATR, at least 1 × ATR away; no trade above 3 × ATR.
+Targets: TP1 = 1R (close 50%, stop to breakeven), TP2 = 2R (25%), TP3 = 3R (rest).
+One trade at a time: the candles are replayed in order, and a new breakout only counts once the
+previous trade has closed (exactly how the strategy was backtested).
 """
 
-import math
+from typing import Optional
 
-from ..shared.common import active_window, is_untaken, item, nearest_swing_beyond, new_result, to_signal_json, volatility_ratio
-from ..shared.drawings import (declutter_zones, fvg_drawings, level_drawings, ob_drawings, session_drawings, structure_drawings,
-                               sweep_drawings, swing_drawings, trade_drawings)
-from ..shared.indicators import atr_series, avg_body_series, ema_series, last_value
-from ..shared.jsnum import fmt_time, fmt_utc_minute, js_div, js_str, round_to, to_fixed
-from ..shared.liquidity import Level, daily_weekly_levels, equal_levels, find_sweeps, round_number_levels
+from ..shared.common import active_window, item, new_result, to_signal_json
+from ..shared.drawings import level_drawings, trade_drawings
+from ..shared.indicators import atr_series, ema_series
+from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
+from ..shared.liquidity import daily_weekly_levels
 from ..shared.lifecycle import simulate_lifecycle
 from ..shared.news import news_block
 from ..shared.risk import classify, lot_table, rr, score_checklist, to_pips
-from ..shared.sessions import local_date_key, session_range
-from ..shared.structure import detect_structure, detect_swings
-from ..shared.types import closed_only
-from ..shared.zones import Fvg, detect_fvgs, detect_order_blocks
+from ..shared.types import Candle, closed_only
 from .config import XAU_CONFIG
 
-DAILY_KINDS = ("PDH", "PDL", "PWH", "PWL")
+H1_SEC = 3600
+
+
+def _trend(c: list[Candle], i: int, ef: list[float], es: list[float]) -> int:
+    if ef[i] > es[i] and c[i].close > es[i]:
+        return 1
+    if ef[i] < es[i] and c[i].close < es[i]:
+        return -1
+    return 0
+
+
+def _breakout_at(c: list[Candle], i: int, atr: list[float], ef: list[float], es: list[float], cfg: dict) -> Optional[dict]:
+    """The pure entry rules on candle i (closed). Returns the order levels, or None."""
+    B, R = cfg["breakout"], cfg["risk"]
+    a = atr[i]
+    if not (a > 0):
+        return None
+    x = c[i]
+    trend = _trend(c, i, ef, es)
+    window = c[i - B["lookback"]:i]
+    hi, lo = max(y.high for y in window), min(y.low for y in window)
+    ref_bars = c[i - R["stopRefBars"] + 1:i + 1]
+    if trend == 1 and x.close > hi and x.close - x.open > B["minBodyAtr"] * a:
+        buy, level, ref = True, hi, min(y.low for y in ref_bars)
+    elif trend == -1 and x.close < lo and x.open - x.close > B["minBodyAtr"] * a:
+        buy, level, ref = False, lo, max(y.high for y in ref_bars)
+    else:
+        return None
+    entry = x.close
+    if buy:
+        sl = min(ref - R["stopBufferAtr"] * a, entry - R["minSlAtr"] * a)
+    else:
+        sl = max(ref + R["stopBufferAtr"] * a, entry + R["minSlAtr"] * a)
+    risk = abs(entry - sl)
+    if risk > R["maxSlAtr"] * a:
+        return None
+    return {"buy": buy, "index": i, "entry": entry, "sl": sl, "risk": risk, "atr": a, "level": level, "rangeHigh": hi, "rangeLow": lo,
+            "body": abs(x.close - x.open)}
+
+
+def _build_setup(c: list[Candle], b: dict, spec: dict, cfg: dict, spread: float, last: int) -> dict:
+    R, FIL = cfg["risk"], cfg["filters"]
+    d = spec["decimals"]
+    f = lambda v: to_fixed(v, d)  # noqa: E731
+    buy, i, risk = b["buy"], b["index"], b["risk"]
+    entry = round_to(b["entry"], d)
+    sl = round_to(b["sl"], d)
+    # Targets from the rounded entry and stop, so TP1/TP2/TP3 sit exactly 1R/2R/3R away as printed
+    unit = abs(entry - sl)
+    tp = lambda k: round_to(entry + k * unit if buy else entry - k * unit, d)  # noqa: E731
+    tp1, tp2, tp3 = tp(R["tp1R"]), tp(R["tp2R"]), tp(R["tp3R"])
+    signal_time = c[i].time + H1_SEC
+    valid_until = signal_time + R["marketValidMin"] * 60
+    params = {"side": "BUY" if buy else "SELL", "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
+              "expiryTime": None, "marketFillTime": signal_time, "cancelIfTp1BeforeFill": False, "partials": R["partials"],
+              "spread": spread, "slippage": FIL["slippage"]}
+    lifecycle = simulate_lifecycle(c, params, i + 1)
+    return {
+        "id": f"XAUUSD-BO-{c[i].time}", "setup": "BREAKOUT", "direction": "BUY" if buy else "SELL", "entryType": "MARKET",
+        "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
+        "tp2Source": f"{js_str(R['tp2R'])}R", "tp3Source": f"{js_str(R['tp3R'])}R",
+        "rrTp2": rr(entry, sl, tp2), "slDistance": round_to(abs(entry - sl), d), "slPips": to_pips(spec, abs(entry - sl)),
+        "lots": lot_table(spec, entry, sl, R["riskPct"], R["balances"]),
+        "signalTime": signal_time, "signalIndex": i, "expiresAt": valid_until,
+        "invalidation": f"H1 close {'below' if buy else 'above'} {f(sl)}; do not enter after {fmt_time(valid_until)}",
+        "isFresh": i == last, "lifecycle": lifecycle, "params": params,
+        "anchors": {"breakout": {"direction": "BUY" if buy else "SELL", "level": b["level"], "lookback": cfg["breakout"]["lookback"],
+                                 "rangeHigh": b["rangeHigh"], "rangeLow": b["rangeLow"], "atr": round_to(b["atr"], 2),
+                                 "time": c[i].time, "close": entry}},
+    }
 
 
 def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
@@ -39,80 +100,54 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
     d = spec["decimals"]
     f = lambda v: to_fixed(v, d)  # noqa: E731
     now = inp["nowSec"]
-    candles = inp["candles"]
-    m5 = closed_only(candles.get("M5") or [], 300, now)[-600:]
-    m15 = closed_only(candles.get("M15") or [], 900, now)[-900:]
-    h1 = closed_only(candles.get("H1") or [], 3600, now)[-800:]
-    h4 = closed_only(candles.get("H4") or [], 14400, now)[-300:]
-    last = len(m5) - 1
-    price = inp["livePrice"] if inp["livePrice"] > 0 else (m5[last].close if m5 else 0)
+    h1 = closed_only(inp["candles"].get("H1") or [], H1_SEC, now)[-cfg["history"]:]
+    last = len(h1) - 1
+    price = inp["livePrice"] if inp["livePrice"] > 0 else (h1[last].close if h1 else 0)
     spread = inp["spread"] if inp["spread"] is not None else cfg["filters"]["assumedSpread"]
-    S = cfg["structure"]
-    R = cfg["risk"]
-    SET = cfg["setup"]
-    FIL = cfg["filters"]
-
+    T, B, R, FIL = cfg["trend"], cfg["breakout"], cfg["risk"], cfg["filters"]
+    W = cfg["scoring"]["weights"]
     result = new_result(spec, cfg, inp, price)
 
     # ---- Data quality ----
-    stale = inp["isMarketOpen"] and len(m5) > 0 and now - (m5[last].time + 300) > 3 * 300
-    if not inp["isRealData"] or len(m5) < 150 or len(h1) < cfg["bias"]["emaPeriod"] + 20 or len(h4) < 40 or stale:
+    min_bars = T["emaSlow"] + B["lookback"] + 30
+    stale = inp["isMarketOpen"] and len(h1) > 0 and now - (h1[last].time + H1_SEC) > 3 * H1_SEC
+    if not inp["isRealData"] or len(h1) < min_bars or stale:
         result["dataQuality"] = {
             "ok": False, "source": inp["dataSource"],
             "reason": "Live feed unavailable (synthetic candles): no analysis" if not inp["isRealData"]
-            else "Last M5 candle is stale (feed paused)" if stale
-            else f"Not enough history (M5 {len(m5)}, H1 {len(h1)}, H4 {len(h4)})",
+            else "Last H1 candle is stale (feed paused)" if stale else f"Not enough history (H1 {len(h1)}, needs {min_bars})",
         }
-        return _finish(result, "Data not usable", "البيانات غير صالحة")
+        result["headline"], result["headlineAr"] = "Data not usable", "البيانات غير صالحة"
+        return result
 
-    # ---- Detectors ----
-    atr5 = atr_series(m5, cfg["atrPeriod"])
-    atr_now5 = last_value(atr5)
-    swings5 = detect_swings(m5, S["swingN"])
-    st5, _ = detect_structure(m5, swings5, avg_body_series(m5, S["avgBodyPeriod"]), S["displacementMult"])
-    fvgs5 = detect_fvgs(m5, atr5, cfg["fvgMinAtr"], "M5")
-    obs5 = detect_order_blocks(m5, st5, "M5")
+    closes = [x.close for x in h1]
+    atr = atr_series(h1, cfg["atrPeriod"])
+    ef, es = ema_series(closes, T["emaFast"]), ema_series(closes, T["emaSlow"])
 
-    atr_h1 = atr_series(h1, cfg["atrPeriod"])
-    swings_h1 = detect_swings(h1, S["htfSwingN"])
-    st_h1, _ = detect_structure(h1, swings_h1, avg_body_series(h1, S["avgBodyPeriod"]), S["displacementMult"])
-    fvgs_h1 = detect_fvgs(h1, atr_h1, cfg["fvgMinAtr"], "H1")
-    obs_h1 = detect_order_blocks(h1, st_h1, "H1")
-    swings_h4 = detect_swings(h4, S["htfSwingN"])
-    st_h4, _ = detect_structure(h4, swings_h4, avg_body_series(h4, S["avgBodyPeriod"]), S["displacementMult"])
+    # ---- Replay one trade at a time, exactly like the backtest ----
+    latest: Optional[tuple[dict, dict]] = None
+    i = max(T["emaSlow"] + 10, B["lookback"] + R["stopRefBars"])
+    while i <= last:
+        b = _breakout_at(h1, i, atr, ef, es, cfg)
+        if not b:
+            i += 1
+            continue
+        s = _build_setup(h1, b, spec, cfg, spread, last)
+        latest = (b, s)
+        lc = s["lifecycle"]
+        if lc["state"] != "CLOSED":
+            break  # still in this trade: no new breakout counts
+        exit_idx = next((j for j in range(i + 1, last + 1) if h1[j].time == lc["exitTime"]), last)
+        i = exit_idx + 1
 
-    # ---- Bias ----
-    ema200 = last_value(ema_series([x.close for x in h1], cfg["bias"]["emaPeriod"]))
-    h1_close = h1[-1].close
-    h1_dir = "BULLISH" if h1_close > ema200 else "BEARISH"
-    last_h4 = st_h4[-1] if st_h4 else None
-    h4_dir = last_h4.direction if last_h4 else "NEUTRAL"
-    bias = h1_dir if h1_dir == h4_dir else "NEUTRAL"
-    h4_txt = f"{last_h4.type} {last_h4.direction.lower()} at {f(last_h4.level)}" if last_h4 else "break: none"
-    bias_detail = f"H1 close {f(h1_close)} {'>' if h1_close > ema200 else '<'} EMA200 {f(ema200)} · H4 last {h4_txt}"
-    result["bias"] = {"direction": bias, "detail": bias_detail}
+    trend_now = _trend(h1, last, ef, es)
+    trend_txt = {1: "bullish", -1: "bearish", 0: "flat"}[trend_now]
+    trend_detail = (f"EMA{T['emaFast']} {f(ef[last])} {'>' if ef[last] > es[last] else '<'} EMA{T['emaSlow']} {f(es[last])}, "
+                    f"close {f(h1[last].close)} {'>' if h1[last].close > es[last] else '<'} EMA{T['emaSlow']}")
+    result["bias"] = {"direction": "BULLISH" if trend_now == 1 else "BEARISH" if trend_now == -1 else "NEUTRAL", "detail": trend_detail}
+    window = h1[last - B["lookback"] + 1:last + 1]
+    range_hi, range_lo = max(y.high for y in window), min(y.low for y in window)
 
-    # ---- Levels ----
-    asia_cfg = cfg["sessions"]["asia"]
-    today_key = local_date_key(now, asia_cfg["tz"])
-    asia = session_range(m5, 300, "Asia", today_key, asia_cfg["tz"], asia_cfg["start"], asia_cfg["end"], now)
-    london_kz = cfg["sessions"]["killzones"][0]
-    london_range = session_range(m5, 300, "London", today_key, london_kz["tz"], london_kz["start"], london_kz["end"], now)
-    levels: list[Level] = list(daily_weekly_levels(m15))
-    if asia and asia.complete:
-        levels.append(Level(f"ASIA_H-{asia.dateKey}", "ASIA_H", "Asia H", asia.high, "HIGH", asia.startSec, asia.endSec, 0.9))
-        levels.append(Level(f"ASIA_L-{asia.dateKey}", "ASIA_L", "Asia L", asia.low, "LOW", asia.startSec, asia.endSec, 0.9))
-    if london_range and london_range.complete:
-        lr = london_range
-        levels.append(Level(f"PSH-{lr.dateKey}", "PSH", "London H", lr.high, "HIGH", lr.startSec, lr.endSec, 0.8))
-        levels.append(Level(f"PSL-{lr.dateKey}", "PSL", "London L", lr.low, "LOW", lr.startSec, lr.endSec, 0.8))
-    recent_start = m5[max(0, last - SET["sweepLookbackBars"] * 3)].time
-    levels.extend(lv for lv in equal_levels(swings5, atr_now5, cfg["equalLevelTolAtr"], last) if lv.time >= recent_start)
-    if cfg["roundNumbers"]["enabled"]:
-        levels.extend(round_number_levels(price, cfg["roundNumbers"]["steps"], cfg["roundNumbers"]["count"], m5[0].time))
-
-    # ---- Filters (evaluated for every state) ----
-    vol = volatility_ratio(atr_h1, FIL["volatility"]["lookbackBars"])
     news = news_block(now, inp["news"]["events"], FIL["news"])
     ev, nxt = news["event"], news["next"]
     result["news"] = {
@@ -121,226 +156,105 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
         "next": f"{nxt['currency']} {nxt['title']} {fmt_utc_minute(nxt['time'])} UTC" if nxt else None,
         "source": inp["news"]["source"],
     }
-    win = active_window(now, cfg["sessions"]["killzones"])
+    win = active_window(now, cfg["sessions"]["windows"])
     result["market"]["window"] = win["name"] if win else None
 
-    # ---- Setup search ----
-    W = cfg["scoring"]["weights"]
-    checklist: list[dict] = [item("bias", "H4 and H1 bias agree", "توافق اتجاه H4 و H1", bias != "NEUTRAL", bias_detail, W["bias"], True)]
-
     setup = None
-    progress = "H4 and H1 disagree: no trade" if bias == "NEUTRAL" else ""
-    chosen = None
+    if latest:
+        b, s = latest
+        recent = b["index"] >= last - R["showLastSetupBars"]
+        if s["lifecycle"]["state"] != "CLOSED" or recent:
+            setup = s
 
-    if bias != "NEUTRAL":
-        buy = bias == "BULLISH"
-        sweepable = [lv for lv in levels if lv.side == ("LOW" if buy else "HIGH") and lv.kind in SET["sweepKinds"]]
-        sweeps = find_sweeps(m5, sweepable, max(0, last - SET["sweepLookbackBars"]), last, atr_now5)[::-1]
-        if not sweeps:
-            progress = f"Waiting for a sweep of {'sell-side (Asia L / PDL / EQL)' if buy else 'buy-side (Asia H / PDH / EQH)'} liquidity"
-
-        max_bars = SET["maxBarsSweepToMss"]
-        for sw in sweeps:
-            mss = next((e for e in st5 if e.direction == bias and sw.index < e.breakIndex <= sw.index + max_bars), None)
-            if not mss:
-                progress = progress or f"Sweep of {sw.level.label} {f(sw.level.price)} at {fmt_time(sw.time)}, waiting for an M5 MSS within {max_bars} candles"
-                if last - sw.index <= max_bars:
-                    break
-                continue
-            protected_ok = True
-            for i in range(sw.index + 1, mss.breakIndex + 1):
-                if (m5[i].low < sw.extreme) if buy else (m5[i].high > sw.extreme):
-                    protected_ok = False
-            if not protected_ok:
-                progress = progress or f"Sweep low/high at {f(sw.extreme)} was broken before the MSS"
-                continue
-            if mss.displacementIndex is None or mss.displacementIndex <= sw.index:
-                progress = progress or (f"MSS at {fmt_time(mss.breakTime)} has no displacement (body {to_fixed(mss.displacementMult, 2)}× avg "
-                                        f"< {js_str(S['displacementMult'])}×)")
-                continue
-
-            break_time = m5[mss.breakIndex].time
-            fvg_pool = [z for z in fvgs5 if z.direction == bias and sw.index < z.createdIndex <= mss.breakIndex + 2
-                        and not (z.filledTime is not None and z.filledTime <= break_time)]
-            fvg_pool.sort(key=lambda z: z.bottom if buy else -z.top)
-            fvg = fvg_pool[0] if fvg_pool else None
-            ob = next((o for o in obs5 if o.breakTime == mss.breakTime and o.state != "BROKEN"), None)
-            if not fvg and not ob:
-                progress = progress or f"MSS at {fmt_time(mss.breakTime)} left no FVG or order block"
-                continue
-            ready_idx = max(mss.breakIndex, fvg.createdIndex) if fvg else mss.breakIndex
-            if ready_idx > last:
-                progress = progress or "Waiting for the FVG candle to close"
-                break
-            chosen = (sw, mss, ("FVG", fvg) if fvg else ("OB", ob), ready_idx)
-            break
-
-        if chosen:
-            sw, mss, (poi_kind, zone), ready_idx = chosen
-            entry = round_to(zone.ce if poi_kind == "FVG" else zone.mid, d)
-            atr_at = atr5[ready_idx]
-            buffer = R["slAtrBuffer"] * (atr_at if atr_at and not math.isnan(atr_at) else atr_now5) + spread
-            sl = round_to(sw.extreme - buffer if buy else sw.extreme + buffer, d)
-            sl_dist = abs(entry - sl)
-            tp1 = round_to(entry + R["tp1R"] * sl_dist if buy else entry - R["tp1R"] * sl_dist, d)
-            targets = [lv for lv in levels if lv.side == ("HIGH" if buy else "LOW") and lv.kind in SET["targetKinds"]
-                       and (lv.price > entry if buy else lv.price < entry) and is_untaken(lv, m5, ready_idx)]
-            targets.sort(key=lambda lv: lv.price if buy else -lv.price)
-            tgt = targets[0] if targets else None
-            tp2 = round_to(tgt.price if tgt else (entry + R["minRrTp2"] * sl_dist if buy else entry - R["minRrTp2"] * sl_dist), d)
-            rr_tp2 = rr(entry, sl, tp2)
-            h1_next = nearest_swing_beyond(swings_h1, tp2, buy, len(h1) - 1)
-            tp3 = round_to(h1_next.price if h1_next else (entry + R["tp3R"] * sl_dist if buy else entry - R["tp3R"] * sl_dist), d)
-            if (tp3 <= tp2) if buy else (tp3 >= tp2):
-                tp3 = round_to(tp2 + sl_dist if buy else tp2 - sl_dist, d)
-            signal_time = m5[ready_idx].time + 300
-            expires_at = signal_time + R["orderExpiryMin"] * 60
-            params = {
-                "side": "BUY" if buy else "SELL", "entryType": "LIMIT", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
-                "expiryTime": expires_at, "cancelIfTp1BeforeFill": R["cancelIfTp1First"], "partials": R["partials"],
-                "spread": spread, "slippage": FIL["slippage"],
-            }
-            lifecycle = simulate_lifecycle(m5, params, ready_idx + 1)
-            min_rr_txt = js_str(R["minRrTp2"])
-            setup = {
-                "id": f"XAUUSD-{sw.time}-{mss.breakTime}",
-                "setup": "GOLD",
-                "direction": "BUY" if buy else "SELL",
-                "entryType": "LIMIT",
-                "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
-                "tp2Source": f"{tgt.label} (opposing liquidity)" if tgt else f"{min_rr_txt}R (no opposing liquidity in range)",
-                "tp3Source": "Next H1 swing level" if h1_next else f"{js_str(R['tp3R'])}R",
-                "rrTp2": rr_tp2,
-                "slDistance": round_to(sl_dist, d),
-                "slPips": to_pips(spec, sl_dist),
-                "lots": lot_table(spec, entry, sl, R["riskPct"], R["balances"]),
-                "signalTime": signal_time,
-                "signalIndex": ready_idx,
-                "expiresAt": expires_at,
-                "invalidation": f"M5 close {'below' if buy else 'above'} {f(sl)} before entry, order not filled by {fmt_time(expires_at)}, or TP1 {f(tp1)} reached first",
-                "isFresh": ready_idx == last,
-                "lifecycle": lifecycle,
-                "params": params,
-                "anchors": {"sweep": sw.to_dict(), "mss": mss.to_dict(), "poi": {
-                    "kind": poi_kind, "top": zone.top, "bottom": zone.bottom,
-                    "time": zone.startTime if poi_kind == "FVG" else zone.time}},
-            }
-
-            # ---- Checklist (in rule order) ----
-            sig_win = active_window(signal_time - 1, cfg["sessions"]["killzones"])
-            checklist.append(item("killzone", "Inside a kill zone (London 08:00–11:00 / NY 08:30–11:30)", "داخل نافذة السيولة (لندن / نيويورك)", sig_win is not None,
-                                  f"{sig_win['name']} at {fmt_time(signal_time)}" if sig_win else f"Setup completed at {fmt_time(signal_time)}, outside both kill zones",
-                                  W["killzone"], True))
-            depth_q = 0.6 if sw.depthAtr < 0.05 else 0.7 if sw.depthAtr > 1.5 else 1
-            checklist.append(item("sweep", "Liquidity sweep against the bias", "سحب سيولة عكس الاتجاه", True,
-                                  f"{sw.level.label} {f(sw.level.price)} swept at {fmt_time(sw.time)}, wick {f(sw.extreme)} ({to_fixed(sw.depthAtr, 2)}× ATR), closed back inside",
-                                  W["sweep"], True, sw.level.weight * depth_q))
-            checklist.append(item("mss", f"M5 MSS within {max_bars} candles with displacement > {js_str(S['displacementMult'])}× avg body", "كسر هيكلي M5 مع اندفاع", True,
-                                  f"{'CHoCH' if mss.type == 'CHOCH' else 'BOS'} close beyond {f(mss.level)} at {fmt_time(mss.breakTime + 300)}, "
-                                  f"{mss.breakIndex - sw.index} candles after the sweep, displacement {to_fixed(mss.displacementMult, 2)}× avg body",
-                                  W["displacement"], True, 0.5 + (mss.displacementMult - S["displacementMult"]) / 3))
-            checklist.append(item("poi", "Displacement left an FVG (else an OB)", "فجوة FVG أو بلوك أوامر", True,
-                                  f"{poi_kind} {f(zone.bottom)}–{f(zone.top)}, limit at 50% {f(entry)}", W["poi"], True,
-                                  (1 if zone.sizeAtr >= 0.5 else 0.8) if poi_kind == "FVG" else 0.7))
-            checklist.append(item("sl", f"Stop ${js_str(R['minSl'])}–${js_str(R['maxSl'])} beyond the sweep wick", "وقف خسارة بين 2 و 8 دولار",
-                                  R["minSl"] <= sl_dist <= R["maxSl"],
-                                  f"SL {f(sl)} = ${to_fixed(sl_dist, 2)} (wick {f(sw.extreme)} + 0.2× ATR + spread)", 0, True))
-            checklist.append(item("rr", f"R:R to TP2 >= 1:{min_rr_txt}", "عائد للهدف الثاني 1:2 على الأقل", rr_tp2 >= R["minRrTp2"],
-                                  f"TP2 {f(tp2)} = {setup['tp2Source']}, 1:{to_fixed(rr_tp2, 2)}", W["rr"], True, 1 if rr_tp2 >= 3 else 0.7))
-            htf = nearest_swing_beyond(swings_h1, entry, buy, len(h1) - 1)
-            htf_r = js_div(abs(htf.price - entry), sl_dist) if htf else 99
-            checklist.append(item("htf", "Room to the next H1 level", "مسافة كافية حتى مستوى H1", htf_r >= 1,
-                                  f"Next H1 {'high' if buy else 'low'} {f(htf.price)} = {to_fixed(htf_r, 1)}R away" if htf else "No H1 level in the way",
-                                  W["htfDistance"], False, 1 if htf_r >= 2 else 0.6 if htf_r >= 1 else 0.2))
+    checklist: list[dict]
+    if setup:
+        b = latest[0]
+        buy = b["buy"]
+        signal_time = setup["signalTime"]
+        nb = news_block(signal_time, inp["news"]["events"], FIL["news"])
+        day = inp["day"]
+        checklist = [
+            item("trend", f"H1 trend: EMA{T['emaFast']} {'>' if buy else '<'} EMA{T['emaSlow']} and close {'above' if buy else 'below'} EMA{T['emaSlow']}",
+                 "اتجاه H1 واضح", True, trend_detail if setup["isFresh"] else f"{'Bullish' if buy else 'Bearish'} trend at the breakout", W["trend"], True),
+            item("breakout", f"H1 close beyond the {B['lookback']}-hour {'high' if buy else 'low'}", f"إغلاق H1 فوق/تحت أعلى/أدنى {B['lookback']} ساعة", True,
+                 f"Close {f(b['entry'])} {'>' if buy else '<'} {B['lookback']}h {'high' if buy else 'low'} {f(b['level'])} ({fmt_time(signal_time)})", W["breakout"], True),
+            item("momentum", f"Breakout candle body > {js_str(B['minBodyAtr'])}× ATR(14, H1)", "شمعة اختراق قوية", True,
+                 f"Body ${to_fixed(b['body'], 2)} = {to_fixed(b['body'] / b['atr'], 2)}× ATR ${to_fixed(b['atr'], 2)}", W["momentum"], True,
+                 min(1.0, b["body"] / b["atr"])),
+            item("stop", f"Stop {js_str(R['minSlAtr'])}–{js_str(R['maxSlAtr'])}× ATR beyond the last {R['stopRefBars']} candles", "وقف الخسارة حسب التقلب", True,
+                 f"SL {f(setup['sl'])} = ${to_fixed(setup['slDistance'], 2)} ({to_fixed(b['risk'] / b['atr'], 2)}× ATR)", W["stop"], True),
+            item("targets", f"TP1 {js_str(R['tp1R'])}R (50%, SL to entry) · TP2 {js_str(R['tp2R'])}R · TP3 {js_str(R['tp3R'])}R", "الأهداف 1R / 2R / 3R", True,
+                 f"TP1 {f(setup['tp1'])} · TP2 {f(setup['tp2'])} · TP3 {f(setup['tp3'])}", W["targets"], True),
+            item("oneTrade", "One trade at a time", "صفقة واحدة في نفس الوقت", True, "No other gold trade open at the breakout", 0, True),
+            item("news", "No high-impact USD news ±30 min", "لا أخبار قوية للدولار ±30 دقيقة", not nb["blocked"],
+                 f"{nb['event']['currency']} {nb['event']['title']} at {fmt_time(nb['event']['time'])}" if nb["event"] else "Clear", 0, True),
+            item("spread", f"Spread <= ${js_str(FIL['maxSpread'])}", "السبريد مقبول", spread <= FIL["maxSpread"],
+                 f"Spread ${to_fixed(spread, 2)}{' (assumed, no live spread in feed)' if inp['spread'] is None else ''}", 0, True),
+            item("daily", f"Max {FIL['maxTradesPerDay']} trades / stop after {FIL['maxLossesPerDay']} losses per day", "حد الصفقات اليومي",
+                 day["trades"] < FIL["maxTradesPerDay"] and day["losses"] < FIL["maxLossesPerDay"],
+                 f"{day['trades']} trade(s), {day['losses']} loss(es) today", 0, True),
+        ]
+    else:
+        if trend_now == 1:
+            progress = f"Bullish trend: waiting for an H1 close above the {B['lookback']}-hour high {f(range_hi)}"
+        elif trend_now == -1:
+            progress = f"Bearish trend: waiting for an H1 close below the {B['lookback']}-hour low {f(range_lo)}"
         else:
-            checklist.append(item("setup", "Sweep → MSS → FVG sequence", "تسلسل سحب السيولة ← كسر الهيكل ← FVG", False,
-                                  progress or "No setup in the lookback window", 0, True))
-
-    V = FIL["volatility"]
-    vol_ok = V["min"] <= vol["ratio"] <= V["max"]
-    checklist.append(item("volatility", f"ATR(14,H1) between {js_str(V['min'] * 100)}% and {js_str(V['max'] * 100)}% of its 20-day average", "التقلب في المجال الطبيعي", vol_ok,
-                          f"ATR H1 {to_fixed(vol['now'], 2)} = {to_fixed(vol['ratio'] * 100, 0)}% of 20-day average {to_fixed(vol['avg'], 2)}",
-                          W["volatility"], True, 1 if 0.8 <= vol["ratio"] <= 1.8 else 0.6))
-    checklist.append(item("news", "No high-impact USD news ±30 min", "لا أخبار قوية للدولار ±30 دقيقة", not news["blocked"], result["news"]["detail"], 0, True))
-    checklist.append(item("spread", f"Spread <= ${js_str(FIL['maxSpread'])}", "السبريد مقبول", spread <= FIL["maxSpread"],
-                          f"Spread ${to_fixed(spread, 2)}{' (assumed, no live spread in feed)' if inp['spread'] is None else ''}", 0, True))
-    day = inp["day"]
-    day_ok = day["trades"] < FIL["maxTradesPerDay"] and day["losses"] < FIL["maxLossesPerDay"]
-    checklist.append(item("daily", f"Max {FIL['maxTradesPerDay']} trades / stop after {FIL['maxLossesPerDay']} losses per day", "حد الصفقات اليومي", day_ok,
-                          f"{day['trades']} trade(s), {day['losses']} loss(es) today", 0, True))
+            progress = f"No clear H1 trend (EMA{T['emaFast']} / EMA{T['emaSlow']}): no trade"
+        checklist = [
+            item("trend", f"H1 trend: EMA{T['emaFast']} vs EMA{T['emaSlow']} and close vs EMA{T['emaSlow']}", "اتجاه H1 واضح", trend_now != 0, trend_detail, W["trend"], True),
+            item("breakout", f"H1 close beyond the {B['lookback']}-hour high (buys) / low (sells)", "إغلاق H1 خارج النطاق", False, progress, W["breakout"], True),
+            item("news", "No high-impact USD news ±30 min", "لا أخبار قوية للدولار ±30 دقيقة", not news["blocked"], result["news"]["detail"], 0, True),
+        ]
+        result["facts"]["progress"] = progress
 
     result["checklist"] = checklist
     result["setup"] = setup
-    result["score"] = score_checklist(checklist) if setup else 0
     failed = [c for c in checklist if c["required"] and not c["passed"]]
+    result["score"] = score_checklist(checklist) if setup else 0
     result["rejection"] = f"{failed[0]['rule']}: {failed[0]['detail']}" if failed else None
     result["status"] = classify(result["score"], not failed, cfg["scoring"]["thresholds"]) if setup else "NO_TRADE"
     if setup and result["status"] == "SIGNAL":
         result["signal"] = to_signal_json(spec, cfg["strategy"], setup, result["score"], cfg["timeframes"], checklist)
-    result["canNotify"] = bool(result["status"] == "SIGNAL" and setup and setup["isFresh"] and setup["lifecycle"]["state"] == "PENDING" and inp["isMarketOpen"])
+    result["canNotify"] = bool(result["status"] == "SIGNAL" and setup and setup["isFresh"] and setup["lifecycle"]["state"] == "OPEN" and inp["isMarketOpen"])
 
-    # ---- Drawings ----
-    max_n = cfg["drawings"]["maxPerType"]
-    sessions = []
-    for day_offset in (1, 0):
-        key = local_date_key(now - day_offset * 86400, asia_cfg["tz"])
-        a = session_range(m5, 300, "Asia", key, asia_cfg["tz"], asia_cfg["start"], asia_cfg["end"], now)
-        if a:
-            sessions.append(a)
-        for kz in cfg["sessions"]["killzones"]:
-            r = session_range(m5, 300, "London" if kz["name"].startswith("London") else "NY", local_date_key(now - day_offset * 86400, kz["tz"]),
-                              kz["tz"], kz["start"], kz["end"], now)
-            if r:
-                sessions.append(r)
-    shown_levels = [lv for lv in levels if lv.kind != "ROUND" or abs(lv.price - price) <= 12]
+    # ---- Drawings: the 20-hour range, daily/weekly levels, the breakout and the trade ----
+    t_range = h1[last - B["lookback"] + 1].time
     drawings = [
-        *session_drawings(sessions),
-        *level_drawings([lv for lv in shown_levels if is_untaken(lv, m5, last) or lv.kind in DAILY_KINDS]),
-        *structure_drawings(st_h1, "H1", "M5", 3),
-        *structure_drawings(st5, "M5", "M5", max_n),
-        *swing_drawings(swings5, "M5", max_n),
-        *fvg_drawings(fvgs_h1, "H1", "M5", 2),
-        *fvg_drawings(fvgs5, "M5", "M5", 3),
-        *ob_drawings(obs_h1, "H1", "M5", 2),
-        *ob_drawings(obs5, "M5", "M5", 3),
-        *sweep_drawings(find_sweeps(m5, levels, max(0, last - 200), last, atr_now5), "M5", max_n),
+        {"id": "XAU-RANGE-H", "layer": "levels", "kind": "hline", "tf": "H1", "t1": t_range, "t2": None, "p1": range_hi,
+         "text": f"{B['lookback']}h high", "color": "bull" if trend_now == 1 else "muted", "style": "dashed"},
+        {"id": "XAU-RANGE-L", "layer": "levels", "kind": "hline", "tf": "H1", "t1": t_range, "t2": None, "p1": range_lo,
+         "text": f"{B['lookback']}h low", "color": "bear" if trend_now == -1 else "muted", "style": "dashed"},
+        *level_drawings(daily_weekly_levels(h1)),
     ]
     if setup:
-        drawings.extend(trade_drawings(setup, "M5", f"{js_str(setup['lots'].get('1000$', 0))} lot / $1k"))
-    result["drawings"] = declutter_zones(drawings)
+        bo = setup["anchors"]["breakout"]
+        drawings.append({"id": f"XAU-BO-{bo['time']}", "layer": "structure", "kind": "hline", "tf": "H1",
+                         "t1": bo["time"] - B["lookback"] * H1_SEC, "t2": bo["time"], "p1": bo["level"],
+                         "text": f"Breakout {B['lookback']}h {'high' if bo['direction'] == 'BUY' else 'low'}",
+                         "color": "bull" if bo["direction"] == "BUY" else "bear", "style": "solid"})
+        drawings.extend(trade_drawings(setup, "H1", ""))
+    result["drawings"] = drawings
 
-    # ---- Facts for the AI agent (detector output only) ----
-    result["facts"] = {
-        "price": price, "spread": spread, "atrM5": round_to(atr_now5, 2), "atrH1": round_to(vol["now"], 2), "volatilityRatio": round_to(vol["ratio"], 2),
-        "bias": {"h1": h1_dir, "h1Close": h1_close, "ema200": round_to(ema200, d), "h4": h4_dir,
-                 "h4LastBreak": {"type": last_h4.type, "direction": last_h4.direction, "level": last_h4.level, "time": last_h4.breakTime} if last_h4 else None},
-        "killzone": win["name"] if win else "none",
-        "asianRange": {"high": asia.high, "low": asia.low, "complete": asia.complete} if asia else None,
-        "levels": [{"kind": lv.kind, "label": lv.label, "price": lv.price, "untaken": is_untaken(lv, m5, last)} for lv in shown_levels],
-        "m5Structure": [{"type": e.type, "direction": e.direction, "level": e.level, "time": e.breakTime, "displacement": round_to(e.displacementMult, 2)} for e in st5[-5:]],
-        "h1Structure": [{"type": e.type, "direction": e.direction, "level": e.level, "time": e.breakTime} for e in st_h1[-3:]],
-        "fvgsM5": [{"direction": z.direction, "top": z.top, "bottom": z.bottom, "state": z.state} for z in [z for z in fvgs5 if z.state != "FILLED"][-max_n:]],
-        "orderBlocksH1": [{"direction": o.direction, "top": o.top, "bottom": o.bottom, "state": o.state} for o in [o for o in obs_h1 if o.state != "BROKEN"][-3:]],
-        "progress": progress,
-    }
+    result["facts"].update({
+        "price": price, "spread": spread, "atrH1": round_to(atr[last], 2), "ema50": round_to(ef[last], d), "ema200": round_to(es[last], d),
+        "trend": trend_txt, "range20h": {"high": range_hi, "low": range_lo},
+        "levels": [{"kind": lv.kind, "label": lv.label, "price": lv.price} for lv in daily_weekly_levels(h1)],
+        "lastTrade": ({"id": latest[1]["id"], "state": latest[1]["lifecycle"]["state"], "outcome": latest[1]["lifecycle"]["outcome"],
+                       "r": latest[1]["lifecycle"]["rMultiple"]} if latest else None),
+    })
 
     side = setup["direction"] if setup else ""
     status = result["status"]
     if not setup:
-        headline = progress or "No setup"
+        result["headline"] = result["facts"]["progress"]
+    elif status == "SIGNAL" and setup["isFresh"]:
+        result["headline"] = f"{side} market {f(setup['entry'])} · score {result['score']}"
     elif status == "SIGNAL":
-        headline = f"{side} limit {f(setup['entry'])} · score {result['score']}"
-    elif status == "WATCH":
-        headline = f"{side} watch · score {result['score']} (needs {cfg['scoring']['thresholds']['signal']})"
-    elif status == "IGNORE":
-        headline = f"{side} setup scored {result['score']}: ignored"
+        result["headline"] = f"{side} breakout {fmt_time(setup['signalTime'])} · {setup['lifecycle']['state']}"
+    elif status in ("WATCH", "IGNORE"):
+        result["headline"] = f"{side} breakout scored {result['score']}"
     else:
-        headline = f"{side} setup rejected: {failed[0]['rule'] if failed else 'undefined'}"
-    headline_ar = (f"إشارة {side} عند {f(setup['entry'])}" if status == "SIGNAL" else "إعداد موجود لكنه غير مكتمل الشروط") if setup else "لا توجد صفقة حالياً"
-    return _finish(result, headline, headline_ar)
-
-
-def _finish(r: dict, headline: str, headline_ar: str) -> dict:
-    r["headline"] = headline
-    r["headlineAr"] = headline_ar
-    return r
+        result["headline"] = f"{side} breakout rejected: {failed[0]['rule']}"
+    result["headlineAr"] = (f"إشارة {side} عند {f(setup['entry'])}" if status == "SIGNAL" else "إعداد موجود لكنه غير مكتمل الشروط") if setup else "لا توجد صفقة حالياً"
+    return result

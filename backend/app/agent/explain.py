@@ -26,6 +26,9 @@ def build_explanation(r: dict, lang: str = "en") -> str:
             parts.append(f"تم سحب سيولة {sw['level']['label']} عند {f(sw['level']['price'])} (ذيل حتى {f(sw['extreme'])}) ثم إغلاق داخل المستوى.")
         if a.get("mss"):
             parts.append(f"كسر هيكلي {'CHoCH' if a['mss']['type'] == 'CHOCH' else 'BOS'} فوق/تحت {f(a['mss']['level'])} بشمعة اندفاع.")
+        if a.get("breakout"):
+            bo = a["breakout"]
+            parts.append(f"اختراق: شمعة H1 أغلقت {'فوق أعلى' if buy else 'تحت أدنى'} {bo['lookback']} ساعة عند {f(bo['level'])} مع الاتجاه.")
         if a.get("leg"):
             parts.append(f"رجوع إلى منطقة التوافق (فيبو 50–61.8% {f(a['leg']['fib618'])}–{f(a['leg']['fib50'])}) مع شمعة تأكيد {a.get('trigger')}.")
         parts.append(f"الدخول {'بأمر معلق' if s['entryType'] == 'LIMIT' else 'بسعر السوق'} عند {f(s['entry'])}، الوقف {f(s['sl'])} ({js_str(s['slPips'])} نقطة).")
@@ -39,6 +42,10 @@ def build_explanation(r: dict, lang: str = "en") -> str:
             parts.append(f"Liquidity taken: {sw['level']['label']} {f(sw['level']['price'])} swept (wick {f(sw['extreme'])}) and closed back inside.")
         if a.get("mss"):
             parts.append(f"Structure shift: M5 {'CHoCH' if a['mss']['type'] == 'CHOCH' else 'BOS'} {'above' if buy else 'below'} {f(a['mss']['level'])} with a displacement candle.")
+        if a.get("breakout"):
+            bo = a["breakout"]
+            parts.append(f"Breakout: an H1 candle closed {'above the' if buy else 'below the'} {bo['lookback']}-hour {'high' if buy else 'low'} "
+                         f"{f(bo['level'])} with the trend; market entry at the close {f(s['entry'])}.")
         if a.get("poi"):
             p = a["poi"]
             parts.append(f"Entry zone: {p['kind']} {f(p['bottom'])}–{f(p['top'])}, limit at its 50% {f(s['entry'])}.")

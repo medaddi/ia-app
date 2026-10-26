@@ -1,6 +1,6 @@
 """
 Strategy service: the ONLY two strategies in the app.
-  XAUUSD → Liquidity Sweep + MSS + FVG (bias H4/H1, setup M15, entry M5)
+  XAUUSD → H1 Trend Breakout (trend, breakout and entry on H1)
   EURUSD → Trend Pullback + London Breakout Filter (bias D1/H4, zones H1, entry M15)
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
@@ -21,7 +21,6 @@ from .shared.news import load_news_calendar
 from .shared.sessions import in_local_window, trading_day_key, zoned_parts
 from .shared.structure import detect_swings
 from .shared.types import TF_SEC, Candle, closed_only
-from .xauusd.config import XAU_CONFIG
 from .xauusd.strategy import evaluate_xauusd
 
 PROVIDER_TF = {"M5": "5M", "M15": "15M", "H1": "1H", "H4": "4H", "D1": "1D"}
@@ -50,9 +49,9 @@ def _eur_trail(entry: list[Candle], side: str):
 
 STRATEGY_DEFS: dict[str, StrategyDef] = {
     "XAU/USD": StrategyDef(
-        entryTf="M5", run=evaluate_xauusd, tfs=["M5", "M15", "H1", "H4"],
-        limits={"M5": 20000, "M15": 8000, "H1": 5000, "H4": 2000},
-        canSignalAt=lambda close: active_window(close - 1, XAU_CONFIG["sessions"]["killzones"]) is not None,
+        entryTf="H1", run=evaluate_xauusd, tfs=["H1"],
+        limits={"H1": 5000},
+        canSignalAt=lambda close: True,  # every H1 close while the market is open
     ),
     "EUR/USD": StrategyDef(
         entryTf="M15", run=evaluate_eurusd, tfs=["M15", "H1", "H4", "D1"],

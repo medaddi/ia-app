@@ -19,7 +19,7 @@ const REVIEW_AS_OF = (() => {
 const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
 
 const INSTRUMENTS = {
-  'XAU/USD': { label: 'Gold', entryTf: 'M5', timeframes: ['M5', 'M15', 'H1', 'H4'] },
+  'XAU/USD': { label: 'Gold', entryTf: 'H1', timeframes: ['M15', 'H1', 'H4', 'D1'] },
   'EUR/USD': { label: 'Euro / Dollar', entryTf: 'M15', timeframes: ['M15', 'H1', 'H4', 'D1'] },
 } as const;
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', H1: '1H', H4: '4H', D1: '1D' };
@@ -91,7 +91,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const agents = bundle ? [
     { name: 'Structure', summary: bundle.agents.structure_agent.summary, ok: result?.bias.direction !== 'NEUTRAL' },
-    { name: 'Liquidity', summary: bundle.agents.liquidity_agent.summary, ok: !!result?.checklist.find(c => (c.key === 'sweep' || c.key === 'zone') && c.passed) },
+    { name: 'Liquidity', summary: bundle.agents.liquidity_agent.summary, ok: !!result?.checklist.find(c => (c.key === 'sweep' || c.key === 'zone' || c.key === 'breakout') && c.passed) },
     { name: 'Risk', summary: bundle.agents.risk_agent.summary, ok: !!result?.checklist.find(c => c.key === 'rr' && c.passed) },
     { name: 'CTO', summary: bundle.agents.cto_agent.summary, ok: result?.status === 'SIGNAL' },
   ] : [];

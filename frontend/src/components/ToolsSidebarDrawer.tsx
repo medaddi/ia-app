@@ -69,9 +69,9 @@ export const ToolsSidebarDrawer: React.FC<ToolsSidebarDrawerProps> = ({
       labelAr: 'الاستراتيجيات (الذهب واليورو)',
       labelFr: 'Stratégies (XAUUSD & EURUSD)',
       labelEn: 'Strategies (XAUUSD & EURUSD)',
-      descAr: 'الذهب: سحب سيولة + كسر هيكل + FVG · اليورو: رجوع مع الترند',
-      descFr: 'Or : Sweep + MSS + FVG · EURUSD : pullback de tendance',
-      descEn: 'Gold: Sweep + MSS + FVG · EURUSD: trend pullback',
+      descAr: 'الذهب: اختراق H1 مع الاتجاه · اليورو: رجوع مع الترند',
+      descFr: 'Or : breakout H1 avec la tendance · EURUSD : pullback de tendance',
+      descEn: 'Gold: H1 trend breakout · EURUSD: trend pullback',
       icon: Sparkles,
     },
     {

@@ -30,12 +30,13 @@ def validate_signal(r: dict) -> dict:
     dist = abs(s["entry"] - s["sl"])
     if r["symbol"] == "XAUUSD":
         R = XAU_CONFIG["risk"]
-        if rr_tp2 < R["minRrTp2"] - 1e-9:
-            issues.append(f"R:R to TP2 {to_fixed(rr_tp2, 2)} < {R['minRrTp2']}")
-        if dist < R["minSl"] or dist > R["maxSl"]:
-            issues.append(f"Stop ${to_fixed(dist, 2)} outside ${R['minSl']}–${R['maxSl']}")
-        if s["entryType"] != "LIMIT":
-            issues.append("Gold entries must be LIMIT orders")
+        if rr_tp2 < R["tp2R"] - 0.01:  # prices are rounded to the cent
+            issues.append(f"R:R to TP2 {to_fixed(rr_tp2, 2)} < {R['tp2R']}")
+        # The stop size (1–3 × ATR) is the strategy's own required "stop" rule
+        if dist <= 0:
+            issues.append("Stop distance is zero")
+        if s["entryType"] != "MARKET":
+            issues.append("Gold breakout entries are MARKET orders")
     else:
         R = EUR_CONFIG["risk"]
         pips = dist / r["spec"]["pipSize"]

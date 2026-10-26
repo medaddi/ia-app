@@ -16,10 +16,10 @@ import pytest
 from app.strategies.eurusd.strategy import evaluate_eurusd
 from app.strategies.shared.jsnum import js_str, round_to
 from app.strategies.shared.types import candles_from_rows
-from app.strategies.xauusd.strategy import evaluate_xauusd
 
 FIXTURES = Path(__file__).parent / "fixtures"
-RUN = {"xau": evaluate_xauusd, "eur": evaluate_eurusd, "XAU/USD": evaluate_xauusd, "EUR/USD": evaluate_eurusd}
+# XAUUSD moved to the H1 Trend Breakout (tests/test_xau_breakout.py); EURUSD keeps its recorded TypeScript parity
+RUN = {"eur": evaluate_eurusd, "EUR/USD": evaluate_eurusd}
 
 
 def summary(r: dict) -> dict:
@@ -52,7 +52,7 @@ def _compare(got: dict, want: dict, label: str):
         assert got[key] == want[key], f"{label}: {key}\n  python: {got[key]}\n  ts:     {want[key]}"
 
 
-SCENARIOS = json.loads((FIXTURES / "parity_scenarios.json").read_text("utf8"))
+SCENARIOS = [s for s in json.loads((FIXTURES / "parity_scenarios.json").read_text("utf8")) if s["fn"] in RUN]
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=[s["name"] for s in SCENARIOS])
@@ -61,7 +61,7 @@ def test_scenarios(scenario):
     _compare(summary(r), scenario["result"], scenario["name"])
 
 
-@pytest.mark.parametrize("symbol", ["XAUUSD", "EURUSD"])
+@pytest.mark.parametrize("symbol", ["EURUSD"])
 def test_real_candles(symbol):
     fx = json.loads((FIXTURES / f"parity_{symbol}.json").read_text("utf8"))
     run = RUN[fx["symbol"]]

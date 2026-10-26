@@ -30,7 +30,7 @@ def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
     base = {"candles": candles, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": source, "news": news}
     state = replay(d, base, frm, to)
     index_of = {c.time: i for i, c in enumerate(entry)}
-    windows = XAU_CONFIG["sessions"]["killzones"] if sym == "XAU/USD" else EUR_CONFIG["sessions"]["windows"]
+    windows = (XAU_CONFIG if sym == "XAU/USD" else EUR_CONFIG)["sessions"]["windows"]
 
     trades = []
     for e in state.emitted:
