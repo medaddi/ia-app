@@ -1,4 +1,4 @@
-# EXUNU — XAUUSD & EURUSD strategies, signals and trade journal
+# LiquidityDissection — XAUUSD & EURUSD strategies, signals and trade journal
 
 > **Darija:** l'app daba fiha joj dossiers: `frontend/` (React, f Vercel) o `backend/` (Python FastAPI, f Render).
 > Backend fih: users (admin kaycree les comptes), trades li khditi b lot dyalek, l'historique, win rate o ch7al mn trade, daily loss limit dyal kol user,

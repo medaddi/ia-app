@@ -62,3 +62,41 @@ def test_signal_messages_are_protected(monkeypatch):
     captured.clear()
     asyncio.run(bot.send_message("TEST", "42", "y"))
     assert "protect_content" not in captured
+
+
+def test_bot_commands(monkeypatch):
+    from datetime import timedelta
+
+    from app.db import SessionLocal, init_db
+    from app.models import Signal, Subscriber
+
+    init_db()
+    sent = []
+
+    async def fake_send(token, chat_id, text, reply_markup=None, protect=False):
+        sent.append(text)
+        return {"success": True}
+
+    monkeypatch.setattr(bot, "send_message", fake_send)
+    with SessionLocal() as db:
+        db.merge(Subscriber(chat_id="9001", first_name="Ali", expires_at=datetime.now(timezone.utc) + timedelta(days=5)))
+        db.merge(Signal(id="XAUUSD-BO-1", symbol="XAU/USD", setup="BREAKOUT", direction="BUY", entry_type="MARKET", entry=4000, sl=3990,
+                        tp1=4010, tp2=4020, tp3=4030, rr_tp2=2, score=90, signal_time=1, state="CLOSED", outcome="WIN", r_multiple=1.75,
+                        params={}, payload={}))
+        db.commit()
+
+    def say(text):
+        asyncio.run(bot.handle_update("T", {"message": {"text": text, "chat": {"id": 9001}, "from": {"first_name": "Ali"}}}))
+        return sent[-1]
+
+    assert "9001" in say("/myid")
+    assert "paused" in say("/stop").lower()
+    with SessionLocal() as db:
+        assert db.get(Subscriber, "9001").muted
+    assert "paused" in say("/status").lower()
+    assert "resumed" in say("/resume").lower()
+    assert "XAU/USD" in say("/history") and "+1.75R" in sent[-1]
+    assert "All time" in say("/stats") and "win rate" in sent[-1]
+    assert "H1 Trend Breakout" in say("/rules")
+    assert "/gold" in say("/help") and "/news" in sent[-1]
+    assert "No signal running" in say("/open")

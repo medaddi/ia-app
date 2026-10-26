@@ -13,7 +13,7 @@ def build_system_prompt() -> str:
     xt, xb, xr, xf, xtr = X["trend"], X["breakout"], X["risk"], X["filters"], X["scoring"]["thresholds"]
     es = E["structure"]
     ea, eb, er, ef = E["setupA"], E["setupB"], E["risk"], E["filters"]
-    return f"""You are the EXUNU trading agent inside the EXUNU web app. The app runs exactly TWO rule-based strategies: one for XAUUSD and one for EURUSD. All detection (structure, sweeps, FVG, order blocks, sessions, indicators, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
+    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. The app runs exactly TWO rule-based strategies: one for XAUUSD and one for EURUSD. All detection (structure, sweeps, FVG, order blocks, sessions, indicators, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
 
 HARD RULES
 - Never invent a price, level, signal or setup. Every number you write must come from the JSON context. If a value is not in the context, say it is not available.

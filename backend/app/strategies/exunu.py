@@ -64,7 +64,7 @@ def build_exunu_result(r: dict) -> dict:
     cto_summary = f"{r['status']} · score {r['score']}/100 · {r['headline']}"
 
     return {
-        "terminal": "EXUNU Terminal",
+        "terminal": "LiquidityDissection Terminal",
         "symbol": r["displaySymbol"],
         "current_price": r["price"],
         "status": status,

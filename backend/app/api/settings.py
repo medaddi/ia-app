@@ -73,6 +73,7 @@ async def telegram_switch_bot(body: dict = Body(...), _: User = Depends(admin_us
     if not info["success"]:
         raise HTTPException(400, f"Bot token rejected by Telegram: {info.get('error')}")
     await _register_webhook(token)
+    await bot.set_commands(token)
     set_setting(db, "telegram", {"botToken": token, **({"chatId": str(body["chatId"])} if body.get("chatId") else {})})
     return {"success": True, "bot": info}
 
@@ -98,7 +99,7 @@ async def telegram_webhook(request: Request, x_telegram_bot_api_secret_token: Op
 async def telegram_test(body: dict = Body(default={}), _: User = Depends(admin_user), db: Session = Depends(get_db)):
     cfg = get_setting(db, "telegram")
     chat_id = str(body.get("chatId") or cfg["chatId"])
-    out = await bot.send_message(cfg["botToken"], chat_id, f"✅ <b>EXUNU</b> test message · {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC")
+    out = await bot.send_message(cfg["botToken"], chat_id, f"✅ <b>LiquidityDissection</b> test message · {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC")
     bot.log_event("TEST", "Test message", f"chat {chat_id}", out["success"], out.get("error"))
     return out
 

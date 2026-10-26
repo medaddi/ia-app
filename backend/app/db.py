@@ -48,7 +48,7 @@ def init_db() -> None:
 
 def _add_missing_columns(conn) -> None:
     """create_all() never alters existing tables: add columns introduced after the first deploy."""
-    added = {"users": {"default_lot": "FLOAT", "daily_loss_limit": "FLOAT"}}
+    added = {"users": {"default_lot": "FLOAT", "daily_loss_limit": "FLOAT"}, "subscribers": {"muted": "BOOLEAN DEFAULT FALSE"}}
     insp = inspect(conn)
     for table, cols in added.items():
         have = {c["name"] for c in insp.get_columns(table)}

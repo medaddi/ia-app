@@ -1,5 +1,5 @@
 """
-EXUNU backend (FastAPI).
+LiquidityDissection backend (FastAPI).
   uvicorn app.main:app --reload --port 8000
 Starts the candle-close scheduler (signals → Telegram) and the Telegram command bot.
 """
@@ -71,7 +71,7 @@ async def lifespan(_: FastAPI):
         t.cancel()
 
 
-app = FastAPI(title="EXUNU API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="LiquidityDissection API", version="2.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

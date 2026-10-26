@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api")
 async def exunu_setup(symbol: str = "XAU/USD", asOf: int = 0):
     sym = normalize_symbol(symbol)
     res = await run_exunu(sym, as_of=asOf)
-    return {"success": True, "terminal": "EXUNU Institutional SMC Terminal", "symbol": sym, "currentPrice": res["current_price"], "result": res,
+    return {"success": True, "terminal": "LiquidityDissection Terminal", "symbol": sym, "currentPrice": res["current_price"], "result": res,
             "setup": res["setup_json"], "agents": res["agents"], "interAgentDialogue": res["inter_agent_dialogue"], "signal": to_ai_signal(res)}
 
 

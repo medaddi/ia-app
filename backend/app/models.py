@@ -68,6 +68,7 @@ class Subscriber(Base):
     capital: Mapped[float] = mapped_column(Float, default=0)
     risk_pct: Mapped[float] = mapped_column(Float, default=1)
     expired_notified: Mapped[bool] = mapped_column(Boolean, default=False)
+    muted: Mapped[bool] = mapped_column(Boolean, default=False)  # /stop pauses signals, /resume turns them back on
 
 
 class Signal(Base):

@@ -161,7 +161,7 @@ export default function App() {
         }`}
       >
         <LDEmblem className="w-14 h-14 mb-5" />
-        <h2 className={`text-base font-semibold tracking-tight mb-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>EXUNU Terminal</h2>
+        <h2 className={`text-base font-semibold tracking-tight mb-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>LiquidityDissection</h2>
         <p className={`text-xs text-center max-w-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
           {backendDown
             ? (lang === 'fr' ? 'Le serveur se réveille (hébergement gratuit), cela peut prendre une minute…' : isAr ? 'الخادم يستيقظ (استضافة مجانية)، قد يستغرق ذلك دقيقة…' : 'The server is waking up (free hosting), this can take a minute…')

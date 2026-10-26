@@ -8,7 +8,7 @@ from .config import settings as env
 from .models import Setting
 
 DEFAULTS: dict[str, dict] = {
-    "app": {"appName": "EXUNU Trading", "defaultLanguage": "fr", "theme": "dark", "requireAuth": True},
+    "app": {"appName": "LiquidityDissection", "defaultLanguage": "fr", "theme": "dark", "requireAuth": True},
     "telegram": {
         "botToken": "", "chatId": "", "enabled": True, "minConfidence": 75, "assets": ["XAU/USD", "EUR/USD"],
         "protectContent": True, "personalOffsets": True,

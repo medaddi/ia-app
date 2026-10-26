@@ -1,4 +1,4 @@
-# Deploy EXUNU on Vercel
+# Deploy LiquidityDissection on Vercel
 
 This repository deploys as two Vercel projects that share the same Git repository:
 

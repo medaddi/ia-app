@@ -1,4 +1,4 @@
-# EXUNU — the two strategies
+# LiquidityDissection — the two strategies
 
 The app runs **exactly two** rule-based strategies, one per instrument. Nothing else creates
 signals or sends Telegram messages. Every rule below is code; every parameter lives in the

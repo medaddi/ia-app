@@ -3,7 +3,7 @@
 /* The app toggles a .dark class on <html>; make dark: follow it instead of the OS setting */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ── EXUNU Design System: OLED dark terminal + metallic gold brand ──
+/* ── LiquidityDissection Design System: OLED dark terminal + metallic gold brand ──
    Every color in components resolves to one of these tokens. Neutral scales
    (slate / zinc / gray / neutral) are unified so mixed usages render identically. */
 @theme {

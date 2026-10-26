@@ -25,8 +25,9 @@ from ..market.data import market_session_status
 from ..models import ActivationKey, Signal, Subscriber, Watermark
 from ..store import get_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
-from ..strategies.service import both_results, normalize_symbol
-from ..strategies.shared.jsnum import fmt_time, js_round, to_fixed
+from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
+from ..strategies.shared.news import load_news_calendar
+from ..strategies.shared.jsnum import fmt_time, fmt_utc_minute, js_round, to_fixed
 from ..trading import signal_json, stats
 from .protection import personalize_signal
 
@@ -132,7 +133,7 @@ def format_signal_message(signal: dict) -> str:
     if tp3 is not None:
         lines.append(f"🎯 <b>TP3:</b> <code>{p(tp3)}</code> (1:{rr_of(tp3)})")
     conf = signal.get("confidence")
-    lines.append(f"🧠 <code>{signal.get('strategyUsed') or 'EXUNU'}</code>")
+    lines.append(f"🧠 <code>{signal.get('strategyUsed') or 'LiquidityDissection'}</code>")
     lines.append(f"⚖️ <b>Score:</b> <code>{conf if isinstance(conf, (int, float)) else '—'}/100</code>")
     if signal.get("confirmationCheckPassed") and signal.get("confirmationCloseTime"):
         lines.append(f"✅ <b>Signal:</b> {fmt_time(signal['confirmationCloseTime'])} candle close")
@@ -204,7 +205,7 @@ async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
         check = validate_signal(r)
         if not check["approved"]:
             return {"success": False, "state": state, "error": f"Validator rejected: {'; '.join(check['issues'])}"}
-        recipients = {s.chat_id: s for s in active_subscribers(db)}
+        recipients = {s.chat_id: s for s in active_subscribers(db) if not s.muted}
         if cfg["chatId"]:
             recipients.setdefault(str(cfg["chatId"]), None)
         if not recipients:
@@ -278,12 +279,98 @@ def trace_leak(db: Session, ref: str) -> list[dict]:
 
 # ---------------------------------------------------------------- commands
 
-HELP = """<b>EXUNU bot</b>
-/start — activation
-/status — your subscription
-/signal — current analysis of XAUUSD and EURUSD
-/stats — signal win rate
-Send your activation code to activate."""
+COMMANDS = [
+    ("start", "Activation and welcome"),
+    ("signal", "Current analysis of every pair"),
+    ("gold", "Gold (XAU/USD) analysis"),
+    ("euro", "EUR/USD analysis"),
+    ("open", "Signals still running"),
+    ("history", "Last 10 signals and their result"),
+    ("stats", "Win rate and results (30 days and all time)"),
+    ("levels", "Key levels of every pair"),
+    ("news", "Next high-impact news"),
+    ("market", "Market hours and current session"),
+    ("rules", "How the strategies work"),
+    ("status", "Your subscription"),
+    ("stop", "Pause signals"),
+    ("resume", "Resume signals"),
+    ("myid", "Your Telegram chat id"),
+    ("help", "All commands"),
+]
+HELP = "<b>LiquidityDissection bot</b>\n" + "\n".join(f"/{c} — {d}" for c, d in COMMANDS) + "\nSend your activation code to activate."
+PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD"}
+STATE_TXT = {"PENDING": "⏳ pending", "OPEN": "🟡 open", "TP1_HIT": "🟢 TP1 hit, SL at entry", "TP2_HIT": "🟢 TP2 hit", "CLOSED": "closed",
+             "CANCELLED": "⚪ cancelled", "EXPIRED": "⚪ expired"}
+
+
+async def set_commands(token: str) -> None:
+    """Shows the commands in Telegram's "/" menu."""
+    await call(token, "setMyCommands", {"commands": [{"command": c, "description": d} for c, d in COMMANDS]})
+
+
+def _res(sig: Signal) -> str:
+    if sig.state == "CLOSED":
+        icon = "✅" if sig.outcome == "WIN" else "❌" if sig.outcome == "LOSS" else "➖"
+        return f"{icon} {sig.outcome} {sig.r_multiple:+.2f}R" if sig.r_multiple is not None else f"{icon} {sig.outcome}"
+    return STATE_TXT.get(sig.state, sig.state)
+
+
+def _p(sym: str, v: float) -> str:
+    return to_fixed(v, 2 if sym == "XAU/USD" else 5)
+
+
+async def _pair_text(sym: str, detailed: bool = False) -> str:
+    r = (await get_strategy_result(sym))["result"]
+    s = r["setup"]
+    lines = [f"<b>{r['displaySymbol']}</b> · {r['strategyName'].split('·')[-1].strip()}",
+             f"Price <code>{_p(sym, r['price'])}</code> · Bias <b>{r['bias']['direction']}</b>",
+             f"Status: <b>{r['status']}</b>" + (f" · score {r['score']}" if r["setup"] else ""),
+             r["headline"]]
+    if s and r["status"] in ("SIGNAL", "WATCH"):
+        lines.append(f"{s['direction']} {s['entryType']} <code>{_p(sym, s['entry'])}</code> · SL <code>{_p(sym, s['sl'])}</code> · "
+                     f"TP1 <code>{_p(sym, s['tp1'])}</code> · TP2 <code>{_p(sym, s['tp2'])}</code> · TP3 <code>{_p(sym, s['tp3'])}</code> · "
+                     f"{STATE_TXT.get(s['lifecycle']['state'], s['lifecycle']['state'])}")
+    if detailed:
+        lines.append("\n".join(f"{'✔' if c['passed'] else '✘'} {c['rule']}" for c in r["checklist"]))
+    return "\n".join(lines)
+
+
+async def _levels_text() -> str:
+    out = []
+    for sym in STRATEGY_DEFS:
+        f = (await get_strategy_result(sym))["result"]["facts"] or {}
+        lv = " · ".join(f"{x.get('label') or x['kind']} <code>{_p(sym, x['price'])}</code>" for x in (f.get("levels") or [])[:6])
+        rng = f.get("range20h")
+        extra = f"\n20h high <code>{_p(sym, rng['high'])}</code> · 20h low <code>{_p(sym, rng['low'])}</code>" if rng else ""
+        out.append(f"<b>{sym}</b>\n{lv or '—'}{extra}")
+    return "\n\n".join(out)
+
+
+async def _news_text() -> str:
+    cal = await load_news_calendar()
+    now = int(time.time())
+    up = sorted((e for e in cal["events"] if e["time"] > now - 1800 and e.get("impact") == "High" and e.get("currency") in ("USD", "EUR")),
+                key=lambda e: e["time"])[:8]
+    if not up:
+        return "📰 No high-impact USD/EUR news in the calendar."
+    return "📰 <b>High-impact news (UTC)</b>\n" + "\n".join(f"{fmt_utc_minute(e['time'])} · {e['currency']} {e['title']}" for e in up) + \
+        "\n<i>No signal is sent 30 min before and after these.</i>"
+
+
+def _market_text() -> str:
+    now = datetime.now(timezone.utc)
+    m = now.hour * 60 + now.minute
+    session = "Asia" if m < 7 * 60 else "London" if m < 12 * 60 else "London / New York" if m < 16 * 60 else "New York" if m < 21 * 60 else "Rollover"
+    st = market_session_status("XAU/USD")
+    return (f"🕒 {now:%a %H:%M} UTC · {'🟢 market open' if st['isOpen'] else '🔴 market closed'}\nSession: <b>{session}</b>\n"
+            "Forex and gold trade Sunday 22:00 → Friday 21:00 UTC.")
+
+
+RULES = """<b>How the signals work</b>
+🥇 <b>Gold (H1 Trend Breakout)</b>: trend by EMA50 vs EMA200; an H1 candle closes beyond the 20-hour high/low with a strong body → market entry. SL beyond the last 4 candles (1–3× ATR). TP1 1R (close 50%, SL to entry), TP2 2R, TP3 3R.
+💶 <b>EUR/USD (Trend Pullback)</b>: H4 trend; pullback into H1 order block / Fib 50–61.8% / EMA50 with an engulfing, pin bar or CHoCH on M15 → market entry. TP1 1R, TP2 next H1 level (≥ 2R), runner trails.
+Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.
+⚠️ Past results do not guarantee future results: risk only what you can lose."""
 
 
 async def handle_update(token: str, upd: dict) -> None:
@@ -293,42 +380,70 @@ async def handle_update(token: str, upd: dict) -> None:
     if not chat_id or not text:
         return
     name = (msg.get("from") or {}).get("first_name") or ""
-    low = text.lower()
+    cmd = text.split()[0].split("@")[0].lower()
     with SessionLocal() as db:
         sub = db.get(Subscriber, chat_id)
         active = bool(sub and sub.expires_at and _aware(sub.expires_at) > datetime.now(timezone.utc))
-        reply = None
-        if low.startswith("/start"):
+        if cmd == "/start":
             reply = (f"👋 <b>{name}</b>, your access is active until <b>{_aware(sub.expires_at):%Y-%m-%d}</b>.\n\n{HELP}" if active
                      else f"👋 Welcome <b>{name}</b>!\n🔑 Send your <b>activation code</b> to receive the signals.\n\n{HELP}")
-        elif low.startswith("/help"):
+        elif cmd == "/help":
             reply = HELP
-        elif low.startswith("/status"):
-            reply = (f"✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>" if active
-                     else "⛔ Not activated. Send your activation code.")
-        elif low.startswith(("/signal", "/live", "/now")):
-            reply = await _analysis_text()
-        elif low.startswith(("/stats", "/winrate", "/performance")):
-            s = stats(db.scalars(select(Signal)).all(), "signal")
-            reply = (f"📊 <b>Signals</b>: {s['total']} sent · {s['closed']} closed · {s['open']} open\n"
-                     f"✅ {s['wins']} wins · ❌ {s['losses']} losses · ➖ {s['breakevens']} BE\n"
-                     f"🎯 Win rate: <b>{s['winRate'] if s['winRate'] is not None else '—'}%</b> · total {s['totalR']}R")
+        elif cmd == "/myid":
+            reply = f"🆔 Your chat id: <code>{chat_id}</code>"
+        elif cmd == "/status":
+            reply = ((f"✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>"
+                      + ("\n⏸ Signals paused: send /resume" if sub.muted else "")) if active else "⛔ Not activated. Send your activation code.")
+        elif cmd in ("/stop", "/pause"):
+            if sub:
+                sub.muted = True
+                db.commit()
+            reply = "⏸ Signals paused. Send /resume to receive them again." if active else "⛔ Not activated."
+        elif cmd in ("/resume", "/unpause"):
+            if sub:
+                sub.muted = False
+                db.commit()
+            reply = "▶️ Signals resumed." if active else "⛔ Not activated. Send your activation code."
+        elif cmd in ("/market", "/time", "/session"):
+            reply = _market_text()
+        elif cmd == "/rules":
+            reply = RULES
+        elif cmd == "/news":
+            reply = await _news_text()
+        elif cmd == "/levels":
+            reply = await _levels_text()
+        elif cmd in ("/signal", "/live", "/now", "/analysis"):
+            reply = "\n\n".join([await _pair_text(sym) for sym in STRATEGY_DEFS])
+        elif cmd in PAIR_ALIASES:
+            reply = await _pair_text(PAIR_ALIASES[cmd], detailed=True)
+        elif cmd in ("/open", "/running", "/trades"):
+            rows = db.scalars(select(Signal).where(Signal.state.not_in(("CLOSED", "CANCELLED", "EXPIRED"))).order_by(Signal.sent_at.desc())).all()
+            reply = ("🟡 <b>Running signals</b>\n" + "\n".join(
+                f"{x.symbol} {x.direction} <code>{_p(x.symbol, x.entry)}</code> · SL <code>{_p(x.symbol, x.sl)}</code> · TP2 <code>{_p(x.symbol, x.tp2)}</code> · {_res(x)}"
+                for x in rows)) if rows else "No signal running right now."
+        elif cmd in ("/history", "/last"):
+            rows = db.scalars(select(Signal).order_by(Signal.sent_at.desc()).limit(10)).all()
+            reply = ("🗂 <b>Last signals</b>\n" + "\n".join(
+                f"{x.sent_at:%m-%d %H:%M} {x.symbol} {x.direction} <code>{_p(x.symbol, x.entry)}</code> · {_res(x)}" for x in rows)) if rows else "No signal sent yet."
+        elif cmd in ("/stats", "/winrate", "/performance", "/results"):
+            all_rows = db.scalars(select(Signal)).all()
+            since = datetime.now(timezone.utc) - timedelta(days=30)
+            recent = [x for x in all_rows if _aware(x.sent_at) >= since]
+
+            def block(title, rows):
+                s = stats(rows, "signal")
+                per = " · ".join(f"{k} {v['winRate'] if v['winRate'] is not None else '—'}% ({v['totalR']:+}R)" for k, v in s["bySymbol"].items())
+                return (f"<b>{title}</b>: {s['total']} signals · {s['closed']} closed · {s['open']} open\n"
+                        f"✅ {s['wins']} · ❌ {s['losses']} · ➖ {s['breakevens']} · win rate <b>{s['winRate'] if s['winRate'] is not None else '—'}%</b> · "
+                        f"total <b>{s['totalR']:+}R</b>" + (f"\n{per}" if per else ""))
+            reply = f"📊 {block('Last 30 days', recent)}\n\n{block('All time', all_rows)}"
         elif re.fullmatch(r"[A-Za-z0-9\-_]{4,64}", text) and not text.startswith("/"):
             out = activate(db, chat_id, text, name)
-            reply = (f"🎉 Activated ({out.get('label') or 'access'}) until <b>{out['expiresAt'][:10]}</b>."
+            reply = (f"🎉 Activated ({out.get('label') or 'access'}) until <b>{out['expiresAt'][:10]}</b>. Send /help to see the commands."
                      if out["success"] else f"⛔ {out['error']}.")
         else:
             reply = HELP
     await send_message(token, chat_id, reply)
-
-
-async def _analysis_text() -> str:
-    parts = []
-    for r in await both_results():
-        s = r["setup"]
-        parts.append(f"<b>{r['displaySymbol']}</b> · {r['status']} · score {r['score']}\n{r['headline']}"
-                     + (f"\nEntry {s['entry']} · SL {s['sl']} · TP2 {s['tp2']}" if s and r["status"] in ("SIGNAL", "WATCH") else ""))
-    return "\n\n".join(parts)
 
 
 async def poll_forever(stop: asyncio.Event) -> None:

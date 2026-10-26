@@ -1,5 +1,5 @@
 """
-Shared types for the EXUNU strategies (XAUUSD and EURUSD).
+Shared types for the LiquidityDissection strategies (XAUUSD and EURUSD).
 Times are unix seconds (UTC). A candle's `time` is its OPEN time.
 Field names are camelCase on purpose: these objects are serialized straight to the frontend.
 """
