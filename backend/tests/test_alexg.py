@@ -1,106 +1,98 @@
-"""FXAlexG Set & Forget Break & Retest on a hand-built H4 pattern: pro-trend, look left, break, retest, confirmation, one 3R target."""
+"""FXAlexG Set & Forget GPA: structure trend, W1/D1 AOI with 3 touches, H&S, grade, TP before the round level, 1:2 minimum."""
+
+import copy
+import gzip
+import json
+from pathlib import Path
 
 from app.agent.validator import validate_signal
-from app.strategies.alexg.config import ALEXG_CONFIGS
-from app.strategies.alexg.strategy import evaluate_alexg
+from app.strategies.alexg import strategy as S
+from app.strategies.alexg.config import ALEXG_CONFIGS, grade_of
 from app.strategies.service import STRATEGY_DEFS, normalize_symbol
-from app.strategies.shared.types import Candle
+from app.strategies.shared.types import Candle, candles_from_rows
 from app.telegram.bot import format_signal_message
 
-H4 = 14400
-T0 = 1767571200  # Monday 2026-01-05 00:00 UTC
-CFG = ALEXG_CONFIGS["GBP/USD"]
+CFG = ALEXG_CONFIGS["USD/CAD"]
+FIX = json.loads(gzip.open(Path(__file__).parent / "fixtures" / "gpa_USDCAD.json.gz", "rt", encoding="utf8").read())
 
 
-def _h4_bars() -> list[tuple]:
-    """(open, high, low, close) per H4 candle: a steady uptrend, then the break & retest of a level touched twice."""
-    bars, p = [], 1.2000
-    for _ in range(1300):  # ~31 weeks of small bullish candles: weekly and daily trend up, no swings, no patterns
-        bars.append((p, p + 0.00015, p - 0.00005, p + 0.0001))
-        p += 0.0001
-    lv = p + 0.0040  # the area of interest
-    path = [  # (open, high, low, close) relative to the level
-        (-0.0040, -0.0018, -0.0042, -0.0020), (-0.0020, -0.0002, -0.0022, -0.0005),  # touch 1 (2 points under the level)
-        (-0.0005, -0.0003, -0.0030, -0.0028), (-0.0028, -0.0026, -0.0045, -0.0043), (-0.0043, -0.0040, -0.0050, -0.0047),
-        (-0.0047, -0.0025, -0.0049, -0.0027), (-0.0027, -0.0006, -0.0029, -0.0008), (-0.0008, 0.0000, -0.0012, -0.0004),  # touch 2 = swing high
-        (-0.0004, -0.0002, -0.0026, -0.0024), (-0.0024, -0.0022, -0.0040, -0.0038), (-0.0038, -0.0036, -0.0048, -0.0046),
-        (-0.0046, -0.0020, -0.0048, -0.0022), (-0.0022, 0.0015, -0.0024, 0.0012),  # break: H4 close above the level
-        (0.0012, 0.0050, 0.0010, 0.0048), (0.0048, 0.0085, 0.0046, 0.0082),  # moves away
-        (0.0082, 0.0084, 0.0060, 0.0062), (0.0062, 0.0064, 0.0040, 0.0042), (0.0042, 0.0044, 0.0024, 0.0026),
-        (0.0026, 0.0028, 0.0007, 0.0009),  # back to the level (bearish)
-        (0.0007, 0.0034, -0.0003, 0.0032),  # retest: bullish engulfing that closes above the level
-    ]
-    bars += [(lv + o, lv + h, lv + lo, lv + c) for o, h, lo, c in path]
-    return bars
+def _input(now: int, market_open: bool = True) -> dict:
+    return {"candles": {tf: candles_from_rows(rows) for tf, rows in FIX["candles"].items()}, "nowSec": now, "livePrice": 0, "spread": None,
+            "isRealData": True, "dataSource": "fixture", "news": {"events": [], "source": "test"}, "isMarketOpen": market_open,
+            "day": {"trades": 0, "losses": 0}}
 
 
-def _candles(bars):
-    h4, h1 = [], []
-    for k, (o, h, lo, c) in enumerate(bars):
-        t = T0 + k * H4
-        h4.append(Candle(t, round(o, 5), round(h, 5), round(lo, 5), round(c, 5)))
-        pts = [o, lo, h, c] if c >= o else [o, h, lo, c]
-        for j in range(4):  # four H1 candles that aggregate exactly into the H4 candle
-            a, b = (pts[j], pts[j + 1]) if j < 3 else (c, c)
-            h1.append(Candle(t + j * 3600, round(a, 5), round(max(a, b), 5), round(min(a, b), 5), round(b, 5)))
-    return h4, h1
+def test_grading_scale():
+    assert [grade_of(s, CFG) for s in (100, 80, 79, 70, 69, 60, 59, 0)] == ["A+", "A+", "B", "B", "C+", "C+", "NO TRADE", "NO TRADE"]
 
 
-def _run(bars, extra=()):
-    bars = list(bars) + list(extra)
-    h4, h1 = _candles(bars)
-    now = h4[len(bars) - len(extra) - 1].time + H4 if not extra else h4[-1].time + H4
-    return evaluate_alexg({"candles": {"H4": h4, "H1": h1}, "nowSec": now, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": "test",
-                           "news": {"events": [], "source": "test"}, "isMarketOpen": True, "day": {"trades": 0, "losses": 0}}, CFG)
-
-
-def _mirror(bars):
-    return [(2.6 - o, 2.6 - lo, 2.6 - h, 2.6 - c) for o, h, lo, c in bars]
-
-
-def test_break_and_retest_buy():
-    r = _run(_h4_bars())
+def test_real_signal_from_the_rules():
+    """USD/CAD BUY recorded from the live feed: the 30m engulfing at the open after the AOI touch and the H4 rejection."""
+    r = S.evaluate_alexg(_input(FIX["nowSec"]), CFG)
     s = r["setup"]
-    assert r["status"] == "SIGNAL" and r["canNotify"] and s["direction"] == "BUY" and s["entryType"] == "MARKET", r["headline"]
-    assert s["setup"] == "BREAK_RETEST" and s["anchors"]["breakRetest"]["pattern"] == "engulfing" and s["anchors"]["breakRetest"]["touches"] >= 2
-    risk = s["entry"] - s["sl"]
-    assert abs(s["tp3"] - (s["entry"] + 3 * risk)) < 1e-5 and abs(s["tp1"] - (s["entry"] + risk)) < 1e-5
-    assert s["params"]["partials"] == [0, 0, 1] and s["params"]["breakeven"] is False
-    assert r["bias"]["direction"] == "BULLISH" and all(c["passed"] for c in r["checklist"])
+    assert r["status"] == "SIGNAL" and r["canNotify"] and s["id"] == FIX["setup"]["id"], r["headline"]
+    assert (s["direction"], s["entry"], s["sl"], s["tp3"]) == (FIX["setup"]["direction"], FIX["setup"]["entry"], FIX["setup"]["sl"], FIX["setup"]["tp3"])
+    g = s["anchors"]["gpa"]
+    assert g["grade"] == r["grade"] == FIX["grade"] and r["score"] == FIX["score"] >= 60
+    assert g["aoi"]["touches"] >= 3 and g["aoi"]["tfs"] in ("D1", "W1", "D1+W1") and g["session"] in ("London open", "New York open")
+    assert s["rrTarget"] >= 2 and s["params"]["partials"] == [0, 0, 1] and s["params"]["breakeven"] is False
+    # Exactly the 10 confluences, 10% each, plus the required rules
+    conf = [c for c in r["checklist"] if c["weight"] == 10]
+    assert len(conf) == 10 and sum(c["passed"] for c in conf) * 10 == r["score"]
+    assert next(c for c in conf if c["key"] == "engulf")["passed"] and next(c for c in conf if c["key"] == "aoi")["passed"]
     assert validate_signal(r)["approved"]
 
 
-def test_mirror_gives_a_sell():
-    r = _run(_mirror(_h4_bars()))
-    assert r["status"] == "SIGNAL" and r["setup"]["direction"] == "SELL", r["headline"]
+def test_no_signal_one_candle_earlier():
+    """Before the engulfing closes there is no trade (no anticipation)."""
+    r = S.evaluate_alexg(_input(FIX["nowSec"] - 1800), CFG)
+    assert not (r["setup"] and r["setup"]["id"] == FIX["setup"]["id"])
 
 
-def test_no_anticipation_without_confirmation():
-    bars = _h4_bars()
-    o, h, lo, c = bars[-1]
-    bars[-1] = (o, h, lo, o + 0.0005)  # small bullish close: not an engulfing, not a pin bar
-    r = _run(bars)
-    assert r["setup"] is None and r["status"] == "NO_TRADE"
+def test_minimum_risk_reward_blocks_the_trade():
+    cfg = copy.deepcopy(CFG)
+    cfg["risk"]["minRr"] = 50  # the next zone can never give 1:50
+    r = S.evaluate_alexg(_input(FIX["nowSec"]), cfg)
+    assert not (r["setup"] and r["setup"]["id"] == FIX["setup"]["id"])
 
 
-def test_set_and_forget_keeps_the_original_stop():
-    bars = _h4_bars()
-    r0 = _run(bars)["setup"]
-    risk = r0["entry"] - r0["sl"]
-    e = r0["entry"]
-    # Reaches 1R and 2R, then falls back to the stop: no breakeven, a full -1R loss
-    path = [(e, e + 2.2 * risk, e - 0.1 * risk, e + 2 * risk), (e + 2 * risk, e + 2 * risk, r0["sl"] - 0.0005, r0["sl"] - 0.0003)]
-    lc = _run(bars, path)["setup"]["lifecycle"]
-    assert lc["state"] == "CLOSED" and lc["outcome"] == "LOSS" and lc["rMultiple"] < -1
-    assert not any(ev["type"] == "BE" for ev in lc["events"])
+def _bar(t, o, h, lo, c):
+    return Candle(t, o, h, lo, c)
+
+
+def test_structure_trend_flips_only_on_a_body_close():
+    from app.strategies.shared.indicators import avg_body_series
+    from app.strategies.shared.structure import detect_structure, detect_swings
+
+    # Up, a swing high at 1.10, pullback, a WICK above 1.10 (no flip), then a BODY close above (bullish)
+    closes = [1.05, 1.06, 1.07, 1.08, 1.09, 1.10, 1.09, 1.08, 1.07, 1.06, 1.07, 1.08]
+    c = [_bar(k * 3600, x - 0.002, x + 0.001, x - 0.003, x) for k, x in enumerate(closes)]
+    c[5] = _bar(5 * 3600, 1.098, 1.105, 1.095, 1.100)  # swing high 1.105
+    c.append(_bar(12 * 3600, 1.08, 1.108, 1.079, 1.099))  # wick above, close below → still no break
+    _, trend = detect_structure(c, detect_swings(c, 2), avg_body_series(c, 3), 1e9)
+    assert trend != "BULLISH"
+    c.append(_bar(13 * 3600, 1.099, 1.112, 1.098, 1.110))  # body close above 1.105
+    _, trend = detect_structure(c, detect_swings(c, 2), avg_body_series(c, 3), 1e9)
+    assert trend == "BULLISH"
 
 
 def test_pairs_and_message():
     assert list(STRATEGY_DEFS) == ["XAU/USD", "EUR/USD", "GBP/USD", "USD/CAD", "NZD/USD", "EUR/CHF", "NZD/CAD", "AUD/CAD", "AUD/CHF"]
-    assert all(STRATEGY_DEFS[p].entryTf == "H4" for p in ALEXG_CONFIGS)
+    assert all(STRATEGY_DEFS[p].entryTf == "M30" and STRATEGY_DEFS[p].tfs == ["M30", "H1", "H4"] for p in ALEXG_CONFIGS)
+    d = STRATEGY_DEFS["GBP/USD"]
+    london_open_close = 1792738800 + 1800  # Tue 2026-10-27 08:00 London (07:00 UTC) candle closes
+    assert d.canSignalAt(london_open_close + 1800) and not d.canSignalAt(1792738800 + 12 * 3600)  # 19:00 London: no signal
     assert normalize_symbol("eurchf") == "EUR/CHF" and normalize_symbol("EUR") == "EUR/USD" and normalize_symbol("nzd") == "NZD/USD"
-    assert normalize_symbol("AUD/CAD") == "AUD/CAD" and normalize_symbol("xau") == "XAU/USD"
-    assert ALEXG_CONFIGS["NZD/CAD"]["filters"]["news"]["currencies"] == ["NZD", "CAD"]
     msg = format_signal_message({"symbol": "GBP/USD", "signalType": "BUY", "entryPrice": 1.3, "stopLoss": 1.298, "target1": 1.302, "target2": 1.304,
-                                 "target3": 1.306, "confidence": 90, "signalJson": {"setup": "BREAK_RETEST", "entry_type": "MARKET"}})
-    assert "TP <code>1.30600</code> · 1:3.0" in msg and "TP1" not in msg
+                                 "target3": 1.30697, "confidence": 80, "grade": "A+", "signalJson": {"setup": "GPA", "entry_type": "MARKET"}})
+    assert "TP <code>1.30697</code> · 1:3.5" in msg and "TP1" not in msg and "Grade <b>A+</b> · 80%" in msg
+
+
+def test_agent_answers_in_the_five_parts():
+    from app.agent.agent import deterministic_answer
+
+    r = S.evaluate_alexg(_input(FIX["nowSec"]), CFG)
+    text = deterministic_answer([r], "en")
+    for part in ("1. Trend Sync Check", "2. AOI Validation", "3. Confluence Checklist & Final Grade", "4. Final Verdict", "5. Trade Parameters"):
+        assert part in text
+    assert "TAKE TRADE" in text and "60% → C+" in text and f"SL {r['setup']['sl']:.5f}" in text

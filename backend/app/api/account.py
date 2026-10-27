@@ -1,5 +1,7 @@
 """Login, user accounts (admin), each user's trades with the lot they took, history, statistics and daily loss limit."""
 
+import secrets
+import time
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
@@ -12,7 +14,9 @@ from ..auth import admin_user, bearer, current_user, hash_code, login, logout, u
 from ..db import get_db
 from ..models import Signal, Subscriber, Trade, User
 from ..strategies.service import normalize_symbol
-from ..trading import close_trade, lot_for_risk, signal_json, stats, today_status, trade_json
+from ..store import get_setting
+from ..telegram import bot as tg
+from ..trading import close_trade, effective_risk, lot_for_risk, signal_json, stats, today_status, trade_json
 
 router = APIRouter(prefix="/api")
 
@@ -48,7 +52,9 @@ def auth_logout(token: str = Depends(bearer), db: Session = Depends(get_db)):
 
 class ProfileIn(BaseModel):
     dailyLossLimit: Optional[float] = Field(None, ge=0)  # $; 0 = no limit
-    riskUsd: Optional[float] = Field(None, ge=0)  # $ per signal; 0 = not set
+    riskUsd: Optional[float] = Field(None, ge=0)  # $ per signal (fixed); 0 = use the % of the capital instead
+    capital: Optional[float] = Field(None, ge=0)  # $ account size; 0 = not set
+    riskPct: Optional[float] = Field(None, ge=0, le=100)  # % of the capital per trade (used when no fixed $ risk)
     telegramChatId: Optional[str] = None
     accessCode: Optional[str] = Field(None, min_length=6)
 
@@ -74,11 +80,15 @@ def me_update(body: ProfileIn, u: User = Depends(current_user), db: Session = De
         u.telegram_chat_id = body.telegramChatId.strip() or None
     if body.riskUsd is not None:
         u.risk_usd = body.riskUsd or None
+    if body.capital is not None:
+        u.capital = body.capital
+    if body.riskPct is not None:
+        u.risk_pct = body.riskPct or 1
     sub = db.get(Subscriber, u.telegram_chat_id) if u.telegram_chat_id else None
     if sub:  # one risk for the app and the Telegram bot
-        if body.riskUsd is not None:
-            sub.risk_usd = u.risk_usd
-        elif u.risk_usd is None:
+        if body.riskUsd is not None or body.capital is not None or body.riskPct is not None:
+            sub.risk_usd, sub.capital, sub.risk_pct = u.risk_usd, u.capital or 0, u.risk_pct
+        elif u.risk_usd is None and not u.capital:
             u.risk_usd = sub.risk_usd  # linking keeps the risk already set with /risk
     if body.accessCode:
         u.access_code_hash = hash_code(body.accessCode)
@@ -88,9 +98,57 @@ def me_update(body: ProfileIn, u: User = Depends(current_user), db: Session = De
 
 @router.get("/lot")
 def lot(symbol: str, entry: float, sl: float, riskUsd: Optional[float] = None, u: User = Depends(current_user)):
-    """The lot for my risk in $ with the signal's own stop."""
-    risk = riskUsd if riskUsd is not None else (u.risk_usd or 0)
+    """The lot for my risk ($, or % of my capital) with the signal's own stop."""
+    risk = riskUsd if riskUsd is not None else (effective_risk(u.risk_usd, u.capital, u.risk_pct) or 0)
     return {"success": True, "symbol": normalize_symbol(symbol), **lot_for_risk(symbol, entry, sl, risk)}
+
+
+LINK_TTL = 15 * 60  # code the user makes for themself
+ADMIN_LINK_TTL = 24 * 3600  # code the admin makes and sends to the user
+_LINK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I
+
+
+async def _new_link_code(u: User, db: Session, ttl: int) -> dict:
+    """A one-time code the user sends to the bot: the bot then links that Telegram chat to this account."""
+    code = "LD-" + "".join(secrets.choice(_LINK_ALPHABET) for _ in range(6))
+    u.telegram_link_code, u.telegram_link_expires = code, int(time.time()) + ttl
+    db.commit()
+    cfg = get_setting(db, "telegram")
+    info = await tg.bot_info(cfg["botToken"]) if cfg.get("botToken") else {"success": False}
+    name = info.get("username") if info.get("success") else None
+    return {"success": True, "code": code, "expiresAt": u.telegram_link_expires, "bot": name,
+            "deepLink": f"https://t.me/{name}?start={code.replace('-', '')}" if name else None, "user": user_json(u)}
+
+
+@router.post("/me/telegram-link")
+async def telegram_link_code(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    return await _new_link_code(u, db, LINK_TTL)
+
+
+@router.post("/users/{user_id}/telegram-link")
+async def admin_telegram_link_code(user_id: int, _: User = Depends(admin_user), db: Session = Depends(get_db)):
+    """The admin makes the code for a user; whichever Telegram account sends it to the bot becomes that user's chat."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    return await _new_link_code(u, db, ADMIN_LINK_TTL)
+
+
+@router.delete("/users/{user_id}/telegram-link")
+def admin_telegram_unlink(user_id: int, _: User = Depends(admin_user), db: Session = Depends(get_db)):
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    u.telegram_chat_id, u.telegram_link_code, u.telegram_link_expires = None, None, None
+    db.commit()
+    return {"success": True, "user": user_json(u)}
+
+
+@router.delete("/me/telegram-link")
+def telegram_unlink(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    u.telegram_chat_id, u.telegram_link_code, u.telegram_link_expires = None, None, None
+    db.commit()
+    return {"success": True, "user": user_json(u)}
 
 
 # ---------------------------------------------------------------- users (admin: accounts only)

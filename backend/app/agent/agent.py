@@ -92,6 +92,41 @@ def build_agent_context(results: list[dict]) -> dict:
     }
 
 
+def _gpa_answer(r: dict, lang: str, head: str, f) -> str:
+    """Forex answer in the 5 parts of the Set & Forget rules: trend sync, AOI, grade, verdict, parameters."""
+    ar = lang == "ar"
+    fa = r["facts"]
+    conf = [c for c in r["checklist"] if c["weight"] == 10]
+    live = r.get("liveGrade") or {}
+    s = r["setup"]
+    score = r["score"] if s else live.get("score", 0)
+    grade = r["grade"] if s else live.get("grade", "NO TRADE")
+    direction = {"BULLISH": "BUY only", "BEARISH": "SELL only"}.get(r["bias"]["direction"], "no majority → no trade")
+    zones = fa.get("areasOfInterest") or []
+    aoi_item = next((c for c in conf if c["key"] == "aoi"), None)
+    if s and r["status"] == "SIGNAL" and s["lifecycle"]["state"] in ("OPEN", "PENDING"):
+        verdict = "TAKE TRADE"
+    elif r["bias"]["direction"] == "NEUTRAL" or score < 50:
+        verdict = "NO TRADE"
+    else:
+        verdict = "WAIT"
+    lines = [
+        head,
+        f"**1. {'تزامن الاتجاه' if ar else 'Trend Sync Check'}:** 1W {fa.get('trendW1', '—')} | 1D {fa.get('trendD1', '—')} | 4H {fa.get('trendH4', '—')} → {direction}",
+        f"**2. {'منطقة الاهتمام' if ar else 'AOI Validation'}:** {aoi_item['detail'] if aoi_item and aoi_item['passed'] else ''}"
+        + ("" if aoi_item and aoi_item["passed"] else ("Price is not at a valid zone. Nearest: " + " · ".join(f"{z['tfs']} {f(z['lo'])}–{f(z['hi'])} ({z['touches']} touches)" for z in zones[:3]) if zones else "No W1 / D1 zone with 3+ touches")),
+        f"**3. {'التقييم' if ar else 'Confluence Checklist & Final Grade'}:** {score}% → {grade}\n"
+        + "\n".join(f"{'✔' if c['passed'] else '✘'} +10% {c['ruleAr'] if ar else c['rule']} — {c['detail']}" for c in conf),
+        f"**4. {'القرار' if ar else 'Final Verdict'}:** {verdict}" + ("" if verdict == "TAKE TRADE" else f" — {fa.get('progress') or r['headline']}"),
+    ]
+    if s and r["status"] == "SIGNAL":
+        lines.append(f"**5. {'معطيات الصفقة' if ar else 'Trade Parameters'}:** {s['direction']} MARKET {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])} pips) · "
+                     f"TP {f(s['tp3'])} ({s['tp3Source']}) · R:R 1:{to_fixed(s['rrTarget'], 2)} · set & forget · {s['lifecycle']['state']}")
+    else:
+        lines.append(f"**5. {'معطيات الصفقة' if ar else 'Trade Parameters'}:** — ({'ما كاين حتى صفقة صالحة' if ar else 'no valid trade'})")
+    return "\n".join(lines)
+
+
 def deterministic_answer(results: list[dict], lang: str) -> str:
     t = L[lang]
     blocks = []
@@ -101,6 +136,9 @@ def deterministic_answer(results: list[dict], lang: str) -> str:
         head = f"**{r['symbol']} — {r['strategyName']}** ({r['timeframes']['bias']} → {r['timeframes']['entry']})"
         if not r["dataQuality"]["ok"]:
             blocks.append(f"{head}\n{t['data']}: {r['dataQuality']['reason']}")
+            continue
+        if r["strategy"] == "FXAlexG_SetForget_GPA":
+            blocks.append(_gpa_answer(r, lang, head, f))
             continue
         lv = [x for x in (r["facts"].get("levels") or []) if x.get("untaken") is not False and x.get("kind") != "ROUND"]
         lv.sort(key=lambda x: abs(x["price"] - r["price"]))

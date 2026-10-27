@@ -20,7 +20,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .api import account, market, settings as settings_api, strategy
+from .api import account, dashboard, market, settings as settings_api, strategy
 from .auth import ensure_admin
 from .config import settings
 from .db import SessionLocal, engine, init_db
@@ -79,7 +79,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-for r in (account.router, market.router, strategy.router, settings_api.router):
+for r in (account.router, dashboard.router, market.router, strategy.router, settings_api.router):
     app.include_router(r)
 
 

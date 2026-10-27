@@ -37,7 +37,11 @@ def _aware(dt: datetime) -> datetime:
 
 
 def user_json(u: User) -> dict:
+    from .trading import effective_risk
+
     return {"id": u.id, "username": u.username, "role": u.role, "dailyLossLimit": u.daily_loss_limit, "riskUsd": u.risk_usd,
+            "capital": u.capital or None, "riskPct": u.risk_pct if (u.capital or 0) > 0 else None,
+            "effectiveRisk": effective_risk(u.risk_usd, u.capital, u.risk_pct), "telegramLinked": bool(u.telegram_chat_id),
             "telegramChatId": u.telegram_chat_id, "active": u.active,
             "createdAt": _aware(u.created_at).isoformat(), "lastLoginAt": _aware(u.last_login_at).isoformat() if u.last_login_at else None}
 

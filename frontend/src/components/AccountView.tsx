@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { INSTRUMENT_SYMBOLS } from '../instruments';
-import { History, OctagonAlert, Plus, ShieldOff, Target, Wallet, Zap } from 'lucide-react';
+import { Check, Copy, History, KeyRound, OctagonAlert, Plus, Send, ShieldOff, Target, Wallet, Zap } from 'lucide-react';
 import { apiJson } from '../api';
 import { AISignal, Language, MarketAsset } from '../types';
 import { Button, Card, Field, Notice, Stat, fmtDate, fmtMoney, fmtPct, fmtR, inputCls, tr } from './ui';
 
 export interface AppUser {
   id: number; username: string; role: 'admin' | 'user'; dailyLossLimit?: number | null; riskUsd?: number | null; telegramChatId?: string | null;
+  capital?: number | null; riskPct?: number | null; effectiveRisk?: number | null; telegramLinked?: boolean;
   active?: boolean; lastLoginAt?: string | null;
 }
 
@@ -103,14 +104,72 @@ interface AccountViewProps {
 
 const EMPTY = { symbol: 'XAU/USD', direction: 'BUY' as 'BUY' | 'SELL', entry: '', sl: '', tp1: '', tp2: '', lots: '' };
 
+function TelegramLinkCard({ isLight, lang, user, onUserChange }: { isLight: boolean; lang: Language; user: AppUser; onUserChange: (u: AppUser) => void }) {
+  const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
+  const [link, setLink] = useState<{ code: string; expiresAt: number; bot: string | null; deepLink: string | null } | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const [copied, setCopied] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { if (!link) return; const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, [link]);
+  // While a code is waiting, check every 3 s whether the bot received it
+  useEffect(() => {
+    if (!link || user.telegramLinked) return;
+    const id = setInterval(async () => {
+      try { const r = await apiJson<{ user: AppUser }>('/api/me'); if (r.user.telegramLinked) { onUserChange(r.user); setLink(null); } } catch { /* retry */ }
+    }, 3000);
+    return () => clearInterval(id);
+  }, [link, user.telegramLinked]);
+  const left = link ? Math.max(0, link.expiresAt - Math.floor(now / 1000)) : 0;
+  const generate = async () => {
+    setErr(null);
+    try { setLink(await apiJson('/api/me/telegram-link', { method: 'POST' })); } catch (e: any) { setErr(e.message); }
+  };
+  return (
+    <Card isLight={isLight} icon={<Send className="w-4 h-4" />} title={t('Telegram bot', 'Bot Telegram', 'بوت تيليغرام')}
+      right={user.telegramLinked ? <span className="text-xs font-semibold text-emerald-500">● {t('Linked', 'Connecté', 'مربوط')}</span> : undefined}>
+      {user.telegramLinked ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+          <p className="text-slate-400">{t('The bot knows this account: every signal comes with your own lot', 'Le bot connaît ce compte : chaque signal arrive avec votre lot', 'البوت كيعرف هاد الحساب: كل إشارة كتجيك باللوت ديالك')}
+            {user.effectiveRisk ? ` ($${user.effectiveRisk} / trade)` : ''}. Chat <span className="font-mono">{user.telegramChatId}</span></p>
+          <Button variant="ghost" onClick={async () => { const r = await apiJson<{ user: AppUser }>('/api/me/telegram-link', { method: 'DELETE' }); onUserChange(r.user); }}>
+            {t('Unlink', 'Déconnecter', 'فك الربط')}
+          </Button>
+        </div>
+      ) : link && left > 0 ? (
+        <div className="space-y-3">
+          <p className="text-xs text-slate-400">{t('Send this code to the bot (or tap "Open the bot"). It works once, for 15 minutes.', 'Envoyez ce code au bot (ou touchez « Ouvrir le bot »). Il marche une fois, pendant 15 minutes.', 'صيفط هاد الكود للبوت (ولا كليكي "حل البوت"). كيخدم مرة وحدة، 15 دقيقة.')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className={`px-4 py-2.5 rounded-xl text-xl font-mono font-bold tracking-[0.2em] border ${isLight ? 'bg-paper border-paper-line-2 text-ink-strong' : 'bg-surface border-gold-500/40 text-gold-200'}`}>{link.code}</code>
+            <Button variant="ghost" onClick={() => { navigator.clipboard?.writeText(link.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }}>
+              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}{copied ? t('Copied', 'Copié', 'تنسخ') : t('Copy', 'Copier', 'نسخ')}
+            </Button>
+            {link.deepLink && <a href={link.deepLink} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-ink-strong bg-gold-gradient cursor-pointer"><Send className="w-3.5 h-3.5" />{t('Open the bot', 'Ouvrir le bot', 'حل البوت')}{link.bot ? ` @${link.bot}` : ''}</a>}
+          </div>
+          <p className="text-[11px] text-slate-500 font-mono">{t('Expires in', 'Expire dans', 'كيسالي من بعد')} {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')} · {t('waiting for the bot…', 'en attente du bot…', 'كنتسناو البوت…')}</p>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-slate-400 max-w-xl">{t('Link your account to the Telegram bot: it will send you the signals with the lot for your capital and risk, and /risk, /capital in the bot change this account.',
+            "Liez votre compte au bot Telegram : il vous envoie les signaux avec le lot pour votre capital et votre risque, et /risk, /capital dans le bot modifient ce compte.",
+            'اربط الحساب ديالك بالبوت: غادي يصيفط ليك الإشارات باللوت على حساب الرأسمال والمخاطرة ديالك، و /risk و /capital ف البوت كيبدلو هاد الحساب.')}</p>
+          <Button onClick={generate}><KeyRound className="w-3.5 h-3.5" />{t('Get my link code', 'Obtenir mon code', 'عطيني الكود ديالي')}</Button>
+          {err && <p className="text-xs text-rose-500 basis-full">{err}</p>}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', user, onUserChange, signals, assets }) => {
   const isLight = theme === 'light';
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
   const [stats, setStats] = useState<Stats | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [lossLimit, setLossLimit] = useState(user.dailyLossLimit ? String(user.dailyLossLimit) : '');
-  const [riskUsd, setRiskUsd] = useState(user.riskUsd ? String(user.riskUsd) : '');
-  const [chatId, setChatId] = useState(user.telegramChatId || '');
+  const [capital, setCapital] = useState(user.capital ? String(user.capital) : '');
+  const [riskMode, setRiskMode] = useState<'usd' | 'pct'>(user.riskUsd || !user.capital ? 'usd' : 'pct');
+  const [riskValue, setRiskValue] = useState(user.riskUsd ? String(user.riskUsd) : user.capital && user.riskPct ? String(user.riskPct) : '');
   // Lot for my $ risk on each live signal, computed by the backend with the signal's own stop
   const [lotFor, setLotFor] = useState<Record<string, { lots: number; actualRisk: number; tooSmall: boolean }>>({});
   const [form, setForm] = useState(EMPTY);
@@ -149,13 +208,13 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
   const live = signals.filter(s => s.isActionableNow && s.entryPrice > 0);
   const liveKey = live.map(s => `${s.id}:${s.stopLoss}`).join('|');
   useEffect(() => {
-    if (!user.riskUsd || !live.length) { setLotFor({}); return; }
+    if (!user.effectiveRisk || !live.length) { setLotFor({}); return; }
     let stop = false;
     Promise.all(live.map(s => apiJson<{ lots: number; actualRisk: number; tooSmall: boolean }>(
       `/api/lot?symbol=${encodeURIComponent(s.symbol)}&entry=${s.entryPrice}&sl=${s.stopLoss}`).then(r => [s.id, r] as const).catch(() => null)))
       .then(rows => { if (!stop) setLotFor(Object.fromEntries(rows.filter(Boolean) as [string, any][])); });
     return () => { stop = true; };
-  }, [liveKey, user.riskUsd]);
+  }, [liveKey, user.effectiveRisk]);
   const takenSignalIds = new Set(trades.map(x => x.signalId).filter(Boolean).map(id => `sig-${id}`));
   const open = trades.filter(x => x.status === 'OPEN');
   const closed = trades.filter(x => x.status === 'CLOSED');
@@ -177,37 +236,50 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
         <StatsGrid isLight={isLight} lang={lang} stats={stats} />
       </Card>
 
-      <Card isLight={isLight} icon={<ShieldOff className="w-4 h-4" />} title={t('My risk', 'Mon risque', 'المخاطرة ديالي')}>
+      <Card isLight={isLight} icon={<ShieldOff className="w-4 h-4" />} title={t('My capital & risk', 'Mon capital & risque', 'الرأسمال والمخاطرة ديالي')}
+        right={user.effectiveRisk ? <span className="text-xs font-mono text-gold-500">{t('Risk', 'Risque', 'المخاطرة')} ${user.effectiveRisk} / trade</span> : undefined}>
         <div className="flex flex-wrap items-end gap-2">
-          <Field label={t('Risk per trade ($) → your lot', 'Risque par trade ($) → votre lot', 'شحال كتخاطر ف كل صفقة ($) → اللوت ديالك')}>
-            <input inputMode="decimal" value={riskUsd} placeholder="80" onChange={e => setRiskUsd(e.target.value)} className={inputCls(isLight)} />
+          <Field label={t('Capital ($)', 'Capital ($)', 'الرأسمال ($)')}>
+            <input inputMode="decimal" value={capital} placeholder="5000" onChange={e => setCapital(e.target.value)} className={inputCls(isLight)} />
+          </Field>
+          <Field label={t('Risk per trade', 'Risque par trade', 'المخاطرة ف كل صفقة')}>
+            <div className="flex gap-1.5">
+              <input inputMode="decimal" value={riskValue} placeholder={riskMode === 'usd' ? '80' : '1'} onChange={e => setRiskValue(e.target.value)} className={`${inputCls(isLight)} w-24`} />
+              <div role="radiogroup" aria-label={t('Risk unit', 'Unité du risque', 'وحدة المخاطرة')} className={`flex rounded-lg border p-0.5 ${isLight ? 'border-paper-line-2' : 'border-line-2'}`}>
+                {(['usd', 'pct'] as const).map(m => (
+                  <button key={m} type="button" role="radio" aria-checked={riskMode === m} onClick={() => setRiskMode(m)}
+                    className={`px-2.5 rounded-md text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors duration-150 ${riskMode === m ? 'bg-gold-500/15 text-gold-500' : 'text-slate-500 hover:text-slate-300'}`}>
+                    {m === 'usd' ? '$' : t('% capital', '% capital', '% الرأسمال')}
+                  </button>
+                ))}
+              </div>
+            </div>
           </Field>
           <Field label={t('Max loss per day ($, empty = none)', 'Perte max par jour ($, vide = aucune)', 'أقصى خسارة فالنهار ($، فارغ = بلا حد)')}>
             <input inputMode="decimal" value={lossLimit} placeholder="—" onChange={e => setLossLimit(e.target.value)} className={inputCls(isLight)} />
           </Field>
-          <Field label={t('Telegram chat id (/myid in the bot)', 'Chat id Telegram (/myid dans le bot)', 'Chat id ديال تيليغرام (/myid ف البوت)')}>
-            <input inputMode="numeric" value={chatId} placeholder="123456789" onChange={e => setChatId(e.target.value)} className={inputCls(isLight)} />
-          </Field>
-          <Button disabled={busy} onClick={() => run(async () => {
+          <Button disabled={busy || (riskMode === 'pct' && !(Number(capital) > 0) && !!riskValue)} onClick={() => run(async () => {
+            const v = Number(riskValue) || 0;
             const r = await apiJson('/api/me', { method: 'PUT', body: JSON.stringify({
-              dailyLossLimit: lossLimit ? Number(lossLimit) : 0, telegramChatId: chatId.trim(),
-              // Only when changed here, so a risk set with /risk in the bot is not wiped
-              ...((Number(riskUsd) || 0) !== (user.riskUsd || 0) ? { riskUsd: Number(riskUsd) || 0 } : {}),
+              dailyLossLimit: lossLimit ? Number(lossLimit) : 0, capital: Number(capital) || 0,
+              ...(riskMode === 'usd' ? { riskUsd: v } : { riskUsd: 0, riskPct: v || 1 }),
             }) });
             onUserChange(r.user);
             await load();
-            return t('Saved', 'Enregistré', 'تم الحفظ');
+            return t('Saved: the app and the Telegram bot use this risk', 'Enregistré : l’app et le bot Telegram utilisent ce risque', 'تحفظ: التطبيق والبوت كيستعملو هاد المخاطرة');
           })}>{t('Save', 'Enregistrer', 'حفظ')}</Button>
           <p className="text-xs text-slate-500 basis-full">
-            {t('Each signal gives you the lot that loses your risk if the stop is hit; the stop stays where the strategy puts it. With your Telegram chat id, the bot uses the same risk (or send /risk 80 to the bot). ',
-              "Chaque signal vous donne le lot qui perd votre risque si le stop est touché ; le stop reste où la stratégie le place. Avec votre chat id Telegram, le bot utilise le même risque (ou envoyez /risk 80 au bot). ",
-              'كل إشارة كتعطيك اللوت لي كيخسر المبلغ ديالك إلا ضرب الستوب؛ الستوب كيبقى فين حطاتو الاستراتيجية. مع chat id ديال تيليغرام، البوت كيستعمل نفس المخاطرة (ولا صيفط /risk 80 للبوت). ')}
-            {t('When your closed trades of the day lose this amount, no new trade can be added until the next trading day (17:00 New York).',
-              "Quand vos trades clôturés du jour perdent ce montant, plus aucun trade ne peut être ajouté jusqu'au jour de trading suivant (17:00 New York).",
-              'ملي توصل الخسارة ديال الصفقات المسدودة اليوم لهاد المبلغ، ما تقدرش تزيد حتى صفقة حتى النهار الجاي (17:00 نيويورك).')}
+            {t('Each signal gives you the lot that loses exactly your risk if the stop is hit; the stop stays where the strategy puts it (structure). Risk in % = % of your capital. ',
+              "Chaque signal vous donne le lot qui perd exactement votre risque si le stop est touché ; le stop reste où la stratégie le place (structure). Risque en % = % de votre capital. ",
+              'كل إشارة كتعطيك اللوت لي كيخسر بالضبط المخاطرة ديالك إلا ضرب الستوب؛ الستوب كيبقى فين حطاتو الاستراتيجية (الهيكل). المخاطرة ب % = % من الرأسمال. ')}
+            {t('When your closed trades of the day lose the daily maximum, no new trade can be added until 17:00 New York.',
+              "Quand vos trades clôturés du jour perdent le maximum journalier, plus aucun trade jusqu'à 17:00 New York.",
+              'ملي توصل الخسارة ديال اليوم للحد، ما تقدرش تزيد حتى صفقة حتى 17:00 نيويورك.')}
           </p>
         </div>
       </Card>
+
+      <TelegramLinkCard isLight={isLight} lang={lang} user={user} onUserChange={onUserChange} />
 
       {blocked && (
         <Notice kind="error">
@@ -243,7 +315,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
                           {t(`Your lot: ${rec.lots.toFixed(2)} (risk $${rec.actualRisk})`, `Votre lot : ${rec.lots.toFixed(2)} (risque $${rec.actualRisk})`, `اللوت ديالك: ${rec.lots.toFixed(2)} (مخاطرة $${rec.actualRisk})`)}
                           {rec.tooSmall && t(' · minimum lot, above your risk', ' · lot minimum, au-dessus de votre risque', ' · أقل لوت، فوق المخاطرة ديالك')}
                         </div>
-                      ) : !user.riskUsd && (
+                      ) : !user.effectiveRisk && (
                         <div className="text-slate-500 mt-0.5">{t('Set your risk per trade above to get your lot.', 'Indiquez votre risque par trade ci-dessus pour avoir votre lot.', 'دخل شحال كتخاطر فوق باش تاخد اللوت ديالك.')}</div>
                       )}
                     </div>

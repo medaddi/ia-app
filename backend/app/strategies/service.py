@@ -1,7 +1,7 @@
 """
 Strategy service: the app's strategies, one per instrument.
   XAUUSD → H1 Trend Breakout (trend, breakout and entry on H1)
-  Forex (EUR/USD, GBP/USD and the FXAlexG pairs) → FXAlexG Set & Forget Break & Retest (bias W1/D1, setup and entry H4), same rules
+  Forex (EUR/USD, GBP/USD and the FXAlexG pairs) → FXAlexG Set & Forget GPA (trend W1/D1/H4, AOI W1/D1, entry 30m), same rules
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
 """
@@ -19,18 +19,22 @@ from .alexg.strategy import evaluate_alexg
 from .replay import ReplayState, StrategyDef, replay, stats_at
 from .shared.jsnum import fmt_utc_minute
 from .shared.news import load_news_calendar
+from .shared.common import active_window
 from .shared.sessions import trading_day_key
 from .shared.types import TF_SEC, Candle, closed_only
 from .xauusd.config import XAU_CONFIG
 from .xauusd.strategy import evaluate_xauusd
 
-PROVIDER_TF = {"M5": "5M", "M15": "15M", "H1": "1H", "H4": "4H", "D1": "1D"}
+PROVIDER_TF = {"M5": "5M", "M15": "15M", "M30": "30M", "H1": "1H", "H4": "4H", "D1": "1D"}
 
 
 def _fx_def(cfg: dict) -> StrategyDef:
-    # Evaluated at every H4 close; D1 / W1 are built from H1 inside the strategy (same Yahoo request)
-    return StrategyDef(entryTf="H4", run=partial(evaluate_alexg, cfg=cfg), tfs=["H4", "H1"],
-                       limits={"H4": 3200, "H1": 12500}, canSignalAt=lambda close: True)
+    # Evaluated at every 30m close; a signal is only possible on a candle that opened at the London / New York open.
+    # D1 / W1 are built from H1 inside the strategy (same Yahoo request as H4)
+    tf = cfg["entryTf"]
+    windows = cfg["sessions"]["windows"]
+    return StrategyDef(entryTf=tf, run=partial(evaluate_alexg, cfg=cfg), tfs=[tf, "H1", "H4"],
+                       limits={tf: 3000, "H1": 12500, "H4": 3200}, canSignalAt=lambda close: active_window(close - TF_SEC[tf], windows) is not None)
 
 
 STRATEGY_DEFS: dict[str, StrategyDef] = {
@@ -81,22 +85,39 @@ def _today_stats(sym: str, base: dict, now_sec: int) -> dict:
 
 
 _cache: dict[str, tuple[dict, float]] = {}
+_slot: dict[str, int] = {}  # entry-timeframe candle the cached analysis was computed in
+REUSE_SEC = 30  # the analysis is recomputed at every new entry candle, and at least every 30 s
+
+
+def _reusable(sym: str) -> bool:
+    hit = _cache.get(sym)
+    tf_sec = TF_SEC[STRATEGY_DEFS[sym].entryTf]
+    return bool(hit) and hit[1] > time.time() and _slot.get(sym) == int(time.time()) // tf_sec
+
+
+async def _with_live_price(sym: str, bundle: dict) -> dict:
+    """The cached analysis with the latest price (the rules only read closed candles, so nothing else changes)."""
+    price = (await fetch_live_price(sym))["price"]
+    if price > 0 and price != bundle["result"]["price"]:
+        return {**bundle, "result": {**bundle["result"], "price": price}}
+    return bundle
 _locks: dict[str, asyncio.Lock] = {}
 
 
 async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool = False, live_price: Optional[float] = None) -> dict:
-    """Returns {"result": StrategyResult, "candles": {tf: [Candle]}}. Cached 4 s; concurrent callers share one run."""
+    """Returns {"result": StrategyResult, "candles": {tf: [Candle]}}. Recomputed at each new entry candle (and every 30 s),
+    otherwise the cached analysis comes back with the live price; concurrent callers share one run."""
     sym = normalize_symbol(raw_symbol)
-    hit = _cache.get(sym)
-    if not force and not fresh and hit and hit[1] > time.time():
-        return hit[0]
+    if not force and not fresh and _reusable(sym):
+        return await _with_live_price(sym, _cache[sym][0])
     lock = _locks.setdefault(sym, asyncio.Lock())
     async with lock:
-        hit = _cache.get(sym)
-        if not force and not fresh and hit and hit[1] > time.time():
-            return hit[0]
+        if not force and not fresh and _reusable(sym):
+            return await _with_live_price(sym, _cache[sym][0])
         price = live_price if live_price and live_price > 0 else (await fetch_live_price(sym, fresh))["price"]
-        loaded, news = await asyncio.gather(load_strategy_candles(sym, price, fresh), load_news_calendar())
+        # A new entry candle has closed since the last run: download it now (the raw candle cache is up to 60 s old)
+        new_candle = _slot.get(sym) != int(time.time()) // TF_SEC[STRATEGY_DEFS[sym].entryTf]
+        loaded, news = await asyncio.gather(load_strategy_candles(sym, price, fresh or new_candle), load_news_calendar())
         now_sec = int(time.time())
         base = {"candles": loaded["candles"], "livePrice": price, "spread": None, "isRealData": loaded["isReal"], "dataSource": loaded["source"], "news": news}
         d = STRATEGY_DEFS[sym]
@@ -106,7 +127,8 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
         if result["signal"]:
             result["signal"]["explanation"] = build_explanation(result)
         bundle = {"result": result, "candles": loaded["candles"]}
-        _cache[sym] = (bundle, time.time() + 4)
+        _cache[sym] = (bundle, time.time() + REUSE_SEC)
+        _slot[sym] = now_sec // TF_SEC[d.entryTf]
         return bundle
 
 

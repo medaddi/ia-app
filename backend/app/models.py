@@ -30,6 +30,9 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16), default="user")  # admin | user
     daily_loss_limit: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # $; None = no limit
     risk_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # $ risked per signal → the lot shown to this user
+    # One-time code the user sends to the Telegram bot to link this account to their chat
+    telegram_link_code: Mapped[Optional[str]] = mapped_column(String(16), nullable=True, index=True)
+    telegram_link_expires: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # unix seconds
     # Legacy columns, no longer used (kept so existing databases keep working)
     capital: Mapped[float] = mapped_column(Float, default=0)
     risk_pct: Mapped[float] = mapped_column(Float, default=1)

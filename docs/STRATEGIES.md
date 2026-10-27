@@ -6,11 +6,11 @@ strategy's config file. Same closed candles → same result, every time.
 
 | | XAUUSD (Gold) | Forex: EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF |
 |---|---|---|
-| Name | H1 Trend Breakout | FXAlexG Set & Forget Break & Retest |
+| Name | H1 Trend Breakout | FXAlexG Set & Forget GPA |
 | Code | `backend/app/strategies/xauusd/strategy.py` | `backend/app/strategies/alexg/strategy.py` |
 | Config | `backend/app/strategies/xauusd/config.py` | `backend/app/strategies/alexg/config.py` |
-| Timeframes | Trend, setup and entry on H1 | Bias W1 + D1 · Setup and entry H4 |
-| Order | MARKET (close of the breakout candle) | MARKET (close of the retest candle), one 3R target |
+| Timeframes | Trend, setup and entry on H1 | Trend W1 + D1 + H4 · AOI W1 / D1 · Pattern & EMA 1H · Entry 30m |
+| Order | MARKET (close of the breakout candle) | MARKET (close of the 30m engulfing), one target at the next W1 / D1 zone (≥ 1:2) |
 
 ## Shared definitions (`backend/app/strategies/shared/`)
 
@@ -46,45 +46,49 @@ strategy's config file. Same closed candles → same result, every time.
 
 7 of 9 quarters were positive (2025-Q2 −4.1R). Median stop $34 (10–90%: $14–$65), about 6 trades per month. Past results do not guarantee future results.
 
-## Strategy 2 — Forex "FXAlexG Set & Forget Break & Retest" (8 pairs, same rules)
+## Strategy 2 — Forex "FXAlexG Set & Forget GPA" (8 pairs, same rules)
 
-The method the forex trader FXAlexG shows in his videos, written as code: EUR/USD, GBP/USD, USD/CAD,
-NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF (the pairs he trades). One config per pair
-(`backend/app/strategies/alexg/config.py`): only the instrument, the assumed spread and the news currencies differ.
-The agent answers forex questions with his thinking (top-down, pro-trend, no anticipation, set & forget) but never claims to be him.
+The user's written rules of the fxalexg Set and Forget strategy, as code, on EUR/USD, GBP/USD, USD/CAD, NZD/USD,
+EUR/CHF, NZD/CAD, AUD/CAD and AUD/CHF (`backend/app/strategies/alexg/`). One config per pair: only the instrument,
+the assumed spread and the news currencies differ.
 
-1. **Top-down** — weekly bias = last closed weekly close vs EMA 20 (weekly); the last closed daily close vs EMA 20 (daily) must agree.
-   Pro-trend only: weekly and daily disagree = no trade (FXAlexG calls counter-trend trades high risk).
-2. **Look left** — areas of interest are H4 swing highs (buys) / lows (sells) of the last 120 H4 candles that price touched at least twice
-   (within 0.3 × ATR). "If it happened here before, it will likely happen again."
-3. **Break** — an H4 candle CLOSES beyond the level in the trend direction (within the last 30 H4 candles), price moves ≥ 1.5 × ATR(14, H4)
-   away, and no H4 close comes back through the level by more than 0.5 × ATR.
-4. **Retest, no anticipation** — an H4 candle comes back to the level (± 0.5 × ATR), closes on the right side and is a bullish / bearish
-   engulfing or a pin bar (wick ≥ 2 × body and ≥ 60% of the candle). **MARKET entry** at that close (valid 60 min).
-5. **Set & forget** — SL beyond the confirmation and previous candle ± 0.5 × ATR (15–120 pips, else no trade). **One target at 3R**:
-   TP1 (1R) and TP2 (2R) are progress marks only — no partial close, no breakeven, no management. One trade per pair at a time.
-6. **Filters** — no trade 30 min around high-impact news of the pair's two currencies; spread ≤ 4 pips; max 2 trades per day per pair, stop after 1 loss.
-7. **Score weights** — trend 25, area of interest 20, break 20, retest 20, stop 5, target 10.
+1. **Trend — 3 sync rule** — W1, D1 and H4 by market structure: HH/HL bullish, LL/LH bearish; the trend only shifts on a
+   candle **body close** beyond the last confirmed swing. Trade the majority (≥ 2 of 3), ideally all 3. Below H4 = entries only.
+2. **AOI** — zones from W1 / D1 swing points only (points within 0.3 × ATR(D1) of each other), valid with **≥ 3 touches**.
+   Buys only above the AOI with a bullish majority, sells only below it with a bearish majority.
+3. **GPA — 10 confluences × 10%**: W1 trend · D1 trend · H4 trend · price at a valid AOI · H4 50 EMA rejection ·
+   H4 structure rejection · H4 rejection candle (pin bar / wick / engulfing) · 1H H&S / inverse H&S / double top-bottom ·
+   1H 50 EMA rejection · 30m engulfing at the London (07:00–10:00) or New York (13:00–16:00 London) open.
+   **A+ 80–100% · B 70–79% · C+ 60–69% (minimum)** · below 60% = no trade.
+4. **Entry** — only after the AOI touch, an H4 rejection and the 30m engulfing at the open: MARKET at its close.
+5. **SL** beyond the pattern's head (conservative), otherwise beyond the last 12 H1 candles (10–90 pips).
+   **TP** at the next W1 / D1 zone (≥ 3 touches), 2 pips before it, pulled in front of a round level (every 50 pips).
+   **Minimum 1:2**, else no trade. Set & forget: one target, no partials, no breakeven. One trade per pair at a time.
+6. **Filters** — 30 min around high-impact news of the pair's currencies, spread ≤ 4 pips, 2 trades / 1 loss per day.
 
-D1 and W1 are built from H1 with the 22:00 UTC rollover; H4 is aggregated from H1 (same Yahoo request).
+The live read (chart, dashboard, agent) grades the last 30m candle even without a trade ("Grade now"), and the agent
+answers forex questions in the 5 parts of the rules: trend sync · AOI · grade · verdict · parameters.
 
-### Backtest (Oct 2024 – Oct 2026, 2 years H1 → H4, spread + 0.2 pip slippage)
+### Backtest
 
-| Pair | Trades | Win rate | Total | 1st / 2nd half | Costs ×2 |
-|---|---|---|---|---|---|
-| **GBP/USD** | 38 | 39% | **+20.8R** | +16.5 / +4.3 | +15.6R |
-| USD/CAD | 31 | 26% | −0.3R | −0.7 / +0.4 | −1.6R |
-| NZD/CAD | 35 | 26% | −0.4R | −5.8 / +5.4 | −5.8R |
-| EUR/USD | 46 | 24% | −3.3R | +11.4 / −14.7 | −4.6R |
-| NZD/USD | 28 | 21% | −5.2R | +3.3 / −8.5 | −6.5R |
-| AUD/CHF | 36 | 19% | −10.3R | −0.5 / −9.8 | −17.7R |
-| EUR/CHF | 39 | 18% | −12.5R | −10.5 / −2.0 | −14.1R |
-| AUD/CAD | 51 | 12% | −29.9R | −13.2 / −16.8 | −32.9R |
+Yahoo serves only 60 days of 30m, so the 2-year test uses **1H candles for the entry** (rule 4 allows 30m or 1H).
+Costs: assumed spread + 0.2 pip slippage; "costs ×2" doubles both.
 
-Only GBP/USD was profitable and robust. The other seven pairs were added and send signals on the user's explicit request.
-His real trading is discretionary (head & shoulders, "4 weekly candles then a slowdown"…); this mechanical version cannot
-capture everything he sees, which is one reason the results differ from his. The earlier EUR/USD "Trend Pullback + London Breakout"
-code is kept in `backend/app/strategies/eurusd/` (parity tests) but no longer used.
+| Pair | Trades | Win rate | Total (TP at the next zone) | Costs ×2 |
+|---|---|---|---|---|
+| AUD/CAD | 5 | 40% | +1.5R | +1.2R |
+| USD/CAD | 33 | 18% | −5.6R | −11.0R |
+| NZD/USD | 21 | 24% | −5.7R | −8.0R |
+| EUR/USD | 13 | 8% | −6.9R | −7.5R |
+| AUD/CHF | 20 | 20% | −8.0R | −9.8R |
+| NZD/CAD | 8 | 0% | −8.7R | −9.3R |
+| EUR/CHF | 25 | 16% | −10.7R | −12.1R |
+| GBP/USD | 22 | 5% | −19.4R | −20.4R |
+
+The next W1 / D1 zone is usually 1:3 to 1:6 away, so it is rarely reached: as written, the rules lose on 7 of 8 pairs,
+and A+ setups did not win more often than C+ ones. Capping the TP at 3R does not fix it (still negative on 6 of 8).
+Last 60 days with real 30m candles: 42 trades over the 8 pairs, about +5R in total (far too few trades to judge).
+`risk.maxRr` in the config caps the TP (off by default, to follow the rules as written).
 
 ## Risk (both)
 

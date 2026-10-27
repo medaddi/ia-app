@@ -41,14 +41,14 @@ def validate_signal(r: dict) -> dict:
         cfg = ALEXG_CONFIGS[r["spec"]["displaySymbol"]]
         R = cfg["risk"]
         pips = dist / r["spec"]["pipSize"]
-        # Set & forget: the whole position runs to the single target (TP3)
+        # Set & forget: the whole position runs to the single target (TP3, the next W1 / D1 zone)
         rr_target = rr(s["entry"], s["sl"], s["tp3"])
-        if rr_target < R["targetR"] - 0.01:
-            issues.append(f"R:R to the target {to_fixed(rr_target, 2)} < {R['targetR']}")
+        if rr_target < R["minRr"] - 0.01:
+            issues.append(f"R:R to the target {to_fixed(rr_target, 2)} < {R['minRr']}")
         if pips < R["minSlPips"] - 0.01 or pips > R["maxSlPips"] + 0.01:
             issues.append(f"Stop {to_fixed(pips, 1)} pips outside {R['minSlPips']}–{R['maxSlPips']}")
         if s["entryType"] != "MARKET":
-            issues.append("Break & retest entries are MARKET orders")
+            issues.append("GPA entries are MARKET orders (close of the engulfing)")
     for c in r["checklist"]:
         if c["required"] and not c["passed"]:
             issues.append(f"Required rule failed: {c['rule']}")

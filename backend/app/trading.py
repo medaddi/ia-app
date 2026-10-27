@@ -4,7 +4,7 @@ profit factor, cumulative P&L curve), the daily loss limit, and the outcome trac
 follows every sent signal with the strategy's own lifecycle.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional
 
 from sqlalchemy import select
@@ -49,6 +49,15 @@ def contract_size(symbol: str) -> float:
 
 
 LOT_STEP, MIN_LOT = 0.01, 0.01
+
+
+def effective_risk(risk_usd: Optional[float], capital: Optional[float], risk_pct: Optional[float]) -> Optional[float]:
+    """$ risked per trade: the fixed amount if set, else risk % × capital (None when neither is set)."""
+    if risk_usd:
+        return round_to(risk_usd, 2)
+    if capital and capital > 0 and risk_pct and risk_pct > 0:
+        return round_to(capital * risk_pct / 100, 2)
+    return None
 
 
 def lot_for_risk(symbol: str, entry: float, sl: float, risk_usd: float) -> dict:
@@ -177,6 +186,56 @@ def today_status(trades: Iterable[Trade], limit: Optional[float], now: Optional[
 
 def _aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def daily_breakdown(rows: Iterable, value, closed_ts, now: Optional[datetime] = None) -> dict:
+    """Result per trading day (17:00 New York rollover): profit days, loss days, best/worst day, streak, week and month.
+    `value(x)` = $ P&L (trades) or R (signals); `closed_ts(x)` = unix seconds of the close, None if still open."""
+    days: dict[str, dict] = {}
+    for x in rows:
+        ts = closed_ts(x)
+        if ts is None:
+            continue
+        d = days.setdefault(trading_day_key(int(ts)), {"value": 0.0, "trades": 0, "wins": 0, "losses": 0})
+        v = value(x) or 0
+        d["value"] += v
+        d["trades"] += 1
+        d["wins"] += v > 0
+        d["losses"] += v < 0
+    out = [{"day": k, "value": round_to(v["value"], 2), "trades": v["trades"], "wins": v["wins"], "losses": v["losses"]} for k, v in sorted(days.items())]
+    profit = [d for d in out if d["value"] > 0]
+    loss = [d for d in out if d["value"] < 0]
+    streak = 0  # +n profit days in a row, -n loss days in a row (latest days first)
+    for d in reversed(out):
+        sign = 1 if d["value"] > 0 else -1 if d["value"] < 0 else 0
+        if sign == 0 or (streak and (streak > 0) != (sign > 0)):
+            break
+        streak += sign
+    today = trading_day_key(int((now or datetime.now(timezone.utc)).timestamp()))
+    ty, tm, td = (int(p) for p in today.split("-"))
+    week_start = (datetime(ty, tm, td) - timedelta(days=datetime(ty, tm, td).weekday())).date().isoformat()
+    period = lambda pred: round_to(sum(d["value"] for d in out if pred(d["day"])), 2)  # noqa: E731
+    decided = len(profit) + len(loss)
+    return {
+        "days": out,
+        "profitDays": len(profit), "lossDays": len(loss), "flatDays": len(out) - decided,
+        "dayWinRate": round_to(len(profit) / decided * 100, 1) if decided else None,
+        "bestDay": max(out, key=lambda d: d["value"]) if out else None,
+        "worstDay": min(out, key=lambda d: d["value"]) if out else None,
+        "avgProfitDay": round_to(sum(d["value"] for d in profit) / len(profit), 2) if profit else None,
+        "avgLossDay": round_to(sum(d["value"] for d in loss) / len(loss), 2) if loss else None,
+        "streak": streak,
+        "today": period(lambda k: k == today), "week": period(lambda k: k >= week_start), "month": period(lambda k: k[:7] == today[:7]),
+    }
+
+
+def trade_days(trades: Iterable[Trade], now: Optional[datetime] = None) -> dict:
+    return daily_breakdown([t for t in trades if t.status == "CLOSED"], lambda t: t.pnl,
+                           lambda t: _aware(t.closed_at).timestamp() if t.closed_at else None, now)
+
+
+def signal_days(signals: Iterable[Signal], now: Optional[datetime] = None) -> dict:
+    return daily_breakdown([s for s in signals if s.state == "CLOSED"], lambda s: s.r_multiple, lambda s: s.exit_time, now)
 
 
 def signal_json(s: Signal) -> dict:

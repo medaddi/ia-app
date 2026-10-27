@@ -35,7 +35,7 @@ def test_login_rejects_wrong_code(client):
 def test_admin_creates_accounts_only(client, admin):
     r = client.post("/api/users", headers=admin, json={"username": "Trader1", "accessCode": "secret-123"})
     assert r.status_code == 200, r.text
-    assert set(r.json()["user"]) >= {"id", "username", "role", "dailyLossLimit"} and "capital" not in r.json()["user"]
+    assert set(r.json()["user"]) >= {"id", "username", "role", "dailyLossLimit", "capital", "riskPct", "effectiveRisk", "telegramLinked"}
     assert client.post("/api/users", headers=admin, json={"username": "trader1", "accessCode": "secret-123"}).status_code == 409
     me = login(client, "trader1", "secret-123")
     assert client.get("/api/users", headers=me).status_code == 403  # not admin
@@ -131,3 +131,82 @@ def test_risk_in_dollars_gives_the_lot(client, admin):
     lot = client.get("/api/lot?symbol=XAU/USD&entry=4000&sl=3995", headers=me).json()
     assert lot["lots"] == 0.16 and lot["actualRisk"] == 80  # $5 × 100 oz = $500 per lot → 0.16
     assert client.put("/api/me", headers=me, json={"riskUsd": 0}).json()["user"]["riskUsd"] is None
+
+
+def test_profit_and_loss_days():
+    from app.trading import trade_days
+
+    def t(pnl, day, hour=12):
+        return Trade(symbol="EUR/USD", direction="BUY", entry=1, sl=0.99, lots=0.1, status="CLOSED", pnl=pnl,
+                     closed_at=datetime(2026, 10, day, hour, 0, tzinfo=timezone.utc))
+    # Mon +50 and -20 (= +30), Tue -40, Wed +10 and +15 (= +25): 2 profit days, 1 loss day, streak +1
+    rows = [t(50, 19), t(-20, 19), t(-40, 20), t(10, 21), t(15, 21)]
+    d = trade_days(rows, now=datetime(2026, 10, 21, 15, tzinfo=timezone.utc))
+    assert [x["value"] for x in d["days"]] == [30, -40, 25] and (d["profitDays"], d["lossDays"], d["streak"]) == (2, 1, 1)
+    assert d["bestDay"]["day"] == "2026-10-19" and d["worstDay"]["value"] == -40 and d["dayWinRate"] == 66.7
+    assert (d["today"], d["week"], d["month"]) == (25, 15, 15) and d["avgProfitDay"] == 27.5
+    # A close after 17:00 New York (21:00 UTC in October) belongs to the next trading day
+    assert trade_days([t(5, 21, 22)], now=datetime(2026, 10, 21, 23, tzinfo=timezone.utc))["days"][0]["day"] == "2026-10-22"
+
+
+def test_telegram_link_code_and_capital_risk(client, admin, monkeypatch):
+    import asyncio
+
+    from app.db import SessionLocal
+    from app.models import Subscriber, User
+    from app.telegram import bot
+    from app.trading import effective_risk
+
+    assert effective_risk(None, 5000, 1) == 50 and effective_risk(80, 5000, 1) == 80 and effective_risk(None, 0, 1) is None
+
+    client.post("/api/users", headers=admin, json={"username": "linker", "accessCode": "secret-654"})
+    me = login(client, "linker", "secret-654")
+    # Capital + risk in % → effective risk $50 → lot from the signal's stop
+    u = client.put("/api/me", headers=me, json={"capital": 5000, "riskPct": 1}).json()["user"]
+    assert (u["capital"], u["riskPct"], u["effectiveRisk"], u["riskUsd"]) == (5000, 1, 50, None)
+    assert client.get("/api/lot?symbol=XAU/USD&entry=4000&sl=3995", headers=me).json()["lots"] == 0.1  # $50 / ($5 × 100 oz)
+
+    code = client.post("/api/me/telegram-link", headers=me).json()["code"]
+    assert code.startswith("LD-") and len(code) == 9
+
+    sent = []
+
+    async def fake_send(token, chat_id, text, reply_markup=None, protect=False):
+        sent.append(text)
+        return {"success": True}
+    monkeypatch.setattr(bot, "send_message", fake_send)
+    say = lambda text: asyncio.run(bot.handle_update("T", {"message": {"text": text, "chat": {"id": 4242}, "from": {"first_name": "L"}}})) or sent[-1]  # noqa: E731
+
+    assert "invalid or expired" in say("LD-ZZZZZZ")
+    assert "Linked to <b>linker</b>" in say(f"/start {code.replace('-', '')}") and "$50 per trade (1% of $5000)" in sent[-1]
+    assert "invalid or expired" in say(code)  # one-time code
+    with SessionLocal() as db:
+        assert db.scalar(__import__("sqlalchemy").select(User).where(User.username == "linker")).telegram_chat_id == "4242"
+        assert bot.chat_risks(db, ["4242"]) == {"4242": 50} and db.get(Subscriber, "4242").expires_at is not None
+    # The bot's /capital and /risk change the app account too
+    assert "$6000" in say("/capital 6000") and "$60" in sent[-1]
+    assert "$80" in say("/risk 80")
+    assert client.get("/api/me", headers=me).json()["user"]["effectiveRisk"] == 80
+    assert "$120" in say("/risk 2%")  # 2% of $6000
+    assert client.get("/api/me", headers=me).json()["user"]["effectiveRisk"] == 120
+    assert client.delete("/api/me/telegram-link", headers=me).json()["user"]["telegramLinked"] is False
+
+
+def test_admin_makes_the_telegram_code_for_a_user(client, admin, monkeypatch):
+    import asyncio
+
+    from app.telegram import bot
+
+    uid = client.post("/api/users", headers=admin, json={"username": "viaadmin", "accessCode": "secret-987"}).json()["user"]["id"]
+    trader = login(client, "viaadmin", "secret-987")
+    assert client.post(f"/api/users/{uid}/telegram-link", headers=trader).status_code == 403  # admin only
+    out = client.post(f"/api/users/{uid}/telegram-link", headers=admin).json()
+    assert out["code"].startswith("LD-") and out["expiresAt"] - __import__("time").time() > 23 * 3600  # valid 24 h
+
+    async def fake_send(token, chat_id, text, reply_markup=None, protect=False):
+        return {"success": True}
+    monkeypatch.setattr(bot, "send_message", fake_send)
+    asyncio.run(bot.handle_update("T", {"message": {"text": out["code"], "chat": {"id": 5151}, "from": {"first_name": "V"}}}))
+    rows = {u["username"]: u for u in client.get("/api/users", headers=admin).json()["users"]}
+    assert rows["viaadmin"]["telegramLinked"] and rows["viaadmin"]["telegramChatId"] == "5151"
+    assert client.delete(f"/api/users/{uid}/telegram-link", headers=admin).json()["user"]["telegramLinked"] is False

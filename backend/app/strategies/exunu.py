@@ -51,6 +51,13 @@ def build_exunu_result(r: dict) -> dict:
         bo = a["breakout"]
         liquidity_summary = (f"H1 close {f(bo['close'])} {'above' if bo['direction'] == 'BUY' else 'below'} the {bo['lookback']}h "
                              f"{'high' if bo['direction'] == 'BUY' else 'low'} {f(bo['level'])} (range {f(bo['rangeLow'])}–{f(bo['rangeHigh'])})")
+    elif a.get("gpa"):
+        g = a["gpa"]
+        z = g["aoi"]
+        liquidity_summary = (f"{z['tfs']} AOI {f(z['lo'])}–{f(z['hi'])} ({z['touches']} touches)"
+                             + (f" · {g['pattern']['type']}" if g["pattern"] else "") + f" · {g['session']} engulfing · grade {g['grade']} {g['score']}%")
+    elif facts.get("areasOfInterest") and facts["areasOfInterest"][0].get("lo") is not None:
+        liquidity_summary = "AOI: " + " · ".join(f"{x['tfs']} {f(x['lo'])}–{f(x['hi'])} ({x['touches']})" for x in facts["areasOfInterest"][:3])
     elif a.get("breakRetest"):
         br = a["breakRetest"]
         liquidity_summary = (f"Area of interest {f(br['level'])} ({br['touches']} touches) broken, moved to {f(br['extreme'])}, "
@@ -148,6 +155,7 @@ def to_ai_signal(res: dict, live_price: Optional[float] = None) -> dict:
         "target2": s["tp2"] if s else 0,
         "target3": s["tp3"] if s else 0,
         "confidence": score,
+        "grade": r.get("grade") if s and s.get("setup") == "GPA" else None,  # forex GPA grade (A+ / B / C+)
         "reasons": [f"{'✓' if c['passed'] else '✕'} {c['rule']}: {c['detail']}" for c in r["checklist"]],
         "riskReward": f"1:{to_fixed(s['rrTp2'], 1)}" if s else "—",
         "timeframe": r["timeframes"]["entry"],

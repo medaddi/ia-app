@@ -19,10 +19,10 @@ const REVIEW_AS_OF = (() => {
 })();
 const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
 
-// Gold: H1 trend breakout · forex: FXAlexG break & retest (W1 → D1 → H4)
+// Gold: H1 trend breakout · forex: FXAlexG Set & Forget GPA (W1 / D1 / H4 trend, W1 / D1 AOI, 30m entry)
 const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, { label: INSTRUMENT_LABELS[s], ...chartSpec(s) }])) as Record<InstrumentSymbol, ChartSpec & { label: string }>;
-const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
-const LIVE_MS = 5000; // the analysis and the chart are both reloaded every 5 seconds
+const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
+const LIVE_MS = 1000; // analysis, candles and price every second (the feed itself updates about once a second)
 
 export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onOpenTelegram, lang = 'en' }) => {
   const [symbol, setSymbol] = useState<InstrumentSymbol>(initialSymbol);
@@ -65,7 +65,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   useEffect(() => { setBundle(null); setCandles([]); refreshAll(); }, [symbol, timeframe]);
 
-  // Live loop: every 5 s the strategy re-runs and the candles (with the forming one) are reloaded together,
+  // Live loop: every second the analysis and the candles (with the forming one) are reloaded together,
   // so the drawings, the checklist and the chart always come from the same moment. Paused while the tab is hidden.
   useEffect(() => {
     if (REVIEW_AS_OF > 0) return;
@@ -80,12 +80,13 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
     return () => clearInterval(id);
   }, [symbol, timeframe, loadStrategy, loadCandles]);
 
+  const t = (en: string, fr: string, ar: string) => (lang === 'ar' ? ar : lang === 'fr' ? fr : en);
   const agents = bundle ? [
-    { name: 'Structure', summary: bundle.agents.structure_agent.summary, ok: result?.bias.direction !== 'NEUTRAL' },
-    { name: result?.symbol === 'XAUUSD' ? 'Breakout' : 'Level', summary: bundle.agents.liquidity_agent.summary,
+    { name: t('Trend', 'Tendance', 'الاتجاه'), summary: bundle.agents.structure_agent.summary, ok: result?.bias.direction !== 'NEUTRAL' },
+    { name: result?.symbol === 'XAUUSD' ? t('Breakout', 'Cassure', 'الاختراق') : t('Area of interest', 'Zone (AOI)', 'منطقة الاهتمام'), summary: bundle.agents.liquidity_agent.summary,
       ok: !!result?.checklist.find(c => ['sweep', 'zone', 'breakout', 'retest'].includes(c.key) && c.passed) },
-    { name: 'Risk', summary: bundle.agents.risk_agent.summary, ok: !!result?.setup && !!result.checklist.find(c => ['rr', 'stop'].includes(c.key) && c.passed) },
-    { name: 'CTO', summary: bundle.agents.cto_agent.summary, ok: result?.status === 'SIGNAL' },
+    { name: t('Risk', 'Risque', 'المخاطرة'), summary: bundle.agents.risk_agent.summary, ok: !!result?.setup && !!result.checklist.find(c => ['rr', 'stop'].includes(c.key) && c.passed) },
+    { name: t('Decision', 'Décision', 'القرار'), summary: bundle.agents.cto_agent.summary, ok: result?.status === 'SIGNAL' },
   ] : [];
 
   return (
@@ -93,10 +94,10 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
       <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-4 py-3 bg-surface border border-line rounded-[var(--radius-card)]">
         <div className="flex items-center gap-3 min-w-0">
           <div className="hidden sm:block">
-            <div className="text-sm font-semibold tracking-wide text-white">LiquidityDissection <span className="text-gold-300">Terminal</span></div>
-            <div className="text-xs text-slate-500">{result?.strategyName ?? 'Loading…'}</div>
+            <div className="text-sm font-semibold tracking-wide text-white">{t('Live chart', 'Graphique en direct', 'الشارت المباشر')}</div>
+            <div className="text-xs text-slate-500">{result?.strategyName ?? t('Loading…', 'Chargement…', 'كيتحمل…')}</div>
           </div>
-          <div role="tablist" aria-label="Instrument" className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5 overflow-x-auto max-w-full">
+          <div role="tablist" aria-label={t('Instrument', 'Instrument', 'الأداة')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5 overflow-x-auto max-w-full">
             {INSTRUMENT_SYMBOLS.map(id => (
               <button key={id} role="tab" aria-selected={symbol === id}
                 onClick={() => { setSymbol(id); setTimeframe(INSTRUMENTS[id].entryTf); }}
@@ -110,15 +111,15 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
           {REVIEW_AS_OF > 0 && <span className="px-2 py-1 rounded-md bg-gold-500/15 text-gold-200 text-xs font-medium">Review {new Date(REVIEW_AS_OF * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC</span>}
           <div className="hidden md:flex items-center gap-2 font-mono text-xs">
             <span className={`w-1.5 h-1.5 rounded-full ${result?.market.isOpen ? 'bg-emerald-400' : 'bg-slate-500'}`} aria-hidden="true" />
-            <span className="text-slate-400">{result?.market.isOpen ? 'Market open' : 'Market closed'}</span>
-            <span className="text-white font-semibold">{result ? result.price.toFixed(result.spec.decimals) : '—'}</span>
+            <span className="text-slate-400">{result?.market.isOpen ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
+            <span className="text-white font-semibold tabular-nums">{result ? result.price.toFixed(result.spec.decimals) : '—'}</span>
           </div>
           {onOpenTelegram && (
             <button onClick={onOpenTelegram} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-line text-xs text-slate-200 hover:bg-surface-2">
               <Send className="w-4 h-4 text-gold-400" aria-hidden="true" /><span className="hidden sm:inline">Telegram</span>
             </button>
           )}
-          <button onClick={refreshAll} disabled={isLoading} className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-line text-slate-300 hover:bg-surface-2" aria-label="Refresh analysis">
+          <button onClick={refreshAll} disabled={isLoading} className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-line text-slate-300 hover:bg-surface-2" aria-label={t('Refresh the analysis', 'Actualiser l’analyse', 'تحديث التحليل')}>
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-gold-400' : ''}`} />
           </button>
         </div>
@@ -131,7 +132,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
         </div>
         <div className="lg:col-span-4 min-w-0">
-          <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} />
+          <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />
         </div>
       </div>
 
@@ -140,8 +141,8 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
           {agents.map((a, i) => (
             <div key={a.name} className="p-3 rounded-xl bg-surface border border-line">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-gold-400" aria-hidden="true" />{i + 1}. {a.name} agent</span>
-                <span className={`text-xs font-medium ${a.ok ? 'text-emerald-300' : 'text-slate-500'}`}>{a.ok ? 'Pass' : 'Not met'}</span>
+                <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-gold-400" aria-hidden="true" />{i + 1}. {a.name}</span>
+                <span className={`text-xs font-medium ${a.ok ? 'text-emerald-300' : 'text-slate-500'}`}>{a.ok ? t('OK', 'Validé', 'محقق') : t('Not met', 'Non validé', 'ما محققش')}</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed break-words">{a.summary}</p>
             </div>

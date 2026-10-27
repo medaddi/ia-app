@@ -22,7 +22,7 @@ const PALETTE: Record<OverlayTheme, Record<DrawingColor, string> & { text: strin
   },
 };
 
-const TF_RANK: Record<string, number> = { M1: 0, M5: 1, M15: 2, H1: 3, H4: 4, D1: 5, W1: 6 };
+const TF_RANK: Record<string, number> = { M1: 0, M5: 1, M15: 2, M30: 2.5, H1: 3, H4: 4, D1: 5, W1: 6 };
 
 function rgba(hex: string, a: number) {
   const n = parseInt(hex.slice(1), 16);

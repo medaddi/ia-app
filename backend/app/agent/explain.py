@@ -63,7 +63,18 @@ def build_explanation(r: dict, lang: str = "en") -> str:
                          f"confirmed by {a.get('trigger')}; entry at the close {f(s['entry'])}.")
         if a.get("asia"):
             parts.append(f"Asian range {f(a['asia']['low'])}–{f(a['asia']['high'])} false breakout, entry at the close {f(s['entry'])}.")
-        if a.get("breakRetest"):
+        if a.get("gpa"):
+            g = a["gpa"]
+            z = g["aoi"]
+            tr = g["trend"]
+            word = {1: "bullish", -1: "bearish", 0: "none"}
+            parts.append(f"Trend sync: W1 {word[tr['W1']]} · D1 {word[tr['D1']]} · H4 {word[tr['H4']]}. Price {'held above' if buy else 'stayed below'} the "
+                         f"{z['tfs']} AOI {f(z['lo'])}–{f(z['hi'])} ({z['touches']} touches)"
+                         + (f", {g['pattern']['type']} on the lower timeframe" if g["pattern"] else "")
+                         + f", then a {g['session']} 30m engulfing; market entry at its close {f(s['entry'])}.")
+            parts.append(f"Grade {g['grade']} ({g['score']}%). Set & forget: SL {f(s['sl'])} ({js_str(s['slPips'])} pips), one target {f(s['tp3'])} "
+                         f"({s['tp3Source']}, 1:{to_fixed(s['rrTarget'], 1)}); no partials, no breakeven.")
+        elif a.get("breakRetest"):
             br = a["breakRetest"]
             parts.append(f"Look left: area of interest {f(br['level'])} ({br['touches']} touches). Price broke it with an H4 close, moved away to {f(br['extreme'])}, "
                          f"came back to retest it and printed {'an' if br['pattern'] == 'engulfing' else 'a'} {br['pattern']}; market entry at the close {f(s['entry'])} (no anticipation).")

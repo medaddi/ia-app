@@ -19,12 +19,13 @@ from ..strategies.shared.jsnum import round_to
 from ..strategies.shared.types import Candle
 
 UA = {"Accept": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"}
-PRICE_TTL = 2.0
+PRICE_TTL = 1.0  # live price shared by every viewer: at most one provider request per symbol per second
 RAW_TTL = 20.0
 SLOW_TTL = 300.0
+HOURLY_TTL = 60.0  # 2 years of 1h: re-downloaded at most once a minute (and right after each candle close)
 
-TIMEFRAME_SECONDS = {"1M": 60, "5M": 300, "15M": 900, "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800}
-INTERVALS = {"1M": ("1m", "5d"), "5M": ("5m", "60d"), "15M": ("15m", "60d"), "1H": ("1h", "2y"), "4H": ("1h", "2y"), "1D": ("1d", "5y"), "1W": ("1wk", "10y")}
+TIMEFRAME_SECONDS = {"1M": 60, "5M": 300, "15M": 900, "30M": 1800, "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800}
+INTERVALS = {"1M": ("1m", "5d"), "5M": ("5m", "60d"), "15M": ("15m", "60d"), "30M": ("30m", "60d"), "1H": ("1h", "2y"), "4H": ("1h", "2y"), "1D": ("1d", "5y"), "1W": ("1wk", "10y")}
 
 _client: httpx.AsyncClient | None = None
 _price_cache: dict[str, tuple[dict, float]] = {}
@@ -96,6 +97,37 @@ async def _yahoo_meta(ticker: str) -> dict | None:
         return None
 
 
+_spark: tuple[dict, float] = ({}, 0.0)
+_spark_lock: asyncio.Lock | None = None
+
+
+async def _spark_quotes() -> dict:
+    """Every forex pair's last price in ONE Yahoo request, refreshed at most once per second for all viewers."""
+    global _spark, _spark_lock
+    if _spark[1] > time.time():
+        return _spark[0]
+    if _spark_lock is None:
+        _spark_lock = asyncio.Lock()
+    async with _spark_lock:
+        if _spark[1] > time.time():
+            return _spark[0]
+        out: dict = {}
+        try:
+            r = await client().get("https://query1.finance.yahoo.com/v8/finance/spark",
+                                   params={"symbols": ",".join(FX_TICKERS.values()), "range": "1d", "interval": "1m"}, timeout=3.5)
+            if r.status_code == 200:
+                for ticker, v in r.json().items():
+                    closes = [c for c in (v.get("close") or []) if isinstance(c, (int, float))]
+                    if closes:
+                        out[ticker] = {"price": float(closes[-1]), "prev": float(v.get("previousClose") or v.get("chartPreviousClose") or 0),
+                                       "high": float(max(closes)), "low": float(min(closes))}
+        except (httpx.HTTPError, ValueError, AttributeError):
+            pass
+        # A failed batch is retried after 1 s; meanwhile each symbol falls back to its own request
+        _spark = (out, time.time() + PRICE_TTL)
+        return out
+
+
 async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict:
     sym = canonical(symbol)
     hit = _price_cache.get(sym)
@@ -114,6 +146,12 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
                     result = _price_result(sym, price, chg, round_to(price + 14.5, 2), round_to(price - 12, 2), "Interbank OTC Spot Feed (gold-api)")
         except (httpx.HTTPError, ValueError, TypeError):
             pass
+    if result is None and sym in FX_TICKERS:
+        q = (await _spark_quotes()).get(FX_TICKERS[sym])
+        if q and 0.3 < q["price"] < 3.0:
+            price = round_to(q["price"], 5)
+            result = _price_result(sym, price, round_to((q["price"] - q["prev"]) / q["prev"] * 100, 2) if q["prev"] else 0,
+                                   q["high"], q["low"], f"Interbank Forex {FX_TICKERS[sym]}")
     if result is None:
         fx = sym in FX_TICKERS
         meta = await _yahoo_meta(FX_TICKERS[sym] if fx else "GC=F")
@@ -155,7 +193,7 @@ async def _yahoo_candles(ticker: str, interval: str, rng: str, decimals: int, fr
         if all(isinstance(x, (int, float)) and not math.isnan(x) for x in vals):
             out.append(Candle(int(t), *(round_to(x, decimals) for x in vals), (v[i] if i < len(v) else 0) or 0))
     # Intraday series refresh every 20s; hourly/daily history changes slowly
-    _raw_cache[key] = (out, time.time() + (SLOW_TTL if interval in ("1h", "1d", "1wk") else RAW_TTL))
+    _raw_cache[key] = (out, time.time() + (RAW_TTL if interval not in ("1h", "1d", "1wk") else HOURLY_TTL if interval == "1h" else SLOW_TTL))
     return out
 
 
@@ -186,6 +224,9 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
         candles = await _yahoo_candles(ticker, interval, rng, decimals, fresh)
         if timeframe == "4H":
             candles = aggregate(candles, 14400)
+        elif step < 86400 and any(c.time % step for c in candles[-3:]):
+            # Yahoo stamps the forming intraday candle with the current time (e.g. 00:28:45): put it back on its slot
+            candles = aggregate(candles, step)
         if len(candles) > 15:
             candles = [Candle(c.time, c.open, c.high, c.low, c.close, c.volume) for c in candles[-limit:]]
             last = candles[-1]

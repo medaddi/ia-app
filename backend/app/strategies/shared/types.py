@@ -22,7 +22,7 @@ class Candle:
         return {"time": self.time, "open": self.open, "high": self.high, "low": self.low, "close": self.close, "volume": self.volume}
 
 
-TF_SEC = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D1": 86400}
+TF_SEC = {"M1": 60, "M5": 300, "M15": 900, "M30": 1800, "H1": 3600, "H4": 14400, "D1": 86400}
 
 
 def closed_only(candles: list[Candle], tf_sec: int, now_sec: float) -> list[Candle]:

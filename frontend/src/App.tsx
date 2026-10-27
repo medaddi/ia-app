@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MarketAsset, AISignal, NewsItem, SentimentData, Language } from './types';
 import { apiFetch, apiJson, setToken, getToken } from './api';
-import { LiveTickerBar } from './components/LiveTickerBar';
 import { SignalPerformanceTracker } from './components/SignalPerformanceTracker';
 import { NewsAISection } from './components/NewsAISection';
 import { SentimentRadar } from './components/SentimentRadar';
@@ -14,12 +13,12 @@ import { MarketsTableView } from './components/MarketsTableView';
 import { AppLayout } from './components/layout/AppLayout';
 import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
 import { ExunuTerminalView } from './components/ExunuTerminalView';
+import { DashboardView } from './components/DashboardView';
 import { isInstrument } from './instruments';
 import { LDEmblem } from './components/LiquidityDissectionLogo';
 import { AgentPanel } from './components/AgentPanel';
 import { AccountView, AppUser } from './components/AccountView';
 import { AdminView } from './components/AdminView';
-import { Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ACCOUNT_TABS = ['account', 'positions', 'history', 'settings'];
@@ -117,11 +116,14 @@ export default function App() {
     setIsSyncingLive(false);
   };
 
-  // Prices every 5 s, signals every 15 s, news and sentiment every 2 min; refresh when the tab comes back
+  // Prices and signals every second (live), news and sentiment every 2 min; refresh when the tab comes back
   useEffect(() => {
     if (!currentUser) return;
     syncAllMarketData();
-    const ids = [setInterval(loadPrices, 5000), setInterval(loadSignals, 15000), setInterval(() => { loadNews(); loadSentiment(); }, 120000)];
+    const live = (fn: () => Promise<void>) => { let busy = false; return () => { if (busy || document.hidden) return; busy = true; fn().finally(() => { busy = false; }); }; };
+    // The dashboard and the chart refresh themselves every second: in the background these lists can go slower there
+    const every = ['overview', 'chart', 'technical'].includes(activeTab) ? 15000 : 1000;
+    const ids = [setInterval(live(loadPrices), every), setInterval(live(loadSignals), every), setInterval(() => { loadNews(); loadSentiment(); }, 120000)];
     const onVisible = () => { if (document.visibilityState === 'visible') syncAllMarketData(); };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('online', onVisible);
@@ -130,7 +132,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('online', onVisible);
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, ['overview', 'chart', 'technical'].includes(activeTab)]);
 
   useEffect(() => { if (currentUser) loadSentiment(); }, [selectedSymbol]);
 
@@ -189,7 +191,7 @@ export default function App() {
           const found = assets.find(a => a.symbol === sym || a.symbol.includes(sym));
           if (found) setSelectedSymbol(found.symbol);
         }}
-        activeSignalsCount={signals.filter((s) => s.status === 'ACTIVE').length}
+        activeSignalsCount={signals.filter((s) => s.isActionableNow).length}
         isSyncingLive={isSyncingLive}
         onForceRefresh={() => syncAllMarketData()}
         onOpenAssistant={() => setIsAssistantOpen(true)}
@@ -199,18 +201,6 @@ export default function App() {
         setIsMobileDrawerOpen={setIsMobileDrawerOpen}
         currentUser={currentUser ? { id: String(currentUser.id), username: currentUser.username, role: currentUser.role } : null}
         onLogout={handleLogout}
-        tickerBarSlot={
-          <LiveTickerBar
-            assets={assets}
-            selectedSymbol={selectedAsset?.symbol || 'XAU/USD'}
-            onSelectAsset={(asset) => setSelectedAsset(asset)}
-            lang={lang}
-            theme={theme}
-            isSyncing={isSyncingLive}
-            onForceRefresh={() => syncAllMarketData()}
-            lastSyncTime={lastSyncTime}
-          />
-        }
       >
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
@@ -221,11 +211,7 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.22, ease: 'easeOut' }}
             >
-              <ExunuTerminalView
-                initialSymbol={(selectedAsset?.symbol as any) || 'XAU/USD'}
-                onOpenTelegram={() => setIsTelegramOpen(true)}
-                lang={lang}
-              />
+              <DashboardView lang={lang} onOpenChart={sym => { setSelectedSymbol(sym); setActiveTab('chart'); }} />
             </motion.div>
           )}
 
@@ -400,64 +386,6 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* System Architecture Blueprint (Explaining the 24/7 Engine matching user vision) */}
-        <div className="mt-10 p-6 rounded-2xl border border-white/[0.08] bg-surface-3 shadow-xl hover:border-gold-500/30 transition-all">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gold-500/10 text-gold-500 flex items-center justify-center border border-gold-500/25">
-                <Cpu className="w-4 h-4 text-gold-500" />
-              </div>
-              <h4 className="font-black text-sm text-white tracking-tight">
-                {isAr ? 'بنية النظام المؤسساتي (Architecture)' : 'Institutional System Architecture:'}
-              </h4>
-            </div>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/25">
-              {isAr ? 'عقود الذهب الفورية (OTC)' : 'OTC Spot Gold Connected'}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-start">
-            <div className="p-3.5 rounded-xl border border-white/[0.06] bg-surface hover:border-gold-500/40 transition-all duration-150">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-2 h-2 rounded-full bg-gold-500"></div>
-                <span className="font-bold text-xs text-gold-500">1. Realtime Feeds</span>
-              </div>
-              <p className="text-xs leading-relaxed text-zinc-400">
-                {isAr ? 'بيانات حية مباشرة للذهب الفوري المؤسساتي (XAU/USD) عبر خوادم Interbank OTC' : 'Live Institutional Spot Gold (XAU/USD) real-time feed'}
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-white/[0.06] bg-surface hover:border-gold-500/40 transition-all duration-150">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-2 h-2 rounded-full bg-gold-500"></div>
-                <span className="font-bold text-xs text-gold-500">2. SMC Algorithms</span>
-              </div>
-              <p className="text-xs leading-relaxed text-zinc-400">
-                {isAr ? 'كشف سحب السيولة (BSL/SSL) وكتل الأوامر (OB) وتغير الهيكل (CHoCH)' : 'Order Block detection, Liquidity Sweeps & Structure Breaks'}
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-white/[0.06] bg-surface hover:border-gold-500/40 transition-all duration-150">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                <span className="font-bold text-xs text-amber-400">3. Trade journal</span>
-              </div>
-              <p className="text-xs leading-relaxed text-zinc-400">
-                {isAr ? 'كل مستخدم كيسجل اللوت ديالو، الإحصائيات والخسارة اليومية القصوى' : 'Each user logs their lot, stats and daily loss limit'}
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-white/[0.06] bg-surface hover:border-gold-500/40 transition-all duration-150">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <span className="font-bold text-xs text-emerald-400">4. Auto Telegram Bot</span>
-              </div>
-              <p className="text-xs leading-relaxed text-zinc-400">
-                {isAr ? 'إرسال الصفقات والتنبيهات وإغلاق الأهداف فوراً إلى قناة التليجرام' : 'Instant TP/SL alerts dispatched directly to Telegram Desk'}
-              </p>
-            </div>
-          </div>
-        </div>
       </AppLayout>
 
       {/* 4. Tools Sidebar Drawer (Optional quick drawer) */}
@@ -471,7 +399,7 @@ export default function App() {
         lang={lang}
         theme={theme}
         onOpenTelegram={() => setIsTelegramOpen(true)}
-        activeSignalsCount={signals.filter((s) => s.status === 'ACTIVE').length}
+        activeSignalsCount={signals.filter((s) => s.isActionableNow).length}
       />
 
 
@@ -501,7 +429,7 @@ export default function App() {
         onOpenAssistant={() => setIsAssistantOpen(true)}
         onOpenTelegram={() => setIsTelegramOpen(true)}
         onOpenMenu={() => setIsMobileDrawerOpen(true)}
-        activeSignalsCount={signals.filter((s) => s.status === 'ACTIVE').length}
+        activeSignalsCount={signals.filter((s) => s.isActionableNow).length}
       />
     </>
   );

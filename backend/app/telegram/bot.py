@@ -28,7 +28,7 @@ from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
 from ..strategies.shared.news import load_news_calendar
 from ..strategies.shared.jsnum import fmt_time, fmt_utc_minute, js_round, to_fixed
-from ..trading import lot_for_risk, signal_json, stats
+from ..trading import effective_risk, lot_for_risk, signal_json, stats
 from .protection import personalize_signal
 
 API = "https://api.telegram.org/bot{token}/{method}"
@@ -112,7 +112,7 @@ def _levels(signal: dict) -> Optional[dict]:
     symbol = normalize_symbol(signal.get("symbol", ""))
     gold = symbol == "XAU/USD"
     return {"symbol": symbol, "buy": signal.get("signalType") == "BUY", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
-            "single": sj.get("setup") == "BREAK_RETEST" and tp3 is not None,  # FXAlexG set & forget: one target
+            "single": sj.get("setup") in ("GPA", "BREAK_RETEST") and tp3 is not None,  # FXAlexG set & forget: one target
             "orderType": sj.get("entry_type") or signal.get("entryType") or "LIMIT", "expires": sj.get("expires_at"),
             "decimals": 2 if gold else 5, "pip": 0.1 if gold else 0.0001}
 
@@ -138,6 +138,9 @@ def format_signal_message(signal: dict, lot: Optional[dict] = None, ref: Optiona
         lines.append(f"TP2 {c(L['tp2'])} · 1:{rr_of(L['tp2'])}")
         if L["tp3"] is not None:
             lines.append(f"TP3 {c(L['tp3'])} · 1:{rr_of(L['tp3'])}")
+    grade = signal.get("grade")
+    if grade:
+        lines.append(f"Grade <b>{grade}</b> · {signal.get('confidence')}%")
     if lot and lot.get("lots"):
         warn = " · min lot, above your risk" if lot["tooSmall"] else ""
         lines.append(f"Lot <code>{lot['lots']:.2f}</code> · risk ${lot['actualRisk']:g}{warn}")
@@ -174,9 +177,41 @@ def _aware(dt: Optional[datetime]) -> Optional[datetime]:
 
 
 def chat_risks(db: Session, chat_ids: list[str]) -> dict[str, Optional[float]]:
-    """$ risked per signal by each subscriber (/risk in the bot, else the linked app account). Non-subscriber chats are left out."""
-    users = {u.telegram_chat_id: u.risk_usd for u in db.scalars(select(User).where(User.telegram_chat_id.in_(chat_ids)))}
-    return {s.chat_id: s.risk_usd or users.get(s.chat_id) for s in db.scalars(select(Subscriber).where(Subscriber.chat_id.in_(chat_ids)))}
+    """$ risked per signal by each subscriber: the linked app account's risk ($ or % of its capital) first, else the bot's
+    /risk and /capital. Non-subscriber chats are left out (no lot line)."""
+    users = {u.telegram_chat_id: effective_risk(u.risk_usd, u.capital, u.risk_pct)
+             for u in db.scalars(select(User).where(User.telegram_chat_id.in_(chat_ids)))}
+    return {s.chat_id: users.get(s.chat_id) or effective_risk(s.risk_usd, s.capital, s.risk_pct)
+            for s in db.scalars(select(Subscriber).where(Subscriber.chat_id.in_(chat_ids)))}
+
+
+LINK_RE = re.compile(r"LD-?([A-HJ-NP-Z2-9]{6})", re.I)
+
+
+def link_account(db: Session, chat_id: str, code: str, first_name: str) -> str:
+    """Links the app account that generated `code` to this chat; the account then receives the signals with its own risk."""
+    m = LINK_RE.fullmatch(code.strip())
+    if not m:
+        return "⛔ Invalid link code."
+    full = f"LD-{m.group(1).upper()}"
+    u = db.scalar(select(User).where(User.telegram_link_code == full))
+    if not u or not u.active or (u.telegram_link_expires or 0) < time.time():
+        return "⛔ This link code is invalid or expired. Generate a new one in the app (Account → Telegram)."
+    for other in db.scalars(select(User).where(User.telegram_chat_id == chat_id, User.id != u.id)):
+        other.telegram_chat_id = None  # one account per chat
+    u.telegram_chat_id, u.telegram_link_code, u.telegram_link_expires = chat_id, None, None
+    now = datetime.now(timezone.utc)
+    sub = db.get(Subscriber, chat_id) or Subscriber(chat_id=chat_id)
+    sub.first_name = first_name or sub.first_name
+    if not sub.expires_at or _aware(sub.expires_at) < now:  # app accounts are created by the admin: they get access
+        sub.code, sub.activated_at, sub.expires_at, sub.expired_notified = "ACCOUNT", now, now + timedelta(days=3650), False
+    sub.risk_usd, sub.capital, sub.risk_pct, sub.muted = u.risk_usd, u.capital or 0, u.risk_pct, False
+    db.merge(sub)
+    db.commit()
+    risk = effective_risk(u.risk_usd, u.capital, u.risk_pct)
+    how = (f"${risk:g} per trade" + (f" ({u.risk_pct:g}% of ${u.capital:g})" if not u.risk_usd and u.capital else "")) if risk else "not set yet (/risk 80 or /risk 1%)"
+    return (f"✅ Linked to <b>{u.username}</b>.\nRisk: <b>{how}</b> · every signal comes with your lot.\n"
+            "Change it in the app (Account) or here with /risk and /capital.")
 
 
 def active_subscribers(db: Session) -> list[Subscriber]:
@@ -331,7 +366,8 @@ COMMANDS = [
     ("status", "Your subscription"),
     ("stop", "Pause signals"),
     ("resume", "Resume signals"),
-    ("risk", "Your risk per trade in $ (/risk 80) → your lot in every signal"),
+    ("risk", "Your risk per trade: /risk 80 ($) or /risk 1% (of your capital)"),
+    ("capital", "Your capital in $ (/capital 5000), for a risk in %"),
     ("myid", "Your Telegram chat id"),
     ("help", "All commands"),
 ]
@@ -411,31 +447,69 @@ def _market_text() -> str:
 
 RULES = """<b>How the signals work</b>
 🥇 <b>Gold (H1 Trend Breakout)</b>: trend by EMA50 vs EMA200; an H1 candle closes beyond the 20-hour high/low with a strong body → market entry. SL beyond the last 4 candles (1–3× ATR). TP1 1R (close 50%, SL to entry), TP2 2R, TP3 3R.
-💱 <b>Forex: EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF (FXAlexG Set & Forget Break & Retest, same rules)</b>: weekly and daily trend must agree (pro-trend only). Look left for an H4 level touched twice, wait for an H4 close through it, then a retest with an engulfing or pin bar → market entry. SL behind the candle, one target at 3R: no partials, no breakeven, no anticipation.
-📊 Backtest 2 years: only GBP/USD was profitable (+20.8R); the other pairs lost. Their signals are sent anyway.
+💱 <b>Forex: EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF (FXAlexG Set &amp; Forget GPA)</b>: trend on W1, D1 and H4 by structure (body close only), trade the majority. Areas of interest only on W1 / D1 with 3+ touches. Entry after the AOI touch, an H4 rejection and a 30m engulfing at the London or New York open. SL beyond the pattern head, TP at the next W1 / D1 zone before a round level, minimum 1:2. Set &amp; forget.
+🎓 Grade: 10 confluences × 10% → A+ 80%+, B 70%+, C+ 60%+ (minimum). Below 60%: no signal.
 Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.
 ⚠️ Past results do not guarantee future results: risk only what you can lose."""
 
 
+def _linked_users(db: Session, chat_id: str) -> list[User]:
+    return list(db.scalars(select(User).where(User.telegram_chat_id == chat_id)))
+
+
+def _risk_text(sub: Subscriber) -> str:
+    risk = effective_risk(sub.risk_usd, sub.capital, sub.risk_pct)
+    if not risk:
+        return "No risk set. Send <code>/risk 80</code> ($ per trade) or <code>/capital 5000</code> then <code>/risk 1%</code>."
+    pct = f" ({sub.risk_pct:g}% of ${sub.capital:g})" if not sub.risk_usd and sub.capital else ""
+    return f"💵 Risk per trade: <b>${risk:g}</b>{pct}. Each signal comes with the lot for it; the SL stays where the strategy puts it."
+
+
 def _risk_reply(db: Session, sub: Optional[Subscriber], active: bool, text: str) -> str:
-    """/risk → current value · /risk 80 → $80 per trade · /risk 0 → off. Also saved on the linked app account."""
+    """/risk → current · /risk 80 → $80 per trade · /risk 1% → 1% of the capital · /risk 0 → off. Mirrored on the linked app account."""
     if not active or not sub:
-        return "⛔ Not activated. Send your activation code."
+        return "⛔ Not activated. Send your activation code or your app link code."
     parts = text.split()
     if len(parts) < 2:
-        return (f"💵 Your risk per trade: <b>${sub.risk_usd:g}</b>. Each signal comes with the lot for it; the SL stays where the strategy puts it."
-                if sub.risk_usd else "💵 No risk set. Send <code>/risk 80</code> to risk $80 per trade: every signal will then give you the lot to enter.")
+        return _risk_text(sub)
+    raw = parts[1].replace("$", "").replace(",", ".")
+    try:
+        value = float(raw.rstrip("%"))
+    except ValueError:
+        return "Send <code>/risk 80</code> ($) or <code>/risk 1%</code> (of your capital)."
+    if raw.endswith("%"):
+        if not (0 < value <= 100):
+            return "The % must be between 0 and 100, for example <code>/risk 1%</code>."
+        if not sub.capital:
+            return "Send your capital first: <code>/capital 5000</code>, then <code>/risk 1%</code>."
+        sub.risk_usd, sub.risk_pct = None, value
+    else:
+        if value < 0 or value > 1_000_000:
+            return "Send a number in $, for example <code>/risk 80</code>."
+        sub.risk_usd = value or None
+    for u in _linked_users(db, sub.chat_id):
+        u.risk_usd, u.risk_pct = sub.risk_usd, sub.risk_pct
+    db.commit()
+    return "✅ " + _risk_text(sub) if effective_risk(sub.risk_usd, sub.capital, sub.risk_pct) else "Risk removed: signals come without a lot."
+
+
+def _capital_reply(db: Session, sub: Optional[Subscriber], active: bool, text: str) -> str:
+    if not active or not sub:
+        return "⛔ Not activated. Send your activation code or your app link code."
+    parts = text.split()
+    if len(parts) < 2:
+        return f"🏦 Capital: <b>${sub.capital:g}</b>." if sub.capital else "🏦 No capital set. Send <code>/capital 5000</code>."
     try:
         value = float(parts[1].replace("$", "").replace(",", "."))
     except ValueError:
-        return "Send a number in $, for example <code>/risk 80</code>."
-    if value < 0 or value > 1_000_000:
-        return "Send a number in $, for example <code>/risk 80</code>."
-    sub.risk_usd = value or None
-    for u in db.scalars(select(User).where(User.telegram_chat_id == sub.chat_id)):
-        u.risk_usd = sub.risk_usd
+        return "Send a number in $, for example <code>/capital 5000</code>."
+    if value < 0 or value > 1_000_000_000:
+        return "Send a number in $, for example <code>/capital 5000</code>."
+    sub.capital = value
+    for u in _linked_users(db, sub.chat_id):
+        u.capital = value
     db.commit()
-    return f"✅ Risk set to <b>${value:g}</b> per trade. Your next signals include the lot for it." if value else "Risk removed: signals come without a lot."
+    return f"✅ Capital set to <b>${value:g}</b>. " + _risk_text(sub)
 
 
 async def handle_update(token: str, upd: dict) -> None:
@@ -449,7 +523,12 @@ async def handle_update(token: str, upd: dict) -> None:
     with SessionLocal() as db:
         sub = db.get(Subscriber, chat_id)
         active = bool(sub and sub.expires_at and _aware(sub.expires_at) > datetime.now(timezone.utc))
-        if cmd == "/start":
+        start_arg = text.split(maxsplit=1)[1] if cmd == "/start" and len(text.split()) > 1 else ""
+        if cmd == "/start" and start_arg and LINK_RE.fullmatch(start_arg):
+            reply = link_account(db, chat_id, start_arg, name)  # t.me/<bot>?start=LDXXXXXX from the app
+        elif LINK_RE.fullmatch(text):
+            reply = link_account(db, chat_id, text, name)
+        elif cmd == "/start":
             reply = (f"👋 <b>{name}</b>, your access is active until <b>{_aware(sub.expires_at):%Y-%m-%d}</b>.\n\n{HELP}" if active
                      else f"👋 Welcome <b>{name}</b>!\n🔑 Send your <b>activation code</b> to receive the signals.\n\n{HELP}")
         elif cmd == "/help":
@@ -458,6 +537,8 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = f"🆔 Your chat id: <code>{chat_id}</code>"
         elif cmd == "/risk":
             reply = _risk_reply(db, sub, active, text)
+        elif cmd == "/capital":
+            reply = _capital_reply(db, sub, active, text)
         elif cmd == "/status":
             reply = ((f"✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>"
                       + ("\n⏸ Signals paused: send /resume" if sub.muted else "")) if active else "⛔ Not activated. Send your activation code.")
