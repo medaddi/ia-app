@@ -26,6 +26,9 @@ def build_explanation(r: dict, lang: str = "en") -> str:
             parts.append(f"تم سحب سيولة {sw['level']['label']} عند {f(sw['level']['price'])} (ذيل حتى {f(sw['extreme'])}) ثم إغلاق داخل المستوى.")
         if a.get("mss"):
             parts.append(f"كسر هيكلي {'CHoCH' if a['mss']['type'] == 'CHOCH' else 'BOS'} فوق/تحت {f(a['mss']['level'])} بشمعة اندفاع.")
+        if a.get("reversion"):
+            rv = a["reversion"]
+            parts.append(f"رجوع للمتوسط: شمعة H1 سدات {'تحت' if buy else 'فوق'} نطاق بولينجر {f(rv['band'])} عكس الاتجاه، ومن بعد رجعات للداخل عند {f(rv['close'])} مع الاتجاه.")
         if a.get("breakout"):
             bo = a["breakout"]
             parts.append(f"اختراق: شمعة H1 أغلقت {'فوق أعلى' if buy else 'تحت أدنى'} {bo['lookback']} ساعة عند {f(bo['level'])} مع الاتجاه.")
@@ -48,6 +51,11 @@ def build_explanation(r: dict, lang: str = "en") -> str:
             parts.append(f"Liquidity taken: {sw['level']['label']} {f(sw['level']['price'])} swept (wick {f(sw['extreme'])}) and closed back inside.")
         if a.get("mss"):
             parts.append(f"Structure shift: M5 {'CHoCH' if a['mss']['type'] == 'CHOCH' else 'BOS'} {'above' if buy else 'below'} {f(a['mss']['level'])} with a displacement candle.")
+        if a.get("reversion"):
+            rv = a["reversion"]
+            parts.append(f"Reversion ({rv['session']}): an H1 candle closed {'below' if buy else 'above'} the Bollinger band {f(rv['band'])} against the trend, "
+                         f"then this candle closed back inside at {f(rv['close'])} with the trend; one target at 1R toward the mean (middle {f(rv['mid'])}), "
+                         f"closed at market after 24 H1 candles.")
         if a.get("breakout"):
             bo = a["breakout"]
             parts.append(f"Breakout: an H1 candle closed {'above the' if buy else 'below the'} {bo['lookback']}-hour {'high' if buy else 'low'} "
@@ -74,6 +82,8 @@ def build_explanation(r: dict, lang: str = "en") -> str:
                          + f", then a {g['session']} 30m engulfing; market entry at its close {f(s['entry'])}.")
             parts.append(f"Grade {g['grade']} ({g['score']}%). Set & forget: SL {f(s['sl'])} ({js_str(s['slPips'])} pips), one target {f(s['tp3'])} "
                          f"({s['tp3Source']}, 1:{to_fixed(s['rrTarget'], 1)}); no partials, no breakeven.")
+        elif a.get("reversion"):
+            parts.append(f"Stop {f(s['sl'])} ({js_str(s['slPips'])} pips), one target {f(s['tp3'])} (1R); no partials, no breakeven.")
         elif a.get("breakRetest"):
             br = a["breakRetest"]
             parts.append(f"Look left: area of interest {f(br['level'])} ({br['touches']} touches). Price broke it with an H4 close, moved away to {f(br['extreme'])}, "

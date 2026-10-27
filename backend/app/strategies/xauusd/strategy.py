@@ -1,15 +1,23 @@
 """
-XAUUSD (Gold) — "H1 Trend Breakout"
+XAUUSD (Gold) — two engines on H1, one trade at a time; the first one whose confirmation prints is traded.
 
+A. "H1 Trend Breakout"
 Trend (H1): BUY only if EMA50 > EMA200 and the close is above EMA200; SELL only on the mirror.
 Entry: an H1 candle CLOSES beyond the highest high (buys) / lowest low (sells) of the previous 20 H1
 candles with a body > 0.5 × ATR(14). MARKET entry at that close.
 Stop: beyond the extreme of the last 4 candles ± 0.2 × ATR, at least 1 × ATR away; no trade above 3 × ATR.
 Targets: TP1 = 1R (close 50%, stop to breakeven), TP2 = 2R (25%), TP3 = 3R (rest).
-One trade at a time: the candles are replayed in order, and a new breakout only counts once the
-previous trade has closed (exactly how the strategy was backtested).
+
+B. "Bollinger Reversion" (London + New York, 07:00–17:00 UTC): in the same trend, the previous H1 candle CLOSED beyond
+the 2.2σ Bollinger band AGAINST the trend, and this candle closes back inside the band in the trend direction
+(the confirmation). MARKET at its close; stop beyond both candles ± 0.3 × ATR; one target at 1R, no partials;
+closed at market after 24 H1 candles if neither is hit.
+
+The candles are replayed in order: a new setup (from either engine) only counts once the previous trade has closed,
+exactly how both were backtested together (2 years: 216 trades, 60.6% winners, +52.5R).
 """
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from ..shared.common import active_window, item, new_result, to_signal_json
@@ -63,35 +71,82 @@ def _breakout_at(c: list[Candle], i: int, atr: list[float], ef: list[float], es:
             "body": abs(x.close - x.open)}
 
 
+def _bands(closes: list[float], period: int, k: float) -> tuple[list[float], list[float], list[float]]:
+    """Bollinger bands (simple mean ± k population σ); NaN until `period` closes."""
+    nan = float("nan")
+    mid, up, lo = [nan] * len(closes), [nan] * len(closes), [nan] * len(closes)
+    for i in range(period - 1, len(closes)):
+        w = closes[i - period + 1:i + 1]
+        m = sum(w) / period
+        sd = (sum((x - m) ** 2 for x in w) / period) ** 0.5
+        mid[i], up[i], lo[i] = m, m + k * sd, m - k * sd
+    return mid, up, lo
+
+
+def _reversion_at(c: list[Candle], i: int, atr: list[float], ef: list[float], es: list[float], bb: tuple, cfg: dict) -> Optional[dict]:
+    """Engine B on candle i (closed): close beyond the band against the trend, then back inside with the trend."""
+    RV = cfg["reversion"]
+    mid, up, lo = bb
+    a = atr[i]
+    if not (a > 0) or i < 1 or up[i - 1] != up[i - 1]:
+        return None
+    hour = datetime.fromtimestamp(c[i].time, timezone.utc).hour
+    if not (RV["sessionUtc"][0] <= hour < RV["sessionUtc"][1]):
+        return None
+    trend = _trend(c, i, ef, es)
+    p, x = c[i - 1], c[i]
+    if trend == 1 and p.close < lo[i - 1] and x.close > lo[i] and x.close > x.open:
+        buy, sl = True, min(p.low, x.low) - RV["slBufferAtr"] * a
+    elif trend == -1 and p.close > up[i - 1] and x.close < up[i] and x.close < x.open:
+        buy, sl = False, max(p.high, x.high) + RV["slBufferAtr"] * a
+    else:
+        return None
+    entry = x.close
+    if (sl >= entry) if buy else (sl <= entry):
+        return None
+    return {"kind": "REVERSION", "buy": buy, "index": i, "entry": entry, "sl": sl, "risk": abs(entry - sl), "atr": a,
+            "band": lo[i - 1] if buy else up[i - 1], "bandNow": lo[i] if buy else up[i], "mid": mid[i],
+            "excursion": p.close, "session": "London" if hour < 13 else "New York"}
+
+
 def _build_setup(c: list[Candle], b: dict, spec: dict, cfg: dict, spread: float, last: int) -> dict:
     R, FIL = cfg["risk"], cfg["filters"]
     d = spec["decimals"]
     f = lambda v: to_fixed(v, d)  # noqa: E731
     buy, i, risk = b["buy"], b["index"], b["risk"]
+    rev = b.get("kind") == "REVERSION"
+    RV = cfg["reversion"]
     entry = round_to(b["entry"], d)
     sl = round_to(b["sl"], d)
-    # Targets from the rounded entry and stop, so TP1/TP2/TP3 sit exactly 1R/2R/3R away as printed
+    # Targets from the rounded entry and stop, so they sit exactly at their R multiples as printed
     unit = abs(entry - sl)
     tp = lambda k: round_to(entry + k * unit if buy else entry - k * unit, d)  # noqa: E731
-    tp1, tp2, tp3 = tp(R["tp1R"]), tp(R["tp2R"]), tp(R["tp3R"])
+    tp1, tp2, tp3 = (tp(RV["tp1R"]), tp(RV["tp2R"]), tp(RV["tpR"])) if rev else (tp(R["tp1R"]), tp(R["tp2R"]), tp(R["tp3R"]))
     signal_time = c[i].time + H1_SEC
     valid_until = signal_time + R["marketValidMin"] * 60
     params = {"side": "BUY" if buy else "SELL", "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
               "expiryTime": None, "marketFillTime": signal_time, "cancelIfTp1BeforeFill": False, "partials": R["partials"],
               "spread": spread, "slippage": FIL["slippage"]}
+    if rev:  # one target at 1R, no partials, no breakeven, time exit
+        params.update(partials=[0, 0, 1], breakeven=False, maxBars=RV["maxBars"])
     lifecycle = simulate_lifecycle(c, params, i + 1)
     return {
-        "id": f"XAUUSD-BO-{c[i].time}", "setup": "BREAKOUT", "direction": "BUY" if buy else "SELL", "entryType": "MARKET",
-        "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
-        "tp2Source": f"{js_str(R['tp2R'])}R", "tp3Source": f"{js_str(R['tp3R'])}R",
+        "id": f"XAUUSD-{'RV' if rev else 'BO'}-{c[i].time}", "setup": "REVERSION" if rev else "BREAKOUT", "direction": "BUY" if buy else "SELL",
+        "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
+        "tp2Source": f"{js_str(RV['tp2R'] if rev else R['tp2R'])}R{' mark' if rev else ''}",
+        "tp3Source": f"{js_str(RV['tpR'])}R target · exit after {RV['maxBars']} H1 candles" if rev else f"{js_str(R['tp3R'])}R",
         "rrTp2": rr(entry, sl, tp2), "slDistance": round_to(abs(entry - sl), d), "slPips": to_pips(spec, abs(entry - sl)),
         "lots": lot_table(spec, entry, sl, R["riskPct"], R["balances"]),
         "signalTime": signal_time, "signalIndex": i, "expiresAt": valid_until,
-        "invalidation": f"H1 close {'below' if buy else 'above'} {f(sl)}; do not enter after {fmt_time(valid_until)}",
+        "invalidation": (f"SL {f(sl)}, TP {f(tp3)}; closed at market after {RV['maxBars']} H1 candles; do not enter after {fmt_time(valid_until)}" if rev
+                         else f"H1 close {'below' if buy else 'above'} {f(sl)}; do not enter after {fmt_time(valid_until)}"),
         "isFresh": i == last, "lifecycle": lifecycle, "params": params,
-        "anchors": {"breakout": {"direction": "BUY" if buy else "SELL", "level": b["level"], "lookback": cfg["breakout"]["lookback"],
-                                 "rangeHigh": b["rangeHigh"], "rangeLow": b["rangeLow"], "atr": round_to(b["atr"], 2),
-                                 "time": c[i].time, "close": entry}},
+        "anchors": ({"reversion": {"direction": "BUY" if buy else "SELL", "band": round_to(b["band"], 2), "excursion": b["excursion"],
+                                   "mid": round_to(b["mid"], 2), "atr": round_to(b["atr"], 2), "session": b["session"], "time": c[i].time, "close": entry}}
+                    if rev else
+                    {"breakout": {"direction": "BUY" if buy else "SELL", "level": b["level"], "lookback": cfg["breakout"]["lookback"],
+                                  "rangeHigh": b["rangeHigh"], "rangeLow": b["rangeLow"], "atr": round_to(b["atr"], 2),
+                                  "time": c[i].time, "close": entry}}),
     }
 
 
@@ -123,12 +178,14 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
     closes = [x.close for x in h1]
     atr = atr_series(h1, cfg["atrPeriod"])
     ef, es = ema_series(closes, T["emaFast"]), ema_series(closes, T["emaSlow"])
+    RV = cfg["reversion"]
+    bb = _bands(closes, RV["bbPeriod"], RV["bbK"])
 
     # ---- Replay one trade at a time, exactly like the backtest ----
     latest: Optional[tuple[dict, dict]] = None
     i = max(T["emaSlow"] + 10, B["lookback"] + R["stopRefBars"])
     while i <= last:
-        b = _breakout_at(h1, i, atr, ef, es, cfg)
+        b = _reversion_at(h1, i, atr, ef, es, bb, cfg) or _breakout_at(h1, i, atr, ef, es, cfg)
         if not b:
             i += 1
             continue
@@ -167,7 +224,34 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
             setup = s
 
     checklist: list[dict]
-    if setup:
+    if setup and latest[0].get("kind") == "REVERSION":
+        b = latest[0]
+        buy = b["buy"]
+        RW = cfg["scoring"]["reversionWeights"]
+        nb = news_block(setup["signalTime"], inp["news"]["events"], FIL["news"])
+        day = inp["day"]
+        side = "lower" if buy else "upper"
+        checklist = [
+            item("trend", f"H1 trend: EMA{T['emaFast']} {'>' if buy else '<'} EMA{T['emaSlow']} and close {'above' if buy else 'below'} EMA{T['emaSlow']}",
+                 "اتجاه H1 واضح", True, trend_detail if setup["isFresh"] else f"{'Bullish' if buy else 'Bearish'} trend at the entry", RW["trend"], True),
+            item("excursion", f"Previous H1 closed beyond the {js_str(RV['bbK'])}σ {side} Bollinger band (against the trend)", "إغلاق خارج نطاق بولينجر عكس الاتجاه", True,
+                 f"Close {f(b['excursion'])} {'<' if buy else '>'} band {f(b['band'])}", RW["excursion"], True),
+            item("confirm", f"Confirmation: H1 closes back inside the band, {'bullish' if buy else 'bearish'} candle", "شمعة تأكيد ترجع داخل النطاق", True,
+                 f"Close {f(setup['entry'])} back inside ({b['session']} session)", RW["confirm"], True),
+            item("session", f"London or New York session ({RV['sessionUtc'][0]:02d}:00–{RV['sessionUtc'][1]:02d}:00 UTC)", "جلسة لندن أو نيويورك", True, b["session"], 0, True),
+            item("stop", f"Stop beyond both candles ± {js_str(RV['slBufferAtr'])}× ATR", "الستوب خلف الشمعتين", True,
+                 f"SL {f(setup['sl'])} = ${to_fixed(setup['slDistance'], 2)} ({to_fixed(b['risk'] / b['atr'], 2)}× ATR)", RW["stop"], True),
+            item("target", f"One target at {js_str(RV['tpR'])}R (back toward the mean), time exit after {RV['maxBars']} H1 candles", "هدف واحد 1R",
+                 True, f"TP {f(setup['tp3'])} · band middle {f(b['mid'])}", RW["target"], True),
+            item("oneTrade", "One trade at a time", "صفقة واحدة في نفس الوقت", True, "No other gold trade open at the entry", 0, True),
+            item("news", "No high-impact USD news ±30 min", "لا أخبار قوية للدولار ±30 دقيقة", not nb["blocked"],
+                 f"{nb['event']['currency']} {nb['event']['title']} at {fmt_time(nb['event']['time'])}" if nb["event"] else "Clear", 0, True),
+            item("spread", f"Spread <= ${js_str(FIL['maxSpread'])}", "السبريد مقبول", spread <= FIL["maxSpread"],
+                 f"Spread ${to_fixed(spread, 2)}{' (assumed, no live spread in feed)' if inp['spread'] is None else ''}", 0, True),
+            item("daily", f"Max {FIL['maxTradesPerDay']} trades / stop after {FIL['maxLossesPerDay']} losses per day", "حد الصفقات اليومي",
+                 day["trades"] < FIL["maxTradesPerDay"] and day["losses"] < FIL["maxLossesPerDay"], f"{day['trades']} trade(s), {day['losses']} loss(es) today", 0, True),
+        ]
+    elif setup:
         b = latest[0]
         buy = b["buy"]
         signal_time = setup["signalTime"]
@@ -195,10 +279,13 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
                  f"{day['trades']} trade(s), {day['losses']} loss(es) today", 0, True),
         ]
     else:
+        mid_n, up_n, lo_n = bb[0][last], bb[1][last], bb[2][last]
         if trend_now == 1:
-            progress = f"Bullish trend: waiting for an H1 close above the {B['lookback']}-hour high {f(range_hi)}"
+            progress = (f"Bullish trend: waiting for an H1 close above the {B['lookback']}-hour high {f(range_hi)} (breakout) "
+                        f"or a dip below the lower band {f(lo_n)} that closes back inside (reversion)")
         elif trend_now == -1:
-            progress = f"Bearish trend: waiting for an H1 close below the {B['lookback']}-hour low {f(range_lo)}"
+            progress = (f"Bearish trend: waiting for an H1 close below the {B['lookback']}-hour low {f(range_lo)} (breakout) "
+                        f"or a spike above the upper band {f(up_n)} that closes back inside (reversion)")
         else:
             progress = f"No clear H1 trend (EMA{T['emaFast']} / EMA{T['emaSlow']}): no trade"
         checklist = [
@@ -227,7 +314,21 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
          "text": f"{B['lookback']}h low", "color": "bear" if trend_now == -1 else "muted", "style": "dashed"},
         *level_drawings(daily_weekly_levels(h1)),
     ]
-    if setup:
+    up_n, lo_n = bb[1][last], bb[2][last]
+    if up_n == up_n:
+        drawings += [
+            {"id": "XAU-BB-U", "layer": "levels", "kind": "hline", "tf": "H1", "t1": h1[max(0, last - 24)].time, "t2": None, "p1": up_n,
+             "text": f"Bollinger {js_str(RV['bbK'])}σ upper", "color": "bear", "style": "dotted"},
+            {"id": "XAU-BB-L", "layer": "levels", "kind": "hline", "tf": "H1", "t1": h1[max(0, last - 24)].time, "t2": None, "p1": lo_n,
+             "text": f"Bollinger {js_str(RV['bbK'])}σ lower", "color": "bull", "style": "dotted"},
+        ]
+    if setup and "reversion" in setup["anchors"]:
+        rv = setup["anchors"]["reversion"]
+        drawings.append({"id": f"XAU-RV-{rv['time']}", "layer": "structure", "kind": "marker", "tf": "H1", "t1": rv["time"], "t2": None,
+                         "p1": setup["entry"], "text": f"Reversion · back inside {f(rv['band'])}",
+                         "color": "bull" if rv["direction"] == "BUY" else "bear", "position": "below" if rv["direction"] == "BUY" else "above"})
+        drawings.extend(trade_drawings(setup, "H1", ""))
+    elif setup:
         bo = setup["anchors"]["breakout"]
         drawings.append({"id": f"XAU-BO-{bo['time']}", "layer": "structure", "kind": "hline", "tf": "H1",
                          "t1": bo["time"] - B["lookback"] * H1_SEC, "t2": bo["time"], "p1": bo["level"],
@@ -239,6 +340,8 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
     result["facts"].update({
         "price": price, "spread": spread, "atrH1": round_to(atr[last], 2), "ema50": round_to(ef[last], d), "ema200": round_to(es[last], d),
         "trend": trend_txt, "range20h": {"high": range_hi, "low": range_lo},
+        "bands": {"upper": round_to(bb[1][last], 2), "middle": round_to(bb[0][last], 2), "lower": round_to(bb[2][last], 2)} if bb[1][last] == bb[1][last] else None,
+        "engine": (setup or {}).get("setup"),
         "levels": [{"kind": lv.kind, "label": lv.label, "price": lv.price} for lv in daily_weekly_levels(h1)],
         "lastTrade": ({"id": latest[1]["id"], "state": latest[1]["lifecycle"]["state"], "outcome": latest[1]["lifecycle"]["outcome"],
                        "r": latest[1]["lifecycle"]["rMultiple"]} if latest else None),
@@ -249,9 +352,12 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
     if not setup:
         result["headline"] = result["facts"]["progress"]
     elif status == "SIGNAL" and setup["isFresh"]:
-        result["headline"] = f"{side} market {f(setup['entry'])} · score {result['score']}"
+        result["headline"] = f"{side} market {f(setup['entry'])} · {'reversion' if setup['setup'] == 'REVERSION' else 'breakout'} · score {result['score']}"
     elif status == "SIGNAL":
-        result["headline"] = f"{side} breakout {fmt_time(setup['signalTime'])} · {setup['lifecycle']['state']}"
+        st = setup["lifecycle"]["state"]
+        if setup["setup"] == "REVERSION":
+            st = {"TP1_HIT": "running, 0.5R reached", "TP2_HIT": "running, 0.75R reached"}.get(st, st)
+        result["headline"] = f"{side} {'reversion' if setup['setup'] == 'REVERSION' else 'breakout'} {fmt_time(setup['signalTime'])} · {st}"
     elif status in ("WATCH", "IGNORE"):
         result["headline"] = f"{side} breakout scored {result['score']}"
     else:

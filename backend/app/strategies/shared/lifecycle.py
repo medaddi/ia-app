@@ -8,7 +8,7 @@ SL and a target, SL is assumed first (conservative).
 
 `params` keys (camelCase, stored with the setup): side, entryType, entry, sl, tp1, tp2,
 tp3 (None = trail only), expiryTime, marketFillTime, cancelIfTp1BeforeFill, partials, spread, slippage,
-breakeven (optional, default True: stop to entry at TP1; False = set & forget).
+breakeven (optional, default True: stop to entry at TP1; False = set & forget), maxBars (optional time exit).
 """
 
 from typing import Callable, Optional
@@ -113,5 +113,8 @@ def simulate_lifecycle(c: list[Candle], p: dict, start_index: int,
             t = trail_level(i)
             if t is not None and (t > stop if buy else t < stop):
                 stop = t
+        # Optional time exit: close at the close of the `maxBars`-th candle after the entry (buy at bid, sell at ask)
+        if p.get("maxBars") and i - start_index + 1 >= p["maxBars"]:
+            return close(x.time, x.close if buy else x.close + spread, "TIME_EXIT")
         i += 1
     return res

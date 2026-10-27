@@ -122,6 +122,6 @@ def test_bot_commands(monkeypatch):
     assert "resumed" in say("/resume").lower()
     assert "XAU/USD" in say("/history") and "+1.75R" in sent[-1]
     assert "All time" in say("/stats") and "win rate" in sent[-1]
-    assert "H1 Trend Breakout" in say("/rules")
+    assert "Bollinger reversion" in say("/rules") and "Breakout" in sent[-1]
     assert "/gold" in say("/help") and "/news" in sent[-1]
     assert "No signal running" in say("/open")

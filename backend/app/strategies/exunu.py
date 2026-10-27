@@ -47,6 +47,10 @@ def build_exunu_result(r: dict) -> dict:
         sw = a["sweep"]
         poi = f" · POI {a['poi']['kind']} {f(a['poi']['bottom'])}–{f(a['poi']['top'])}" if a.get("poi") else ""
         liquidity_summary = f"{sw['level']['label']} {f(sw['level']['price'])} swept (wick {f(sw['extreme'])}){poi}"
+    elif a.get("reversion"):
+        rv = a["reversion"]
+        liquidity_summary = (f"{rv['session']}: close {f(rv['excursion'])} beyond the Bollinger band {f(rv['band'])} against the trend, "
+                             f"then back inside at {f(rv['close'])} (middle {f(rv['mid'])})")
     elif a.get("breakout"):
         bo = a["breakout"]
         liquidity_summary = (f"H1 close {f(bo['close'])} {'above' if bo['direction'] == 'BUY' else 'below'} the {bo['lookback']}h "

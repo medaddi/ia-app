@@ -112,7 +112,7 @@ def _levels(signal: dict) -> Optional[dict]:
     symbol = normalize_symbol(signal.get("symbol", ""))
     gold = symbol == "XAU/USD"
     return {"symbol": symbol, "buy": signal.get("signalType") == "BUY", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
-            "single": sj.get("setup") in ("GPA", "BREAK_RETEST") and tp3 is not None,  # FXAlexG set & forget: one target
+            "single": sj.get("setup") in ("GPA", "BREAK_RETEST", "REVERSION") and tp3 is not None,  # one target (forex set & forget, gold reversion)
             "orderType": sj.get("entry_type") or signal.get("entryType") or "LIMIT", "expires": sj.get("expires_at"),
             "decimals": 2 if gold else 5, "pip": 0.1 if gold else 0.0001}
 
@@ -446,7 +446,7 @@ def _market_text() -> str:
 
 
 RULES = """<b>How the signals work</b>
-🥇 <b>Gold (H1 Trend Breakout)</b>: trend by EMA50 vs EMA200; an H1 candle closes beyond the 20-hour high/low with a strong body → market entry. SL beyond the last 4 candles (1–3× ATR). TP1 1R (close 50%, SL to entry), TP2 2R, TP3 3R.
+🥇 <b>Gold: two engines, one trade at a time</b>. Trend by EMA50 vs EMA200. <b>Breakout</b>: an H1 candle closes beyond the 20-hour high/low with a strong body → TP1 1R (close 50%, SL to entry), TP2 2R, TP3 3R. <b>Bollinger reversion</b> (London / New York): a close beyond the 2.2σ band against the trend, then a candle back inside with the trend → one target at 1R, closed after 24 H1 candles. 2 years: 59% winners, +49.9R.
 💱 <b>Forex: EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF (FXAlexG Set &amp; Forget GPA)</b>: trend on W1, D1 and H4 by structure (body close only), trade the majority. Areas of interest only on W1 / D1 with 3+ touches. Entry after the AOI touch, an H4 rejection and a 30m engulfing at the London or New York open. SL beyond the pattern head, TP at the next W1 / D1 zone before a round level, minimum 1:2. Set &amp; forget.
 🎓 Grade: 10 confluences × 10% → A+ 80%+, B 70%+, C+ 60%+ (minimum). Below 60%: no signal.
 Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.

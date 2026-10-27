@@ -89,7 +89,7 @@ def session_drawings(sessions: list[SessionRange]) -> list[dict]:
     return out
 
 
-_EXIT_MARKERS = ("TP1", "TP2", "TP3", "SL", "BE_EXIT", "TRAIL_EXIT")
+_EXIT_MARKERS = ("TP1", "TP2", "TP3", "SL", "BE_EXIT", "TRAIL_EXIT", "TIME_EXIT")
 
 
 def trade_drawings(setup: dict, entry_tf: str, lot_text: str) -> list[dict]:
@@ -109,12 +109,15 @@ def trade_drawings(setup: dict, entry_tf: str, lot_text: str) -> list[dict]:
         {"id": f"TR-TP-{sid}", "layer": "trade", "kind": "box", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "p2": goal, "text": f"{goal_name} {s(goal)} · {rr_text}", "color": "bull"},
         {"id": f"TR-SL-{sid}", "layer": "trade", "kind": "box", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "p2": setup["sl"], "text": f"SL {s(setup['sl'])} · {s(setup['slPips'])}p" + (f" · {lot_text}" if lot_text else ""), "color": "bear"},
         {"id": f"TR-EN-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["entry"], "text": f"Entry {s(setup['entry'])}", "color": "entry", "style": "solid"},
-        {"id": f"TR-T1-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["tp1"], "text": f"TP1 {s(setup['tp1'])}", "color": "bull", "style": "dashed"},
-        {"id": f"TR-T3-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["tp3"], "text": f"TP3 {s(setup['tp3'])}", "color": "bull", "style": "dotted"},
     ]
+    if not single:  # one-target trades: TP1 / TP2 are only progress marks, the box already ends at the target
+        out += [
+            {"id": f"TR-T1-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["tp1"], "text": f"TP1 {s(setup['tp1'])}", "color": "bull", "style": "dashed"},
+            {"id": f"TR-T3-{sid}", "layer": "trade", "kind": "hline", "tf": entry_tf, "t1": t1, "t2": end, "p1": setup["tp3"], "text": f"TP3 {s(setup['tp3'])}", "color": "bull", "style": "dotted"},
+        ]
     for e in lc["events"]:
         t = e["type"]
-        if (t == "FILL" and setup["entryType"] == "LIMIT") or t in _EXIT_MARKERS:
+        if ((t == "FILL" and setup["entryType"] == "LIMIT") or t in _EXIT_MARKERS) and not (single and t in ("TP1", "TP2")):
             out.append({"id": f"TR-EV-{t}-{sid}", "layer": "trade", "kind": "marker", "tf": entry_tf, "t1": e["time"], "t2": None, "p1": e["price"],
                         "text": "Filled" if t == "FILL" else t.replace("_", " ", 1),
                         "color": "bear" if t == "SL" else "entry" if t == "FILL" else "bull",

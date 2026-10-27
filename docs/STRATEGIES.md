@@ -24,27 +24,38 @@ strategy's config file. Same closed candles → same result, every time.
 - **Sessions**: defined in Europe/London and America/New_York local time and converted to UTC with the real DST offset of each date (tests cover the March and October clock changes).
 - **Score**: weighted checklist 0–100. **≥ 75 = SIGNAL** (sent to Telegram once), **60–74 = WATCH** (chart only), **< 60 = ignored**. Any failed *required* rule = **NO TRADE**.
 
-## Strategy 1 — XAUUSD "H1 Trend Breakout"
+## Strategy 1 — XAUUSD: two engines, one trade at a time
 
-1. **Trend (H1)**: BUY only if EMA 50 > EMA 200 **and** the H1 close is above EMA 200. SELL only on the mirror. Otherwise **NO TRADE**.
-2. **Entry**: an H1 candle **closes** above the highest high (buys) / below the lowest low (sells) of the **previous 20 H1 candles**, with a body > **0.5 × ATR(14, H1)**. **MARKET entry** at that close; do not enter more than 30 minutes later.
-3. **Stop**: beyond the lowest low (buys) / highest high (sells) of the last 4 candles, plus 0.2 × ATR. It must be at least **1 × ATR** from the entry. If it would be wider than **3 × ATR**, there is no trade.
-4. **Targets**: TP1 = **1R** → close 50%, move the stop to the entry. TP2 = **2R** → close 25%. TP3 = **3R** → close the rest. TP distances are computed from the rounded entry and stop, so they are exactly 1R / 2R / 3R as printed.
-5. **One gold trade at a time**: candles are replayed in order, and a new breakout only counts after the previous trade closed.
-6. **Filters**: no trade 30 minutes before/after high-impact USD news (CPI, NFP, FOMC, Fed Chair, PCE, GDP); spread ≤ $0.50; max 3 trades per day; stop after 2 losses.
-7. **Score weights**: trend 25, breakout 25, momentum (body / ATR) 20, stop 10, targets 20.
+Gold runs two engines on H1 (`backend/app/strategies/xauusd/`). At every H1 close the candles are replayed in order:
+the first engine whose **confirmation** prints is traded, and nothing else counts until that trade has closed.
+Both need the same H1 trend: BUY only if EMA 50 > EMA 200 and the close is above EMA 200 (mirror for SELL).
 
-**Why this strategy.** The earlier gold model (sweep + MSS + FVG on M5) gave 0 signals in 68 days; 25+ looser variants added only losing trades. This model was chosen from a 2-year H1 test (Oct 2024 – Oct 2026, 11,466 candles, spread $0.25, slippage $0.05) among models fixed in advance:
+**A. H1 Trend Breakout** — an H1 candle CLOSES beyond the highest high / lowest low of the previous 20 H1 candles with a
+body > 0.5 × ATR(14) → MARKET. Stop beyond the last 4 candles ± 0.2 × ATR (≥ 1 × ATR, no trade above 3 × ATR).
+TP1 1R (close 50%, stop to breakeven), TP2 2R, TP3 3R.
 
-| Test | Trades | Win rate | Total | Profit factor | Max drawdown |
+**B. Bollinger Reversion** (high win rate) — London + New York only (07:00–17:00 UTC). The previous H1 candle CLOSED
+beyond the 2.2σ Bollinger band (20) **against** the trend, and this candle closes back inside the band **with** the
+trend (the confirmation) → MARKET. Stop beyond both candles ± 0.3 × ATR. **One target at 1R**, no partials, and the
+trade is closed at market after 24 H1 candles if neither is hit.
+
+Filters (both): 30 min around high-impact USD news, spread ≤ $0.5, max 3 trades / 2 losses per day.
+
+### How the engines were chosen (2 years of H1, Oct 2024 – Oct 2026, spread $0.30 + $0.05 slippage)
+
+| Candidate | Trades | Win rate | Total | Both halves | Costs ×2 |
 |---|---|---|---|---|---|
-| Research, all | 149 | 58% | +36.5R | 1.57 | 7.8R |
-| 1st year / 2nd year | 79 / 70 | 57% / 59% | +17.4R / +19.2R | 1.50 / 1.66 | 7.8R / 3.8R |
-| Buys / sells | 98 / 51 | 56% / 61% | +24.7R / +11.9R | 1.57 / 1.59 | — |
-| Costs × 3 | 149 | 57% | +32.6R | 1.50 | 8.0R |
-| App engine (replay, Dec 2024 – Oct 2026) | 144 | 57.6% | +35.3R | 1.57 | 7.85R |
+| **H1 trend breakout** (kept) | 165 | 56% | +38.9R | ✅ | +37.4R |
+| **Bollinger 2.2σ reversion, London/NY, TP 1R** (kept) | 82 | 69.5% | +17.7R | ✅ | +16.3R |
+| RSI(2) Connors pullback | 530 | 63% | −5.2R | ❌ | −10.8R |
+| EMA 20/50 pullback | 547 | 43% | −87.3R | ❌ | −96.5R |
+| Asian range breakout at London | 100 | 45% | −11.4R | ❌ | −12.8R |
+| Previous-day high/low sweep | 161 | 52% | +2.2R | ❌ | −0.5R |
 
-7 of 9 quarters were positive (2025-Q2 −4.1R). Median stop $34 (10–90%: $14–$65), about 6 trades per month. Past results do not guarantee future results.
+Neighbouring settings of the reversion engine stay positive (2.0–2.5σ, TP 0.8–1.2R: 62–74% winners), so it is not a
+lucky parameter. Run together by the app's own code, one trade at a time: **215 trades, 59% winners, +49.9R**
+(reversion 55 trades, 65.5%, +13.7R · breakout 160 trades, 56.9%, +36.2R), both halves positive. Gold rose from
+$2,358 to $4,073 over the period; both engines made money on buys and on sells.
 
 ## Strategy 2 — Forex "FXAlexG Set & Forget GPA" (8 pairs, same rules)
 

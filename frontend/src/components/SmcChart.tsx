@@ -259,6 +259,9 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       if (num(facts.ema200) !== null) keyFacts.push({ label: 'EMA200', value: fmt(num(facts.ema200)!) });
       if (num(facts.atrH1) !== null) keyFacts.push({ label: 'ATR H1', value: `$${num(facts.atrH1)!.toFixed(2)}` });
       if (rng?.high && rng?.low) keyFacts.push({ label: t('20h range', 'Range 20 h', 'نطاق 20 ساعة'), value: `${fmt(rng.low)} – ${fmt(rng.high)}` });
+      // Second engine (reversion): the 2.2σ Bollinger band it waits for a close beyond
+      const bands = facts.bands as { upper: number; middle: number; lower: number } | null | undefined;
+      if (bands) keyFacts.push({ label: t('Bollinger 2.2σ', 'Bollinger 2,2σ', 'بولينجر 2.2σ'), value: `${fmt(bands.lower)} · ${fmt(bands.middle)} · ${fmt(bands.upper)}` });
     } else {
       // The 3 sync rule, the GPA grade right now, and the W1 / D1 zones with their touches
       for (const [k, key] of [['W1', 'trendW1'], ['D1', 'trendD1'], ['H4', 'trendH4']] as const) {

@@ -8,9 +8,9 @@ halves of the period, on buys and sells, and with trading costs tripled (see doc
 from ..shared.sessions import LONDON
 
 XAU_CONFIG = {
-    "version": "2.0.0",
-    "strategy": "H1_TrendBreakout",
-    "name": "XAUUSD · H1 Trend Breakout",
+    "version": "3.0.0",
+    "strategy": "H1_Breakout_Reversion",
+    "name": "XAUUSD · H1 Trend Breakout + Bollinger Reversion",
     "spec": {"symbol": "XAUUSD", "displaySymbol": "XAU/USD", "decimals": 2, "pipSize": 0.1, "contractSize": 100, "minLot": 0.01, "lotStep": 0.01},
     "timeframes": {"bias": "H1", "setup": "H1", "entry": "H1"},
     "history": 900,  # H1 candles analysed (EMA200 needs ~200, the rest replays one-trade-at-a-time)
@@ -20,6 +20,20 @@ XAU_CONFIG = {
     "breakout": {
         "lookback": 20,  # close beyond the highest high / lowest low of the previous 20 H1 candles
         "minBodyAtr": 0.5,  # breakout candle body > 0.5 × ATR(14, H1)
+    },
+
+    # Second engine, "Bollinger reversion": in the trend, an H1 close beyond the 2.2σ band AGAINST the trend,
+    # then a candle that closes back inside with the trend → MARKET; one target at 1R, time exit after 24 H1 candles.
+    # Only during London + New York (07:00–17:00 UTC). Backtest 2 years: 82 trades, 69.5% winners, +17.7R (see docs).
+    "reversion": {
+        "bbPeriod": 20,
+        "bbK": 2.2,
+        "sessionUtc": [7, 17],
+        "slBufferAtr": 0.3,  # stop beyond the two candles ± 0.3 × ATR
+        "tpR": 1,
+        "tp1R": 0.5,  # progress marks only (one target, no partials, no breakeven)
+        "tp2R": 0.75,
+        "maxBars": 24,
     },
 
     "risk": {
@@ -62,6 +76,7 @@ XAU_CONFIG = {
 
     "scoring": {
         "weights": {"trend": 25, "breakout": 25, "momentum": 20, "stop": 10, "targets": 20},
+        "reversionWeights": {"trend": 25, "excursion": 25, "confirm": 25, "stop": 10, "target": 15},
         "thresholds": {"signal": 75, "watch": 60},
     },
 }

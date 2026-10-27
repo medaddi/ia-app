@@ -112,3 +112,50 @@ def test_closed_trade_reports_its_result():
     r = run(c + [Candle(c[-1].time + 3600, p, p + 3.2 * risk, p - 0.1, p + 3 * risk)])
     lc = r["facts"]["lastTrade"]
     assert lc["state"] == "CLOSED" and lc["outcome"] == "WIN" and 1.6 < lc["r"] < 1.8
+
+
+def reversion_series(hour_utc: int):
+    """Uptrend, a calm range, a candle that closes far below the lower Bollinger band, then a bullish close back inside."""
+    midnight = 1_790_035_200  # 00:00 UTC
+    t0 = midnight - 376 * 3600 + hour_utc * 3600  # the confirmation candle (index 376) opens at `hour_utc`
+    c, price = [], 3000.0
+    for k in range(350):
+        o = price
+        price += 0.5
+        c.append(Candle(t0 + k * 3600, o, max(o, price) + 1, min(o, price) - 1, price))
+    level = price
+    for k in range(25):
+        o = level + (0.3 if k % 2 else -0.3)
+        cl = level - (0.3 if k % 2 else -0.3)
+        c.append(Candle(t0 + (350 + k) * 3600, o, max(o, cl) + 0.5, min(o, cl) - 0.5, cl))
+    c.append(Candle(t0 + 375 * 3600, level, level + 0.2, level - 8.6, level - 8.0))  # closes below the 2.2σ band
+    c.append(Candle(t0 + 376 * 3600, level - 7.0, level - 1.6, level - 7.4, level - 2.0))  # bullish, back inside
+    return c
+
+
+def test_bollinger_reversion_in_the_session():
+    c = reversion_series(10)
+    r = run(c)
+    s = r["setup"]
+    assert r["status"] == "SIGNAL" and s["setup"] == "REVERSION" and s["direction"] == "BUY" and s["id"].startswith("XAUUSD-RV-"), r["headline"]
+    risk = s["entry"] - s["sl"]
+    assert abs(s["tp3"] - (s["entry"] + risk)) < 0.02 and s["tp1"] < s["tp2"] < s["tp3"]  # one target at 1R, marks before it
+    assert abs(s["sl"] - (min(c[-1].low, c[-2].low) - 0.3 * s["anchors"]["reversion"]["atr"])) < 0.05
+    assert s["params"]["partials"] == [0, 0, 1] and s["params"]["breakeven"] is False and s["params"]["maxBars"] == 24
+    assert all(x["passed"] for x in r["checklist"]) and r["score"] == 100
+    assert validate_signal(r)["approved"] and "reversion" in r["headline"]
+
+
+def test_reversion_only_during_london_and_new_york():
+    r = run(reversion_series(20))  # 20:00 UTC: outside 07:00–17:00
+    assert not (r["setup"] and r["setup"]["setup"] == "REVERSION")
+
+
+def test_reversion_time_exit_after_24_candles():
+    c = reversion_series(10)
+    e = c[-1].close
+    # 24 quiet candles that touch neither the stop nor the 1R target: closed at the close of the 24th
+    for k in range(24):
+        c.append(Candle(c[-1].time + 3600, e, e + 0.5, e - 0.5, e + 0.1))
+    lc = run(c)["setup"]["lifecycle"]
+    assert lc["state"] == "CLOSED" and lc["events"][-1]["type"] == "TIME_EXIT" and lc["exitTime"] == c[-1].time
