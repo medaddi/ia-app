@@ -133,7 +133,16 @@ def build_exunu_result(r: dict) -> dict:
 
 async def run_exunu(symbol: str = "XAU/USD", price: Optional[float] = None, as_of: int = 0) -> dict:
     bundle = await (get_strategy_result_as_of(symbol, as_of) if as_of > 0 else get_strategy_result(symbol, live_price=price))
-    return build_exunu_result(bundle["result"])
+    out = build_exunu_result(bundle["result"])
+    r = bundle["result"]
+    if r["setup"] and r["status"] in ("SIGNAL", "WATCH") and as_of <= 0:
+        # The AI trade desk's live verdict on this setup (the same checks run right before a Telegram send)
+        from ..agent.trade_desk import review
+        from ..db import SessionLocal
+
+        with SessionLocal() as db:
+            out["tradeDesk"] = review(r, db)
+    return out
 
 
 def to_ai_signal(res: dict, live_price: Optional[float] = None) -> dict:

@@ -96,3 +96,33 @@ def test_agent_answers_in_the_five_parts():
     for part in ("1. Trend Sync Check", "2. AOI Validation", "3. Confluence Checklist & Final Grade", "4. Final Verdict", "5. Trade Parameters"):
         assert part in text
     assert "TAKE TRADE" in text and "60% → C+" in text and f"SL {r['setup']['sl']:.5f}" in text
+
+
+def test_trade_desk_blocks_late_entries_and_crowded_currencies():
+    from app.agent.trade_desk import legs, review
+    from app.db import SessionLocal, init_db
+    from app.models import Signal
+
+    r = S.evaluate_alexg(_input(FIX["nowSec"]), CFG)
+    s = r["setup"]
+    assert legs("USD/CAD", "BUY") == {"USD": 1, "CAD": -1} and legs("XAU/USD", "SELL") == {"XAU": -1, "USD": 1}
+    assert review(r)["approved"]  # at the candle close, price = entry
+    risk = s["entry"] - s["sl"]
+    late = {**r, "price": s["entry"] + 0.6 * risk}  # the market ran 0.6R away before the send
+    out = review(late)
+    assert not out["approved"] and any(c["key"] == "drift" and not c["passed"] for c in out["checks"])
+    stale = {**r, "dataQuality": {**r["dataQuality"], "stale": True, "reason": "last good"}}
+    assert not review(stale)["approved"]
+
+    init_db()
+    with SessionLocal() as db:  # two open USD-long signals already: a third one is blocked
+        for k, (sym, side) in enumerate((("EUR/USD", "SELL"), ("GBP/USD", "SELL"))):
+            db.merge(Signal(id=f"T-EXPO-{k}", symbol=sym, setup="GPA", direction=side, entry_type="MARKET", entry=1, sl=1.01, tp1=0.99, tp2=0.98,
+                            tp3=0.97, rr_tp2=2, score=70, signal_time=1, state="OPEN", params={}, payload={}))
+        db.commit()
+        out = review(r, db)
+        assert not out["approved"] and any(c["key"] == "exposure" and not c["passed"] for c in out["checks"])
+        for k in range(2):
+            db.delete(db.get(Signal, f"T-EXPO-{k}"))
+        db.commit()
+        assert review(r, db)["approved"]

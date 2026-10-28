@@ -15,7 +15,7 @@ import {
   createSeriesMarkers,
   Time,
 } from 'lightweight-charts';
-import { Check, Maximize2, RefreshCw, X } from 'lucide-react';
+import { Check, ChevronDown, Expand, Layers as LayersIcon, Maximize2, Minimize2, RefreshCw, X } from 'lucide-react';
 import type { StrategyResult, DrawingLayer } from '../strategyTypes';
 import { DrawingsPrimitive, OverlayTheme } from '../chart-overlays/drawingsPrimitive';
 
@@ -45,7 +45,7 @@ interface SmcChartProps {
 }
 
 const TF_SEC: Record<string, number> = { M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800 };
-type Layer = DrawingLayer | 'ema';
+type Layer = DrawingLayer | 'ema' | 'bands';
 const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'sessions', label: ['Sessions', 'Sessions', 'الجلسات'] },
   { key: 'levels', label: ['Key levels', 'Niveaux clés', 'المستويات'] },
@@ -56,11 +56,23 @@ const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'ob', label: ['OB', 'OB', 'OB'] },
   { key: 'fib', label: ['Fib', 'Fib', 'فيبو'] },
   { key: 'ema', label: ['EMA', 'EMA', 'EMA'] },
+  { key: 'bands', label: ['Bollinger 2.2σ', 'Bollinger 2,2σ', 'بولينجر 2.2σ'] },
   { key: 'trade', label: ['Trade', 'Trade', 'الصفقة'] },
 ];
 const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Record<Layer, boolean>;
-const LAYER_KEY = 'exunu_chart_layers_v1';
+const layerKey = (kind: string) => `ld_chart_layers_${kind}_v2`;
 const ALWAYS_SHOWN: Layer[] = ['ema', 'trade'];
+
+function bollinger(values: number[], period: number, k: number): { mid: (number | null)[]; up: (number | null)[]; lo: (number | null)[] } {
+  const mid: (number | null)[] = new Array(values.length).fill(null), up = [...mid], lo = [...mid];
+  for (let i = period - 1; i < values.length; i++) {
+    const w = values.slice(i - period + 1, i + 1);
+    const m = w.reduce((a, b) => a + b, 0) / period;
+    const sd = Math.sqrt(w.reduce((a, b) => a + (b - m) ** 2, 0) / period);
+    mid[i] = m; up[i] = m + k * sd; lo[i] = m - k * sd;
+  }
+  return { mid, up, lo };
+}
 
 const fmtLeft = (sec: number) => {
   const s = Math.max(0, Math.floor(sec));
@@ -93,6 +105,12 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const emaRefs = useRef<ISeriesApi<'Line'>[]>([]);
+  const bandRefs = useRef<ISeriesApi<'Line'>[]>([]);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [full, setFull] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches);
+  const kind = symbol === 'XAU/USD' ? 'gold' : 'forex';
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const primitiveRef = useRef<DrawingsPrimitive | null>(null);
   const fitKeyRef = useRef('');
@@ -107,9 +125,11 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const t = (en: string, fr: string, ar: string) => [en, fr, ar][li];
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => { const id = setInterval(() => setNowMs(Date.now()), 1000); return () => clearInterval(id); }, []);
-  const [layers, setLayers] = useState<Record<Layer, boolean>>(() => {
-    try { return { ...DEFAULT_LAYERS, ...JSON.parse(localStorage.getItem(LAYER_KEY) || '{}') }; } catch { return DEFAULT_LAYERS; }
-  });
+  const loadLayers = (k: string): Record<Layer, boolean> => {
+    try { return { ...DEFAULT_LAYERS, ...JSON.parse(localStorage.getItem(layerKey(k)) || '{}') }; } catch { return DEFAULT_LAYERS; }
+  };
+  const [layers, setLayers] = useState<Record<Layer, boolean>>(() => loadLayers(kind));
+  useEffect(() => { setLayers(loadLayers(kind)); }, [kind]);
 
   const decimals = result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5);
   const fmt = (v: number) => v.toFixed(decimals);
@@ -124,9 +144,34 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     return () => obs.disconnect();
   }, []);
 
+  // The layers menu closes on a click outside it or on Escape
+  const layersRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    try { localStorage.setItem(LAYER_KEY, JSON.stringify(layers)); } catch { /* storage unavailable */ }
-  }, [layers]);
+    if (!layersOpen) return;
+    const down = (e: MouseEvent) => { if (layersRef.current && !layersRef.current.contains(e.target as Node)) setLayersOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setLayersOpen(false); };
+    document.addEventListener('mousedown', down);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
+  }, [layersOpen]);
+  const toggleLayer = (k: Layer) => setLayers(prev => {
+    const next = { ...prev, [k]: !prev[k] };
+    try { localStorage.setItem(layerKey(kind), JSON.stringify(next)); } catch { /* storage unavailable */ }
+    return next;
+  });
+
+  // Real full screen (Esc leaves it); the chart follows the new size
+  useEffect(() => {
+    const on = () => setFull(document.fullscreenElement === frameRef.current);
+    document.addEventListener('fullscreenchange', on);
+    return () => document.removeEventListener('fullscreenchange', on);
+  }, []);
+  const toggleFull = () => {
+    const el = frameRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    else (el.requestFullscreen?.() ?? Promise.reject()).catch(() => setFull(f => !f));  // iOS: CSS full-screen fallback
+  };
 
   // Chart instance (rebuilt on theme or precision change)
   useEffect(() => {
@@ -154,6 +199,10 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.88, bottom: 0 } });
     const emaLines = [p.ema50, p.ema200].map(color => chart.addSeries(LineSeries, { color, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }));
+    const bandLines = [0, 1, 2].map(k => chart.addSeries(LineSeries, {
+      color: k === 1 ? 'rgba(160,150,220,0.55)' : 'rgba(160,150,220,0.85)', lineWidth: 1, lineStyle: k === 1 ? LineStyle.Dotted : LineStyle.Solid,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    }));
     const prim = new DrawingsPrimitive();
     cs.attachPrimitive(prim);
 
@@ -185,6 +234,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     candleRef.current = cs;
     volRef.current = vol;
     emaRefs.current = emaLines;
+    bandRefs.current = bandLines;
     markersRef.current = createSeriesMarkers(cs, []);
     primitiveRef.current = prim;
     fitKeyRef.current = '';
@@ -220,18 +270,24 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       line.setData(layers.ema && period ? toLine(ema(closes, period)) : []);
       line.applyOptions({ color: k === 0 ? p.ema50 : p.ema200, title: period ? `EMA${period}` : '' });
     });
+    // Gold's reversion engine reads the 20-period 2.2σ Bollinger band: drawn only on the gold chart
+    const bb = kind === 'gold' && layers.bands ? bollinger(closes, 20, 2.2) : null;
+    bandRefs.current.forEach((line, k) => line.setData(bb ? toLine([bb.up, bb.mid, bb.lo][k]) : []));
     const key = `${symbol}-${timeframe}-${theme}`;
     if (fitKeyRef.current !== key && bars.length) {
       fitKeyRef.current = key;
       chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 140), to: bars.length + 10 });
     }
-  }, [bars, symbol, timeframe, theme, layers.ema, emas]);
+  }, [bars, symbol, timeframe, theme, layers.ema, layers.bands, emas, kind]);
+
+  // A new pair / timeframe: forget the old crosshair and explanation
+  useEffect(() => { chartRef.current?.clearCrosshairPosition(); setExplain(null); }, [symbol, timeframe]);
 
   // Drawings + entry arrow
   useEffect(() => {
     const prim = primitiveRef.current;
     if (!prim) return;
-    const { ema: _ema, ...drawLayers } = layers;
+    const { ema: _ema, bands: _bands, ...drawLayers } = layers;
     prim.update({ drawings: result?.drawings ?? [], barTimes: bars.map(b => b.time), tfSec, chartTf: timeframe, layers: drawLayers as Record<DrawingLayer, boolean>, theme });
     const markers: any[] = [];
     if (setup && layers.trade && signalBarTime !== null) {
@@ -245,16 +301,24 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
 
   const last = bars[bars.length - 1];
   const ohlc = hover.c || last;
+  const legendIdx = ohlc ? bars.findIndex(b => b.time === ohlc.time) : -1;
+  const closesAll = useMemo(() => bars.map(b => b.close), [bars]);
+  const emaVals = useMemo(() => emas.map(period => ema(closesAll, period)), [closesAll, emas]);
+  const bbVals = useMemo(() => (kind === 'gold' ? bollinger(closesAll, 20, 2.2) : null), [closesAll, kind]);
+  const prevClose = legendIdx > 0 ? bars[legendIdx - 1].close : null;
+  const chg = ohlc && prevClose ? ((ohlc.close - prevClose) / prevClose) * 100 : null;
 
   // The numbers this strategy decides on, straight from its own output (no recomputation here)
   const facts = (result?.facts ?? {}) as Record<string, unknown>;
   const pip = result?.spec.pipSize ?? (symbol === 'XAU/USD' ? 0.1 : 0.0001);
   const trendTone = (t: string) => (t === 'bullish' ? 'text-emerald-400' : t === 'bearish' ? 'text-rose-400' : 'text-slate-300');
+  const trendWord = (w: string) => (w === 'bullish' ? t('bullish', 'haussière', 'صاعد') : w === 'bearish' ? t('bearish', 'baissière', 'هابط')
+    : w === 'flat' || w === 'none' ? t('none', 'aucune', 'بلا اتجاه') : w || '—');
   const keyFacts: { label: string; value: string; tone?: string }[] = [];
   if (result?.dataQuality.ok) {
     if (symbol === 'XAU/USD') {
       const rng = facts.range20h as { high?: number; low?: number } | undefined;
-      keyFacts.push({ label: t('H1 trend', 'Tendance H1', 'اتجاه H1'), value: str(facts.trend) || '—', tone: trendTone(str(facts.trend)) });
+      keyFacts.push({ label: t('H1 trend', 'Tendance H1', 'اتجاه H1'), value: trendWord(str(facts.trend)), tone: trendTone(str(facts.trend)) });
       if (num(facts.ema50) !== null) keyFacts.push({ label: 'EMA50', value: fmt(num(facts.ema50)!) });
       if (num(facts.ema200) !== null) keyFacts.push({ label: 'EMA200', value: fmt(num(facts.ema200)!) });
       if (num(facts.atrH1) !== null) keyFacts.push({ label: 'ATR H1', value: `$${num(facts.atrH1)!.toFixed(2)}` });
@@ -265,7 +329,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     } else {
       // The 3 sync rule, the GPA grade right now, and the W1 / D1 zones with their touches
       for (const [k, key] of [['W1', 'trendW1'], ['D1', 'trendD1'], ['H4', 'trendH4']] as const) {
-        keyFacts.push({ label: k, value: str(facts[key]) || '—', tone: trendTone(str(facts[key])) });
+        keyFacts.push({ label: k, value: trendWord(str(facts[key])), tone: trendTone(str(facts[key])) });
       }
       const live = facts.liveGrade as { score: number; grade: string } | undefined;
       if (live) keyFacts.push({ label: t('Grade now', 'Note actuelle', 'التقييم دابا'), value: `${live.grade} · ${live.score}%`, tone: live.score >= 60 ? 'text-emerald-300' : live.score >= 50 ? 'text-gold-200' : 'text-slate-300' });
@@ -285,7 +349,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
 
   // Only the layers this strategy actually draws (plus its averages and the trade)
   const present = new Set((result?.drawings ?? []).map(d => d.layer));
-  const shownLayers = LAYERS.filter(l => ALWAYS_SHOWN.includes(l.key) || present.has(l.key as DrawingLayer))
+  const shownLayers = LAYERS.filter(l => ALWAYS_SHOWN.includes(l.key) || present.has(l.key as DrawingLayer) || (l.key === 'bands' && kind === 'gold'))
     .map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${({ 'trend on H1': t('trend on H1', 'tendance H1', 'اتجاه H1'), 'rejection on H4 / 1H': t('rejection on H4 / 1H', 'rejet H4 / 1H', 'رفض H4 / 1H') } as Record<string, string>)[emaNote] ?? emaNote}` : l.label[li] }));
   const age = updatedAt ? Math.max(0, Math.round((nowMs - updatedAt) / 1000)) : null;
   const hoverIsSignal = !!(setup && hover.c && signalBarTime !== null && hover.c.time <= signalBarTime && hover.c.time + tfSec > signalBarTime);
@@ -294,36 +358,52 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     : 'bg-slate-500/10 text-slate-300 ring-slate-500/30';
 
   return (
-    <div className="flex flex-col rounded-[var(--radius-card)] border border-line bg-surface overflow-hidden">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 border-b border-line">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-sm font-semibold text-white">{symbol}</span>
-          <span className="text-xs text-slate-500">{timeframe}</span>
-          {ohlc && (
-            <div className="hidden md:flex items-center gap-2 font-mono text-xs text-slate-400">
-              <span>O <span className="text-slate-200">{fmt(ohlc.open)}</span></span>
-              <span>H <span className="text-slate-200">{fmt(ohlc.high)}</span></span>
-              <span>L <span className="text-slate-200">{fmt(ohlc.low)}</span></span>
-              <span>C <span className={ohlc.close >= ohlc.open ? 'text-emerald-400' : 'text-rose-400'}>{fmt(ohlc.close)}</span></span>
-            </div>
-          )}
+    <div ref={frameRef} className={`flex flex-col border border-line bg-surface overflow-hidden ${full ? 'fixed inset-0 z-[60] rounded-none' : 'rounded-[var(--radius-card)]'}`}>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b border-line">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-semibold text-white font-mono">{symbol}</span>
+          <span className="px-1.5 py-0.5 rounded bg-surface-2 text-[11px] font-mono text-gold-300">{timeframe}</span>
+          {timeframe === entryTf && <span className="hidden sm:inline text-[11px] text-slate-500">{t('decision timeframe', 'unité de décision', 'فريم القرار')}</span>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div role="tablist" aria-label={t('Timeframe', 'Unité de temps', 'الفريم')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5">
             {timeframes.map(tf => (
               <button key={tf} role="tab" aria-selected={tf === timeframe} onClick={() => onTimeframeChange(tf)}
-                className={`min-w-[40px] h-8 px-2 rounded-md font-mono text-xs transition-colors ${tf === timeframe ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>
-                {tf}
+                className={`relative min-w-[38px] h-8 px-2 rounded-md font-mono text-xs cursor-pointer transition-colors ${tf === timeframe ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>
+                {tf}{tf === entryTf && <span className="absolute top-1 end-1 w-1 h-1 rounded-full bg-gold-400" aria-hidden="true" />}
               </button>
             ))}
           </div>
+          <div className="relative" ref={layersRef}>
+            <button onClick={() => setLayersOpen(o => !o)} aria-expanded={layersOpen} aria-haspopup="menu"
+              className="h-9 px-2.5 inline-flex items-center gap-1.5 rounded-lg border border-line text-slate-300 hover:text-white hover:bg-surface-2 cursor-pointer text-xs">
+              <LayersIcon className="w-4 h-4" /><span className="hidden sm:inline">{t('Layers', 'Calques', 'الطبقات')}</span><ChevronDown className="w-3 h-3" />
+            </button>
+            {layersOpen && (
+              <div role="menu" aria-label={t('Chart layers', 'Calques du graphique', 'طبقات الشارت')}
+                className="absolute end-0 mt-1.5 w-60 rounded-xl border border-line-2 bg-surface-2 shadow-[var(--shadow-float)] p-1.5 z-40">
+                {shownLayers.map(l => (
+                  <button key={l.key} role="menuitemcheckbox" aria-checked={layers[l.key]} onClick={() => toggleLayer(l.key)}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-slate-200 hover:bg-white/[0.05] cursor-pointer text-start">
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center ${layers[l.key] ? 'bg-gold-500 border-gold-500 text-ink-strong' : 'border-line-2'}`}>
+                      {layers[l.key] && <Check className="w-3 h-3" />}
+                    </span>{l.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button onClick={() => chartRef.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 140), to: bars.length + 10 })}
-            className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white hover:bg-surface-2" aria-label={t('Reset view', 'Recentrer', 'رجع العرض')} title={t('Reset view', 'Recentrer', 'رجع العرض')}>
+            className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white hover:bg-surface-2 cursor-pointer" aria-label={t('Reset view', 'Recentrer', 'رجع العرض')} title={t('Reset view', 'Recentrer', 'رجع العرض')}>
             <Maximize2 className="w-4 h-4" />
           </button>
+          <button onClick={toggleFull} className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white hover:bg-surface-2 cursor-pointer"
+            aria-label={full ? t('Exit full screen', 'Quitter le plein écran', 'خرج من الشاشة الكاملة') : t('Full screen', 'Plein écran', 'شاشة كاملة')} title={full ? t('Exit full screen', 'Quitter le plein écran', 'خرج من الشاشة الكاملة') : t('Full screen', 'Plein écran', 'شاشة كاملة')}>
+            {full ? <Minimize2 className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
+          </button>
           {onRefresh && (
-            <button onClick={onRefresh} className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white hover:bg-surface-2" aria-label={t('Refresh', 'Actualiser', 'تحديث')} title={t('Refresh', 'Actualiser', 'تحديث')}>
+            <button onClick={onRefresh} className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white hover:bg-surface-2 cursor-pointer" aria-label={t('Refresh', 'Actualiser', 'تحديث')} title={t('Refresh', 'Actualiser', 'تحديث')}>
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-gold-400' : ''}`} />
             </button>
           )}
@@ -338,6 +418,12 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
           {result?.setup && ` · ${result.score}`}
         </span>
         <span className="text-slate-400 min-w-0 truncate">{result?.headline ?? t('Loading the analysis…', 'Chargement de l’analyse…', 'كيتحمل التحليل…')}</span>
+        {keyFacts.length > 0 && (
+          <button onClick={() => setDetailsOpen(o => !o)} aria-expanded={detailsOpen}
+            className="inline-flex items-center gap-1 text-slate-400 hover:text-gold-300 cursor-pointer">
+            {t('Details', 'Détails', 'التفاصيل')}<ChevronDown className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
+          </button>
+        )}
         <span className="ms-auto font-mono text-slate-500">
           {t('Trend', 'Tendance', 'الاتجاه')} <span className={result?.bias.direction === 'BULLISH' ? 'text-emerald-400' : result?.bias.direction === 'BEARISH' ? 'text-rose-400' : 'text-slate-400'}>{result ? (result.bias.direction === 'BULLISH' ? t('Bullish', 'Haussière', 'صاعد') : result.bias.direction === 'BEARISH' ? t('Bearish', 'Baissière', 'هابط') : t('Neutral', 'Neutre', 'محايد')) : '—'}</span>
           {result?.market.window ? <span className="text-gold-300"> · {result.market.window}</span> : null}
@@ -345,7 +431,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       </div>
 
       {/* Key numbers of the strategy */}
-      {keyFacts.length > 0 && (
+      {keyFacts.length > 0 && detailsOpen && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-2 border-b border-line text-xs font-mono" aria-label={t('Strategy key levels', 'Chiffres clés de la stratégie', 'أرقام الاستراتيجية')}>
           {keyFacts.map((k, i) => (
             <span key={i} className="whitespace-nowrap">
@@ -357,8 +443,35 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       )}
 
       {/* Chart */}
-      <div className="relative h-[440px] sm:h-[540px]">
+      <div className={`relative ${full ? 'flex-1' : 'h-[58vh] min-h-[380px] max-h-[680px]'}`}>
         <div ref={containerRef} className="absolute inset-0" />
+        {ohlc && (
+          <div className="absolute z-10 top-2 start-2 pointer-events-none font-mono text-[11px] leading-5 px-2 py-1 rounded-md bg-surface/70 backdrop-blur-sm" aria-hidden="true">
+            <div className="flex flex-wrap gap-x-2">
+              <span className="text-slate-200 font-semibold">{symbol} · {timeframe}</span>
+              <span className="text-slate-500">O <span className="text-slate-200">{fmt(ohlc.open)}</span></span>
+              <span className="text-slate-500">H <span className="text-slate-200">{fmt(ohlc.high)}</span></span>
+              <span className="text-slate-500">L <span className="text-slate-200">{fmt(ohlc.low)}</span></span>
+              <span className="text-slate-500">C <span className={ohlc.close >= ohlc.open ? 'text-emerald-400' : 'text-rose-400'}>{fmt(ohlc.close)}</span></span>
+              {chg !== null && <span className={chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{chg >= 0 ? '+' : ''}{chg.toFixed(2)}%</span>}
+            </div>
+            {layers.ema && legendIdx >= 0 && (
+              <div className="flex flex-wrap gap-x-2">
+                {emas.map((period, k) => emaVals[k]?.[legendIdx] != null && (
+                  <span key={period} style={{ color: k === 0 ? PAL[theme].ema50 : PAL[theme].ema200 }}>EMA{period} {fmt(emaVals[k][legendIdx] as number)}</span>
+                ))}
+                {kind === 'gold' && layers.bands && bbVals?.up[legendIdx] != null && (
+                  <span className="text-violet-300">BB {fmt(bbVals.lo[legendIdx] as number)} · {fmt(bbVals.up[legendIdx] as number)}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {result?.dataQuality.ok && (result.dataQuality as any).stale && (
+          <div className="absolute z-20 top-2 end-16 px-2.5 py-1 rounded-md bg-amber-500/15 ring-1 ring-amber-500/30 text-[11px] text-amber-200">
+            {t('Feed retrying · showing the last good analysis', 'Flux en reconnexion · dernière analyse valide', 'الفلوكس كيتعاود · آخر تحليل صالح')}
+          </div>
+        )}
         {hoverIsSignal && setup && result && (
           <div role="tooltip" className="absolute z-20 w-72 max-w-[85%] p-3 rounded-lg border border-line bg-canvas/95 shadow-[var(--shadow-float)] text-xs pointer-events-none"
             style={{ left: Math.min(hover.x + 14, (containerRef.current?.clientWidth ?? 400) - 300), top: Math.max(8, hover.y - 160) }}>
@@ -389,15 +502,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       </div>
 
       {/* Layers + provenance */}
-      <div className="flex flex-col gap-2 px-3 sm:px-4 py-2 border-t border-line text-xs">
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('Chart layers', 'Calques du graphique', 'طبقات الشارت')}>
-          {shownLayers.map(l => (
-            <button key={l.key} aria-pressed={layers[l.key]} onClick={() => setLayers(s => ({ ...s, [l.key]: !s[l.key] }))}
-              className={`h-7 px-2.5 rounded-md border transition-colors ${layers[l.key] ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-500 hover:text-slate-300'}`}>
-              {l.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col gap-2 px-3 sm:px-4 py-2 border-t border-line text-[11px]">
         <span className="font-mono text-slate-500 truncate">
           {age !== null && (
             <span className={age > 5 ? 'text-rose-300' : 'text-emerald-400'}>{age > 5 ? `● ${t('Stale', 'Ancien', 'قديم')} · ${age}s` : `● Live · ${age}s`} · {t('every 1 s', 'chaque seconde', 'كل ثانية')} · </span>

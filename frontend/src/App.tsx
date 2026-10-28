@@ -255,7 +255,8 @@ export default function App() {
               transition={{ duration: 0.22, ease: 'easeOut' }}
             >
               <ExunuTerminalView
-                initialSymbol={(selectedAsset?.symbol as any) || 'XAU/USD'}
+                initialSymbol={isInstrument(selectedSymbol) ? selectedSymbol : 'XAU/USD'}
+                onSymbolChange={sym => setSelectedSymbol(sym)}
                 onOpenTelegram={() => setIsTelegramOpen(true)}
                 lang={lang}
               />

@@ -181,9 +181,18 @@ async def _yahoo_candles(ticker: str, interval: str, rng: str, decimals: int, fr
     hit = _raw_cache.get(key)
     if not fresh and hit and hit[1] > time.time():
         return hit[0]
-    r = await client().get(f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}", params={"interval": interval, "range": rng})
-    r.raise_for_status()
-    res = ((r.json().get("chart") or {}).get("result") or [None])[0] or {}
+    try:
+        r = await client().get(f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}", params={"interval": interval, "range": rng})
+        r.raise_for_status()
+        res = ((r.json().get("chart") or {}).get("result") or [None])[0] or {}
+        if not res.get("timestamp"):
+            raise ValueError("empty series")
+    except (httpx.HTTPError, ValueError) as err:
+        if hit:  # provider hiccup: keep serving the last good series (a few minutes old at most) instead of failing
+            print(f"[market] {ticker} {interval}: {err!r}, using the last good series")
+            _raw_cache[key] = (hit[0], time.time() + RAW_TTL)
+            return hit[0]
+        raise
     ts = res.get("timestamp") or []
     q = ((res.get("indicators") or {}).get("quote") or [{}])[0]
     o, h, lo, c, v = (q.get(k) or [] for k in ("open", "high", "low", "close", "volume"))

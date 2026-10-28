@@ -9,6 +9,7 @@ import type { StrategyResult } from '../strategyTypes';
 
 interface ExunuTerminalViewProps {
   initialSymbol?: InstrumentSymbol;
+  onSymbolChange?: (symbol: InstrumentSymbol) => void; // keeps the app header on the pair shown here
   onOpenTelegram?: () => void;
   lang?: string;
 }
@@ -24,9 +25,19 @@ const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, { label: 
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
 const LIVE_MS = 1000; // analysis, candles and price every second (the feed itself updates about once a second)
 
-export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onOpenTelegram, lang = 'en' }) => {
-  const [symbol, setSymbol] = useState<InstrumentSymbol>(initialSymbol);
-  const [timeframe, setTimeframe] = useState<string>(INSTRUMENTS[initialSymbol].entryTf);
+// Each pair remembers the timeframe it was last viewed on (default: the strategy's decision timeframe)
+const tfKey = (s: string) => `ld_chart_tf_${s}`;
+const savedTf = (s: InstrumentSymbol) => {
+  try { const v = localStorage.getItem(tfKey(s)); return v && INSTRUMENTS[s].timeframes.includes(v) ? v : INSTRUMENTS[s].entryTf; } catch { return INSTRUMENTS[s].entryTf; }
+};
+
+export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onSymbolChange, onOpenTelegram, lang = 'en' }) => {
+  const [symbol, setSymbolState] = useState<InstrumentSymbol>(initialSymbol);
+  const [timeframe, setTimeframeState] = useState<string>(() => savedTf(initialSymbol));
+  const setSymbol = (s: InstrumentSymbol) => { setSymbolState(s); setTimeframeState(savedTf(s)); onSymbolChange?.(s); };
+  const setTimeframe = (tf: string) => { setTimeframeState(tf); try { localStorage.setItem(tfKey(symbol), tf); } catch { /* storage blocked */ } };
+  // The app picked another pair (search, dashboard card): follow it
+  useEffect(() => { if (initialSymbol !== symbol) { setSymbolState(initialSymbol); setTimeframeState(savedTf(initialSymbol)); } }, [initialSymbol]);
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
   const [bundle, setBundle] = useState<ExunuSMCResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,7 +111,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
           <div role="tablist" aria-label={t('Instrument', 'Instrument', 'الأداة')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5 overflow-x-auto max-w-full">
             {INSTRUMENT_SYMBOLS.map(id => (
               <button key={id} role="tab" aria-selected={symbol === id}
-                onClick={() => { setSymbol(id); setTimeframe(INSTRUMENTS[id].entryTf); }}
+                onClick={() => setSymbol(id)}
                 className={`h-9 px-3 shrink-0 rounded-md text-xs font-medium transition-colors ${symbol === id ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>
                 <span className="font-mono">{id}</span><span className="hidden 2xl:inline text-slate-500"> · {INSTRUMENTS[id].label}</span>
               </button>
@@ -133,6 +144,32 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
         </div>
         <div className="lg:col-span-4 min-w-0">
           <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />
+          {(bundle as any)?.tradeDesk && (
+            <div className="mt-4 p-4 rounded-[var(--radius-card)] bg-surface border border-line text-xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-slate-200">{t('AI trade desk · last check before sending', 'Desk IA · dernier contrôle avant envoi', 'مكتب الذكاء · آخر فحص قبل الإرسال')}</span>
+                <span className={`font-mono font-semibold ${(bundle as any).tradeDesk.approved ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {(bundle as any).tradeDesk.approved ? t('Approved', 'Validé', 'مقبول') : t('Blocked', 'Bloqué', 'محبوس')}
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {(bundle as any).tradeDesk.checks.map((c: { key: string; label: string; passed: boolean; detail: string }) => (
+                  <li key={c.key} className="flex gap-2">
+                    <span className={`mt-0.5 w-4 h-4 shrink-0 rounded-full flex items-center justify-center text-[10px] ${c.passed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>{c.passed ? '✓' : '✕'}</span>
+                    <span className="min-w-0"><span className="text-slate-200">{({
+                      rules: t('Strategy rules re-checked', 'Règles de la stratégie revérifiées', 'شروط الاستراتيجية متحقق منها'),
+                      data: t('Live, fresh data', 'Données en direct et fraîches', 'معطيات مباشرة وجديدة'),
+                      drift: t('Price still near the entry', 'Prix encore proche de l’entrée', 'الثمن باقي قريب من الدخول'),
+                      liveRr: t('R:R still valid from the live price', 'R:R encore valable au prix actuel', 'العائد/المخاطرة باقي صالح'),
+                      market: t('Market open, no news window', 'Marché ouvert, pas de news', 'السوق مفتوح، بلا أخبار'),
+                      exposure: t('Currency exposure (max 2 the same way)', 'Exposition par devise (max 2 dans le même sens)', 'التعرض للعملة (2 فالاتجاه نفسو كحد أقصى)'),
+                    } as Record<string, string>)[c.key] ?? c.label}</span>
+                      <span className="block text-slate-500 break-words" dir="ltr">{c.detail}</span></span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 

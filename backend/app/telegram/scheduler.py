@@ -20,6 +20,7 @@ from .bot import dispatch_setup
 GRACE = 1.2
 RETRY = 2.0
 MAX_RETRIES = 10
+TICK_TIMEOUT = 8.0  # seconds per pair in a serverless tick (the 9 pairs run in parallel)
 
 
 def next_close_sec(now: float, tf_sec: int) -> int:
@@ -53,16 +54,21 @@ async def process_bundle(sym: str, bundle: dict) -> str:
 
 async def tick() -> dict:
     """One pass for serverless hosting (called every minute by an external pinger): same work as a candle close."""
-    out = {}
-    for sym in STRATEGY_DEFS:
+    async def one(sym: str) -> str:
         if not market_session_status(sym)["isOpen"]:
-            out[sym] = "market closed"
-            continue
+            return "market closed"
         try:
-            out[sym] = await process_bundle(sym, await get_strategy_result(sym, fresh=True))
-        except Exception as err:  # one symbol failing must not stop the other
-            out[sym] = f"error: {err!r}"
-    return out
+            # Each pair has its own time budget, so one slow feed never makes the whole tick time out
+            async def run() -> str:
+                return await process_bundle(sym, await get_strategy_result(sym, fresh=True))
+            return await asyncio.wait_for(run(), timeout=TICK_TIMEOUT)
+        except asyncio.TimeoutError:
+            return f"timeout after {TICK_TIMEOUT}s (next tick retries)"
+        except Exception as err:  # one symbol failing must not stop the others
+            return f"error: {err!r}"
+
+    syms = list(STRATEGY_DEFS)
+    return dict(zip(syms, await asyncio.gather(*(one(s) for s in syms))))
 
 
 async def run_symbol(sym: str, stop: asyncio.Event) -> None:

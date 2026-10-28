@@ -251,15 +251,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* Desktop sidebar */}
         <aside className={`hidden lg:flex flex-col border-e border-line bg-surface transition-[width] duration-200 ease-out shrink-0 select-none z-30 ${isCollapsed ? 'w-[76px]' : 'w-64'}`}
           aria-label={t('openMenu')}>
-          <div className={`h-16 px-3 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} border-b border-line shrink-0`}>
-            {isCollapsed ? <LDEmblem className="w-10 h-10" /> : <LiquidityDissectionLogo size="sm" withText />}
+          {/* Brand: the emblem centred and large, the name under it */}
+          <button onClick={() => onSelectTab('overview')} aria-label={t('dashboard')}
+            className={`group relative flex flex-col items-center justify-center gap-2 border-b border-line shrink-0 cursor-pointer ${isCollapsed ? 'py-4' : 'pt-5 pb-4'}`}>
+            <span className="relative">
+              <span className="absolute -inset-3 rounded-[30%] bg-gold-500/15 blur-xl opacity-70 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+              <LDEmblem className={`relative ${isCollapsed ? 'w-11 h-11' : 'w-16 h-16'}`} large={!isCollapsed} />
+            </span>
             {!isCollapsed && (
-              <button onClick={toggleCollapse} aria-label={t('collapse')} title={t('collapse')}
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-white hover:bg-white/[0.06] cursor-pointer transition-colors">
-                <Chevron className="w-4 h-4" />
-              </button>
+              <span className="text-center leading-tight">
+                <span className="block text-[13px] font-black uppercase tracking-[0.2em] text-white">
+                  Liquidity <span className="bg-gradient-to-r from-[#F9E5B6] via-gold-400 to-gold-600 bg-clip-text text-transparent">Dissection</span>
+                </span>
+                <span className="block mt-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.3em] text-gold-500">- Private Desk -</span>
+              </span>
             )}
-          </div>
+          </button>
 
           <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5 no-scrollbar">
             {groups.map(g => (
@@ -273,12 +280,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
           <div className="p-3 border-t border-line shrink-0 space-y-2">
             {currentUser && <UserCard />}
-            {isCollapsed && (
-              <button onClick={toggleCollapse} aria-label={t('expand')} title={t('expand')}
-                className="w-full h-9 flex items-center justify-center rounded-lg text-zinc-500 hover:text-gold-300 hover:bg-white/[0.05] cursor-pointer transition-colors">
-                <Chevron className="w-4 h-4" />
-              </button>
-            )}
+            <button onClick={toggleCollapse} aria-label={isCollapsed ? t('expand') : t('collapse')} title={isCollapsed ? t('expand') : t('collapse')}
+              className="w-full h-8 flex items-center justify-center gap-1.5 rounded-lg text-[11px] text-zinc-500 hover:text-gold-300 hover:bg-white/[0.05] cursor-pointer transition-colors">
+              <Chevron className="w-4 h-4" />{!isCollapsed && t('collapse')}
+            </button>
           </div>
         </aside>
 
@@ -290,6 +295,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 className="lg:hidden h-11 w-11 flex items-center justify-center rounded-xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors shrink-0">
                 <Menu className="w-5 h-5" />
               </button>
+              <LDEmblem className="lg:hidden w-9 h-9" />
               <div className="min-w-0">
                 <div className="text-[11px] text-zinc-500 truncate">LiquidityDissection</div>
                 <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight truncate">
@@ -421,10 +427,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               initial={{ x: isAr ? '100%' : '-100%' }} animate={{ x: 0 }} exit={{ x: isAr ? '100%' : '-100%' }}
               transition={reduce ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 300 }}
               className={`fixed top-0 bottom-0 ${isAr ? 'right-0 border-s' : 'left-0 border-e'} w-80 max-w-[88vw] z-50 flex flex-col border-line bg-surface shadow-[var(--shadow-float)] lg:hidden`}>
-              <div className="p-4 border-b border-line flex items-center justify-between shrink-0">
-                <LiquidityDissectionLogo size="sm" withText />
+              <div className="relative p-4 pt-6 border-b border-line flex flex-col items-center shrink-0">
+                <LiquidityDissectionLogo size="lg" layout="vertical" withText />
                 <button onClick={() => setDrawerOpen(false)} aria-label={t('closeMenu')}
-                  className="h-11 w-11 flex items-center justify-center rounded-xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors">
+                  className="absolute top-3 end-3 h-10 w-10 flex items-center justify-center rounded-xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>

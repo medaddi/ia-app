@@ -87,6 +87,8 @@ def _today_stats(sym: str, base: dict, now_sec: int) -> dict:
 _cache: dict[str, tuple[dict, float]] = {}
 _slot: dict[str, int] = {}  # entry-timeframe candle the cached analysis was computed in
 REUSE_SEC = 30  # the analysis is recomputed at every new entry candle, and at least every 30 s
+STALE_MAX_SEC = 20 * 60  # how long the last good analysis may stand in for a failing feed
+_last_good: dict[str, tuple[dict, float]] = {}
 
 
 def _reusable(sym: str) -> bool:
@@ -127,6 +129,20 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
         if result["signal"]:
             result["signal"]["explanation"] = build_explanation(result)
         bundle = {"result": result, "candles": loaded["candles"]}
+        if result["dataQuality"]["ok"]:
+            _last_good[sym] = (bundle, time.time())
+        else:
+            # Feed down for a moment: keep showing the last good analysis (never notifies) rather than a blank page
+            prev = _last_good.get(sym)
+            if prev and time.time() - prev[1] < STALE_MAX_SEC:
+                age = int((time.time() - prev[1]) // 60)
+                old = prev[0]["result"]
+                stale = {**old, "canNotify": False,
+                         "dataQuality": {**old["dataQuality"], "stale": True, "reason": f"Feed retrying · last good analysis {age} min ago",
+                                         "source": f"{old['dataQuality'].get('source', '')} · last good, {age} min ago"}}
+                bundle = {"result": stale, "candles": prev[0]["candles"]}
+                _cache[sym] = (bundle, time.time() + 5)  # retry the feed soon
+                return bundle
         _cache[sym] = (bundle, time.time() + REUSE_SEC)
         _slot[sym] = now_sec // TF_SEC[d.entryTf]
         return bundle
