@@ -71,7 +71,13 @@ def build_explanation(r: dict, lang: str = "en") -> str:
                          f"confirmed by {a.get('trigger')}; entry at the close {f(s['entry'])}.")
         if a.get("asia"):
             parts.append(f"Asian range {f(a['asia']['low'])}–{f(a['asia']['high'])} false breakout, entry at the close {f(s['entry'])}.")
-        if a.get("gpa"):
+        if a.get("rsi2"):
+            q = a["rsi2"]
+            parts.append(f"RSI(2) pullback: the H4 trend is {'up' if buy else 'down'} (EMA50 / EMA200) and an H4 candle closed with RSI(2) {js_str(q['rsi'])} "
+                         f"{'below' if buy else 'above'} {js_str(q['level'])}; market entry at the close {f(s['entry'])}.")
+            parts.append(f"Stop {f(s['sl'])} ({js_str(s['slPips'])} pips). Exit at the first H4 close {'above' if buy else 'below'} EMA5, safety target {f(s['tp3'])}, "
+                         f"closed at market after 48 H4 candles; no partials, no breakeven.")
+        elif a.get("gpa"):
             g = a["gpa"]
             z = g["aoi"]
             tr = g["trend"]

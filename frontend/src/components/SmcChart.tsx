@@ -1,6 +1,6 @@
 import { apiFetch } from '../api';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { InstrumentSymbol } from '../instruments';
+import { strategyKind, type InstrumentSymbol } from '../instruments';
 import {
   createChart,
   CandlestickSeries,
@@ -110,7 +110,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const [full, setFull] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches);
-  const kind = symbol === 'XAU/USD' ? 'gold' : 'forex';
+  const kind = strategyKind(symbol);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const primitiveRef = useRef<DrawingsPrimitive | null>(null);
   const fitKeyRef = useRef('');
@@ -326,6 +326,16 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       // Second engine (reversion): the 2.2σ Bollinger band it waits for a close beyond
       const bands = facts.bands as { upper: number; middle: number; lower: number } | null | undefined;
       if (bands) keyFacts.push({ label: t('Bollinger 2.2σ', 'Bollinger 2,2σ', 'بولينجر 2.2σ'), value: `${fmt(bands.lower)} · ${fmt(bands.middle)} · ${fmt(bands.upper)}` });
+    } else if (kind === 'rsi2') {
+      // RSI(2) Connors: H4 trend, RSI(2) now vs the pair's extreme, EMA5 exit level
+      keyFacts.push({ label: t('H4 trend', 'Tendance H4', 'اتجاه H4'), value: trendWord(str(facts.trendH4)), tone: trendTone(str(facts.trendH4)) });
+      const r2 = num(facts.rsi2);
+      const lvl = num(facts.rsiLevel);
+      if (r2 !== null) keyFacts.push({ label: 'RSI(2)', value: lvl !== null ? `${r2.toFixed(1)} · ${t('buy <', 'achat <', 'شراء <')} ${lvl} / ${t('sell >', 'vente >', 'بيع >')} ${100 - lvl}` : r2.toFixed(1),
+        tone: lvl !== null && (r2 < lvl || r2 > 100 - lvl) ? 'text-gold-300' : 'text-slate-300' });
+      if (num(facts.ema5) !== null) keyFacts.push({ label: t('EMA5 (exit)', 'EMA5 (sortie)', 'EMA5 (خروج)'), value: fmt(num(facts.ema5)!) });
+      if (num(facts.ema200) !== null) keyFacts.push({ label: 'EMA200', value: fmt(num(facts.ema200)!) });
+      if (num(facts.atrH4) !== null) keyFacts.push({ label: 'ATR H4', value: `${(num(facts.atrH4)! / pip).toFixed(1)} pips` });
     } else {
       // The 3 sync rule, the GPA grade right now, and the W1 / D1 zones with their touches
       for (const [k, key] of [['W1', 'trendW1'], ['D1', 'trendD1'], ['H4', 'trendH4']] as const) {
@@ -350,7 +360,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   // Only the layers this strategy actually draws (plus its averages and the trade)
   const present = new Set((result?.drawings ?? []).map(d => d.layer));
   const shownLayers = LAYERS.filter(l => ALWAYS_SHOWN.includes(l.key) || present.has(l.key as DrawingLayer) || (l.key === 'bands' && kind === 'gold'))
-    .map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${({ 'trend on H1': t('trend on H1', 'tendance H1', 'اتجاه H1'), 'rejection on H4 / 1H': t('rejection on H4 / 1H', 'rejet H4 / 1H', 'رفض H4 / 1H') } as Record<string, string>)[emaNote] ?? emaNote}` : l.label[li] }));
+    .map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${({ 'trend on H1': t('trend on H1', 'tendance H1', 'اتجاه H1'), 'rejection on H4 / 1H': t('rejection on H4 / 1H', 'rejet H4 / 1H', 'رفض H4 / 1H'), 'exit / trend on H4': t('exit / trend on H4', 'sortie / tendance H4', 'خروج / اتجاه H4') } as Record<string, string>)[emaNote] ?? emaNote}` : l.label[li] }));
   const age = updatedAt ? Math.max(0, Math.round((nowMs - updatedAt) / 1000)) : null;
   const hoverIsSignal = !!(setup && hover.c && signalBarTime !== null && hover.c.time <= signalBarTime && hover.c.time + tfSec > signalBarTime);
   const statusTone = result?.status === 'SIGNAL' ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'

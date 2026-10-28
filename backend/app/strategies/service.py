@@ -1,7 +1,8 @@
 """
 Strategy service: the app's strategies, one per instrument.
   XAUUSD → H1 Trend Breakout (trend, breakout and entry on H1)
-  Forex (EUR/USD, GBP/USD and the FXAlexG pairs) → FXAlexG Set & Forget GPA (trend W1/D1/H4, AOI W1/D1, entry 30m), same rules
+  EUR/USD, GBP/USD → RSI(2) Connors pullback H4 (the strategy that held up on them over 2 years)
+  The other forex pairs → FXAlexG Set & Forget GPA (trend W1/D1/H4, AOI W1/D1, entry 30m), same rules
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
 """
@@ -16,6 +17,8 @@ from ..agent.explain import build_explanation
 from ..market.data import canonical, fetch_live_price, fetch_many, market_session_status
 from .alexg.config import ALEXG_CONFIGS
 from .alexg.strategy import evaluate_alexg
+from .rsi2.config import RSI2_CONFIGS
+from .rsi2.strategy import evaluate_rsi2, exit_rule as rsi2_exit
 from .replay import ReplayState, StrategyDef, replay, stats_at
 from .shared.jsnum import fmt_utc_minute
 from .shared.news import load_news_calendar
@@ -37,15 +40,22 @@ def _fx_def(cfg: dict) -> StrategyDef:
                        limits={tf: 3000, "H1": 12500, "H4": 3200}, canSignalAt=lambda close: active_window(close - TF_SEC[tf], windows) is not None)
 
 
+def _rsi2_def(cfg: dict) -> StrategyDef:
+    # Evaluated at every H4 close; the exit (close back over EMA5) is part of the lifecycle, live and in backtests
+    return StrategyDef(entryTf="H4", run=partial(evaluate_rsi2, cfg=cfg), tfs=["H4"], limits={"H4": 3200},
+                       canSignalAt=lambda close: True, exit_rule=lambda c, side: rsi2_exit(c, side, cfg["exitEma"]))
+
+
 STRATEGY_DEFS: dict[str, StrategyDef] = {
     "XAU/USD": StrategyDef(
         entryTf="H1", run=evaluate_xauusd, tfs=["H1"],
         limits={"H1": 5000},
         canSignalAt=lambda close: True,  # every H1 close while the market is open
     ),
-    **{pair: _fx_def(cfg) for pair, cfg in ALEXG_CONFIGS.items()},
+    # Each pair runs the strategy that held up on it: RSI(2) H4 on EUR/USD and GBP/USD, FXAlexG GPA on the others
+    **{pair: (_rsi2_def(RSI2_CONFIGS[pair]) if pair in RSI2_CONFIGS else _fx_def(cfg)) for pair, cfg in ALEXG_CONFIGS.items()},
 }
-CONFIGS = {"XAU/USD": XAU_CONFIG, **ALEXG_CONFIGS}
+CONFIGS = {"XAU/USD": XAU_CONFIG, **ALEXG_CONFIGS, **RSI2_CONFIGS}
 
 
 def normalize_symbol(s: str) -> str:

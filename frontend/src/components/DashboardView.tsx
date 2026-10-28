@@ -5,6 +5,7 @@ import { apiJson } from '../api';
 import { Language } from '../types';
 import { fmtMoney, fmtR, tr } from './ui';
 import type { Stats, Today, Trade } from './AccountView';
+import { strategyKind } from '../instruments';
 
 // ---------------------------------------------------------------- API shape (/api/dashboard)
 
@@ -579,7 +580,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {data.markets.map((m, i) => {
               const f = (v: number) => v.toFixed(m.decimals);
-              const trends = m.symbol === 'XAU/USD' ? [['H1', m.trend.h1]] : [['W1', m.trend.weekly], ['D1', m.trend.daily], ['H4', m.trend.h4]];
+              const trends = m.symbol === 'XAU/USD' ? [['H1', m.trend.h1]] : strategyKind(m.symbol) === 'rsi2' ? [['H4', m.trend.h4]] : [['W1', m.trend.weekly], ['D1', m.trend.daily], ['H4', m.trend.h4]];
               const live = !!m.setup && RUNNING.includes(m.setup.state);
               return (
                 <motion.button key={m.symbol} onClick={() => onOpenChart(m.symbol)}

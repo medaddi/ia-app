@@ -89,7 +89,7 @@ def session_drawings(sessions: list[SessionRange]) -> list[dict]:
     return out
 
 
-_EXIT_MARKERS = ("TP1", "TP2", "TP3", "SL", "BE_EXIT", "TRAIL_EXIT", "TIME_EXIT")
+_EXIT_MARKERS = ("TP1", "TP2", "TP3", "SL", "BE_EXIT", "TRAIL_EXIT", "TIME_EXIT", "SIGNAL_EXIT")
 
 
 def trade_drawings(setup: dict, entry_tf: str, lot_text: str) -> list[dict]:

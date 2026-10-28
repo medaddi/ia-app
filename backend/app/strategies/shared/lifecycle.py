@@ -19,7 +19,9 @@ from .types import Candle
 
 def simulate_lifecycle(c: list[Candle], p: dict, start_index: int,
                        trail_level: Optional[Callable[[int], Optional[float]]] = None,
-                       upto_index: Optional[int] = None) -> dict:
+                       upto_index: Optional[int] = None,
+                       exit_when: Optional[Callable[[int], bool]] = None) -> dict:
+    """`exit_when(i)`: the strategy's own exit (e.g. RSI(2): the close crosses back over EMA5) → closed at that candle's close."""
     if upto_index is None:
         upto_index = len(c) - 1
     buy = p["side"] == "BUY"
@@ -113,6 +115,9 @@ def simulate_lifecycle(c: list[Candle], p: dict, start_index: int,
             t = trail_level(i)
             if t is not None and (t > stop if buy else t < stop):
                 stop = t
+        # Strategy exit at the close (buy at bid, sell at ask)
+        if exit_when and exit_when(i):
+            return close(x.time, x.close if buy else x.close + spread, "SIGNAL_EXIT")
         # Optional time exit: close at the close of the `maxBars`-th candle after the entry (buy at bid, sell at ask)
         if p.get("maxBars") and i - start_index + 1 >= p["maxBars"]:
             return close(x.time, x.close if buy else x.close + spread, "TIME_EXIT")

@@ -14,6 +14,7 @@ One config per pair: only the instrument, the assumed spread and the news curren
 
 import copy
 
+from .._pairs import BANKS as _BANKS
 from ..shared.sessions import LONDON
 
 ALEXG_BASE = {
@@ -103,15 +104,6 @@ ALEXG_BASE = {
     },
 }
 
-_BANKS = {
-    "USD": ["CPI", "Non-Farm", "NFP", "FOMC", "Federal Funds", "Fed Chair", "Powell"],
-    "EUR": ["ECB", "Lagarde", "Main Refinancing"],
-    "GBP": ["BoE", "Bank of England", "Official Bank Rate", "MPC", "Bailey"],
-    "CHF": ["SNB", "Policy Rate"],
-    "CAD": ["BoC", "Overnight Rate", "Employment Change"],
-    "AUD": ["RBA", "Cash Rate"],
-    "NZD": ["RBNZ", "Official Cash Rate"],
-}
 
 # pair → (assumed spread in pips, Yahoo ticker)
 PAIRS = {

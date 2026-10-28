@@ -4,6 +4,7 @@ agent knows are always the rules the code runs.
 """
 
 from ..strategies.alexg.config import ALEXG_BASE as E, ALEXG_CONFIGS
+from ..strategies.rsi2.config import RSI2_BASE as Q, RSI2_CONFIGS
 from ..strategies.shared.jsnum import js_str as n
 from ..strategies.xauusd.config import XAU_CONFIG as X
 
@@ -13,8 +14,10 @@ def build_system_prompt() -> str:
     xv = X["reversion"]
     et, ea, er, ef = E["trend"], E["aoi"], E["risk"], E["filters"]
     ew = [f"{w['start']}–{w['end']} London" for w in E["sessions"]["windows"]]
-    pairs = ", ".join(p.replace("/", "") for p in ALEXG_CONFIGS)
-    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. The app runs rule-based strategies: XAUUSD (its own strategy) and the forex pairs {pairs}, which all use the same forex strategy, applied to each pair separately. All detection (trend, areas of interest, breaks, retests, candle patterns, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
+    pairs = ", ".join(p.replace("/", "") for p in ALEXG_CONFIGS if p not in RSI2_CONFIGS)
+    rpairs = ", ".join(f"{p.replace('/', '')} (RSI(2) < {n(c['rsiBuyBelow'])}, stop {n(c['slAtr'])}× ATR)" for p, c in RSI2_CONFIGS.items())
+    qt, qr = Q["trend"], Q["risk"]
+    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. The app runs rule-based strategies: XAUUSD (its own strategy), EURUSD and GBPUSD (RSI(2) Connors pullback on H4, the strategy that held up on them) and the forex pairs {pairs}, which all use the FXAlexG forex strategy, applied to each pair separately. All detection (trend, areas of interest, breaks, retests, candle patterns, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
 
 HARD RULES
 - Never invent a price, level, signal or setup. Every number you write must come from the JSON context. If a value is not in the context, say it is not available.
@@ -50,4 +53,10 @@ You are an expert forex swing & intraday trader who strictly follows the fxalexg
 5. SL beyond the head of the pattern (conservative), else beyond the last {er['slLookbackLtf']} 1H candles ({er['minSlPips']}–{er['maxSlPips']} pips). TP at the next W1/D1 zone with 3+ touches, a few pips before it and before a round psychological level (every {er['roundStepPips']} pips). Minimum 1:{n(er['minRr'])}, else no trade. Set & forget: one target, no partials, no breakeven.
 6. Filters: no trade {ef['news']['minutesBefore']} min around high-impact news of the pair's two currencies; spread <= {n(ef['maxSpreadPips'])} pips; max {ef['maxTradesPerDay']} trades per day per pair; stop after {ef['maxLossesPerDay']} loss.
 7. Honest track record (2-year backtest, 1H entries): with the TP at the next zone every pair lost (win rates 8–25%); grades A+ did not win more than C+. Say this when asked.
-FOREX ANSWER FORMAT (in the user's language): 1. Trend Sync Check (1W | 1D | 4H → direction) · 2. AOI Validation (zone, timeframe, touches) · 3. Confluence checklist and final grade % · 4. Final verdict: TAKE TRADE / WAIT / NO TRADE · 5. Trade parameters if valid (entry condition, SL, TP and R:R). Use only the numbers in the JSON (checklist, facts.areasOfInterest, setup)."""
+FOREX ANSWER FORMAT (in the user's language): 1. Trend Sync Check (1W | 1D | 4H → direction) · 2. AOI Validation (zone, timeframe, touches) · 3. Confluence checklist and final grade % · 4. Final verdict: TAKE TRADE / WAIT / NO TRADE · 5. Trade parameters if valid (entry condition, SL, TP and R:R). Use only the numbers in the JSON (checklist, facts.areasOfInterest, setup).
+
+STRATEGY 3 — {rpairs}: "RSI(2) Connors pullback H4" (Larry Connors' short-term mean reversion inside the trend)
+1. Trend on H4: BUY only if EMA{qt['emaFast']} > EMA{qt['emaSlow']} and the close is above EMA{qt['emaSlow']}; SELL only on the mirror.
+2. Entry: an H4 candle CLOSES with RSI({Q['rsiPeriod']}) below the pair's level (buys) / above 100 minus it (sells): a short pullback inside the trend. MARKET at that close.
+3. Stop: the pair's ATR({Q['atrPeriod']}) multiple from the entry. Exit: the first H4 close back above (buys) / below (sells) EMA{Q['exitEma']}; a {qr['capR']}R safety target; closed at market after {qr['maxBars']} H4 candles. No partials, no breakeven.
+4. Honest track record (2 years H4, costs included, the app's own code): EURUSD 188 trades, 66% winners, +9.1R; GBPUSD 99 trades, 69% winners, +8.7R. Small edge, many small wins and fewer larger losses; past results do not guarantee future results."""

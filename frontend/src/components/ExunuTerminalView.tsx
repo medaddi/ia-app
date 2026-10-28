@@ -20,7 +20,7 @@ const REVIEW_AS_OF = (() => {
 })();
 const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
 
-// Gold: H1 trend breakout · forex: FXAlexG Set & Forget GPA (W1 / D1 / H4 trend, W1 / D1 AOI, 30m entry)
+// Gold: H1 breakout + Bollinger reversion · EUR/USD, GBP/USD: RSI(2) Connors H4 · other forex: FXAlexG GPA (W1 / D1 / H4 trend, W1 / D1 AOI, 30m entry)
 const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, { label: INSTRUMENT_LABELS[s], ...chartSpec(s) }])) as Record<InstrumentSymbol, ChartSpec & { label: string }>;
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
 const LIVE_MS = 1000; // analysis, candles and price every second (the feed itself updates about once a second)
@@ -94,8 +94,8 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const t = (en: string, fr: string, ar: string) => (lang === 'ar' ? ar : lang === 'fr' ? fr : en);
   const agents = bundle ? [
     { name: t('Trend', 'Tendance', 'الاتجاه'), summary: bundle.agents.structure_agent.summary, ok: result?.bias.direction !== 'NEUTRAL' },
-    { name: result?.symbol === 'XAUUSD' ? t('Breakout', 'Cassure', 'الاختراق') : t('Area of interest', 'Zone (AOI)', 'منطقة الاهتمام'), summary: bundle.agents.liquidity_agent.summary,
-      ok: !!result?.checklist.find(c => ['sweep', 'zone', 'breakout', 'retest'].includes(c.key) && c.passed) },
+    { name: result?.symbol === 'XAUUSD' ? t('Breakout', 'Cassure', 'الاختراق') : result?.strategy === 'RSI2_Connors_H4' ? t('RSI(2) pullback', 'Repli RSI(2)', 'تراجع RSI(2)') : t('Area of interest', 'Zone (AOI)', 'منطقة الاهتمام'),
+      summary: bundle.agents.liquidity_agent.summary, ok: !!result?.checklist.find(c => ['sweep', 'zone', 'breakout', 'retest', 'aoi', 'rsi'].includes(c.key) && c.passed) },
     { name: t('Risk', 'Risque', 'المخاطرة'), summary: bundle.agents.risk_agent.summary, ok: !!result?.setup && !!result.checklist.find(c => ['rr', 'stop'].includes(c.key) && c.passed) },
     { name: t('Decision', 'Décision', 'القرار'), summary: bundle.agents.cto_agent.summary, ok: result?.status === 'SIGNAL' },
   ] : [];

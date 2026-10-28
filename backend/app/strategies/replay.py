@@ -20,6 +20,7 @@ class StrategyDef:
     tfs: list[str]
     limits: dict
     trail: Optional[Callable[[list[Candle], str], Optional[Callable[[int], Optional[float]]]]] = None
+    exit_rule: Optional[Callable[[list[Candle], str], Callable[[int], bool]]] = None  # strategy exit at a close
 
 
 @dataclass
@@ -78,4 +79,5 @@ def outcome(d: StrategyDef, entry: list[Candle], index_of: dict, setup: dict, up
     if sig_idx is None:
         return setup["lifecycle"]
     trail = d.trail(entry, setup["params"]["side"]) if d.trail else None
-    return simulate_lifecycle(entry, setup["params"], sig_idx + 1, trail, upto_index)
+    rule = d.exit_rule(entry, setup["params"]["side"]) if d.exit_rule else None
+    return simulate_lifecycle(entry, setup["params"], sig_idx + 1, trail, upto_index, rule)

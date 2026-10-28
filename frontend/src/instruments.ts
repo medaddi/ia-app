@@ -13,10 +13,16 @@ export const isInstrument = (s: string | undefined | null): s is InstrumentSymbo
 
 // What the chart shows for each strategy: the timeframes it reads and the moving averages its rules use
 export interface ChartSpec { entryTf: string; timeframes: string[]; emas: number[]; emaNote: string }
-export const CHART_SPEC: Record<'gold' | 'forex', ChartSpec> = {
+export type StrategyKind = 'gold' | 'rsi2' | 'forex';
+// RSI(2) Connors H4 runs on the pairs where it held up; the other pairs run FXAlexG GPA (keep in sync with backend RSI2_CONFIGS)
+export const RSI2_PAIRS: readonly InstrumentSymbol[] = ['EUR/USD', 'GBP/USD'];
+export const strategyKind = (s: string): StrategyKind => (s === 'XAU/USD' ? 'gold' : (RSI2_PAIRS as readonly string[]).includes(s) ? 'rsi2' : 'forex');
+export const CHART_SPEC: Record<StrategyKind, ChartSpec> = {
   // H1 Trend Breakout: EMA50 vs EMA200 and the 20-hour range, all on H1
   gold: { entryTf: 'H1', timeframes: ['M15', 'H1', 'H4', 'D1'], emas: [50, 200], emaNote: 'trend on H1' },
   // FXAlexG Set & Forget GPA: trend W1 / D1 / H4, AOI on W1 / D1, 50 EMA rejection on H4 and 1H, 30m engulfing entry
+  // RSI(2) Connors pullback: EMA200 trend filter and EMA5 exit, all on H4
+  rsi2: { entryTf: 'H4', timeframes: ['H1', 'H4', 'D1', 'W1'], emas: [5, 200], emaNote: 'exit / trend on H4' },
   forex: { entryTf: 'M30', timeframes: ['M30', 'H1', 'H4', 'D1', 'W1'], emas: [50], emaNote: 'rejection on H4 / 1H' },
 };
-export const chartSpec = (s: InstrumentSymbol): ChartSpec => CHART_SPEC[s === 'XAU/USD' ? 'gold' : 'forex'];
+export const chartSpec = (s: InstrumentSymbol): ChartSpec => CHART_SPEC[strategyKind(s)];

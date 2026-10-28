@@ -78,8 +78,10 @@ def test_structure_trend_flips_only_on_a_body_close():
 
 def test_pairs_and_message():
     assert list(STRATEGY_DEFS) == ["XAU/USD", "EUR/USD", "GBP/USD", "USD/CAD", "NZD/USD", "EUR/CHF", "NZD/CAD", "AUD/CAD", "AUD/CHF"]
-    assert all(STRATEGY_DEFS[p].entryTf == "M30" and STRATEGY_DEFS[p].tfs == ["M30", "H1", "H4"] for p in ALEXG_CONFIGS)
-    d = STRATEGY_DEFS["GBP/USD"]
+    gpa = [p for p in ALEXG_CONFIGS if p not in ("EUR/USD", "GBP/USD")]
+    assert all(STRATEGY_DEFS[p].entryTf == "M30" and STRATEGY_DEFS[p].tfs == ["M30", "H1", "H4"] for p in gpa)
+    assert all(STRATEGY_DEFS[p].entryTf == "H4" and STRATEGY_DEFS[p].exit_rule for p in ("EUR/USD", "GBP/USD"))  # RSI(2) H4
+    d = STRATEGY_DEFS["USD/CAD"]
     london_open_close = 1792738800 + 1800  # Tue 2026-10-27 08:00 London (07:00 UTC) candle closes
     assert d.canSignalAt(london_open_close + 1800) and not d.canSignalAt(1792738800 + 12 * 3600)  # 19:00 London: no signal
     assert normalize_symbol("eurchf") == "EUR/CHF" and normalize_symbol("EUR") == "EUR/USD" and normalize_symbol("nzd") == "NZD/USD"

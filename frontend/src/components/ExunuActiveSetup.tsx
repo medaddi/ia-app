@@ -33,11 +33,12 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
   const buy = s?.direction === 'BUY';
   const gold = result.symbol === 'XAUUSD';
   const single = !!s && s.params?.breakeven === false; // forex set & forget: one target
-  const signalMin = gold ? 75 : 60;
+  const scored = gold || result.strategy === 'RSI2_Connors_H4';  // score ≥ 75 (gold, RSI(2)) rather than the GPA grade
+  const signalMin = scored ? 75 : 60;
   const grade = (result as any).grade as string | undefined;
   const statusLabel = {
-    SIGNAL: gold ? t('Signal · score ≥ 75', 'Signal · score ≥ 75', 'إشارة · النقطة ≥ 75') : t(`Signal · grade ${grade ?? ''}`, `Signal · note ${grade ?? ''}`, `إشارة · تقييم ${grade ?? ''}`),
-    WATCH: gold ? t('Watch · score 60–74, no signal', 'À surveiller · 60–74, pas de signal', 'مراقبة · 60–74، بلا إشارة') : t('Watch · below C+ (60%), no signal', 'À surveiller · sous C+ (60 %), pas de signal', 'مراقبة · تحت C+ (60%)، بلا إشارة'),
+    SIGNAL: scored ? t('Signal · score ≥ 75', 'Signal · score ≥ 75', 'إشارة · النقطة ≥ 75') : t(`Signal · grade ${grade ?? ''}`, `Signal · note ${grade ?? ''}`, `إشارة · تقييم ${grade ?? ''}`),
+    WATCH: scored ? t('Watch · score 60–74, no signal', 'À surveiller · 60–74, pas de signal', 'مراقبة · 60–74، بلا إشارة') : t('Watch · below C+ (60%), no signal', 'À surveiller · sous C+ (60 %), pas de signal', 'مراقبة · تحت C+ (60%)، بلا إشارة'),
     IGNORE: t(`Ignored · score < ${signalMin - 15}`, `Ignoré · score < ${signalMin - 15}`, `متجاهل · النقطة < ${signalMin - 15}`),
     NO_TRADE: t('No trade', 'Pas de trade', 'لا صفقة'),
   }[result.status] ?? result.status;
@@ -137,7 +138,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
       )}
 
       <div className="p-4 border-b border-line">
-        <h4 className="text-xs font-semibold text-slate-300 mb-2">{gold ? t('Setup checklist', 'Checklist du setup', 'شروط الإعداد') : t('GPA confluences (10% each)', 'Confluences GPA (10 % chacune)', 'نقاط GPA (10% لكل وحدة)')}</h4>
+        <h4 className="text-xs font-semibold text-slate-300 mb-2">{scored ? t('Setup checklist', 'Checklist du setup', 'شروط الإعداد') : t('GPA confluences (10% each)', 'Confluences GPA (10 % chacune)', 'نقاط GPA (10% لكل وحدة)')}</h4>
         <ul className="space-y-1.5">
           {result.checklist.map(c => (
             <li key={c.key} className="flex gap-2 text-xs">
@@ -179,7 +180,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
         </div>
         <p role="status" className={`text-xs ${sendState === 'error' ? 'text-rose-300' : sendState === 'sent' ? 'text-emerald-300' : 'text-slate-500'}`}>
           {sendMsg || <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden="true" />
-            {gold ? t('Telegram fires automatically once per signal (score ≥ 75, all rules passed).', 'Telegram part automatiquement une fois par signal (score ≥ 75, toutes les règles validées).', 'التيليغرام كيتصيفط أوتوماتيكياً مرة لكل إشارة (النقطة ≥ 75، كل الشروط محققة).')
+            {scored ? t('Telegram fires automatically once per signal (score ≥ 75, all rules passed).', 'Telegram part automatiquement une fois par signal (score ≥ 75, toutes les règles validées).', 'التيليغرام كيتصيفط أوتوماتيكياً مرة لكل إشارة (النقطة ≥ 75، كل الشروط محققة).')
               : t('Telegram fires automatically once per signal (grade C+ 60% or better).', 'Telegram part automatiquement une fois par signal (note C+ 60 % ou mieux).', 'التيليغرام كيتصيفط أوتوماتيكياً مرة لكل إشارة (تقييم C+ 60% أو أحسن).')}</span>}
         </p>
       </div>

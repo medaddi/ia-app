@@ -2,7 +2,7 @@
 
 > **Darija:** l'app daba fiha joj dossiers: `frontend/` (React, f Vercel) o `backend/` (Python FastAPI, f Render).
 > Backend fih: users (admin kaycree les comptes), trades li khditi b lot dyalek, l'historique, win rate o ch7al mn trade, daily loss limit dyal kol user,
-> o joj stratégies: Gold (H1 breakout) o forex b tari9at FXAlexG (Set & Forget GPA: trend W1/D1/H4, AOI 3 touches, note A+/B/C+) 3la 8 dyal les paires, kaysifto signal l Telegram mni katsed la bougie. Kolchi bla flous (free tier).
+> 3 stratégies, kol paire b li nj7at 3liha: Gold (H1 breakout + Bollinger reversion), EUR/USD o GBP/USD b RSI(2) Connors H4, o 6 paires lokhrin b FXAlexG (Set & Forget GPA: trend W1/D1/H4, AOI 3 touches, note A+/B/C+), kaysifto signal l Telegram mni katsed la bougie. Kolchi bla flous (free tier).
 
 ```
 frontend/   React 19 + Vite + Tailwind + lightweight-charts   → Vercel (free)

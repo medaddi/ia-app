@@ -1,16 +1,17 @@
-# LiquidityDissection — the two strategies
+# LiquidityDissection — the strategies
 
-The app runs **exactly two** rule-based strategies: one for gold and one for every forex pair. Nothing else creates
+The app runs **three** rule-based strategies, each pair on the one that held up on it: gold has its own, EUR/USD and
+GBP/USD run RSI(2) Connors on H4, the other six forex pairs run FXAlexG GPA. Nothing else creates
 signals or sends Telegram messages. Every rule below is code; every parameter lives in the
 strategy's config file. Same closed candles → same result, every time.
 
-| | XAUUSD (Gold) | Forex: EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF |
-|---|---|---|
-| Name | H1 Trend Breakout | FXAlexG Set & Forget GPA |
-| Code | `backend/app/strategies/xauusd/strategy.py` | `backend/app/strategies/alexg/strategy.py` |
-| Config | `backend/app/strategies/xauusd/config.py` | `backend/app/strategies/alexg/config.py` |
-| Timeframes | Trend, setup and entry on H1 | Trend W1 + D1 + H4 · AOI W1 / D1 · Pattern & EMA 1H · Entry 30m |
-| Order | MARKET (close of the breakout candle) | MARKET (close of the 30m engulfing), one target at the next W1 / D1 zone (≥ 1:2) |
+| | XAUUSD (Gold) | EUR/USD, GBP/USD | USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF |
+|---|---|---|---|
+| Name | H1 Trend Breakout + Bollinger Reversion | RSI(2) Connors pullback H4 | FXAlexG Set & Forget GPA |
+| Code | `backend/app/strategies/xauusd/strategy.py` | `backend/app/strategies/rsi2/strategy.py` | `backend/app/strategies/alexg/strategy.py` |
+| Config | `backend/app/strategies/xauusd/config.py` | `backend/app/strategies/rsi2/config.py` | `backend/app/strategies/alexg/config.py` |
+| Timeframes | Trend, setup and entry on H1 | Trend, entry and exit on H4 | Trend W1 + D1 + H4 · AOI W1 / D1 · Pattern & EMA 1H · Entry 30m |
+| Order | MARKET (close of the signal candle) | MARKET (close of the RSI(2) extreme), exit at the first close back over EMA5 | MARKET (close of the 30m engulfing), one target at the next W1 / D1 zone (≥ 1:2) |
 
 ## Shared definitions (`backend/app/strategies/shared/`)
 
@@ -57,10 +58,31 @@ lucky parameter. Run together by the app's own code, one trade at a time: **215 
 (reversion 55 trades, 65.5%, +13.7R · breakout 160 trades, 56.9%, +36.2R), both halves positive. Gold rose from
 $2,358 to $4,073 over the period; both engines made money on buys and on sells.
 
-## Strategy 2 — Forex "FXAlexG Set & Forget GPA" (8 pairs, same rules)
+## Strategy 2 — EUR/USD and GBP/USD: "RSI(2) Connors pullback H4"
 
-The user's written rules of the fxalexg Set and Forget strategy, as code, on EUR/USD, GBP/USD, USD/CAD, NZD/USD,
-EUR/CHF, NZD/CAD, AUD/CAD and AUD/CHF (`backend/app/strategies/alexg/`). One config per pair: only the instrument,
+Larry Connors' short-term mean reversion inside the trend (`backend/app/strategies/rsi2/`), chosen because it was the only
+forex strategy tested that stayed positive on these two pairs over 2 years of H4 data, costs included.
+
+1. **Trend (H4):** BUY only if EMA50 > EMA200 and the close is above EMA200; SELL only on the mirror.
+2. **Entry:** an H4 candle closes with RSI(2) below the pair's level (EUR/USD 10, GBP/USD 5) for buys, above 100 minus it
+   for sells. MARKET at that close. One trade at a time per pair.
+3. **Stop:** 2.5 × ATR(14) (EUR/USD) / 3 × ATR(14) (GBP/USD) from the entry.
+4. **Exit:** the first H4 close back above (buys) / below (sells) EMA5, at market (`SIGNAL_EXIT`); a 5R safety target;
+   closed at market after 48 H4 candles (`TIME_EXIT`). No partials, no breakeven.
+5. **Filters:** no trade 30 min around high-impact news of the pair's currencies; spread ≤ 4 pips; max 2 trades and 1 loss per day.
+
+| Pair (2 years H4, the app's own code) | Trades | Winners | Total | Buys / sells |
+|---|---|---|---|---|
+| EUR/USD (RSI(2) < 10, stop 2.5 ATR) | 188 | 66.0% | +9.1R | +5.0R / +4.1R |
+| GBP/USD (RSI(2) < 5, stop 3 ATR) | 99 | 68.7% | +8.7R | +1.7R / +7.0R |
+
+A small edge: many small wins at EMA5, fewer larger losses at the stop. EUR/USD stays positive with double costs and with
+the neighbouring RSI level; GBP/USD only works with the strict level 5 (level 10 loses), so treat it as fragile.
+
+## Strategy 3 — Forex "FXAlexG Set & Forget GPA" (6 pairs, same rules)
+
+The user's written rules of the fxalexg Set and Forget strategy, as code, on USD/CAD, NZD/USD,
+EUR/CHF, NZD/CAD, AUD/CAD and AUD/CHF (EUR/USD and GBP/USD moved to RSI(2), Strategy 2; their GPA rows below show why) (`backend/app/strategies/alexg/`). One config per pair: only the instrument,
 the assumed spread and the news currencies differ.
 
 1. **Trend — 3 sync rule** — W1, D1 and H4 by market structure: HH/HL bullish, LL/LH bearish; the trend only shifts on a
@@ -101,7 +123,7 @@ and A+ setups did not win more often than C+ ones. Capping the TP at 3R does not
 Last 60 days with real 30m candles: 42 trades over the 8 pairs, about +5R in total (far too few trades to judge).
 `risk.maxRr` in the config caps the TP (off by default, to follow the rules as written).
 
-## Risk (both)
+## Risk (all)
 
 Each user chooses the lot they took on a signal in the app; P&L = price move × lots × contract size (gold 100 oz,
 forex 100,000 units), converted to USD for CAD- and CHF-quoted pairs with the latest USD/CAD, EUR/USD and EUR/CHF prices.

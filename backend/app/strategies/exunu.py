@@ -55,6 +55,12 @@ def build_exunu_result(r: dict) -> dict:
         bo = a["breakout"]
         liquidity_summary = (f"H1 close {f(bo['close'])} {'above' if bo['direction'] == 'BUY' else 'below'} the {bo['lookback']}h "
                              f"{'high' if bo['direction'] == 'BUY' else 'low'} {f(bo['level'])} (range {f(bo['rangeLow'])}–{f(bo['rangeHigh'])})")
+    elif a.get("rsi2"):
+        q = a["rsi2"]
+        liquidity_summary = f"RSI(2) {q['rsi']} {'below' if q['direction'] == 'BUY' else 'above'} {q['level']} inside the H4 trend · exit at EMA5 {f(q['ema5'])}"
+    elif facts.get("rsi2") is not None:
+        lo = facts.get("rsiLevel", 10)
+        liquidity_summary = f"RSI(2) now {facts['rsi2']} (buy < {lo} / sell > {100 - lo}) · EMA5 {f(facts['ema5'])}"
     elif a.get("gpa"):
         g = a["gpa"]
         z = g["aoi"]
