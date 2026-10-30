@@ -27,7 +27,7 @@ from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
 from ..shared.liquidity import daily_weekly_levels
 from ..shared.lifecycle import simulate_lifecycle
 from ..shared.news import news_block
-from ..shared.risk import classify, lot_table, rr, score_checklist, to_pips
+from ..shared.risk import classify, lot_table, rr, score_checklist, snap_sl, snap_tp, to_pips
 from ..shared.types import Candle, closed_only
 from .config import XAU_CONFIG
 
@@ -117,10 +117,10 @@ def _build_setup(c: list[Candle], b: dict, spec: dict, cfg: dict, spread: float,
     rev = b.get("kind") == "REVERSION"
     RV = cfg["reversion"]
     entry = round_to(b["entry"], d)
-    sl = round_to(b["sl"], d)
+    sl = snap_sl(b["sl"], buy, d)
     # Targets from the rounded entry and stop, so they sit exactly at their R multiples as printed
     unit = abs(entry - sl)
-    tp = lambda k: round_to(entry + k * unit if buy else entry - k * unit, d)  # noqa: E731
+    tp = lambda k: snap_tp(entry + k * unit if buy else entry - k * unit, buy, d)  # noqa: E731
     tp1, tp2, tp3 = (tp(RV["tp1R"]), tp(RV["tp2R"]), tp(RV["tpR"])) if rev else (tp(R["tp1R"]), tp(R["tp2R"]), tp(R["tp3R"]))
     signal_time = c[i].time + H1_SEC
     valid_until = signal_time + R["marketValidMin"] * 60

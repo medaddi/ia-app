@@ -129,7 +129,7 @@ def test_risk_in_dollars_gives_the_lot(client, admin):
     me = login(client, "risky", "secret-321")
     assert client.put("/api/me", headers=me, json={"riskUsd": 80}).json()["user"]["riskUsd"] == 80
     lot = client.get("/api/lot?symbol=XAU/USD&entry=4000&sl=3995", headers=me).json()
-    assert lot["lots"] == 0.16 and lot["actualRisk"] == 80  # $5 × 100 oz = $500 per lot → 0.16
+    assert lot["lots"] == 0.15 and lot["actualRisk"] == 79.5  # ($5 + $0.30 costs) × 100 oz = $530 per lot → 0.15
     assert client.put("/api/me", headers=me, json={"riskUsd": 0}).json()["user"]["riskUsd"] is None
 
 
@@ -164,7 +164,7 @@ def test_telegram_link_code_and_capital_risk(client, admin, monkeypatch):
     # Capital + risk in % → effective risk $50 → lot from the signal's stop
     u = client.put("/api/me", headers=me, json={"capital": 5000, "riskPct": 1}).json()["user"]
     assert (u["capital"], u["riskPct"], u["effectiveRisk"], u["riskUsd"]) == (5000, 1, 50, None)
-    assert client.get("/api/lot?symbol=XAU/USD&entry=4000&sl=3995", headers=me).json()["lots"] == 0.1  # $50 / ($5 × 100 oz)
+    assert client.get("/api/lot?symbol=XAU/USD&entry=4000&sl=3995", headers=me).json()["lots"] == 0.09  # $50 / ($5.30 × 100 oz)
 
     code = client.post("/api/me/telegram-link", headers=me).json()["code"]
     assert code.startswith("LD-") and len(code) == 9

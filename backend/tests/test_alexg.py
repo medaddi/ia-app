@@ -31,7 +31,9 @@ def test_real_signal_from_the_rules():
     r = S.evaluate_alexg(_input(FIX["nowSec"]), CFG)
     s = r["setup"]
     assert r["status"] == "SIGNAL" and r["canNotify"] and s["id"] == FIX["setup"]["id"], r["headline"]
-    assert (s["direction"], s["entry"], s["sl"], s["tp3"]) == (FIX["setup"]["direction"], FIX["setup"]["entry"], FIX["setup"]["sl"], FIX["setup"]["tp3"])
+    assert (s["direction"], s["entry"], s["tp3"]) == (FIX["setup"]["direction"], FIX["setup"]["entry"], FIX["setup"]["tp3"])
+    # The stop is snapped to the tick AWAY from the entry (recorded nearest-rounded: at most 1 tick wider, never tighter)
+    assert 0 <= FIX["setup"]["sl"] - s["sl"] <= 0.00001 + 1e-12
     g = s["anchors"]["gpa"]
     assert g["grade"] == r["grade"] == FIX["grade"] and r["score"] == FIX["score"] >= 60
     assert g["aoi"]["touches"] >= 3 and g["aoi"]["tfs"] in ("D1", "W1", "D1+W1") and g["session"] in ("London open", "New York open")

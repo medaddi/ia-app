@@ -3,9 +3,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Send, RefreshCw, Activity } from 'lucide-react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
+import { LotCalculator } from './LotCalculator';
 import type { ExunuSMCResult } from '../strategyTypes';
 import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, chartSpec, type ChartSpec, type InstrumentSymbol } from '../instruments';
 import type { StrategyResult } from '../strategyTypes';
+import type { Language } from '../types';
 
 interface ExunuTerminalViewProps {
   initialSymbol?: InstrumentSymbol;
@@ -141,6 +143,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
           <SmcChart symbol={symbol} candles={candles} result={result} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
             emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
             onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
+          <LotCalculator result={result} lang={lang as Language} />
         </div>
         <div className="lg:col-span-4 min-w-0">
           <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />

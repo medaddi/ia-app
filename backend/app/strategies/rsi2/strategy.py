@@ -17,7 +17,7 @@ from ..shared.indicators import atr_series, ema_series, rsi_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
 from ..shared.lifecycle import simulate_lifecycle
 from ..shared.news import news_block
-from ..shared.risk import classify, lot_table, rr, score_checklist, to_pips
+from ..shared.risk import classify, lot_table, rr, score_checklist, snap_sl, snap_tp, to_pips
 from ..shared.types import Candle, closed_only
 
 H4 = 14400
@@ -54,9 +54,9 @@ def _build(c, b, cfg, spread, last, e5) -> dict:
     R, FIL, spec = cfg["risk"], cfg["filters"], cfg["spec"]
     d, pip = spec["decimals"], spec["pipSize"]
     buy, i = b["buy"], b["index"]
-    entry, sl = round_to(b["entry"], d), round_to(b["sl"], d)
+    entry, sl = round_to(b["entry"], d), snap_sl(b["sl"], buy, d)
     unit = abs(entry - sl)
-    mark = lambda k: round_to(entry + k * unit if buy else entry - k * unit, d)  # noqa: E731
+    mark = lambda k: snap_tp(entry + k * unit if buy else entry - k * unit, buy, d)  # noqa: E731
     tp1, tp2, tp3 = mark(R["tp1R"]), mark(R["tp2R"]), mark(R["capR"])
     signal_time = c[i].time + H4
     valid_until = signal_time + R["marketValidMin"] * 60

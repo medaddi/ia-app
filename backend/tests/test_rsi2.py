@@ -65,3 +65,12 @@ def test_no_trade_without_trend_or_on_news():
     news = {"events": [{"time": c[-1].time + H4, "currency": "USD", "title": "Non-Farm Payrolls", "impact": "High"}], "source": "test"}
     r = run(c, now=c[-1].time + H4 + 60, news=news)
     assert r["news"]["blocked"] and r["status"] != "SIGNAL"
+
+
+def test_levels_snap_to_the_tick_safely():
+    from app.strategies.shared.risk import snap_sl, snap_tp
+
+    # BUY: stop rounds down (wider), target rounds down (closer); SELL: the mirror. Never tighter stop or further target.
+    assert snap_sl(1.123456, True, 5) == 1.12345 and snap_tp(1.134569, True, 5) == 1.13456
+    assert snap_sl(1.123451, False, 5) == 1.12346 and snap_tp(1.110001, False, 5) == 1.11001
+    assert snap_sl(1.12345, True, 5) == 1.12345 and snap_sl(2650.004, False, 2) == 2650.01  # already on the tick: unchanged

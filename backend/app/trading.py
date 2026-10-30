@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .market import data as market_data
 from .models import Signal, Trade
 from .strategies.replay import outcome
-from .strategies.service import STRATEGY_DEFS, normalize_symbol
+from .strategies.service import CONFIGS, STRATEGY_DEFS, normalize_symbol
 from .strategies.shared.jsnum import round_to
 from .strategies.shared.sessions import trading_day_key
 
@@ -60,15 +60,28 @@ def effective_risk(risk_usd: Optional[float], capital: Optional[float], risk_pct
     return None
 
 
+def entry_cost(symbol: str) -> float:
+    """Spread + slippage paid on the way in (price units), from the strategy config: part of the real loss at the stop."""
+    f = CONFIGS[normalize_symbol(symbol)]["filters"]
+    if "assumedSpread" in f:  # gold: $ per oz
+        return f["assumedSpread"] + f.get("slippage", 0)
+    pip = CONFIGS[normalize_symbol(symbol)]["spec"]["pipSize"]
+    return (f.get("assumedSpreadPips", 0) + f.get("slippagePips", 0)) * pip
+
+
 def lot_for_risk(symbol: str, entry: float, sl: float, risk_usd: float) -> dict:
-    """Lot that loses `risk_usd` if the strategy's stop is hit (rounded DOWN to 0.01; the stop never moves)."""
-    per_lot = abs(entry - sl) * contract_size(symbol)  # $ lost per 1.00 lot at the stop
+    """Lot that loses at most `risk_usd` if the strategy's stop is hit, spread and slippage included
+    (rounded DOWN to 0.01; the stop never moves)."""
+    stop = abs(entry - sl)
+    cost = entry_cost(symbol) if stop > 0 else 0
+    per_lot = (stop + cost) * contract_size(symbol)  # $ lost per 1.00 lot at the stop
+    base = {"riskUsd": risk_usd, "stopDistance": round_to(stop, 6), "cost": round_to(cost, 6), "usdPerPoint": round_to(contract_size(symbol), 4)}
     if per_lot <= 0 or risk_usd <= 0:
-        return {"lots": 0.0, "riskUsd": risk_usd, "actualRisk": 0.0, "perLot": 0.0, "tooSmall": False}
+        return {"lots": 0.0, "actualRisk": 0.0, "perLot": 0.0, "tooSmall": False, **base}
     lots = int(risk_usd / per_lot / LOT_STEP + 1e-9) * LOT_STEP
     too_small = lots < MIN_LOT
     lots = round_to(max(lots, MIN_LOT), 2)
-    return {"lots": lots, "riskUsd": risk_usd, "actualRisk": round_to(lots * per_lot, 2), "perLot": round_to(per_lot, 2), "tooSmall": too_small}
+    return {"lots": lots, "actualRisk": round_to(lots * per_lot, 2), "perLot": round_to(per_lot, 2), "tooSmall": too_small, **base}
 
 
 def trade_pnl(t: Trade, exit_price: float) -> tuple[float, float]:

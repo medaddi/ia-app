@@ -15,6 +15,7 @@ import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
 import { ExunuTerminalView } from './components/ExunuTerminalView';
 import { DashboardView } from './components/DashboardView';
 import { isInstrument } from './instruments';
+import { notifyEnabled, notifyNewSignals, registerServiceWorker } from './notifications';
 import { LDEmblem } from './components/LiquidityDissectionLogo';
 import { AgentPanel } from './components/AgentPanel';
 import { AccountView, AppUser } from './components/AccountView';
@@ -100,8 +101,14 @@ export default function App() {
       setBackendDown(true);
     }
   };
+  const langRef = useRef(lang);
+  langRef.current = lang;
   const loadSignals = async () => {
-    try { setSignals((await apiJson<{ signals: AISignal[] }>('/api/signals')).signals || []); } catch { /* next poll retries */ }
+    try {
+      const list = (await apiJson<{ signals: AISignal[] }>('/api/signals')).signals || [];
+      setSignals(list);
+      notifyNewSignals(list, langRef.current);  // browser notification for every new trade
+    } catch { /* next poll retries */ }
   };
   const loadNews = async () => {
     try { setNews((await apiJson<{ news: NewsItem[] }>('/api/news')).news || []); } catch { /* next poll retries */ }
@@ -123,7 +130,9 @@ export default function App() {
     const live = (fn: () => Promise<void>) => { let busy = false; return () => { if (busy || document.hidden) return; busy = true; fn().finally(() => { busy = false; }); }; };
     // The dashboard and the chart refresh themselves every second: in the background these lists can go slower there
     const every = ['overview', 'chart', 'technical'].includes(activeTab) ? 15000 : 1000;
-    const ids = [setInterval(live(loadPrices), every), setInterval(live(loadSignals), every), setInterval(() => { loadNews(); loadSentiment(); }, 120000)];
+    const ids = [setInterval(live(loadPrices), every), setInterval(live(loadSignals), every), setInterval(() => { loadNews(); loadSentiment(); }, 120000),
+      // Tab in the background with notifications on: keep checking for new trades (browsers allow about once a minute there)
+      setInterval(() => { if (document.hidden && notifyEnabled()) loadSignals(); }, 30000)];
     const onVisible = () => { if (document.visibilityState === 'visible') syncAllMarketData(); };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('online', onVisible);
@@ -133,6 +142,19 @@ export default function App() {
       window.removeEventListener('online', onVisible);
     };
   }, [currentUser?.id, ['overview', 'chart', 'technical'].includes(activeTab)]);
+
+  // A clicked trade notification opens the chart on its pair (service worker message, direct click, or a new window ?symbol=)
+  useEffect(() => {
+    const open = (sym: unknown) => { if (typeof sym === 'string' && isInstrument(sym)) { setSelectedSymbol(sym); setActiveTab('chart'); } };
+    const q = new URLSearchParams(window.location.search).get('symbol');
+    if (q) { open(q); window.history.replaceState(null, '', window.location.pathname); }
+    if (notifyEnabled()) registerServiceWorker();
+    const onEvent = (e: Event) => open((e as CustomEvent).detail);
+    const onMsg = (e: MessageEvent) => { if (e.data?.type === 'ld-open-symbol') open(e.data.symbol); };
+    window.addEventListener('ld-open-symbol', onEvent);
+    navigator.serviceWorker?.addEventListener('message', onMsg);
+    return () => { window.removeEventListener('ld-open-symbol', onEvent); navigator.serviceWorker?.removeEventListener('message', onMsg); };
+  }, []);
 
   useEffect(() => { if (currentUser) loadSentiment(); }, [selectedSymbol]);
 

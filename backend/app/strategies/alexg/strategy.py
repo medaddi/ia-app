@@ -27,7 +27,7 @@ from ..shared.indicators import atr_series, avg_body_series, ema_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
 from ..shared.lifecycle import simulate_lifecycle
 from ..shared.news import news_block
-from ..shared.risk import classify, lot_table, rr, score_checklist, to_pips
+from ..shared.risk import classify, lot_table, rr, score_checklist, snap_sl, snap_tp, to_pips
 from ..shared.structure import detect_structure, detect_swings
 from ..shared.types import Candle, closed_only
 from .config import grade_of
@@ -334,10 +334,10 @@ def _build_setup(ctx: _Ctx, g: dict, lv: dict, i: int, spread: float, last: int)
     d, pip = spec["decimals"], spec["pipSize"]
     buy = g["dir"] == 1
     c = ctx.e
-    entry, sl = round_to(lv["entry"], d), round_to(lv["sl"], d)
+    entry, sl = round_to(lv["entry"], d), snap_sl(lv["sl"], buy, d)
     unit = abs(entry - sl)
-    mark = lambda k: round_to(entry + k * unit if buy else entry - k * unit, d)  # noqa: E731
-    tp3 = round_to(lv["tp"], d)
+    mark = lambda k: snap_tp(entry + k * unit if buy else entry - k * unit, buy, d)  # noqa: E731
+    tp3 = snap_tp(lv["tp"], buy, d)
     tp1, tp2 = mark(R["tp1R"]), mark(R["tp2R"])
     signal_time = c[i].time + ctx.e_sec
     valid_until = signal_time + R["marketValidMin"] * 60

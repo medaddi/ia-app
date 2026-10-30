@@ -52,21 +52,21 @@ def test_message_prints_exact_levels_only():
 def test_lot_from_the_risk_in_dollars():
     from app.trading import lot_for_risk
 
-    # EURUSD SL 24.2 pips: $80 / (24.2 pips × $10) = 0.33 lot (rounded down), real risk $79.86
+    # EURUSD SL 24.2 pips + 1.2 pips spread/slippage: $80 / (25.4 pips × $10) = 0.31 lot (rounded down), real risk $78.74
     lot = lot_for_risk("EUR/USD", 1.1353, 1.13772, 80)
-    assert (lot["lots"], lot["actualRisk"], lot["tooSmall"]) == (0.33, 79.86, False)
-    # Gold SL $4.30: $80 / ($4.30 × 100 oz) = 0.18 lot
-    assert lot_for_risk("XAU/USD", 4000.25, 3995.95, 80)["lots"] == 0.18
+    assert (lot["lots"], lot["actualRisk"], lot["tooSmall"]) == (0.31, 78.74, False)
+    # Gold SL $4.30 + $0.30 costs: $80 / ($4.60 × 100 oz) = 0.17 lot
+    assert lot_for_risk("XAU/USD", 4000.25, 3995.95, 80)["lots"] == 0.17
     # Below the minimum lot: 0.01 and flagged
     small = lot_for_risk("EUR/USD", 1.1353, 1.13772, 1)
     assert small["lots"] == 0.01 and small["tooSmall"]
 
     msg = bot.format_signal_message(EURO, lot, "ABC123")
-    assert "Lot <code>0.33</code> · risk $79.86" in msg and "Ref ABC123" in msg
+    assert "Lot <code>0.31</code> · risk $78.74" in msg and "Ref ABC123" in msg
     assert "/risk 80" in bot.format_signal_message(EURO, {})  # subscriber without a risk
     kb = bot.copy_keyboard(EURO, lot)["inline_keyboard"]
     copied = [b["copy_text"]["text"] for row in kb for b in row]
-    assert copied == ["1.13530", "1.13772", "1.13288", "1.13046", "1.12804", "0.33"]
+    assert copied == ["1.13530", "1.13772", "1.13288", "1.13046", "1.12804", "0.31"]
 
 
 def test_signal_messages_are_protected(monkeypatch):

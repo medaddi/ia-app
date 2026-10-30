@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BarChart2, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, Layers, LayoutDashboard, LineChart, LogOut, Menu,
+  BarChart2, Bell, BellOff, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, Layers, LayoutDashboard, LineChart, LogOut, Menu,
   Newspaper, RefreshCw, Search, Send, ShieldCheck, UserCog, Wallet, X,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { MarketAsset, Language } from '../../types';
+import { disableNotifications, enableNotifications, notifyEnabled, notifyPermission, registerServiceWorker } from '../../notifications';
 import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS } from '../../instruments';
 import { LiquidityDissectionLogo, LDEmblem } from '../LiquidityDissectionLogo';
 
@@ -57,6 +58,10 @@ const T = {
   refresh: ['Refresh the data', 'Actualiser les données', 'تحديث المعطيات'],
   language: ['Language', 'Langue', 'اللغة'],
   signalsRunning: ['running signal(s)', 'signal(s) en cours', 'إشارة جارية'],
+  notifyOn: ['Trade notifications on (click to turn off)', 'Notifications de trades activées (cliquer pour couper)', 'إشعارات الصفقات مفعلة (كليكي باش توقفها)'],
+  notifyOff: ['Turn on trade notifications', 'Activer les notifications de trades', 'فعّل إشعارات الصفقات'],
+  notifyBlocked: ['Notifications are blocked: allow them in the browser site settings', 'Notifications bloquées : autorisez-les dans les réglages du site', 'الإشعارات محبوسة: سمح ليها ف إعدادات الموقع ف المتصفح'],
+  notifyTest: ['Notifications on: you will get one for every new trade', 'Notifications activées : une pour chaque nouveau trade', 'الإشعارات مفعلة: غادي توصلك وحدة على كل صفقة جديدة'],
   roleAdmin: ['Administrator', 'Administrateur', 'مدير'],
   roleUser: ['Trader', 'Trader', 'متداول'],
   logout: ['Log out', 'Se déconnecter', 'تسجيل الخروج'],
@@ -341,6 +346,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   <Flame className="w-4 h-4" aria-hidden="true" />{activeSignalsCount}<span className="hidden xl:inline font-normal">{t('signalsRunning')}</span>
                 </button>
               )}
+              <NotifyButton t={t} />
               {onForceRefresh && (
                 <button onClick={onForceRefresh} disabled={isSyncingLive} title={t('refresh')} aria-label={t('refresh')}
                   className="h-10 w-10 flex items-center justify-center rounded-xl border border-line-2 text-zinc-300 hover:bg-white/[0.06] hover:border-gold-500/40 cursor-pointer transition-colors">
@@ -450,3 +456,35 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     </div>
   );
 };
+
+
+/** Bell in the top bar: turns the browser notifications for new trades on / off (the browser asks once). */
+function NotifyButton({ t }: { t: (k: Key) => string }) {
+  const [on, setOn] = useState(notifyEnabled);
+  const [perm, setPerm] = useState(notifyPermission);
+  useEffect(() => {
+    const sync = () => { setOn(notifyEnabled()); setPerm(notifyPermission()); };
+    window.addEventListener('ld-notify-change', sync);
+    window.addEventListener('focus', sync);
+    return () => { window.removeEventListener('ld-notify-change', sync); window.removeEventListener('focus', sync); };
+  }, []);
+  if (perm === 'unsupported') return null;
+  const blocked = perm === 'denied';
+  const label = blocked ? t('notifyBlocked') : on ? t('notifyOn') : t('notifyOff');
+  const click = async () => {
+    if (on) { disableNotifications(); return; }
+    if (await enableNotifications()) {
+      const reg = await registerServiceWorker();
+      const opts = { body: t('notifyTest'), icon: '/brand/emblem-192.webp', tag: 'ld-test' };
+      if (reg) reg.showNotification('LiquidityDissection', opts); else new Notification('LiquidityDissection', opts);
+    }
+    setPerm(notifyPermission());
+  };
+  return (
+    <button onClick={click} title={label} aria-label={label} aria-pressed={on}
+      className={`relative h-10 w-10 flex items-center justify-center rounded-xl border cursor-pointer transition-colors ${on ? 'border-gold-500/50 bg-gold-500/10 text-gold-300' : 'border-line-2 text-zinc-300 hover:bg-white/[0.06] hover:border-gold-500/40'} ${blocked ? 'opacity-60' : ''}`}>
+      {on ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+      {on && <span className="absolute top-2 end-2 w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />}
+    </button>
+  );
+}

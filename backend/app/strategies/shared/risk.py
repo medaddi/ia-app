@@ -17,6 +17,22 @@ def lot_table(spec: dict, entry: float, sl: float, risk_pct: float, balances: li
     return {f"{b}$": lot_size(spec, b, risk_pct, entry, sl) for b in balances}
 
 
+def _to_tick(price: float, decimals: int, up: bool) -> float:
+    v = price * 10 ** decimals
+    n = math.ceil(v - 1e-6) if up else math.floor(v + 1e-6)  # tolerance: 1.10000000001 stays 1.10000
+    return round_to(n / 10 ** decimals, decimals)
+
+
+def snap_sl(sl: float, buy: bool, decimals: int) -> float:
+    """Stop on the price tick, rounded AWAY from the entry: rounding never makes the stop tighter than the structure."""
+    return _to_tick(sl, decimals, up=not buy)
+
+
+def snap_tp(tp: float, buy: bool, decimals: int) -> float:
+    """Target on the price tick, rounded TOWARD the entry: rounding never asks the market for more than computed."""
+    return _to_tick(tp, decimals, up=not buy)
+
+
 def rr(entry: float, sl: float, tp: float) -> float:
     risk = abs(entry - sl)
     return abs(tp - entry) / risk if risk > 0 else 0
