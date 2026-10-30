@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Calculator, Copy, Check, ShieldCheck } from 'lucide-react';
 import { apiJson } from '../api';
+import { takeLotFocus } from '../notifications';
 import type { StrategyResult } from '../strategyTypes';
 import type { Language } from '../types';
 import { tr } from './ui';
@@ -27,6 +28,25 @@ export const LotCalculator: React.FC<{ result: StrategyResult | null; lang?: Lan
   const [ans, setAns] = useState<LotAnswer | null>(null);
   const [err, setErr] = useState('');
   const [copied, setCopied] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const boxRef = useRef<HTMLElement>(null);
+  const riskRef = useRef<HTMLInputElement>(null);
+
+  // Opened from a trade notification: scroll here, highlight, and put the cursor in the risk field
+  useEffect(() => {
+    const check = () => {
+      if (!sym || !takeLotFocus(sym)) return;
+      setTimeout(() => {
+        boxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        riskRef.current?.focus({ preventScroll: true });
+        setFlash(true);
+        setTimeout(() => setFlash(false), 2400);
+      }, 300);
+    };
+    check();
+    window.addEventListener('ld-lot-focus', check);
+    return () => window.removeEventListener('ld-lot-focus', check);
+  }, [sym, !!s]);
 
   // Follow the strategy's trade (its stop is the structure); without a trade, start from the live price
   const setupKey = s ? `${s.id}|${s.entry}|${s.sl}` : `${sym}|none`;
@@ -65,7 +85,8 @@ export const LotCalculator: React.FC<{ result: StrategyResult | null; lang?: Lan
 
   const field = 'w-full h-10 px-3 rounded-lg bg-surface-2 border border-line text-sm font-mono text-white focus:outline-none focus:border-gold-500/60 focus:ring-2 focus:ring-gold-500/20 transition';
   return (
-    <section className="mt-4 p-4 rounded-[var(--radius-card)] bg-surface border border-line" aria-labelledby="lotcalc-title">
+    <section ref={boxRef} aria-labelledby="lotcalc-title"
+      className={`mt-4 p-4 rounded-[var(--radius-card)] bg-surface border transition-[border-color,box-shadow] duration-500 ${flash ? 'border-gold-400 shadow-[0_0_0_4px_rgba(212,175,55,0.18)]' : 'border-line'}`}>
       <header className="flex items-center justify-between gap-3 mb-3">
         <h3 id="lotcalc-title" className="flex items-center gap-2 text-sm font-semibold text-white">
           <Calculator className="w-4 h-4 text-gold-400" aria-hidden="true" />
@@ -79,7 +100,7 @@ export const LotCalculator: React.FC<{ result: StrategyResult | null; lang?: Lan
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label className="text-xs text-slate-400 space-y-1">
           <span>{t('My risk on this trade ($)', 'Mon risque sur ce trade ($)', 'المخاطرة ديالي ف هاد الصفقة ($)')}</span>
-          <input inputMode="decimal" value={risk} placeholder="80" onChange={x => setRisk(x.target.value)} className={field} aria-describedby="lotcalc-out" />
+          <input ref={riskRef} inputMode="decimal" value={risk} placeholder="80" onChange={x => setRisk(x.target.value)} className={field} aria-describedby="lotcalc-out" />
         </label>
         <label className="text-xs text-slate-400 space-y-1">
           <span>{t('Entry', 'Entrée', 'الدخول')}</span>

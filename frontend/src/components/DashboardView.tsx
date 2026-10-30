@@ -21,6 +21,7 @@ interface SignalStats { closed: number; wins: number; losses: number; winRate: n
   bySymbol: Record<string, { closed: number; wins: number; losses: number; totalR: number; winRate: number | null }> }
 interface SignalRow { id: string; symbol: string; direction: string; state: string; outcome: string | null; rMultiple: number | null; signalTime: number }
 interface MarketRow {
+  loading?: boolean;  // first analysis still running after a cold start
   symbol: string; entryTf: string; price: number; decimals: number; status: string; score: number; bias: string;
   headline: string; isOpen: boolean; dataOk: boolean; dataReason: string; newsBlocked: boolean;
   setup: { direction: string; entry: number; sl: number; target: number; rr: number | null; state: string; outcome: string | null; r: number | null } | null;
@@ -34,10 +35,12 @@ interface Dashboard {
   me: { username: string; riskUsd: number | null; stats: Stats; today: Today; days: Days; edge: Edge; openTrades: Trade[] };
   strategy: { stats: SignalStats; days: Days; recent: SignalRow[] };
   markets: MarketRow[];
+  complete?: boolean;
   news: NewsRow[];
 }
 
-const REFRESH_MS = 1000; // live: the server reuses each analysis until its next candle close
+const REFRESH_MS = 3000; // live enough for a dashboard; the chart page is the 1 s view
+const WARMUP_MS = 1500; // while some pairs are still being analysed
 const EASE = [0.22, 1, 0.36, 1] as const; // ease-out: fast start, soft landing
 const RUNNING = ['OPEN', 'PENDING', 'TP1_HIT', 'TP2_HIT'];
 type Mode = 'me' | 'strategy';
@@ -319,6 +322,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
   const [mode, setMode] = useState<Mode>('me');
   const [nowMs, setNowMs] = useState(Date.now());
   const picked = useRef(false);
+  const completeRef = useRef(false);
 
   useEffect(() => {
     let stop = false, busy = false;
@@ -329,6 +333,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
         const d = await apiJson<Dashboard>('/api/dashboard');
         if (stop) return;
         setData(d);
+        completeRef.current = d.complete !== false;
         setError(null);
         // Until the user has closed trades of their own, show what the strategies did
         if (!picked.current) { picked.current = true; if (!d.me.days.days.length && d.strategy.days.days.length) setMode('strategy'); }
@@ -338,9 +343,14 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
         busy = false;
       }
     };
-    load();
-    const ids = [setInterval(load, REFRESH_MS), setInterval(() => setNowMs(Date.now()), 1000)];
-    return () => { stop = true; ids.forEach(clearInterval); };
+    // Faster refresh until every pair has its first analysis, then the normal pace
+    let timer: ReturnType<typeof setTimeout>;
+    const loop = async () => { await load(); if (!stop) timer = setTimeout(loop, completeRef.current ? REFRESH_MS : WARMUP_MS); };
+    loop();
+    const onVisible = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    const clock = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => { stop = true; clearTimeout(timer); clearInterval(clock); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
   if (!data) {
@@ -359,8 +369,9 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
   const usedPct = today.limit ? Math.min(100, (-Math.min(0, today.pnl) / today.limit) * 100) : null;
   const age = Math.max(0, Math.round((nowMs - new Date(data.generatedAt).getTime()) / 1000));
   const session = sessionNow(nowMs);
-  const anyOpen = data.markets.some(m => m.isOpen);
-  const running = data.markets.filter(m => m.status === 'SIGNAL' && m.setup && RUNNING.includes(m.setup.state));
+  const ready = data.markets.filter(m => !m.loading);
+  const anyOpen = ready.some(m => m.isOpen);
+  const running = ready.filter(m => m.status === 'SIGNAL' && m.setup && RUNNING.includes(m.setup.state));
   const ss = strategy.stats, st = me.stats, edge = me.edge;
   const winRate = mode === 'me' ? st.winRate : ss.winRate;
   const pf = mode === 'me' ? st.profitFactor : ss.profitFactor;
@@ -579,6 +590,14 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
           right={<span className="text-xs text-slate-500 hidden sm:inline">{t('Click a pair to open its chart', 'Cliquez une paire pour ouvrir son graphique', 'كليكي على زوج باش تحل الشارت')}</span>}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {data.markets.map((m, i) => {
+              if (m.loading) return (
+                <div key={m.symbol} className="rounded-xl border border-line bg-surface p-3.5" aria-busy="true">
+                  <div className="font-mono font-semibold text-white">{m.symbol} <span className="text-[10px] text-slate-500 font-normal">{m.entryTf}</span></div>
+                  <div className="mt-2 h-3 w-24 rounded bg-surface-2 animate-pulse" />
+                  <div className="mt-2 h-3 w-40 rounded bg-surface-2 animate-pulse" />
+                  <div className="mt-2 text-[11px] text-slate-500">{t('Analysing…', 'Analyse en cours…', 'كيتحلل…')}</div>
+                </div>
+              );
               const f = (v: number) => v.toFixed(m.decimals);
               const trends = m.symbol === 'XAU/USD' ? [['H1', m.trend.h1]] : strategyKind(m.symbol) === 'rsi2' ? [['H4', m.trend.h4]] : [['W1', m.trend.weekly], ['D1', m.trend.daily], ['H4', m.trend.h4]];
               const live = !!m.setup && RUNNING.includes(m.setup.state);

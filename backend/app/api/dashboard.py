@@ -2,7 +2,9 @@
 analysis of every instrument and the next high-impact news, in one request. Numbers only come from
 the trades users logged, the signals the app sent and the strategies' current output."""
 
+import asyncio
 import time
+from typing import Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
@@ -12,14 +14,16 @@ from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..db import get_db
 from ..models import Signal, Trade, User
-from ..strategies.service import STRATEGY_DEFS, all_results
+from ..strategies.service import CONFIGS, STRATEGY_DEFS, all_results, cached_result
 from ..trading import effective_risk, signal_days, signal_json, stats, today_status, trade_days, trade_json
 from .market import news_items
 
 router = APIRouter(prefix="/api")
 
 
-def _market_row(sym: str, r: dict) -> dict:
+def _market_row(sym: str, r: Optional[dict]) -> dict:
+    if r is None:  # first analysis still running (cold start): the card shows a placeholder until the next refresh
+        return {"symbol": sym, "loading": True, "strategy": CONFIGS[sym]["name"], "entryTf": STRATEGY_DEFS[sym].entryTf}
     s = r["setup"]
     single = bool(s) and s["params"].get("breakeven", True) is False  # set & forget: one target (TP3)
     target = (s["tp3"] if single else s["tp2"]) if s else None
@@ -60,16 +64,46 @@ def _edge(trades: list[Trade]) -> dict:
     }
 
 
+_runs: Optional[asyncio.Task] = None
+WAIT_SEC = 1.0  # the dashboard never waits longer than this for the live analysis
+
+
+async def _markets() -> tuple[list[Optional[dict]], bool]:
+    """(results, complete). Runs every instrument's analysis in the background and waits at most WAIT_SEC:
+    after a cold start the page shows at once with what is ready, the rest arrives on the next refresh."""
+    global _runs
+    if _runs is None or _runs.done():
+        _runs = asyncio.create_task(all_results())
+    try:
+        return await asyncio.wait_for(asyncio.shield(_runs), WAIT_SEC), True
+    except asyncio.TimeoutError:
+        got = [cached_result(sym) for sym in STRATEGY_DEFS]
+        return got, all(r is not None for r in got)
+
+
+_news_run: Optional[asyncio.Task] = None
+
+
+async def _news(now: int) -> list[dict]:
+    global _news_run
+    if _news_run is None or _news_run.done():
+        _news_run = asyncio.create_task(news_items())
+    try:
+        items = await asyncio.wait_for(asyncio.shield(_news_run), WAIT_SEC)
+    except asyncio.TimeoutError:
+        return []
+    news = [n for n in items if n["importance"] == "HIGH" and datetime.fromisoformat(n["publishedAt"]).timestamp() > now - 1800]
+    return sorted(news, key=lambda n: n["publishedAt"])
+
+
 @router.get("/dashboard")
 async def dashboard(u: User = Depends(current_user), db: Session = Depends(get_db)):
     trades = db.scalars(select(Trade).where(Trade.user_id == u.id).order_by(Trade.opened_at.desc())).all()
     signals = db.scalars(select(Signal).order_by(Signal.sent_at.desc())).all()
-    results = await all_results()
     now = int(time.time())
-    news = [n for n in await news_items() if n["importance"] == "HIGH" and datetime.fromisoformat(n["publishedAt"]).timestamp() > now - 1800]
-    news.sort(key=lambda n: n["publishedAt"])
+    (results, complete), news = await asyncio.gather(_markets(), _news(now))
     return {
-        "success": True, "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "success": True, "generatedAt": datetime.now(timezone.utc).isoformat(), "complete": complete,
         "me": {
             "username": u.username, "riskUsd": effective_risk(u.risk_usd, u.capital, u.risk_pct), "capital": u.capital or None,
             "stats": stats(trades, "trade"), "today": today_status(trades, u.daily_loss_limit), "days": trade_days(trades), "edge": _edge(trades),

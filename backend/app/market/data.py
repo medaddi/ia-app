@@ -8,6 +8,7 @@ Live market data for XAU/USD and the forex pairs (EUR/USD, GBP/USD and the FXAle
 """
 
 import asyncio
+import json
 import math
 import time
 from datetime import datetime, timezone
@@ -176,23 +177,8 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
     return result
 
 
-async def _yahoo_candles(ticker: str, interval: str, rng: str, decimals: int, fresh: bool) -> list[Candle]:
-    key = f"{ticker}|{interval}|{rng}"
-    hit = _raw_cache.get(key)
-    if not fresh and hit and hit[1] > time.time():
-        return hit[0]
-    try:
-        r = await client().get(f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}", params={"interval": interval, "range": rng})
-        r.raise_for_status()
-        res = ((r.json().get("chart") or {}).get("result") or [None])[0] or {}
-        if not res.get("timestamp"):
-            raise ValueError("empty series")
-    except (httpx.HTTPError, ValueError) as err:
-        if hit:  # provider hiccup: keep serving the last good series (a few minutes old at most) instead of failing
-            print(f"[market] {ticker} {interval}: {err!r}, using the last good series")
-            _raw_cache[key] = (hit[0], time.time() + RAW_TTL)
-            return hit[0]
-        raise
+def _parse_chart(body: bytes, decimals: int) -> list[Candle]:
+    res = ((json.loads(body).get("chart") or {}).get("result") or [None])[0] or {}
     ts = res.get("timestamp") or []
     q = ((res.get("indicators") or {}).get("quote") or [{}])[0]
     o, h, lo, c, v = (q.get(k) or [] for k in ("open", "high", "low", "close", "volume"))
@@ -201,6 +187,26 @@ async def _yahoo_candles(ticker: str, interval: str, rng: str, decimals: int, fr
         vals = [arr[i] if i < len(arr) else None for arr in (o, h, lo, c)]
         if all(isinstance(x, (int, float)) and not math.isnan(x) for x in vals):
             out.append(Candle(int(t), *(round_to(x, decimals) for x in vals), (v[i] if i < len(v) else 0) or 0))
+    return out
+
+
+async def _yahoo_candles(ticker: str, interval: str, rng: str, decimals: int, fresh: bool) -> list[Candle]:
+    key = f"{ticker}|{interval}|{rng}"
+    hit = _raw_cache.get(key)
+    if not fresh and hit and hit[1] > time.time():
+        return hit[0]
+    try:
+        r = await client().get(f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}", params={"interval": interval, "range": rng})
+        r.raise_for_status()
+        out = await asyncio.to_thread(_parse_chart, r.content, decimals)  # 2 years of 1h = 12k rows: off the event loop
+        if not out:
+            raise ValueError("empty series")
+    except (httpx.HTTPError, ValueError) as err:
+        if hit:  # provider hiccup: keep serving the last good series (a few minutes old at most) instead of failing
+            print(f"[market] {ticker} {interval}: {err!r}, using the last good series")
+            _raw_cache[key] = (hit[0], time.time() + RAW_TTL)
+            return hit[0]
+        raise
     # Intraday series refresh every 20s; hourly/daily history changes slowly
     _raw_cache[key] = (out, time.time() + (RAW_TTL if interval not in ("1h", "1d", "1wk") else HOURLY_TTL if interval == "1h" else SLOW_TTL))
     return out
@@ -231,11 +237,12 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
     ticker = FX_TICKERS[sym] if euro else "GC=F"
     try:
         candles = await _yahoo_candles(ticker, interval, rng, decimals, fresh)
+        # Reshaping thousands of candles is CPU work: off the event loop so other requests keep flowing
         if timeframe == "4H":
-            candles = aggregate(candles, 14400)
+            candles = await asyncio.to_thread(aggregate, candles, 14400)
         elif step < 86400 and any(c.time % step for c in candles[-3:]):
             # Yahoo stamps the forming intraday candle with the current time (e.g. 00:28:45): put it back on its slot
-            candles = aggregate(candles, step)
+            candles = await asyncio.to_thread(aggregate, candles, step)
         if len(candles) > 15:
             candles = [Candle(c.time, c.open, c.high, c.low, c.close, c.volume) for c in candles[-limit:]]
             last = candles[-1]

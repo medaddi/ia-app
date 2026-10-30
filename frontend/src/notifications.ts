@@ -42,6 +42,19 @@ export async function enableNotifications(): Promise<boolean> {
 
 export function disableNotifications() { setEnabled(false); }
 
+// A clicked notification asks the chart page to bring its lot calculator into view for that pair.
+// Kept until the calculator of that pair is on screen (the chart page may still be loading).
+let lotFocus: string | null = null;
+export function requestLotFocus(symbol: string) {
+  lotFocus = symbol;
+  window.dispatchEvent(new Event('ld-lot-focus'));
+}
+export function takeLotFocus(symbol: string): boolean {
+  if (lotFocus !== symbol) return false;
+  lotFocus = null;
+  return true;
+}
+
 async function show(title: string, body: string, tag: string, symbol: string) {
   const options: NotificationOptions = { body, tag, icon: '/brand/emblem-192.webp', badge: '/brand/favicon-64.png', data: { symbol }, requireInteraction: true } as NotificationOptions;
   const reg = await registerServiceWorker();

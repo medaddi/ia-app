@@ -1,25 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import { MarketAsset, AISignal, NewsItem, SentimentData, Language } from './types';
 import { apiFetch, apiJson, setToken, getToken } from './api';
-import { SignalPerformanceTracker } from './components/SignalPerformanceTracker';
-import { NewsAISection } from './components/NewsAISection';
-import { SentimentRadar } from './components/SentimentRadar';
-import { TelegramSettingsModal } from './components/TelegramSettingsModal';
+const SignalPerformanceTracker = lazy(() => import('./components/SignalPerformanceTracker').then(m => ({ default: m.SignalPerformanceTracker })));
+const NewsAISection = lazy(() => import('./components/NewsAISection').then(m => ({ default: m.NewsAISection })));
+const SentimentRadar = lazy(() => import('./components/SentimentRadar').then(m => ({ default: m.SentimentRadar })));
+const TelegramSettingsModal = lazy(() => import('./components/TelegramSettingsModal').then(m => ({ default: m.TelegramSettingsModal })));
 import { ToolsSidebarDrawer } from './components/ToolsSidebarDrawer';
 import { LoginScreen } from './components/LoginScreen';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { DesignSystemShowcase } from './components/DesignSystemShowcase';
-import { MarketsTableView } from './components/MarketsTableView';
+const DesignSystemShowcase = lazy(() => import('./components/DesignSystemShowcase').then(m => ({ default: m.DesignSystemShowcase })));
+const MarketsTableView = lazy(() => import('./components/MarketsTableView').then(m => ({ default: m.MarketsTableView })));
 import { AppLayout } from './components/layout/AppLayout';
 import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
-import { ExunuTerminalView } from './components/ExunuTerminalView';
+const ExunuTerminalView = lazy(() => import('./components/ExunuTerminalView').then(m => ({ default: m.ExunuTerminalView })));
 import { DashboardView } from './components/DashboardView';
 import { isInstrument } from './instruments';
-import { notifyEnabled, notifyNewSignals, registerServiceWorker } from './notifications';
+import { notifyEnabled, notifyNewSignals, registerServiceWorker, requestLotFocus } from './notifications';
 import { LDEmblem } from './components/LiquidityDissectionLogo';
-import { AgentPanel } from './components/AgentPanel';
-import { AccountView, AppUser } from './components/AccountView';
-import { AdminView } from './components/AdminView';
+const AgentPanel = lazy(() => import('./components/AgentPanel').then(m => ({ default: m.AgentPanel })));
+import type { AppUser } from './components/AccountView';
+const AccountView = lazy(() => import('./components/AccountView').then(m => ({ default: m.AccountView })));
+const AdminView = lazy(() => import('./components/AdminView').then(m => ({ default: m.AdminView })));
 import { motion, AnimatePresence } from 'motion/react';
 
 const ACCOUNT_TABS = ['account', 'positions', 'history', 'settings'];
@@ -145,7 +146,12 @@ export default function App() {
 
   // A clicked trade notification opens the chart on its pair (service worker message, direct click, or a new window ?symbol=)
   useEffect(() => {
-    const open = (sym: unknown) => { if (typeof sym === 'string' && isInstrument(sym)) { setSelectedSymbol(sym); setActiveTab('chart'); } };
+    const open = (sym: unknown) => {
+      if (typeof sym !== 'string' || !isInstrument(sym)) return;
+      setSelectedSymbol(sym);
+      setActiveTab('chart');
+      requestLotFocus(sym);  // straight to the lot for my risk on that trade
+    };
     const q = new URLSearchParams(window.location.search).get('symbol');
     if (q) { open(q); window.history.replaceState(null, '', window.location.pathname); }
     if (notifyEnabled()) registerServiceWorker();
@@ -224,14 +230,14 @@ export default function App() {
         currentUser={currentUser ? { id: String(currentUser.id), username: currentUser.username, role: currentUser.role } : null}
         onLogout={handleLogout}
       >
-        <AnimatePresence mode="wait">
+        <Suspense fallback={<PageFallback />}>
+        <AnimatePresence initial={false}>
           {activeTab === 'overview' && (
             <motion.div
               key="overview"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <DashboardView lang={lang} onOpenChart={sym => { setSelectedSymbol(sym); setActiveTab('chart'); }} />
             </motion.div>
@@ -242,8 +248,7 @@ export default function App() {
               key="markets"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <InternalPageTemplate
                 title={isFr ? 'Marchés & Surveillance d\'Actifs' : isAr ? 'مراقبة أصول الأسواق' : 'Markets & Pair Surveillance'}
@@ -273,8 +278,7 @@ export default function App() {
               key="chart"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <ExunuTerminalView
                 initialSymbol={isInstrument(selectedSymbol) ? selectedSymbol : 'XAU/USD'}
@@ -290,8 +294,7 @@ export default function App() {
               key="analysis"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <InternalPageTemplate
                 title={isFr ? 'Stratégies : or & forex (FXAlexG)' : isAr ? 'الاستراتيجيات: الذهب والفوركس (FXAlexG)' : 'Strategies: gold & forex (FXAlexG)'}
@@ -313,8 +316,7 @@ export default function App() {
               key="performance"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <InternalPageTemplate
                 title={isFr ? 'Audit & Registre de Performance' : isAr ? 'سجل التدقيق والأداء الموثق' : 'Audit & Performance Ledger'}
@@ -341,8 +343,7 @@ export default function App() {
               key="news"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <InternalPageTemplate
                 title={isFr ? 'Macro-Économie & Sentiment en Direct' : isAr ? 'الأخبار والماكرو والسيولة الحية' : 'Macro & Market Sentiment'}
@@ -369,8 +370,7 @@ export default function App() {
               key="admin"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <InternalPageTemplate
                 title={isFr ? 'Administration des utilisateurs' : isAr ? 'إدارة المستخدمين' : 'User administration'}
@@ -391,8 +391,7 @@ export default function App() {
               key="account"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <InternalPageTemplate
                 title={isFr ? 'Mon compte, trades & historique' : isAr ? 'حسابي، صفقاتي والسجل' : 'My account, trades & history'}
@@ -408,6 +407,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        </Suspense>
 
       </AppLayout>
 
@@ -428,20 +428,22 @@ export default function App() {
 
 
       {/* 6. Telegram Bot Alerts Modal */}
-      <TelegramSettingsModal
-        isOpen={isTelegramOpen}
-        onClose={() => setIsTelegramOpen(false)}
-        lang={lang}
-        theme={theme}
-      />
+      <Suspense fallback={null}>
+        {isTelegramOpen && <TelegramSettingsModal
+          isOpen={isTelegramOpen}
+          onClose={() => setIsTelegramOpen(false)}
+          lang={lang}
+          theme={theme}
+        />}
 
       {/* 6.5 Vanguard Neo-Precision Design System Inspector */}
-      <DesignSystemShowcase
-        isOpen={isDesignSystemOpen}
-        onClose={() => setIsDesignSystemOpen(false)}
-        lang={lang}
-        theme={theme}
-      />
+        {isDesignSystemOpen && <DesignSystemShowcase
+          isOpen={isDesignSystemOpen}
+          onClose={() => setIsDesignSystemOpen(false)}
+          lang={lang}
+          theme={theme}
+        />}
+      </Suspense>
 
       {/* 7. Mobile Bottom Navigation Bar (Visible exclusively on mobile screens) */}
       <MobileBottomNav
@@ -455,5 +457,15 @@ export default function App() {
         activeSignalsCount={signals.filter((s) => s.isActionableNow).length}
       />
     </>
+  );
+}
+
+
+// Shown for the moment a page's code is downloaded the first time (each page is its own small file)
+function PageFallback() {
+  return (
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3" aria-busy="true">
+      {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 rounded-2xl border border-line bg-surface-2 animate-pulse" />)}
+    </div>
   );
 }

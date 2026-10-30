@@ -114,6 +114,14 @@ async def _with_live_price(sym: str, bundle: dict) -> dict:
         return {**bundle, "result": {**bundle["result"], "price": price}}
     return bundle
 _locks: dict[str, asyncio.Lock] = {}
+# One strategy computation at a time in the worker threads: with all 9 at once (cold start) the threads fight over
+# the GIL and starve the event loop for seconds; one at a time keeps every other request answering in milliseconds
+_cpu = asyncio.Semaphore(1)
+
+
+async def _cpu_run(fn, *args):
+    async with _cpu:
+        return await asyncio.to_thread(fn, *args)
 
 
 async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool = False, live_price: Optional[float] = None) -> dict:
@@ -134,8 +142,8 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
         base = {"candles": loaded["candles"], "livePrice": price, "spread": None, "isRealData": loaded["isReal"], "dataSource": loaded["source"], "news": news}
         d = STRATEGY_DEFS[sym]
         # Replaying today's bars is CPU work: keep it off the event loop
-        day = await asyncio.to_thread(_today_stats, sym, base, now_sec) if loaded["isReal"] else {"trades": 0, "losses": 0}
-        result = await asyncio.to_thread(d.run, {**base, "nowSec": now_sec, "isMarketOpen": market_session_status(sym)["isOpen"], "day": day})
+        day = await _cpu_run(_today_stats, sym, base, now_sec) if loaded["isReal"] else {"trades": 0, "losses": 0}
+        result = await _cpu_run(d.run, {**base, "nowSec": now_sec, "isMarketOpen": market_session_status(sym)["isOpen"], "day": day})
         if result["signal"]:
             result["signal"]["explanation"] = build_explanation(result)
         bundle = {"result": result, "candles": loaded["candles"]}
@@ -178,6 +186,12 @@ async def get_strategy_result_as_of(raw_symbol: str, as_of: int) -> dict:
     if result["signal"]:
         result["signal"]["explanation"] = build_explanation(result)
     return {"result": result, "candles": cut}
+
+
+def cached_result(sym: str) -> Optional[dict]:
+    """The latest analysis already in memory (None before the first run): never waits on the feed."""
+    hit = _cache.get(sym) or _last_good.get(sym)
+    return hit[0]["result"] if hit else None
 
 
 async def all_results() -> list[dict]:
