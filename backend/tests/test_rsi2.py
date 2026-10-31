@@ -74,3 +74,14 @@ def test_levels_snap_to_the_tick_safely():
     assert snap_sl(1.123456, True, 5) == 1.12345 and snap_tp(1.134569, True, 5) == 1.13456
     assert snap_sl(1.123451, False, 5) == 1.12346 and snap_tp(1.110001, False, 5) == 1.11001
     assert snap_sl(1.12345, True, 5) == 1.12345 and snap_sl(2650.004, False, 2) == 2650.01  # already on the tick: unchanged
+
+
+def test_past_trades_are_tp_sl_or_be_and_score_the_pair():
+    from app.strategies.shared.common import history_stats, trade_class
+
+    assert (trade_class(1.75), trade_class(-1.03), trade_class(0.02), trade_class(None)) == ("TP", "SL", "BE", "BE")
+    past = [{"r": 2.0, "signalTime": 1}, {"r": -1.0, "signalTime": 2}, {"r": -1.0, "signalTime": 3}, {"r": 0.01, "signalTime": 4}, {"r": 0.5, "signalTime": 5}]
+    st = history_stats(past)
+    assert (st["trades"], st["tp"], st["sl"], st["be"], st["winRate"]) == (5, 2, 2, 1, 50)
+    assert st["totalR"] == 0.51 and st["profitFactor"] == 1.25 and st["maxDrawdownR"] == 2.0 and st["maxLosingRun"] == 2
+    assert history_stats([])["winRate"] is None

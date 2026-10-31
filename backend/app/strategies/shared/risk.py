@@ -33,6 +33,10 @@ def snap_tp(tp: float, buy: bool, decimals: int) -> float:
     return _to_tick(tp, decimals, up=not buy)
 
 
+# App rule for every strategy: the target sits between 1.5R and 2R (one target, the stop stays at the structure)
+TARGET_MIN_R, TARGET_MAX_R = 1.5, 2.0
+
+
 def rr(entry: float, sl: float, tp: float) -> float:
     risk = abs(entry - sl)
     return abs(tp - entry) / risk if risk > 0 else 0

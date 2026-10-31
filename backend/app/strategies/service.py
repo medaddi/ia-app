@@ -43,7 +43,7 @@ def _fx_def(cfg: dict) -> StrategyDef:
 def _rsi2_def(cfg: dict) -> StrategyDef:
     # Evaluated at every H4 close; the exit (close back over EMA5) is part of the lifecycle, live and in backtests
     return StrategyDef(entryTf="H4", run=partial(evaluate_rsi2, cfg=cfg), tfs=["H4"], limits={"H4": 3200},
-                       canSignalAt=lambda close: True, exit_rule=lambda c, side: rsi2_exit(c, side, cfg["exitEma"]))
+                       canSignalAt=lambda close: True, exit_rule=(lambda c, side: rsi2_exit(c, side, cfg["exitEma"])) if cfg.get("exitAtEma", True) else None)
 
 
 STRATEGY_DEFS: dict[str, StrategyDef] = {

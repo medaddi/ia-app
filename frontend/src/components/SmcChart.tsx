@@ -141,12 +141,8 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const setup = result?.setup ?? null;
   const signalBarTime = setup ? setup.signalTime - (TF_SEC[result!.timeframes.entry.split('/')[0]] || tfSec) : null;
 
-  // The strategy's past trades: listed under the chart (not drawn on it), summarised in the status strip
-  const past = useMemo(() => (result?.history ?? []).filter(h => h.id !== setup?.id && h.exitTime), [result?.history, setup?.id]);
-  const pastStats = useMemo(() => {
-    const wins = past.filter(h => h.outcome === 'WIN').length, losses = past.filter(h => h.outcome === 'LOSS').length;
-    return { n: past.length, wins, losses, r: past.reduce((a, h) => a + (h.r ?? 0), 0) };
-  }, [past]);
+  // The pair's track record (every closed trade of its strategy), summarised in the status strip; the list is under the chart
+  const pastStats = result?.historyStats ?? null;
 
   // Follow the app's light/dark theme
   useEffect(() => {
@@ -339,7 +335,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       add(setup.entry, p.text, t('Entry', 'Entrée', 'دخول'));
       add(setup.sl, p.bear, 'SL');
       const single = setup.params?.breakeven === false;
-      if (single) add(setup.tp3, p.bull, setup.setup === 'RSI2' ? t('Cap', 'Plafond', 'سقف') : 'TP');
+      if (single) add(setup.tp3, p.bull, 'TP');
       else { add(setup.tp1, p.bull, 'TP1', LineStyle.Dashed); add(setup.tp2, p.bull, 'TP2', LineStyle.Dashed); add(setup.tp3, p.bull, 'TP3'); }
     }
     return () => { lines.forEach(l => { try { cs.removePriceLine(l); } catch { /* chart rebuilt */ } }); };
@@ -493,10 +489,10 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
           {result?.setup && ` · ${result.score}`}
         </span>
         <span className="text-slate-400 min-w-0 truncate">{result?.headline ?? t('Loading the analysis…', 'Chargement de l’analyse…', 'كيتحمل التحليل…')}</span>
-        {pastStats.n > 0 && (
-          <span className="inline-flex items-center gap-1.5 font-mono text-slate-400" title={t('Last closed trades of the strategy on this pair (drawn on the chart)', 'Derniers trades clôturés de la stratégie sur cette paire (dessinés sur le graphique)', 'آخر الصفقات لي سدات الاستراتيجية ف هاد الزوج (مرسومين ف الشارت)')}>
-            {t('Past', 'Passés', 'فايتين')} {pastStats.n} · <span className="text-emerald-400">{pastStats.wins}W</span>/<span className="text-rose-400">{pastStats.losses}L</span> ·
-            <span className={pastStats.r >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pastStats.r >= 0 ? '+' : ''}{pastStats.r.toFixed(1)}R</span>
+        {pastStats && pastStats.trades > 0 && (
+          <span className="inline-flex items-center gap-1.5 font-mono text-slate-400" title={t('Closed trades of the strategy on this pair: in profit (TP), at the entry (BE), at a loss (SL)', 'Trades clôturés de la stratégie sur cette paire : en gain (TP), au point mort (BE), en perte (SL)', 'الصفقات لي سدات الاستراتيجية ف هاد الزوج: ربح (TP)، تعادل (BE)، خسارة (SL)')}>
+            {pastStats.trades} · <span className="text-emerald-400">TP {pastStats.tp}</span>/<span className="text-slate-300">BE {pastStats.be}</span>/<span className="text-rose-400">SL {pastStats.sl}</span> ·
+            <span className={pastStats.totalR >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pastStats.totalR >= 0 ? '+' : ''}{pastStats.totalR.toFixed(1)}R</span>
           </span>
         )}
         {keyFacts.length > 0 && (

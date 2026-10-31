@@ -31,13 +31,15 @@ def test_real_signal_from_the_rules():
     r = S.evaluate_alexg(_input(FIX["nowSec"]), CFG)
     s = r["setup"]
     assert r["status"] == "SIGNAL" and r["canNotify"] and s["id"] == FIX["setup"]["id"], r["headline"]
-    assert (s["direction"], s["entry"], s["tp3"]) == (FIX["setup"]["direction"], FIX["setup"]["entry"], FIX["setup"]["tp3"])
+    assert (s["direction"], s["entry"]) == (FIX["setup"]["direction"], FIX["setup"]["entry"])
+    # App rule: the target is the next zone capped at 2R (the recorded zone target was further), never below 1.5R
+    assert s["tp3"] < FIX["setup"]["tp3"] and 1.5 <= s["rrTarget"] <= 2 and "2R" in s["tp3Source"]
     # The stop is snapped to the tick AWAY from the entry (recorded nearest-rounded: at most 1 tick wider, never tighter)
     assert 0 <= FIX["setup"]["sl"] - s["sl"] <= 0.00001 + 1e-12
     g = s["anchors"]["gpa"]
     assert g["grade"] == r["grade"] == FIX["grade"] and r["score"] == FIX["score"] >= 60
     assert g["aoi"]["touches"] >= 3 and g["aoi"]["tfs"] in ("D1", "W1", "D1+W1") and g["session"] in ("London open", "New York open")
-    assert s["rrTarget"] >= 2 and s["params"]["partials"] == [0, 0, 1] and s["params"]["breakeven"] is False
+    assert s["rrTarget"] >= 1.5 and s["params"]["partials"] == [0, 0, 1] and s["params"]["breakeven"] is False
     # Exactly the 10 confluences, 10% each, plus the required rules
     conf = [c for c in r["checklist"] if c["weight"] == 10]
     assert len(conf) == 10 and sum(c["passed"] for c in conf) * 10 == r["score"]

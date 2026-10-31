@@ -1,11 +1,5 @@
 import React from 'react';
-import { 
-  Activity, 
-  TrendingUp, 
-  BarChart2, 
-  Briefcase, 
-  Menu
-} from 'lucide-react';
+import { ChartCandlestick, LayoutGrid, Menu, WalletCards } from 'lucide-react';
 import { Language } from '../types';
 
 interface MobileBottomNavProps {
@@ -37,21 +31,21 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       labelAr: 'الرئيسية',
       labelFr: 'Accueil',
       labelEn: 'Home',
-      icon: Activity
+      icon: LayoutGrid
     },
     {
       id: 'chart',
       labelAr: 'الشارت',
       labelFr: 'Graphique',
       labelEn: 'Chart',
-      icon: BarChart2
+      icon: ChartCandlestick
     },
     {
       id: 'positions',
       labelAr: 'صفقاتي',
       labelFr: 'Mes trades',
       labelEn: 'My trades',
-      icon: Briefcase
+      icon: WalletCards
     },
     {
       id: 'menu',

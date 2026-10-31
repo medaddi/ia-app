@@ -396,3 +396,11 @@ html, body {
     transition: transform 0.1s ease, opacity 0.1s ease;
   }
 }
+
+/* Icons: one family (lucide), one stroke width across the app */
+svg.lucide { stroke-width: 1.75; }
+/* Icon tile: an icon on a small rounded plate (menu items, card headers) */
+.icon-tile { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 0.75rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05); }
+.icon-tile-gold { background: linear-gradient(180deg, var(--color-gold-300), var(--color-gold-600)); color: var(--color-ink-strong);
+  box-shadow: 0 6px 16px -6px rgba(214,174,87,0.75), inset 0 1px 0 rgba(255,255,255,0.35); }

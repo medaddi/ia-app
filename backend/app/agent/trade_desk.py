@@ -58,7 +58,7 @@ def review(r: dict, db: Optional[Session] = None) -> dict:
     checks.append(_check("drift", f"Price within {MAX_DRIFT_R}R of the entry", abs(drift) <= MAX_DRIFT_R,
                          f"Live {f(price)} vs entry {f(s['entry'])} ({drift:+.2f}R)"))
 
-    target = s["tp1"] if s["setup"] == "RSI2" else s["tp3"] if s["params"].get("breakeven", True) is False else s["tp2"]  # RSI(2): ~1R to EMA5
+    target = s["tp3"]  # every strategy: one target between 1.5R and 2R
     planned = abs(target - s["entry"]) / risk if risk else 0
     live_risk = abs(price - s["sl"])
     live_rr = (abs(target - price) / live_risk) if live_risk and ((target > price) if buy else (target < price)) else 0

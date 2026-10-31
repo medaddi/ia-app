@@ -77,7 +77,7 @@ export function notifyNewSignals(signals: AISignal[], lang: Language) {
   if (!notifyEnabled()) return;
   for (const s of fresh) {
     const kind = strategyKind(s.symbol);
-    const tp = kind === 'gold' ? `TP1 ${s.target1} · TP2 ${s.target2}` : kind === 'rsi2' ? `exit EMA5 · cap ${s.target3 ?? s.target2}` : `TP ${s.target3 ?? s.target2}`;
+    const tp = `TP ${s.target3 ?? s.target2}${kind === 'rsi2' ? ' · or EMA5' : ''}`;  // every strategy: one target between 1.5R and 2R
     const body = lang === 'fr' ? `Entrée ${s.entryPrice} · SL ${s.stopLoss} · ${tp}` : lang === 'ar' ? `الدخول ${s.entryPrice} · SL ${s.stopLoss} · ${tp}` : `Entry ${s.entryPrice} · SL ${s.stopLoss} · ${tp}`;
     show(`${word(lang, s.signalType)} ${s.symbol} · ${s.confidence}%`, body, `ld-${s.id}`, s.symbol).catch(() => {});
   }

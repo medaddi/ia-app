@@ -53,8 +53,10 @@ def test_bullish_breakout_is_a_signal_with_exact_levels():
     ref = min(x.low for x in c[-4:])
     atr = r["setup"]["anchors"]["breakout"]["atr"]
     assert abs(s["sl"] - min(ref - 0.2 * atr, bo.close - atr)) < 0.02
-    assert abs(s["tp1"] - (s["entry"] + risk)) < 0.02 and abs(s["tp2"] - (s["entry"] + 2 * risk)) < 0.02 and abs(s["tp3"] - (s["entry"] + 3 * risk)) < 0.02
-    assert abs(s["rrTp2"] - 2) < 0.01 and s["lifecycle"]["state"] == "OPEN"
+    # App rule: one target at 2R (TP1 1R / TP2 1.5R are progress marks), no partials, the stop stays at the structure
+    assert abs(s["tp1"] - (s["entry"] + risk)) < 0.02 and abs(s["tp2"] - (s["entry"] + 1.5 * risk)) < 0.02 and abs(s["tp3"] - (s["entry"] + 2 * risk)) < 0.02
+    assert s["params"]["partials"] == [0, 0, 1] and s["params"]["breakeven"] is False
+    assert abs(s["rrTp2"] - 1.5) < 0.01 and s["lifecycle"]["state"] == "OPEN"
     assert [x["key"] for x in r["checklist"] if not x["passed"]] == [] and r["score"] >= 75
     assert validate_signal(r)["approved"]
     assert any(d["layer"] == "trade" for d in r["drawings"]) and any(d["id"] == "XAU-RANGE-H" for d in r["drawings"])
@@ -108,10 +110,10 @@ def test_closed_trade_reports_its_result():
     first = run(c)["setup"]
     risk = first["entry"] - first["sl"]
     p = first["entry"]
-    # Next candle reaches TP3 (3R): partials 50% at 1R + 25% at 2R + 25% at 3R = 1.75R before costs
-    r = run(c + [Candle(c[-1].time + 3600, p, p + 3.2 * risk, p - 0.1, p + 3 * risk)])
+    # Next candle reaches the 2R target: the whole position closes there (≈2R less costs)
+    r = run(c + [Candle(c[-1].time + 3600, p, p + 2.2 * risk, p - 0.1, p + 2 * risk)])
     lc = r["facts"]["lastTrade"]
-    assert lc["state"] == "CLOSED" and lc["outcome"] == "WIN" and 1.6 < lc["r"] < 1.8
+    assert lc["state"] == "CLOSED" and lc["outcome"] == "WIN" and 1.85 < lc["r"] <= 2
 
 
 def reversion_series(hour_utc: int):
@@ -139,7 +141,7 @@ def test_bollinger_reversion_in_the_session():
     s = r["setup"]
     assert r["status"] == "SIGNAL" and s["setup"] == "REVERSION" and s["direction"] == "BUY" and s["id"].startswith("XAUUSD-RV-"), r["headline"]
     risk = s["entry"] - s["sl"]
-    assert abs(s["tp3"] - (s["entry"] + risk)) < 0.02 and s["tp1"] < s["tp2"] < s["tp3"]  # one target at 1R, marks before it
+    assert abs(s["tp3"] - (s["entry"] + 1.5 * risk)) < 0.02 and s["tp1"] < s["tp2"] < s["tp3"]  # one target at 1.5R, marks before it
     assert abs(s["sl"] - (min(c[-1].low, c[-2].low) - 0.3 * s["anchors"]["reversion"]["atr"])) < 0.05
     assert s["params"]["partials"] == [0, 0, 1] and s["params"]["breakeven"] is False and s["params"]["maxBars"] == 24
     assert all(x["passed"] for x in r["checklist"]) and r["score"] == 100

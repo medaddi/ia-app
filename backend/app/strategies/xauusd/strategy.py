@@ -6,7 +6,7 @@ Trend (H1): BUY only if EMA50 > EMA200 and the close is above EMA200; SELL only 
 Entry: an H1 candle CLOSES beyond the highest high (buys) / lowest low (sells) of the previous 20 H1
 candles with a body > 0.5 × ATR(14). MARKET entry at that close.
 Stop: beyond the extreme of the last 4 candles ± 0.2 × ATR, at least 1 × ATR away; no trade above 3 × ATR.
-Targets: TP1 = 1R (close 50%, stop to breakeven), TP2 = 2R (25%), TP3 = 3R (rest).
+Target: one at 2R for the whole position (app rule: every target between 1.5R and 2R), the stop stays at the structure.
 
 B. "Bollinger Reversion" (London + New York, 07:00–17:00 UTC): in the same trend, the previous H1 candle CLOSED beyond
 the 2.2σ Bollinger band AGAINST the trend, and this candle closes back inside the band in the trend direction
@@ -20,7 +20,7 @@ exactly how both were backtested together (2 years: 216 trades, 60.6% winners, +
 from datetime import datetime, timezone
 from typing import Optional
 
-from ..shared.common import HISTORY_MAX, active_window, item, new_result, to_signal_json, tp_options, trade_record
+from ..shared.common import HISTORY_MAX, active_window, item, new_result, to_signal_json, history_stats, tp_options, trade_record
 from ..shared.drawings import level_drawings, trade_drawings
 from ..shared.indicators import atr_series, ema_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
@@ -127,8 +127,10 @@ def _build_setup(c: list[Candle], b: dict, spec: dict, cfg: dict, spread: float,
     params = {"side": "BUY" if buy else "SELL", "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
               "expiryTime": None, "marketFillTime": signal_time, "cancelIfTp1BeforeFill": False, "partials": R["partials"],
               "spread": spread, "slippage": FIL["slippage"]}
-    if rev:  # one target at 1R, no partials, no breakeven, time exit
+    if rev:  # one target, no partials, no breakeven, time exit
         params.update(partials=[0, 0, 1], breakeven=False, maxBars=RV["maxBars"])
+    elif R.get("singleTarget"):  # breakout as one position to TP3 (no partial closes, the stop stays at the structure)
+        params.update(partials=[0, 0, 1], breakeven=False)
     lifecycle = simulate_lifecycle(c, params, i + 1)
     return {
         "id": f"XAUUSD-{'RV' if rev else 'BO'}-{c[i].time}", "setup": "REVERSION" if rev else "BREAKOUT", "direction": "BUY" if buy else "SELL",
@@ -201,6 +203,7 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
         i = exit_idx + 1
 
     result["history"] = past[-HISTORY_MAX:]
+    result["historyStats"] = history_stats(past)  # over every closed trade, not only the listed ones
     tp_past = past  # every closed trade feeds the target odds (the list above keeps only the recent ones)
 
     trend_now = _trend(h1, last, ef, es)
@@ -273,8 +276,8 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
                  min(1.0, b["body"] / b["atr"])),
             item("stop", f"Stop {js_str(R['minSlAtr'])}–{js_str(R['maxSlAtr'])}× ATR beyond the last {R['stopRefBars']} candles", "وقف الخسارة حسب التقلب", True,
                  f"SL {f(setup['sl'])} = ${to_fixed(setup['slDistance'], 2)} ({to_fixed(b['risk'] / b['atr'], 2)}× ATR)", W["stop"], True),
-            item("targets", f"TP1 {js_str(R['tp1R'])}R (50%, SL to entry) · TP2 {js_str(R['tp2R'])}R · TP3 {js_str(R['tp3R'])}R", "الأهداف 1R / 2R / 3R", True,
-                 f"TP1 {f(setup['tp1'])} · TP2 {f(setup['tp2'])} · TP3 {f(setup['tp3'])}", W["targets"], True),
+            item("targets", f"One target at {js_str(R['tp3R'])}R (app rule: 1.5R–2R), stop at the structure", f"هدف واحد {js_str(R['tp3R'])}R (قاعدة التطبيق: 1.5R–2R)", True,
+                 f"TP {f(setup['tp3'])} · marks {f(setup['tp1'])} / {f(setup['tp2'])}", W["targets"], True),
             item("oneTrade", "One trade at a time", "صفقة واحدة في نفس الوقت", True, "No other gold trade open at the breakout", 0, True),
             item("news", "No high-impact USD news ±30 min", "لا أخبار قوية للدولار ±30 دقيقة", not nb["blocked"],
                  f"{nb['event']['currency']} {nb['event']['title']} at {fmt_time(nb['event']['time'])}" if nb["event"] else "Clear", 0, True),

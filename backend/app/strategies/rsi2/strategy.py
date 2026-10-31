@@ -11,7 +11,7 @@ One trade at a time, replayed in order like the backtest.
 
 from typing import Optional
 
-from ..shared.common import HISTORY_MAX, item, new_result, to_signal_json, tp_options, trade_record
+from ..shared.common import HISTORY_MAX, item, new_result, to_signal_json, history_stats, tp_options, trade_record
 from ..shared.drawings import trade_drawings
 from ..shared.indicators import atr_series, ema_series, rsi_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
@@ -63,7 +63,7 @@ def _build(c, b, cfg, spread, last, e5) -> dict:
     params = {"side": "BUY" if buy else "SELL", "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
               "expiryTime": None, "marketFillTime": signal_time, "cancelIfTp1BeforeFill": False, "partials": R["partials"],
               "breakeven": R["breakeven"], "maxBars": R["maxBars"], "spread": spread, "slippage": FIL["slippagePips"] * pip}
-    rule = lambda j: e5[j] == e5[j] and ((c[j].close > e5[j]) if buy else (c[j].close < e5[j]))  # noqa: E731
+    rule = (lambda j: e5[j] == e5[j] and ((c[j].close > e5[j]) if buy else (c[j].close < e5[j]))) if cfg.get("exitAtEma", True) else None  # noqa: E731
     f = lambda v: to_fixed(v, d)  # noqa: E731
     return {
         "id": f"{spec['symbol']}-R2-{c[i].time}", "setup": "RSI2", "direction": "BUY" if buy else "SELL", "entryType": "MARKET",
@@ -125,6 +125,7 @@ def evaluate_rsi2(inp: dict, cfg: dict) -> dict:
         i = next((j for j in range(i + 1, last + 1) if c[j].time == lc["exitTime"]), last) + 1
 
     result["history"] = past[-HISTORY_MAX:]
+    result["historyStats"] = history_stats(past)  # over every closed trade, not only the listed ones
     tp_past = past  # every closed trade feeds the target odds (the list above keeps only the recent ones)
 
     trend_now = _trend(c, last, ef, es)

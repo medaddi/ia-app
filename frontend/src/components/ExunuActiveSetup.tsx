@@ -1,5 +1,6 @@
 import { apiFetch } from '../api';
 import React, { useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X, Clock, CalendarClock } from 'lucide-react';
 import type { StrategyResult, TpReach } from '../strategyTypes';
@@ -45,7 +46,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
   const order: Record<string, string> = {
     PENDING: t('Order pending', 'Ordre en attente', 'الأمر معلق'), OPEN: t('In trade', 'En position', 'داخل الصفقة'),
     TP1_HIT: single ? t('Running · 1R reached', 'En cours · 1R atteint', 'جارية · وصلات 1R') : t('TP1 hit · stop at breakeven', 'TP1 touché · stop au point mort', 'ضرب TP1 · الستوب فالدخول'),
-    TP2_HIT: single ? t('Running · 2R reached', 'En cours · 2R atteint', 'جارية · وصلات 2R') : t('TP2 hit · runner open', 'TP2 touché · reste ouvert', 'ضرب TP2 · الباقي مفتوح'),
+    TP2_HIT: single ? t('Running · 1.5R reached', 'En cours · 1,5R atteint', 'جارية · وصلات 1.5R') : t('TP2 hit · runner open', 'TP2 touché · reste ouvert', 'ضرب TP2 · الباقي مفتوح'),
     CLOSED: t('Closed', 'Clôturé', 'مسدودة'), CANCELLED: t('Cancelled (TP1 before fill)', 'Annulé (TP1 avant exécution)', 'ملغاة (TP1 قبل الدخول)'),
     EXPIRED: t('Expired (not filled)', 'Expiré (non exécuté)', 'انتهت (ما تنفذاتش)'),
   };
@@ -137,25 +138,11 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
         </div>
       )}
 
-      {/* RSI(2) exits at EMA5: its 5R cap is not a planned target */}
-      {s && result.tpReach && <TargetOptions reach={result.tpReach} planned={s.setup === 'RSI2' ? 0 : rrTarget} f={f} t={t} />}
+      {s && result.tpReach && <TargetOptions reach={result.tpReach} planned={rrTarget} f={f} t={t} />}
 
       <div className="p-4 border-b border-line">
-        <h4 className="text-xs font-semibold text-slate-300 mb-2">{scored ? t('Setup checklist', 'Checklist du setup', 'شروط الإعداد') : t('GPA confluences (10% each)', 'Confluences GPA (10 % chacune)', 'نقاط GPA (10% لكل وحدة)')}</h4>
-        <ul className="space-y-1.5">
-          {result.checklist.map(c => (
-            <li key={c.key} className="flex gap-2 text-xs">
-              <span className={`mt-0.5 w-4 h-4 shrink-0 rounded-full flex items-center justify-center ${c.passed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
-                {c.passed ? <Check className="w-3 h-3" aria-label={t('passed', 'validé', 'محقق')} /> : <X className="w-3 h-3" aria-label={t('failed', 'non validé', 'ما محققش')} />}
-              </span>
-              <span className="min-w-0">
-                <span className="text-slate-200">{ar && c.ruleAr ? c.ruleAr : c.rule}</span>
-                {c.required && <span className="text-slate-500"> · {t('required', 'obligatoire', 'ضروري')}</span>}
-                <span className="block text-slate-500 break-words" dir="ltr">{c.detail}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <ConditionSteps items={result.checklist} ar={ar} t={t}
+          title={scored ? t('Setup checklist', 'Checklist du setup', 'شروط الإعداد') : t('GPA confluences (10% each)', 'Confluences GPA (10 % chacune)', 'نقاط GPA (10% لكل وحدة)')} />
       </div>
 
       <div className="px-4 py-3 border-b border-line text-xs space-y-2">
@@ -235,6 +222,57 @@ function TargetOptions({ reach, planned, f, t }: { reach: TpReach; planned: numb
         {few && reach.sample > 0 ? t(`Only ${reach.sample} past trades: treat these odds as a rough guide.`, `Seulement ${reach.sample} trades passés : probabilités indicatives.`, `غير ${reach.sample} صفقات فاتت: الاحتمالات تقريبية.`)
           : t('Share of past trades the market carried to each level before the stop. Past odds, not a promise.', 'Part des trades passés que le marché a portés jusqu’à chaque niveau avant le stop. Le passé ne garantit rien.', 'نسبة الصفقات الفايتة لي وصلها السوق لكل مستوى قبل الستوب. الماضي ماشي ضمان.')}
       </p>
+    </div>
+  );
+}
+
+
+/** The setup's conditions in order, as steps: each one lights up the moment it is met, the others stay dimmed;
+ * the first one still missing is marked as the one the strategy waits for. */
+function ConditionSteps({ items, title, ar, t }: { items: StrategyResult['checklist']; title: string; ar: boolean; t: (en: string, fr: string, ar: string) => string }) {
+  const reduce = useReducedMotion();
+  const met = items.filter(c => c.passed).length;
+  const next = items.findIndex(c => !c.passed);
+  const all = met === items.length;
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h4 className="text-xs font-semibold text-slate-300">{title}</h4>
+        <span className={`font-mono text-xs font-semibold ${all ? 'text-emerald-300' : 'text-gold-200'}`}>{met}/{items.length}</span>
+      </div>
+      {/* One segment per condition, lit when met */}
+      <div className="flex gap-1 mb-3" aria-hidden="true">
+        {items.map(c => (
+          <span key={c.key} className={`h-1.5 flex-1 rounded-full transition-[background-color,box-shadow] duration-500 ${c.passed ? (all ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]' : 'bg-gold-400 shadow-[0_0_8px_rgba(214,174,87,0.55)]') : 'bg-surface-3'}`} />
+        ))}
+      </div>
+      <ol className="relative">
+        {items.map((c, i) => {
+          const isNext = i === next;
+          const lit = c.passed && (i === 0 || items[i - 1].passed);  // the rail glows through consecutive met steps
+          return (
+            <li key={c.key} className={`relative flex gap-3 pb-3 last:pb-0 transition-opacity duration-500 ${c.passed || isNext ? 'opacity-100' : 'opacity-45'}`}>
+              {i < items.length - 1 && (
+                <span aria-hidden="true" className={`absolute start-[11px] top-6 bottom-0 w-[2px] rounded-full transition-colors duration-500 ${lit && items[i + 1].passed ? 'bg-gold-400/70' : 'bg-line-2'}`} />
+              )}
+              <motion.span key={String(c.passed)} initial={reduce || !c.passed ? false : { scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 380, damping: 16 }}
+                className={`relative z-[1] mt-0.5 w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${
+                  c.passed ? 'bg-gradient-to-b from-gold-300 to-gold-600 text-ink-strong shadow-[0_0_14px_rgba(214,174,87,0.55)]'
+                    : isNext ? 'bg-surface-2 text-gold-200 ring-2 ring-gold-500/60' : 'bg-surface-2 text-zinc-500 ring-1 ring-line-2'}`}>
+                {c.passed ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : i + 1}
+                {isNext && !reduce && <span aria-hidden="true" className="absolute inset-0 rounded-full ring-2 ring-gold-400/50 animate-ping" />}
+              </motion.span>
+              <span className="min-w-0 text-xs pt-0.5">
+                <span className={`font-medium ${c.passed ? 'text-white' : isNext ? 'text-gold-100' : 'text-slate-300'}`}>{ar && c.ruleAr ? c.ruleAr : c.rule}</span>
+                {c.required && <span className="text-slate-500"> · {t('required', 'obligatoire', 'ضروري')}</span>}
+                <span className="sr-only"> — {c.passed ? t('met', 'validée', 'محققة') : t('not met yet', 'pas encore validée', 'مازال ما تحققاتش')}</span>
+                {isNext && <span className="ms-1.5 inline-block px-1.5 py-px rounded bg-gold-500/15 text-[10px] font-semibold text-gold-200 align-middle">{t('waiting', 'en attente', 'كنتسناو')}</span>}
+                <span className="block text-slate-500 break-words mt-0.5" dir="ltr">{c.detail}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

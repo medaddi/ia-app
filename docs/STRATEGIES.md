@@ -13,6 +13,22 @@ strategy's config file. Same closed candles → same result, every time.
 | Timeframes | Trend, setup and entry on H1 | Trend, entry and exit on H4 | Trend W1 + D1 + H4 · AOI W1 / D1 · Pattern & EMA 1H · Entry 30m |
 | Order | MARKET (close of the signal candle) | MARKET (close of the RSI(2) extreme), exit at the first close back over EMA5 | MARKET (close of the 30m engulfing), one target at the next W1 / D1 zone (≥ 1:2) |
 
+## Target rule (every strategy)
+
+Every signal has **one target between 1.5R and 2R**; the stop stays at the structure (no partial closes, no breakeven):
+
+| Strategy | Target |
+|---|---|
+| Gold H1 breakout | 2R (was TP1 1R / TP2 2R / TP3 3R with partials) |
+| Gold Bollinger reversion | 1.5R (was 1R), still closed after 24 H1 candles |
+| RSI(2) Connors H4 (EUR/USD, GBP/USD) | 2R, or earlier at the first H4 close back over EMA5 (removing the EMA5 exit lost money) |
+| FXAlexG GPA | the next W1 / D1 zone capped at 2R; below 1.5R to the zone, no trade |
+
+Measured on each pair's own history with the app's code before the change (costs included):
+gold 2R + 1.5R gave +8.5R on 11 trades (vs +5.5R), EUR/USD +5.3R and GBP/USD +4.8R on 133 / 70 trades (unchanged within 0.5R),
+USD/CAD +3.8R on 10 trades (vs +5.0R). Small samples on gold and the GPA pairs: treat them as indicative.
+The validator rejects any signal whose target is outside 1:1.5–1:2. The figures in the sections below were measured with the old targets.
+
 ## Shared definitions (`backend/app/strategies/shared/`)
 
 - **Swing high/low**: fractal with 3 candles on each side, strictly higher/lower; confirmed only after the 3 right-side candles close. Labelled HH / LH / HL / LL against the previous swing of the same kind.

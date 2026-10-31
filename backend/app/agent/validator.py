@@ -7,7 +7,7 @@ something the strategy rejected.
 from ..strategies.alexg.config import ALEXG_CONFIGS
 from ..strategies.rsi2.config import RSI2_CONFIGS
 from ..strategies.shared.jsnum import js_str, to_fixed
-from ..strategies.shared.risk import rr, score_checklist
+from ..strategies.shared.risk import TARGET_MAX_R, TARGET_MIN_R, rr, score_checklist
 from ..strategies.xauusd.config import XAU_CONFIG
 
 
@@ -27,17 +27,12 @@ def validate_signal(r: dict) -> dict:
     if not ordered:
         issues.append("Levels are not in order (SL / entry / TP1 / TP2 / TP3)")
 
-    rr_tp2 = rr(s["entry"], s["sl"], s["tp2"])
     dist = abs(s["entry"] - s["sl"])
+    # App rule, every strategy: one target between 1.5R and 2R (a tick of rounding allowed)
+    rr_target = rr(s["entry"], s["sl"], s["tp3"])
+    if not (TARGET_MIN_R - 0.02 <= rr_target <= TARGET_MAX_R + 0.01):
+        issues.append(f"Target at 1:{to_fixed(rr_target, 2)}, outside 1:{TARGET_MIN_R}–1:{TARGET_MAX_R}")
     if r["symbol"] == "XAUUSD":
-        R = XAU_CONFIG["risk"]
-        if s["setup"] == "REVERSION":  # one target at 1R (high win rate engine)
-            RV = XAU_CONFIG["reversion"]
-            rr_target = rr(s["entry"], s["sl"], s["tp3"])
-            if rr_target < RV["tpR"] - 0.01:
-                issues.append(f"R:R to the target {to_fixed(rr_target, 2)} < {RV['tpR']}")
-        elif rr_tp2 < R["tp2R"] - 0.01:  # prices are rounded to the cent
-            issues.append(f"R:R to TP2 {to_fixed(rr_tp2, 2)} < {R['tp2R']}")
         # The stop size (1–3 × ATR) is the strategy's own required "stop" rule
         if dist <= 0:
             issues.append("Stop distance is zero")
@@ -52,10 +47,7 @@ def validate_signal(r: dict) -> dict:
         cfg = ALEXG_CONFIGS[r["spec"]["displaySymbol"]]
         R = cfg["risk"]
         pips = dist / r["spec"]["pipSize"]
-        # Set & forget: the whole position runs to the single target (TP3, the next W1 / D1 zone)
-        rr_target = rr(s["entry"], s["sl"], s["tp3"])
-        if rr_target < R["minRr"] - 0.01:
-            issues.append(f"R:R to the target {to_fixed(rr_target, 2)} < {R['minRr']}")
+        # Set & forget: the whole position runs to the single target (the next W1 / D1 zone, capped at 2R)
         if pips < R["minSlPips"] - 0.01 or pips > R["maxSlPips"] + 0.01:
             issues.append(f"Stop {to_fixed(pips, 1)} pips outside {R['minSlPips']}–{R['maxSlPips']}")
         if s["entryType"] != "MARKET":

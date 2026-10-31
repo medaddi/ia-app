@@ -21,7 +21,7 @@ RSI2_BASE = {
     "exitEma": 5,  # exit at the first H4 close back above (buys) / below (sells) EMA5
     "atrPeriod": 14,
     "risk": {
-        "tp1R": 1, "tp2R": 2, "capR": 5,  # TP1 / TP2 are progress marks; 5R is only a safety cap (the exit is EMA5)
+        "tp1R": 1, "tp2R": 1.5, "capR": 2,  # app rule: target at 2R (TP1 / TP2 are marks); the EMA5 close can exit earlier
         "partials": [0, 0, 1],
         "breakeven": False,
         "maxBars": 48,  # closed at market after 48 H4 candles (8 days) if still open

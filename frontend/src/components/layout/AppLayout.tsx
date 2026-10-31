@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BarChart2, Bell, BellOff, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, Layers, LayoutDashboard, LineChart, LogOut, Menu,
-  Newspaper, RefreshCw, Search, Send, ShieldCheck, UserCog, Wallet, X,
+  Bell, BellOff, BotMessageSquare, CalendarRange, ChartCandlestick, ChartSpline, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, LayoutGrid,
+  LogOut, Menu, RefreshCw, Search, Send, Trophy, UserRoundCog, WalletCards, Workflow, X,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { MarketAsset, Language } from '../../types';
@@ -152,21 +152,21 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   const groups: { title: Key; items: NavItem[] }[] = [
     { title: 'gTrading', items: [
-      { id: 'overview', label: 'dashboard', icon: LayoutDashboard },
-      { id: 'chart', label: 'chart', icon: BarChart2, count: activeSignalsCount },
-      { id: 'markets', label: 'markets', icon: LineChart },
-      { id: 'analysis', label: 'strategies', icon: Layers },
+      { id: 'overview', label: 'dashboard', icon: LayoutGrid },
+      { id: 'chart', label: 'chart', icon: ChartCandlestick, count: activeSignalsCount },
+      { id: 'markets', label: 'markets', icon: ChartSpline },
+      { id: 'analysis', label: 'strategies', icon: Workflow },
     ] },
     { title: 'gResults', items: [
-      { id: 'performance', label: 'performance', icon: ShieldCheck },
-      { id: 'news', label: 'news', icon: Newspaper },
+      { id: 'performance', label: 'performance', icon: Trophy },
+      { id: 'news', label: 'news', icon: CalendarRange },
     ] },
     { title: 'gAccount', items: [
-      { id: 'account', label: 'account', icon: Wallet },
-      ...(isAdmin ? [{ id: 'admin', label: 'admin' as Key, icon: UserCog, count: pendingUsers }] : []),
+      { id: 'account', label: 'account', icon: WalletCards },
+      ...(isAdmin ? [{ id: 'admin', label: 'admin' as Key, icon: UserRoundCog, count: pendingUsers }] : []),
     ] },
     { title: 'gTools', items: [
-      { id: 'assistant', label: 'assistant', icon: Bot, action: 'assistant' as const },
+      { id: 'assistant', label: 'assistant', icon: BotMessageSquare, action: 'assistant' as const },
       ...(isAdmin && onOpenTelegram ? [{ id: 'telegram', label: 'telegram' as Key, icon: Send, action: 'telegram' as const }] : []),
     ] },
   ];
@@ -207,13 +207,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       <button onClick={() => { if (tree && !compact && active) setPairsOpen(o => !o); go(item); }} title={compact ? t(item.label) : undefined}
         aria-current={active ? 'page' : undefined} aria-expanded={tree && !compact ? pairsOpen && active : undefined}
         className={`group relative w-full flex items-center gap-3 rounded-2xl text-[13px] font-medium cursor-pointer transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500/70 ${
-          mobile ? 'min-h-[48px] px-3.5' : 'min-h-[44px] px-3'} ${compact ? 'justify-center w-11 mx-auto px-0' : ''} ${
+          mobile ? 'min-h-[50px] px-2.5' : 'min-h-[46px] px-2'} ${compact ? 'justify-center w-12 mx-auto px-0' : ''} ${
           active ? 'text-white' : 'text-zinc-400 hover:text-slate-100 hover:bg-white/[0.035]'}`}>
         {active && (
           <motion.span layoutId={mobile ? 'nav-active-m' : 'nav-active'} transition={{ duration: reduce ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
             className="absolute inset-0 rounded-2xl bg-white/[0.06] ring-1 ring-inset ring-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" />
         )}
-        <Icon className={`relative w-[18px] h-[18px] shrink-0 transition-colors ${active ? 'text-gold-400' : 'text-zinc-500 group-hover:text-zinc-300'}`} />
+        <span className={`relative icon-tile w-8 h-8 transition-[color,box-shadow] duration-200 ${active ? 'icon-tile-gold' : 'text-zinc-400 group-hover:text-zinc-100'}`}>
+          <Icon className="w-4 h-4" />
+        </span>
         {!compact && <span className="relative truncate flex-1 text-start">{t(item.label)}</span>}
         {!!item.count && item.count > 0 && (
           <span className={`relative shrink-0 inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30 font-mono text-[10px] font-semibold ${
@@ -470,8 +472,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                         <div className="text-[11px] text-gold-500">{isAdmin ? t('roleAdmin') : t('roleUser')}</div>
                       </div>
                       {[
-                        { k: 'account' as Key, icon: Wallet, on: () => onSelectTab('account') },
-                        ...(isAdmin ? [{ k: 'admin' as Key, icon: UserCog, on: () => onSelectTab('admin') }] : []),
+                        { k: 'account' as Key, icon: WalletCards, on: () => onSelectTab('account') },
+                        ...(isAdmin ? [{ k: 'admin' as Key, icon: UserRoundCog, on: () => onSelectTab('admin') }] : []),
                         ...(isAdmin && onOpenTelegram ? [{ k: 'telegram' as Key, icon: Send, on: () => onOpenTelegram() }] : []),
                       ].map(({ k, icon: Icon, on }) => (
                         <button key={k} role="menuitem" onClick={() => { setUserOpen(false); on(); }}

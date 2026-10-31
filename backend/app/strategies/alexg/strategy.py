@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-from ..shared.common import HISTORY_MAX, active_window, item, new_result, to_signal_json, tp_options, trade_record
+from ..shared.common import HISTORY_MAX, active_window, item, new_result, to_signal_json, history_stats, tp_options, trade_record
 from ..shared.drawings import trade_drawings
 from ..shared.indicators import atr_series, avg_body_series, ema_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
@@ -423,6 +423,7 @@ def evaluate_alexg(inp: dict, cfg: dict) -> dict:
         i = next((j for j in range(i + 1, last + 1) if e[j].time == lc["exitTime"]), last) + 1
 
     result["history"] = past[-HISTORY_MAX:]
+    result["historyStats"] = history_stats(past)  # over every closed trade, not only the listed ones
     tp_past = past  # every closed trade feeds the target odds (the list above keeps only the recent ones)
 
     # ---- Live read on the last closed candle (the 5-part answer: trend, AOI, grade, verdict, levels) ----

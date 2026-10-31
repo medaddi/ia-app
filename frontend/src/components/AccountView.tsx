@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { INSTRUMENT_SYMBOLS, strategyKind } from '../instruments';
+import { INSTRUMENT_SYMBOLS } from '../instruments';
 import { Check, Copy, History, KeyRound, OctagonAlert, Plus, Send, ShieldOff, Target, Wallet, Zap } from 'lucide-react';
 import { apiJson } from '../api';
 import { AISignal, Language, MarketAsset } from '../types';
@@ -309,7 +309,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
                       <div className={`font-semibold ${s.signalType === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`}>{s.signalType} {s.entryType} · {s.symbol}</div>
                       <div className="font-mono text-slate-400">
                         {/* Forex (FXAlexG set & forget) has one target; gold has TP1 / TP2 / TP3 */}
-                        Entry {s.entryPrice} · SL {s.stopLoss} · {s.symbol === 'XAU/USD' ? `TP1 ${s.target1} · TP2 ${s.target2} · TP3 ${s.target3}` : strategyKind(s.symbol) === 'rsi2' ? `exit EMA5 · cap ${s.target3}` : `TP ${s.target3}`} · score {s.confidence}
+                        Entry {s.entryPrice} · SL {s.stopLoss} · {`TP ${s.target3 ?? s.target2}`} · score {s.confidence}
                       </div>
                       {rec ? (
                         <div className="font-mono text-gold-500 mt-0.5">

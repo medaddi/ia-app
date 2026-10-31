@@ -88,6 +88,7 @@ def build_agent_context(results: list[dict]) -> dict:
             "headline": r["headline"], "rejection": r["rejection"],
             "checklist": [{"rule": c["rule"], "passed": c["passed"], "required": c["required"], "detail": c["detail"]} for c in r["checklist"]],
             "setup": setup_ctx(r["setup"]), "news": r["news"], "day": r["day"], "facts": r["facts"],
+            "historyStats": r.get("historyStats"),  # the pair's performance under the current rules
         } for r in results],
     }
 

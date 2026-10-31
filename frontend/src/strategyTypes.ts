@@ -80,6 +80,14 @@ export interface PastTrade {
   id: string; setup: string; direction: Side; time: number; signalTime: number; entry: number; sl: number; target: number;
   exitTime: number | null; exitPrice: number | null; exitType: string | null; outcome: "WIN" | "LOSS" | "BREAKEVEN" | null; r: number | null;
   reachR?: number | null;  // how far the market went for it (R) before the stop
+  result?: "TP" | "SL" | "BE";  // closed in profit / at a loss / at the entry (|R| <= 0.05)
+}
+
+/** Performance of the pair's strategy over every closed trade. */
+export interface HistoryStats {
+  trades: number; tp: number; sl: number; be: number; winRate: number | null; totalR: number; avgR: number | null;
+  profitFactor: number | null; maxDrawdownR: number; avgWinR: number | null; avgLossR: number | null;
+  bestR: number | null; worstR: number | null; maxLosingRun: number; since: number | null;
 }
 export type DrawingColor = "bull" | "bear" | "gold" | "muted" | "asia" | "london" | "ny" | "liquidity" | "entry";
 
@@ -128,6 +136,7 @@ export interface TradeSetup {
 
 export interface StrategyResult {
   history?: PastTrade[];  // the strategy's closed trades, oldest first
+  historyStats?: HistoryStats | null;
   tpReach?: TpReach | null;  // how far the market went for this pair's past trades, as target options
   symbol: InstrumentSpec["symbol"];
   displaySymbol: InstrumentSpec["displaySymbol"];

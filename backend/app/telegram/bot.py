@@ -112,7 +112,7 @@ def _levels(signal: dict) -> Optional[dict]:
     symbol = normalize_symbol(signal.get("symbol", ""))
     gold = symbol == "XAU/USD"
     return {"symbol": symbol, "buy": signal.get("signalType") == "BUY", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
-            "single": sj.get("setup") in ("GPA", "BREAK_RETEST", "REVERSION", "RSI2") and tp3 is not None,  # one target (forex set & forget, gold reversion)
+            "single": sj.get("setup") in ("GPA", "BREAK_RETEST", "REVERSION", "BREAKOUT", "RSI2") and tp3 is not None,  # one target between 1.5R and 2R
             "orderType": sj.get("entry_type") or signal.get("entryType") or "LIMIT", "expires": sj.get("expires_at"),
             "decimals": 2 if gold else 5, "pip": 0.1 if gold else 0.0001, "setup": sj.get("setup")}
 
@@ -132,7 +132,7 @@ def format_signal_message(signal: dict, lot: Optional[dict] = None, ref: Optiona
     lines = [f"{'🟢' if L['buy'] else '🔴'} <b>{'BUY' if L['buy'] else 'SELL'}{order} {L['symbol']}</b>", "",
              f"Entry {c(entry)}", f"SL {c(sl)} · {pips(sl)} pips"]
     if L["setup"] == "RSI2":
-        lines.append(f"Exit: first H4 close {'above' if L['buy'] else 'below'} EMA5 · safety TP {c(L['tp3'])}")
+        lines.append(f"TP {c(L['tp3'])} · 1:{rr_of(L['tp3'])} · or earlier at the first H4 close {'above' if L['buy'] else 'below'} EMA5")
     elif L["single"]:
         lines.append(f"TP {c(L['tp3'])} · 1:{rr_of(L['tp3'])}")
     else:
@@ -450,9 +450,10 @@ def _market_text() -> str:
 
 
 RULES = """<b>How the signals work</b>
-🥇 <b>Gold: two engines, one trade at a time</b>. Trend by EMA50 vs EMA200. <b>Breakout</b>: an H1 candle closes beyond the 20-hour high/low with a strong body → TP1 1R (close 50%, SL to entry), TP2 2R, TP3 3R. <b>Bollinger reversion</b> (London / New York): a close beyond the 2.2σ band against the trend, then a candle back inside with the trend → one target at 1R, closed after 24 H1 candles. 2 years: 59% winners, +49.9R.
-💶 <b>EUR/USD, GBP/USD (RSI(2) Connors H4)</b>: H4 trend by EMA50 / EMA200. Entry at the H4 close when RSI(2) is extreme against the trend (a short pullback). Stop 2.5–3 × ATR. Exit at the first H4 close back over EMA5 (the message says so), 5R safety TP, max 8 days.
-💱 <b>Forex: USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF (FXAlexG Set &amp; Forget GPA)</b>: trend on W1, D1 and H4 by structure (body close only), trade the majority. Areas of interest only on W1 / D1 with 3+ touches. Entry after the AOI touch, an H4 rejection and a 30m engulfing at the London or New York open. SL beyond the pattern head, TP at the next W1 / D1 zone before a round level, minimum 1:2. Set &amp; forget.
+🎯 Every signal has <b>one target between 1.5R and 2R</b>; the stop stays at the structure (no partial closes, no breakeven).
+🥇 <b>Gold: two engines, one trade at a time</b>. Trend by EMA50 vs EMA200. <b>Breakout</b>: an H1 candle closes beyond the 20-hour high/low with a strong body → one target at 2R. <b>Bollinger reversion</b> (London / New York): a close beyond the 2.2σ band against the trend, then a candle back inside with the trend → one target at 1.5R, closed after 24 H1 candles.
+💶 <b>EUR/USD, GBP/USD (RSI(2) Connors H4)</b>: H4 trend by EMA50 / EMA200. Entry at the H4 close when RSI(2) is extreme against the trend (a short pullback). Stop 2.5–3 × ATR. TP at 2R, or earlier at the first H4 close back over EMA5, max 8 days.
+💱 <b>Forex: USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF (FXAlexG Set &amp; Forget GPA)</b>: trend on W1, D1 and H4 by structure (body close only), trade the majority. Areas of interest only on W1 / D1 with 3+ touches. Entry after the AOI touch, an H4 rejection and a 30m engulfing at the London or New York open. SL beyond the pattern head, TP at the next W1 / D1 zone before a round level, between 1:1.5 and 1:2. Set &amp; forget.
 🎓 Grade: 10 confluences × 10% → A+ 80%+, B 70%+, C+ 60%+ (minimum). Below 60%: no signal.
 Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.
 ⚠️ Past results do not guarantee future results: risk only what you can lose."""

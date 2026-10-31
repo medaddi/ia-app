@@ -30,9 +30,9 @@ XAU_CONFIG = {
         "bbK": 2.2,
         "sessionUtc": [7, 17],
         "slBufferAtr": 0.3,  # stop beyond the two candles ± 0.3 × ATR
-        "tpR": 1,
-        "tp1R": 0.5,  # progress marks only (one target, no partials, no breakeven)
-        "tp2R": 0.75,
+        "tpR": 1.5,  # app rule: every target between 1.5R and 2R
+        "tp1R": 0.75,  # progress marks only (one target, no partials, no breakeven)
+        "tp2R": 1,
         "maxBars": 24,
     },
 
@@ -41,10 +41,13 @@ XAU_CONFIG = {
         "stopBufferAtr": 0.2,  # … minus / plus 0.2 × ATR
         "minSlAtr": 1.0,  # stop at least 1 × ATR from the entry
         "maxSlAtr": 3.0,  # no trade if the stop would be wider than 3 × ATR
-        "tp1R": 1,  # close 50%, stop to breakeven
-        "tp2R": 2,  # close 25%
-        "tp3R": 3,  # close the rest
-        "partials": [0.5, 0.25, 0.25],
+        # App rule: every target between 1.5R and 2R. One position to 2R, the stop stays at the structure
+        # (on the H1 history: 2R single + reversion 1.5R gave the best result, vs partials at 1R / 2R / 3R)
+        "tp1R": 1,  # progress marks only
+        "tp2R": 1.5,
+        "tp3R": 2,
+        "partials": [0, 0, 1],
+        "singleTarget": True,
         "marketValidMin": 30,  # do not enter later than 30 min after the candle close
         "riskPct": 1,
         "balances": [500, 1000, 5000, 10000],

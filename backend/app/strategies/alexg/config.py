@@ -74,13 +74,15 @@ ALEXG_BASE = {
         "slLookbackLtf": 12,  # without a pattern: beyond the lowest low / highest high of the last 12 H1 candles
         "minSlPips": 10,
         "maxSlPips": 90,
-        "minRr": 2,  # below 1:2 to the next zone: no trade
+        # App rule: every target between 1.5R and 2R: the next zone, capped at 2R; below 1.5R to it, no trade
+        "minRr": 1.5,
+        "maxRr": 2,
         "tpSpreadPips": 2,  # TP a little before the zone edge (spread)
         "roundStepPips": 50,  # psychological levels every 50 pips (…0.89000, 0.89500…)
         "roundBeforePips": 15,  # a round level up to 15 pips before the TP pulls the TP in front of it
         "roundOffsetPips": 3,
         "tp1R": 1,  # TP1 / TP2 are progress marks only (set & forget: one target, no partials, no breakeven)
-        "tp2R": 2,
+        "tp2R": 1.5,
         "partials": [0, 0, 1],
         "breakeven": False,
         "marketValidMin": 30,

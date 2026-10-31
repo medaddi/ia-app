@@ -97,8 +97,8 @@ def build_explanation(r: dict, lang: str = "en") -> str:
             parts.append(f"Set & forget: stop {f(s['sl'])} ({js_str(s['slPips'])} pips), one target {f(s['tp3'])} ({s['tp3Source']}); "
                          f"TP1 {f(s['tp1'])} and TP2 {f(s['tp2'])} are progress marks only, no partials, no breakeven.")
         else:
-            parts.append(f"Stop {f(s['sl'])} ({js_str(s['slPips'])} pips). Targets: TP1 {f(s['tp1'])} (1R, close 50%, stop to breakeven), "
-                         f"TP2 {f(s['tp2'])} ({s['tp2Source']}, 1:{rr1}), TP3 {f(s['tp3'])} ({s['tp3Source']}).")
+            parts.append(f"Stop {f(s['sl'])} ({js_str(s['slPips'])} pips). One target {f(s['tp3'])} ({s['tp3Source']}); "
+                         f"TP1 {f(s['tp1'])} and TP2 {f(s['tp2'])} are progress marks, no partials, the stop stays at the structure.")
         parts.append(f"Invalidation: {s['invalidation']}.")
         parts.append(f"Score {r['score']}/100. Losses happen; this is not a guaranteed outcome.")
     return " ".join(parts)

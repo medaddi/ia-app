@@ -13,7 +13,7 @@ export function Card({ isLight, title, icon, right, children, className = '' }: 
       {(title || right) && (
         <header className="flex items-center justify-between gap-3 mb-4">
           <h3 className={`flex items-center gap-2 text-sm font-semibold ${isLight ? 'text-ink-strong' : 'text-white'}`}>
-            {icon && <span className="text-gold-500">{icon}</span>}
+            {icon && <span className={`icon-tile w-8 h-8 ${isLight ? 'text-gold-600' : 'text-gold-400'}`}>{icon}</span>}
             {title}
           </h3>
           {right}

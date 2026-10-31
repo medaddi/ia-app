@@ -67,6 +67,38 @@ def tp_options(past: list[dict], setup: Optional[dict], decimals: int) -> dict:
     return out
 
 
+BE_BAND = 0.05  # |R| at or below this = breakeven (costs only)
+
+
+def trade_class(r: Optional[float]) -> str:
+    """TP (closed in profit), SL (closed at a loss) or BE (out at the entry, costs only)."""
+    if r is None or abs(r) <= BE_BAND:
+        return "BE"
+    return "TP" if r > 0 else "SL"
+
+
+def history_stats(past: list[dict]) -> dict:
+    """Performance of the pair's strategy over every closed trade: TP / SL / BE counts, win rate (BE excluded),
+    total and average R, profit factor, max drawdown and the longest losing run."""
+    rs = [p["r"] or 0.0 for p in past]
+    cls = [trade_class(p["r"]) for p in past]
+    tp, sl, be = cls.count("TP"), cls.count("SL"), cls.count("BE")
+    gains, losses = sum(r for r in rs if r > BE_BAND), -sum(r for r in rs if r < -BE_BAND)
+    eq = peak = dd = 0.0
+    run = worst_run = 0
+    for r, c in zip(rs, cls):
+        eq += r
+        peak, dd = max(peak, eq), max(dd, peak - eq)
+        run = run + 1 if c == "SL" else 0 if c == "TP" else run
+        worst_run = max(worst_run, run)
+    return {"trades": len(past), "tp": tp, "sl": sl, "be": be, "winRate": round(100 * tp / (tp + sl)) if tp + sl else None,
+            "totalR": round(sum(rs), 2), "avgR": round(sum(rs) / len(rs), 2) if rs else None,
+            "profitFactor": round(gains / losses, 2) if losses else None, "maxDrawdownR": round(dd, 2),
+            "avgWinR": round(gains / tp, 2) if tp else None, "avgLossR": round(-losses / sl, 2) if sl else None,
+            "bestR": round(max(rs), 2) if rs else None, "worstR": round(min(rs), 2) if rs else None, "maxLosingRun": worst_run,
+            "since": past[0]["signalTime"] if past else None}
+
+
 def trade_record(s: dict, entry_tf_sec: int, c: Optional[list] = None, i: Optional[int] = None) -> dict:
     """A finished trade of the strategy, compact, for the history list: where it started, its levels, how it ended,
     and how far the market went for it before the stop (used to rate the reachable targets)."""
@@ -77,7 +109,7 @@ def trade_record(s: dict, entry_tf_sec: int, c: Optional[list] = None, i: Option
     return {"id": s["id"], "setup": s["setup"], "direction": s["direction"], "time": s["signalTime"] - entry_tf_sec, "signalTime": s["signalTime"],
             "entry": s["entry"], "sl": s["sl"], "target": s["tp3"] if single else s["tp2"],
             "exitTime": lc.get("exitTime"), "exitPrice": round(last["price"], 5) if last and last["type"] != "FILL" else None,
-            "exitType": last["type"] if last else None, "outcome": lc.get("outcome"), "r": lc.get("rMultiple"),
+            "exitType": last["type"] if last else None, "outcome": lc.get("outcome"), "r": lc.get("rMultiple"), "result": trade_class(lc.get("rMultiple")),
             "reachR": max_reach_r(c, i, s["direction"] == "BUY", s["entry"], s["sl"], entry_tf_sec) if c is not None and i is not None else None}
 
 
@@ -137,5 +169,5 @@ def new_result(spec: dict, cfg: dict, inp: dict, price: float) -> dict:
         "status": "NO_TRADE", "score": 0, "checklist": [], "rejection": None, "headline": "", "headlineAr": "",
         "setup": None, "signal": None, "canNotify": False,
         "news": {"blocked": False, "detail": "", "next": None, "source": inp["news"]["source"]},
-        "day": inp["day"], "drawings": [], "facts": {}, "history": [], "tpReach": None,
+        "day": inp["day"], "drawings": [], "facts": {}, "history": [], "historyStats": None, "tpReach": None,
     }

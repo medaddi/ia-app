@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Activity, ArrowDownRight, ArrowUpRight, CalendarDays, Clock, Flame, LineChart, Newspaper, Radar, ShieldAlert, Target, Trophy, Wallet } from 'lucide-react';
+import { Activity, ArrowDownRight, ArrowUpRight, CalendarDays, ChartSpline, Clock, Flame, Newspaper, Radar, ShieldAlert, Target, Trophy, Wallet } from 'lucide-react';
 import { apiJson } from '../api';
 import { Language } from '../types';
 import { fmtMoney, fmtR, tr } from './ui';
@@ -110,7 +110,7 @@ function Panel({ title, icon, right, className = '', children }: { title: React.
   return (
     <section className={`h-full rounded-2xl border border-line bg-surface-2/80 p-4 sm:p-5 ${className}`}>
       <header className="flex items-center justify-between gap-3 mb-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><span className="text-gold-500" aria-hidden="true">{icon}</span>{title}</h3>
+        <h3 className="flex items-center gap-2.5 text-sm font-semibold text-white"><span className="icon-tile w-8 h-8 text-gold-400" aria-hidden="true">{icon}</span>{title}</h3>
         {right}
       </header>
       {children}
@@ -477,7 +477,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
         <Reveal i={2} className="lg:col-span-5">
           <section className="h-full rounded-2xl border border-line bg-surface-2/80 p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Clock className="w-4 h-4 text-gold-500" aria-hidden="true" />{t('Market clock', 'Horloge du marché', 'ساعة السوق')}</h3>
+              <h3 className="flex items-center gap-2.5 text-sm font-semibold text-white"><span className="icon-tile w-8 h-8 text-gold-400" aria-hidden="true"><Clock className="w-4 h-4" /></span>{t('Market clock', 'Horloge du marché', 'ساعة السوق')}</h3>
               <Chip kind={anyOpen ? 'signal' : 'none'}>{anyOpen ? t('Open', 'Ouvert', 'مفتوح') : t('Closed', 'Fermé', 'مغلق')}</Chip>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -529,7 +529,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
       {/* Equity + profit/loss days */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <Reveal i={9} className="xl:col-span-8">
-          <Panel icon={<LineChart className="w-4 h-4" />}
+          <Panel icon={<ChartSpline className="w-4 h-4" />}
             title={mode === 'me' ? t('Equity curve ($, closed trades)', 'Courbe de capital ($, trades clôturés)', 'منحنى الرصيد ($، صفقات مسدودة)') : t('Strategies equity (R, closed signals)', 'Capital des stratégies (R, signaux clôturés)', 'منحنى الاستراتيجيات (R)')}>
             <EquityChart days={days.days} mode={mode} lang={lang} />
           </Panel>

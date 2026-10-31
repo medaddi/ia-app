@@ -79,7 +79,7 @@ export const LotCalculator: React.FC<{ result: StrategyResult | null; lang?: Lan
   // Target: the strategy's own, or one of the reachable levels (each with its odds from this pair's past trades)
   const options = useMemo(() => {
     if (!s) return [] as { key: string; label: string; price: number; reach: number | null }[];
-    const own = s.setup === 'RSI2' ? [] : [{ key: 'plan', label: t('Strategy', 'Stratégie', 'الاستراتيجية'), price: s.tp3, reach: null }];
+    const own = [{ key: 'plan', label: t('Strategy', 'Stratégie', 'الاستراتيجية'), price: s.tp3, reach: null }];
     const steps = (result?.tpReach?.steps ?? []).filter(x => x.price !== undefined && x.r <= 3 && Math.abs(x.price! - s.tp3) > pip / 10)
       .map(x => ({ key: String(x.r), label: `${x.r}R`, price: x.price!, reach: x.reach }));
     return [...own, ...steps];
@@ -102,7 +102,7 @@ export const LotCalculator: React.FC<{ result: StrategyResult | null; lang?: Lan
       className={`mt-4 p-4 rounded-[var(--radius-card)] bg-surface border transition-[border-color,box-shadow] duration-500 ${flash ? 'border-gold-400 shadow-[0_0_0_4px_rgba(212,175,55,0.18)]' : 'border-line'}`}>
       <header className="flex items-center justify-between gap-3 mb-3">
         <h3 id="lotcalc-title" className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Calculator className="w-4 h-4 text-gold-400" aria-hidden="true" />
+          <span className="icon-tile w-8 h-8 text-gold-400" aria-hidden="true"><Calculator className="w-4 h-4" /></span>
           {t('Lot calculator', 'Calculateur de lot', 'حاسبة اللوت')}
           <span className="text-xs font-normal text-slate-500">· {sym}{s ? ` · ${s.direction}` : ''}</span>
         </h3>
