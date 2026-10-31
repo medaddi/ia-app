@@ -245,6 +245,13 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
             candles = await asyncio.to_thread(aggregate, candles, step)
         if len(candles) > 15:
             candles = [Candle(c.time, c.open, c.high, c.low, c.close, c.volume) for c in candles[-limit:]]
+            # Daily / weekly: Yahoo can add the live point as an extra bar stamped with the current time (e.g. Friday 21:29
+            # after this week's Monday bar): fold it into the bar of its period instead of drawing a second candle
+            if step >= 86400 and len(candles) > 1 and (candles[-1].time - candles[-2].time) % step:
+                prev, tick = candles[-2], candles[-1]
+                if tick.time - prev.time < step - 7200:  # same period (2 h tolerance for the DST shift of the open)
+                    prev.high, prev.low, prev.close = max(prev.high, tick.high), min(prev.low, tick.low), tick.close
+                    candles.pop()
             last = candles[-1]
             # Spot-futures basis (gold only). Ignore implausible gaps (stale spot feed, contract roll day).
             basis = 0.0

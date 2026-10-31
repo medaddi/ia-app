@@ -4,6 +4,7 @@ import { Send, RefreshCw, Activity } from 'lucide-react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { LotCalculator } from './LotCalculator';
+import { PastTrades } from './PastTrades';
 import type { ExunuSMCResult } from '../strategyTypes';
 import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, chartSpec, type ChartSpec, type InstrumentSymbol } from '../instruments';
 import type { StrategyResult } from '../strategyTypes';
@@ -47,11 +48,16 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const result: StrategyResult | null = bundle?.strategy ?? null;
   const inst = INSTRUMENTS[symbol];
+  // The pair / timeframe on screen: an answer that arrives after a switch belongs to the old pair and is dropped
+  // (otherwise GBP/USD could show EUR/USD's last price and candles for a moment)
+  const viewRef = useRef({ symbol, timeframe });
+  viewRef.current = { symbol, timeframe };
 
   const loadCandles = useCallback(async (sym: string, tf: string) => {
     try {
       const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400${asOfParam}`, { cache: 'no-store' });
       const json = await res.json();
+      if (viewRef.current.symbol !== sym || viewRef.current.timeframe !== tf) return;
       if (json.success && Array.isArray(json.candles)) setCandles(json.candles);
     } catch {
       // keep the last good candles
@@ -62,6 +68,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
     try {
       const res = await apiFetch(`/api/exunu/setup?symbol=${encodeURIComponent(sym)}${asOfParam}`, { cache: 'no-store' });
       const json = await res.json();
+      if (viewRef.current.symbol !== sym) return null;
       if (json.success && json.result?.strategy) { setBundle(json.result); return json.result; }
     } catch {
       // next poll retries
@@ -144,6 +151,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
             onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
           <LotCalculator result={result} lang={lang as Language} />
+          <PastTrades result={result} lang={lang as Language} />
         </div>
         <div className="lg:col-span-4 min-w-0">
           <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />

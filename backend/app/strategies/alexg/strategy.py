@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-from ..shared.common import active_window, item, new_result, to_signal_json
+from ..shared.common import HISTORY_MAX, active_window, item, new_result, to_signal_json, tp_options, trade_record
 from ..shared.drawings import trade_drawings
 from ..shared.indicators import atr_series, avg_body_series, ema_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
@@ -398,6 +398,7 @@ def evaluate_alexg(inp: dict, cfg: dict) -> dict:
 
     # ---- Replay one trade at a time, exactly like the backtest (only open-session engulfings can trigger) ----
     latest: Optional[tuple[dict, dict]] = None
+    past: list[dict] = []  # the trades the strategy closed (history list + target odds)
     i = 60
     while i <= last:
         x = e[i]
@@ -415,9 +416,14 @@ def evaluate_alexg(inp: dict, cfg: dict) -> dict:
         s = _build_setup(ctx, g, lv, i, spread, last)
         latest = (g, s)
         lc = s["lifecycle"]
+        if lc["state"] == "CLOSED":
+            past.append(trade_record(s, ctx.e_sec, e, i))
         if lc["state"] != "CLOSED":
             break
         i = next((j for j in range(i + 1, last + 1) if e[j].time == lc["exitTime"]), last) + 1
+
+    result["history"] = past[-HISTORY_MAX:]
+    tp_past = past  # every closed trade feeds the target odds (the list above keeps only the recent ones)
 
     # ---- Live read on the last closed candle (the 5-part answer: trend, AOI, grade, verdict, levels) ----
     now_g = _grade(ctx, last)
@@ -468,6 +474,7 @@ def evaluate_alexg(inp: dict, cfg: dict) -> dict:
     checklist = g["items"] + rules
     result["checklist"] = checklist
     result["setup"] = setup
+    result["tpReach"] = tp_options(tp_past, setup, cfg["spec"]["decimals"])
     failed = [c for c in checklist if c["required"] and not c["passed"]]
     score = g.get("score", 0) if g["items"] else 0
     result["score"] = score if setup else 0

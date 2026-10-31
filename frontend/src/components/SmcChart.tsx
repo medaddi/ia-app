@@ -12,6 +12,7 @@ import {
   IChartApi,
   ISeriesApi,
   ISeriesMarkersPluginApi,
+  IPriceLine,
   createSeriesMarkers,
   Time,
 } from 'lightweight-charts';
@@ -60,6 +61,9 @@ const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'trade', label: ['Trade', 'Trade', 'الصفقة'] },
 ];
 const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Record<Layer, boolean>;
+// Candles shown when a pair / timeframe opens (the rest of the history stays one scroll away): close enough to read
+// each candle, wide enough for the structure. Daily ≈ 3 months, weekly ≈ 1 year.
+const VISIBLE_BARS: Record<string, number> = { M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
 const layerKey = (kind: string) => `ld_chart_layers_${kind}_v2`;
 const ALWAYS_SHOWN: Layer[] = ['ema', 'trade'];
 
@@ -136,6 +140,13 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const tfSec = TF_SEC[timeframe] || 900;
   const setup = result?.setup ?? null;
   const signalBarTime = setup ? setup.signalTime - (TF_SEC[result!.timeframes.entry.split('/')[0]] || tfSec) : null;
+
+  // The strategy's past trades: listed under the chart (not drawn on it), summarised in the status strip
+  const past = useMemo(() => (result?.history ?? []).filter(h => h.id !== setup?.id && h.exitTime), [result?.history, setup?.id]);
+  const pastStats = useMemo(() => {
+    const wins = past.filter(h => h.outcome === 'WIN').length, losses = past.filter(h => h.outcome === 'LOSS').length;
+    return { n: past.length, wins, losses, r: past.reduce((a, h) => a + (h.r ?? 0), 0) };
+  }, [past]);
 
   // Follow the app's light/dark theme
   useEffect(() => {
@@ -255,12 +266,37 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     .sort((a, b) => a.time - b.time)
     .filter((c, i, arr) => i === 0 || c.time !== arr[i - 1].time), [candles]);
 
+  const barsLenRef = useRef(0);
+  const barTimesRef = useRef<number[]>([]);
+  barsLenRef.current = bars.length;
+  const resetView = () => {
+    const n = barsLenRef.current;
+    const show = VISIBLE_BARS[timeframe] ?? 120;
+    chartRef.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - show), to: n + Math.max(4, Math.round(show * 0.08)) });
+  };
+
   // Candles, volume, EMAs
   useEffect(() => {
     const cs = candleRef.current, chart = chartRef.current;
     if (!cs || !chart) return;
     const p = PAL[theme];
+    // The feed is a sliding window (oldest candle drops when a new one opens): keep the view on the same candles
+    // so a trade drawn on the chart stays exactly where it is instead of sliding one bar at every refresh
+    const prevTimes = barTimesRef.current;
+    const range = prevTimes.length && bars.length ? chart.timeScale().getVisibleLogicalRange() : null;
+    let shift = 0;
+    if (range && prevTimes[0] !== bars[0].time) {
+      const k = bars.findIndex(b => b.time === prevTimes[0]);
+      shift = k >= 0 ? k : -Math.max(0, prevTimes.indexOf(bars[0].time));
+    }
+    const followLive = !!range && range.to >= prevTimes.length - 1;  // the user is looking at the live edge
+    const grew = bars.length + shift - prevTimes.length;  // candles added at the right edge
     cs.setData(bars.map(b => ({ time: b.time as Time, open: b.open, high: b.high, low: b.low, close: b.close })));
+    barTimesRef.current = bars.map(b => b.time);
+    if (range && (shift || grew) && fitKeyRef.current === `${symbol}-${timeframe}-${theme}`) {
+      const extra = followLive ? Math.max(0, grew) : 0;  // at the live edge: the new candle scrolls in, as on any terminal
+      chart.timeScale().setVisibleLogicalRange({ from: range.from + shift + extra, to: range.to + shift + extra });
+    }
     volRef.current?.setData(bars.map(b => ({ time: b.time as Time, value: b.volume || 0, color: b.close >= b.open ? 'rgba(22,199,132,0.22)' : 'rgba(234,57,67,0.22)' })));
     const closes = bars.map(b => b.close);
     const toLine = (vals: (number | null)[]) => bars.flatMap((b, i) => (vals[i] === null ? [] : [{ time: b.time as Time, value: vals[i] as number }]));
@@ -276,9 +312,38 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     const key = `${symbol}-${timeframe}-${theme}`;
     if (fitKeyRef.current !== key && bars.length) {
       fitKeyRef.current = key;
-      chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 140), to: bars.length + 10 });
+      barTimesRef.current = bars.map(b => b.time);
+      resetView();
     }
   }, [bars, symbol, timeframe, theme, layers.ema, layers.bands, emas, kind]);
+
+  // Daily / weekly axis shows dates only; forex has no real volume on the free feed, so its pane is hidden
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const hasVolume = bars.some(b => (b.volume || 0) > 0);
+    chart.applyOptions({ timeScale: { timeVisible: tfSec < 86400 } });
+    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.08, bottom: hasVolume ? 0.16 : 0.06 } });
+    volRef.current?.applyOptions({ visible: hasVolume });
+  }, [bars, tfSec, theme, decimals]);
+
+  // The trade's levels on the price axis (entry, stop, targets), so they can be read at any zoom
+  useEffect(() => {
+    const cs = candleRef.current;
+    if (!cs) return;
+    const lines: IPriceLine[] = [];
+    if (setup && layers.trade && ['PENDING', 'OPEN', 'TP1_HIT', 'TP2_HIT'].includes(setup.lifecycle.state)) {
+      const p = PAL[theme];
+      const add = (price: number, color: string, title: string, style = LineStyle.Solid) =>
+        lines.push(cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
+      add(setup.entry, p.text, t('Entry', 'Entrée', 'دخول'));
+      add(setup.sl, p.bear, 'SL');
+      const single = setup.params?.breakeven === false;
+      if (single) add(setup.tp3, p.bull, setup.setup === 'RSI2' ? t('Cap', 'Plafond', 'سقف') : 'TP');
+      else { add(setup.tp1, p.bull, 'TP1', LineStyle.Dashed); add(setup.tp2, p.bull, 'TP2', LineStyle.Dashed); add(setup.tp3, p.bull, 'TP3'); }
+    }
+    return () => { lines.forEach(l => { try { cs.removePriceLine(l); } catch { /* chart rebuilt */ } }); };
+  }, [setup?.id, setup?.lifecycle.state, layers.trade, theme, decimals, lang]);
 
   // A new pair / timeframe: forget the old crosshair and explanation
   useEffect(() => { chartRef.current?.clearCrosshairPosition(); setExplain(null); }, [symbol, timeframe]);
@@ -404,7 +469,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
               </div>
             )}
           </div>
-          <button onClick={() => chartRef.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 140), to: bars.length + 10 })}
+          <button onClick={resetView}
             className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white hover:bg-surface-2 cursor-pointer" aria-label={t('Reset view', 'Recentrer', 'رجع العرض')} title={t('Reset view', 'Recentrer', 'رجع العرض')}>
             <Maximize2 className="w-4 h-4" />
           </button>
@@ -428,6 +493,12 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
           {result?.setup && ` · ${result.score}`}
         </span>
         <span className="text-slate-400 min-w-0 truncate">{result?.headline ?? t('Loading the analysis…', 'Chargement de l’analyse…', 'كيتحمل التحليل…')}</span>
+        {pastStats.n > 0 && (
+          <span className="inline-flex items-center gap-1.5 font-mono text-slate-400" title={t('Last closed trades of the strategy on this pair (drawn on the chart)', 'Derniers trades clôturés de la stratégie sur cette paire (dessinés sur le graphique)', 'آخر الصفقات لي سدات الاستراتيجية ف هاد الزوج (مرسومين ف الشارت)')}>
+            {t('Past', 'Passés', 'فايتين')} {pastStats.n} · <span className="text-emerald-400">{pastStats.wins}W</span>/<span className="text-rose-400">{pastStats.losses}L</span> ·
+            <span className={pastStats.r >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pastStats.r >= 0 ? '+' : ''}{pastStats.r.toFixed(1)}R</span>
+          </span>
+        )}
         {keyFacts.length > 0 && (
           <button onClick={() => setDetailsOpen(o => !o)} aria-expanded={detailsOpen}
             className="inline-flex items-center gap-1 text-slate-400 hover:text-gold-300 cursor-pointer">

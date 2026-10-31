@@ -68,6 +68,19 @@ export interface LifecycleResult {
 }
 
 export type DrawingLayer = "sessions" | "levels" | "structure" | "swings" | "liquidity" | "fvg" | "ob" | "fib" | "trade";
+
+/** Target options: for each R multiple, the share of this pair's past trades the market carried that far before the stop. */
+export interface TpReach {
+  sample: number; median: number | null; realistic: number | null;
+  steps: { r: number; reach: number | null; price?: number }[];
+}
+
+/** A trade the strategy already closed (listed under the pair's chart). */
+export interface PastTrade {
+  id: string; setup: string; direction: Side; time: number; signalTime: number; entry: number; sl: number; target: number;
+  exitTime: number | null; exitPrice: number | null; exitType: string | null; outcome: "WIN" | "LOSS" | "BREAKEVEN" | null; r: number | null;
+  reachR?: number | null;  // how far the market went for it (R) before the stop
+}
 export type DrawingColor = "bull" | "bear" | "gold" | "muted" | "asia" | "london" | "ny" | "liquidity" | "entry";
 
 export interface Drawing {
@@ -114,6 +127,8 @@ export interface TradeSetup {
 }
 
 export interface StrategyResult {
+  history?: PastTrade[];  // the strategy's closed trades, oldest first
+  tpReach?: TpReach | null;  // how far the market went for this pair's past trades, as target options
   symbol: InstrumentSpec["symbol"];
   displaySymbol: InstrumentSpec["displaySymbol"];
   strategy: string;

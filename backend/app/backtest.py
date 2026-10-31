@@ -33,7 +33,7 @@ def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
     base = {"candles": candles, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": source, "news": news}
     state = replay(d, base, frm, to)
     index_of = {c.time: i for i, c in enumerate(entry)}
-    windows = _cfg(sym)["sessions"]["windows"]
+    windows = (_cfg(sym).get("sessions") or {}).get("windows", [])  # RSI(2) trades every H4 close: no session windows
 
     trades = []
     for e in state.emitted:

@@ -76,7 +76,20 @@ export const LotCalculator: React.FC<{ result: StrategyResult | null; lang?: Lan
   }, [sym, e, st, rk, valid]);
 
   const buy = s ? s.direction === 'BUY' : e > st;
-  const tp = s?.tp3 ?? null;
+  // Target: the strategy's own, or one of the reachable levels (each with its odds from this pair's past trades)
+  const options = useMemo(() => {
+    if (!s) return [] as { key: string; label: string; price: number; reach: number | null }[];
+    const own = s.setup === 'RSI2' ? [] : [{ key: 'plan', label: t('Strategy', 'Stratégie', 'الاستراتيجية'), price: s.tp3, reach: null }];
+    const steps = (result?.tpReach?.steps ?? []).filter(x => x.price !== undefined && x.r <= 3 && Math.abs(x.price! - s.tp3) > pip / 10)
+      .map(x => ({ key: String(x.r), label: `${x.r}R`, price: x.price!, reach: x.reach }));
+    return [...own, ...steps];
+  }, [s?.id, s?.tp3, result?.tpReach]);
+  const [pickKey, setPickKey] = useState<string | null>(null);
+  useEffect(() => { setPickKey(null); }, [s?.id]);
+  // Pre-picked: the realistic level when enough past trades back it (15+), else the strategy's own target
+  const trusted = (result?.tpReach?.sample ?? 0) >= 15 ? result?.tpReach?.realistic : null;
+  const picked = options.find(o => o.key === pickKey) ?? options.find(o => o.key === String(trusted)) ?? options[0];
+  const tp = picked?.price ?? null;
   const stopPips = e > 0 && st > 0 ? Math.abs(e - st) / pip : 0;
   const atTp = useMemo(() => (ans && tp ? ans.lots * Math.abs(tp - e) * ans.usdPerPoint - ans.lots * ans.cost * ans.usdPerPoint : null), [ans, tp, e]);
   const moved = !!s && (Math.abs(st - s.sl) > pip / 100);
@@ -111,6 +124,24 @@ export const LotCalculator: React.FC<{ result: StrategyResult | null; lang?: Lan
           <input inputMode="decimal" value={sl} placeholder={t('price', 'prix', 'الثمن')} onChange={x => setSl(x.target.value)} className={field} />
         </label>
       </div>
+
+      {options.length > 1 && (
+        <div className="mt-3" role="radiogroup" aria-label={t('Target', 'Objectif', 'الهدف')}>
+          <div className="text-xs text-slate-400 mb-1.5">{t('Target (odds from past trades)', 'Objectif (probabilité d’après les trades passés)', 'الهدف (الاحتمال من الصفقات الفايتة)')}</div>
+          <div className="flex flex-wrap gap-1.5">
+            {options.map(o => {
+              const on = o.key === picked?.key;
+              return (
+                <button key={o.key} type="button" role="radio" aria-checked={on} onClick={() => setPickKey(o.key)}
+                  className={`h-8 px-2.5 rounded-lg border text-xs font-mono cursor-pointer transition-colors ${on ? 'border-gold-500/60 bg-gold-500/10 text-gold-200' : 'border-line text-slate-300 hover:bg-surface-2'}`}>
+                  {o.label} <span className="text-slate-500">{o.price.toFixed(d)}</span>
+                  {o.reach !== null && <span className={`ms-1 ${o.reach >= 50 ? 'text-emerald-300' : o.reach >= 30 ? 'text-gold-200' : 'text-rose-300'}`}>{o.reach}%</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div id="lotcalc-out" role="status" aria-live="polite" className="mt-4 grid grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="col-span-2 xl:col-span-1 rounded-xl border border-gold-500/30 bg-gold-500/[0.06] px-3 py-2.5">

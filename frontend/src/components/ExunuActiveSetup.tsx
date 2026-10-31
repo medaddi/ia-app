@@ -2,7 +2,7 @@ import { apiFetch } from '../api';
 import React, { useState } from 'react';
 import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X, Clock, CalendarClock } from 'lucide-react';
-import type { StrategyResult } from '../strategyTypes';
+import type { StrategyResult, TpReach } from '../strategyTypes';
 
 interface ExunuActiveSetupProps {
   symbol: InstrumentSymbol;
@@ -137,6 +137,9 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
         </div>
       )}
 
+      {/* RSI(2) exits at EMA5: its 5R cap is not a planned target */}
+      {s && result.tpReach && <TargetOptions reach={result.tpReach} planned={s.setup === 'RSI2' ? 0 : rrTarget} f={f} t={t} />}
+
       <div className="p-4 border-b border-line">
         <h4 className="text-xs font-semibold text-slate-300 mb-2">{scored ? t('Setup checklist', 'Checklist du setup', 'شروط الإعداد') : t('GPA confluences (10% each)', 'Confluences GPA (10 % chacune)', 'نقاط GPA (10% لكل وحدة)')}</h4>
         <ul className="space-y-1.5">
@@ -187,3 +190,51 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
     </div>
   );
 };
+
+
+/** Reachable targets: each R multiple with the share of this pair's past trades that got there before the stop. */
+const MIN_SAMPLE = 15;  // below this the odds are shown but not trusted
+function TargetOptions({ reach, planned, f, t }: { reach: TpReach; planned: number; f: (v: number) => string; t: (en: string, fr: string, ar: string) => string }) {
+  const few = reach.sample < MIN_SAMPLE;
+  const steps = reach.steps.filter(st => st.price !== undefined && st.r <= Math.max(planned, 3) + 1e-9);
+  return (
+    <div className="p-4 border-b border-line">
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <h4 className="text-xs font-semibold text-slate-300">{t('Reachable targets', 'Objectifs atteignables', 'الأهداف لي يقدر يوصل ليها السوق')}</h4>
+        <span className="text-[11px] text-slate-500">{t(`${reach.sample} past trades`, `${reach.sample} trades passés`, `${reach.sample} صفقة فاتت`)}</span>
+      </div>
+      {reach.sample === 0 ? (
+        <p className="text-xs text-slate-500">{t('No closed trade on this pair yet: no odds to show.', 'Aucun trade clôturé sur cette paire : pas encore de probabilités.', 'ما كاينة حتى صفقة مسدودة ف هاد الزوج: ما كاينينش احتمالات.')}</p>
+      ) : (
+        <ul className="space-y-1">
+          {steps.map(st => {
+            const pct = st.reach ?? 0;
+            const isPlan = Math.abs(st.r - planned) < 0.05;
+            const isReal = !few && reach.realistic === st.r;
+            return (
+              <li key={st.r} className={`grid grid-cols-[3rem_1fr_5.5rem_2.75rem] items-center gap-2 text-xs rounded-lg px-2 py-1 ${isReal ? 'bg-emerald-500/[0.07] ring-1 ring-inset ring-emerald-500/25' : ''}`}>
+                <span className="font-mono text-slate-300">{st.r}R</span>
+                <span className="h-1.5 rounded-full bg-surface-2 overflow-hidden" aria-hidden="true">
+                  <span className={`block h-full rounded-full ${pct >= 50 ? 'bg-emerald-400/80' : pct >= 30 ? 'bg-gold-400/80' : 'bg-rose-400/70'}`} style={{ width: `${pct}%` }} />
+                </span>
+                <span className="font-mono text-slate-200 text-end">{f(st.price!)}</span>
+                <span className={`font-mono text-end ${pct >= 50 ? 'text-emerald-300' : pct >= 30 ? 'text-gold-200' : 'text-rose-300'}`}>{pct}%</span>
+                {(isPlan || isReal) && (
+                  <span className="col-span-4 -mt-0.5 text-[10px] text-slate-500">
+                    {isReal && <span className="text-emerald-300">{t('Realistic: reached by at least half the past trades', 'Réaliste : atteint par au moins la moitié des trades passés', 'واقعي: وصلو ليه على الأقل نص الصفقات الفايتة')}</span>}
+                    {isReal && isPlan && ' · '}
+                    {isPlan && t('the strategy’s target', 'l’objectif de la stratégie', 'هدف الاستراتيجية')}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+        {few && reach.sample > 0 ? t(`Only ${reach.sample} past trades: treat these odds as a rough guide.`, `Seulement ${reach.sample} trades passés : probabilités indicatives.`, `غير ${reach.sample} صفقات فاتت: الاحتمالات تقريبية.`)
+          : t('Share of past trades the market carried to each level before the stop. Past odds, not a promise.', 'Part des trades passés que le marché a portés jusqu’à chaque niveau avant le stop. Le passé ne garantit rien.', 'نسبة الصفقات الفايتة لي وصلها السوق لكل مستوى قبل الستوب. الماضي ماشي ضمان.')}
+      </p>
+    </div>
+  );
+}

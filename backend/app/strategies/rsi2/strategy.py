@@ -11,7 +11,7 @@ One trade at a time, replayed in order like the backtest.
 
 from typing import Optional
 
-from ..shared.common import item, new_result, to_signal_json
+from ..shared.common import HISTORY_MAX, item, new_result, to_signal_json, tp_options, trade_record
 from ..shared.drawings import trade_drawings
 from ..shared.indicators import atr_series, ema_series, rsi_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
@@ -108,6 +108,7 @@ def evaluate_rsi2(inp: dict, cfg: dict) -> dict:
     r2 = rsi_series(closes, cfg["rsiPeriod"])
 
     latest = None
+    past: list[dict] = []  # the trades the strategy closed (history list + target odds)
     i = T["emaSlow"] + 10
     while i <= last:
         b = _setup_at(c, i, atr, ef, es, r2, cfg)
@@ -117,9 +118,14 @@ def evaluate_rsi2(inp: dict, cfg: dict) -> dict:
         s = _build(c, b, cfg, spread, last, e5)
         latest = (b, s)
         lc = s["lifecycle"]
+        if lc["state"] == "CLOSED":
+            past.append(trade_record(s, H4, c, i))
         if lc["state"] != "CLOSED":
             break
         i = next((j for j in range(i + 1, last + 1) if c[j].time == lc["exitTime"]), last) + 1
+
+    result["history"] = past[-HISTORY_MAX:]
+    tp_past = past  # every closed trade feeds the target odds (the list above keeps only the recent ones)
 
     trend_now = _trend(c, last, ef, es)
     word = {1: "bullish", -1: "bearish", 0: "flat"}
@@ -170,6 +176,7 @@ def evaluate_rsi2(inp: dict, cfg: dict) -> dict:
         ]
     result["checklist"] = checklist
     result["setup"] = setup
+    result["tpReach"] = tp_options(tp_past, setup, cfg["spec"]["decimals"])
     failed = [x for x in checklist if x["required"] and not x["passed"]]
     result["score"] = score_checklist(checklist) if setup else 0
     result["rejection"] = f"{failed[0]['rule']}: {failed[0]['detail']}" if failed else None

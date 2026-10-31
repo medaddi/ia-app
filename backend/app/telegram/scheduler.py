@@ -52,6 +52,27 @@ async def process_bundle(sym: str, bundle: dict) -> str:
     return f"{r['status']} · {r['headline']}"
 
 
+_decided: dict[str, int] = {}  # last entry-candle close already decided per pair (kept while the instance is warm)
+
+
+async def _decide(sym: str) -> dict:
+    """The analysis for the candle that just closed: re-downloaded (no cache) until the provider has published that bar,
+    a few seconds at most; between closes the cached analysis is enough (nothing can change before the next close)."""
+    d = STRATEGY_DEFS[sym]
+    tf_sec = TF_SEC[d.entryTf]
+    close = int(time.time() // tf_sec) * tf_sec
+    if _decided.get(sym) == close:
+        return await get_strategy_result(sym)
+    bundle = None
+    for attempt in range(3):
+        bundle = await get_strategy_result(sym, fresh=True)
+        if any(c.time == close - tf_sec for c in bundle["candles"].get(d.entryTf) or []):
+            _decided[sym] = close
+            break
+        await asyncio.sleep(RETRY)  # bar not published yet: the next tick tries again if this one runs out
+    return bundle
+
+
 async def tick() -> dict:
     """One pass for serverless hosting (called every minute by an external pinger): same work as a candle close."""
     async def one(sym: str) -> str:
@@ -60,7 +81,7 @@ async def tick() -> dict:
         try:
             # Each pair has its own time budget, so one slow feed never makes the whole tick time out
             async def run() -> str:
-                return await process_bundle(sym, await get_strategy_result(sym, fresh=True))
+                return await process_bundle(sym, await _decide(sym))
             return await asyncio.wait_for(run(), timeout=TICK_TIMEOUT)
         except asyncio.TimeoutError:
             return f"timeout after {TICK_TIMEOUT}s (next tick retries)"

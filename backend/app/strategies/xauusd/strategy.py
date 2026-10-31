@@ -20,7 +20,7 @@ exactly how both were backtested together (2 years: 216 trades, 60.6% winners, +
 from datetime import datetime, timezone
 from typing import Optional
 
-from ..shared.common import active_window, item, new_result, to_signal_json
+from ..shared.common import HISTORY_MAX, active_window, item, new_result, to_signal_json, tp_options, trade_record
 from ..shared.drawings import level_drawings, trade_drawings
 from ..shared.indicators import atr_series, ema_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
@@ -183,6 +183,7 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
 
     # ---- Replay one trade at a time, exactly like the backtest ----
     latest: Optional[tuple[dict, dict]] = None
+    past: list[dict] = []  # the trades the strategy closed (history list + target odds)
     i = max(T["emaSlow"] + 10, B["lookback"] + R["stopRefBars"])
     while i <= last:
         b = _reversion_at(h1, i, atr, ef, es, bb, cfg) or _breakout_at(h1, i, atr, ef, es, cfg)
@@ -192,10 +193,15 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
         s = _build_setup(h1, b, spec, cfg, spread, last)
         latest = (b, s)
         lc = s["lifecycle"]
+        if lc["state"] == "CLOSED":
+            past.append(trade_record(s, H1_SEC, h1, i))
         if lc["state"] != "CLOSED":
             break  # still in this trade: no new breakout counts
         exit_idx = next((j for j in range(i + 1, last + 1) if h1[j].time == lc["exitTime"]), last)
         i = exit_idx + 1
+
+    result["history"] = past[-HISTORY_MAX:]
+    tp_past = past  # every closed trade feeds the target odds (the list above keeps only the recent ones)
 
     trend_now = _trend(h1, last, ef, es)
     trend_txt = {1: "bullish", -1: "bearish", 0: "flat"}[trend_now]
@@ -297,6 +303,7 @@ def evaluate_xauusd(inp: dict, cfg: dict = XAU_CONFIG) -> dict:
 
     result["checklist"] = checklist
     result["setup"] = setup
+    result["tpReach"] = tp_options(tp_past, setup, cfg["spec"]["decimals"])
     failed = [c for c in checklist if c["required"] and not c["passed"]]
     result["score"] = score_checklist(checklist) if setup else 0
     result["rejection"] = f"{failed[0]['rule']}: {failed[0]['detail']}" if failed else None
