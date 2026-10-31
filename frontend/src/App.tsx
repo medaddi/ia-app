@@ -16,7 +16,7 @@ import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
 const ExunuTerminalView = lazy(() => import('./components/ExunuTerminalView').then(m => ({ default: m.ExunuTerminalView })));
 import { DashboardView } from './components/DashboardView';
 import { isInstrument } from './instruments';
-import { notifyEnabled, notifyNewSignals, registerServiceWorker, requestLotFocus } from './notifications';
+import { notifyEnabled, notifyNewSignals, requestLotFocus, subscribePush } from './notifications';
 import { LDEmblem } from './components/LiquidityDissectionLogo';
 const AgentPanel = lazy(() => import('./components/AgentPanel').then(m => ({ default: m.AgentPanel })));
 import type { AppUser } from './components/AccountView';
@@ -165,7 +165,7 @@ export default function App() {
     };
     const q = new URLSearchParams(window.location.search).get('symbol');
     if (q) { open(q); window.history.replaceState(null, '', window.location.pathname); }
-    if (notifyEnabled()) registerServiceWorker();
+    if (notifyEnabled()) subscribePush();  // refresh the push subscription (phones rotate it)
     const onEvent = (e: Event) => open((e as CustomEvent).detail);
     const onMsg = (e: MessageEvent) => { if (e.data?.type === 'ld-open-symbol') open(e.data.symbol); };
     window.addEventListener('ld-open-symbol', onEvent);

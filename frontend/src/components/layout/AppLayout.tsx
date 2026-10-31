@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { MarketAsset, Language } from '../../types';
-import { disableNotifications, enableNotifications, notifyEnabled, notifyPermission, registerServiceWorker } from '../../notifications';
+import { disableNotifications, enableNotifications, needsInstall, notifyEnabled, notifyPermission, testPush } from '../../notifications';
 import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS } from '../../instruments';
 import { LDEmblem } from '../LiquidityDissectionLogo';
 
@@ -63,6 +63,12 @@ const T = {
   notifyOff: ['Turn on trade notifications', 'Activer les notifications de trades', 'فعّل إشعارات الصفقات'],
   notifyBlocked: ['Notifications are blocked: allow them in the browser site settings', 'Notifications bloquées : autorisez-les dans les réglages du site', 'الإشعارات محبوسة: سمح ليها ف إعدادات الموقع ف المتصفح'],
   notifyTest: ['Notifications on: you will get one for every new trade', 'Notifications activées : une pour chaque nouveau trade', 'الإشعارات مفعلة: غادي توصلك وحدة على كل صفقة جديدة'],
+  installTitle: ['Notifications on iPhone', 'Notifications sur iPhone', 'الإشعارات ف iPhone'],
+  installText: ['On iPhone and iPad, notifications only work from the app on your home screen:', 'Sur iPhone et iPad, les notifications ne marchent que depuis l’app sur l’écran d’accueil :', 'ف iPhone و iPad، الإشعارات كتخدم غير من التطبيق لي ف الشاشة الرئيسية:'],
+  installStep1: ['Tap Share (the square with an arrow) in Safari', 'Touchez Partager (le carré avec une flèche) dans Safari', 'كليكي على Partager (المربع بالسهم) ف Safari'],
+  installStep2: ['Choose “Add to Home Screen”', 'Choisissez « Sur l’écran d’accueil »', 'ختار « Sur l’écran d’accueil »'],
+  installStep3: ['Open LiquidityDissection from its icon, log in, then tap the bell', 'Ouvrez LiquidityDissection depuis son icône, connectez-vous, puis touchez la cloche', 'حل LiquidityDissection من الأيقونة، دخل، ومن بعد كليكي على الجرس'],
+  gotIt: ['Got it', 'Compris', 'فهمت'],
   roleAdmin: ['Administrator', 'Administrateur', 'مدير'],
   roleUser: ['Trader', 'Trader', 'متداول'],
   logout: ['Log out', 'Se déconnecter', 'تسجيل الخروج'],
@@ -527,33 +533,62 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 };
 
 
-/** Bell in the top bar: turns the browser notifications for new trades on / off (the browser asks once). */
+/** Bell in the top bar: turns trade notifications on / off (the browser asks once, then the server pushes every new trade).
+ * iPhone in Safari: explains how to add the app to the home screen, the only place iOS allows them. */
 function NotifyButton({ t }: { t: (k: Key) => string }) {
   const [on, setOn] = useState(notifyEnabled);
   const [perm, setPerm] = useState(notifyPermission);
+  const [help, setHelp] = useState(false);
   useEffect(() => {
     const sync = () => { setOn(notifyEnabled()); setPerm(notifyPermission()); };
     window.addEventListener('ld-notify-change', sync);
     window.addEventListener('focus', sync);
     return () => { window.removeEventListener('ld-notify-change', sync); window.removeEventListener('focus', sync); };
   }, []);
-  if (perm === 'unsupported') return null;
+  const install = needsInstall();
+  if (perm === 'unsupported' && !install) return null;
   const blocked = perm === 'denied';
-  const label = blocked ? t('notifyBlocked') : on ? t('notifyOn') : t('notifyOff');
+  const label = install ? t('installTitle') : blocked ? t('notifyBlocked') : on ? t('notifyOn') : t('notifyOff');
   const click = async () => {
-    if (on) { disableNotifications(); return; }
+    if (install) { setHelp(true); return; }
+    if (on) { await disableNotifications(); return; }
     if (await enableNotifications()) {
-      const reg = await registerServiceWorker();
-      const opts = { body: t('notifyTest'), icon: '/brand/emblem-192.webp', tag: 'ld-test' };
-      if (reg) reg.showNotification('LiquidityDissection', opts); else new Notification('LiquidityDissection', opts);
+      // A real push from the server: proves it reaches this device the same way a trade will
+      if (!(await testPush())) {
+        const reg = await navigator.serviceWorker?.ready.catch(() => null);
+        reg?.showNotification('LiquidityDissection', { body: t('notifyTest'), icon: '/brand/icon-192.png', tag: 'ld-test' });
+      }
     }
     setPerm(notifyPermission());
   };
   return (
-    <button onClick={click} title={label} aria-label={label} aria-pressed={on}
-      className={`relative h-10 w-10 flex items-center justify-center rounded-xl border cursor-pointer transition-colors ${on ? 'border-gold-500/50 bg-gold-500/10 text-gold-300' : 'border-line-2 text-zinc-300 hover:bg-white/[0.06] hover:border-gold-500/40'} ${blocked ? 'opacity-60' : ''}`}>
-      {on ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
-      {on && <span className="absolute top-2 end-2 w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />}
-    </button>
+    <>
+      <button onClick={click} title={label} aria-label={label} aria-pressed={on}
+        className={`relative h-10 w-10 flex items-center justify-center rounded-2xl border cursor-pointer transition-colors ${on ? 'border-gold-500/50 bg-gold-500/10 text-gold-300' : 'border-line-2 text-zinc-300 hover:bg-white/[0.06] hover:border-gold-500/40'} ${blocked ? 'opacity-60' : ''}`}>
+        {on ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+        {on && <span className="absolute top-2 end-2 w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />}
+      </button>
+      {help && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setHelp(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="ios-help-title" onClick={e => e.stopPropagation()}
+            className="w-full max-w-sm rounded-[28px] border border-white/[0.07] bg-gradient-to-b from-surface-2 to-surface p-6 shadow-[var(--shadow-float)]">
+            <div className="flex items-center gap-3">
+              <span className="icon-tile icon-tile-gold w-10 h-10"><Bell className="w-5 h-5" /></span>
+              <h2 id="ios-help-title" className="text-base font-bold text-white">{t('installTitle')}</h2>
+            </div>
+            <p className="mt-3 text-sm text-slate-400">{t('installText')}</p>
+            <ol className="mt-3 space-y-2.5">
+              {(['installStep1', 'installStep2', 'installStep3'] as const).map((k, i) => (
+                <li key={k} className="flex gap-3 text-sm text-slate-200">
+                  <span className="w-6 h-6 shrink-0 rounded-full bg-gold-500/15 ring-1 ring-gold-500/40 text-gold-200 text-xs font-mono font-bold flex items-center justify-center">{i + 1}</span>
+                  <span className="pt-0.5">{t(k)}</span>
+                </li>
+              ))}
+            </ol>
+            <button onClick={() => setHelp(false)} className="mt-5 w-full h-11 rounded-2xl bg-gradient-to-b from-gold-300 to-gold-600 text-ink-strong text-sm font-bold cursor-pointer hover:brightness-110">{t('gotIt')}</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

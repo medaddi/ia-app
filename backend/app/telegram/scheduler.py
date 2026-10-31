@@ -15,6 +15,7 @@ from ..strategies.service import STRATEGY_DEFS, get_strategy_result
 from ..strategies.shared.jsnum import iso
 from ..strategies.shared.types import TF_SEC
 from ..trading import update_signal_outcomes
+from ..push import push_setup
 from .bot import dispatch_setup
 
 GRACE = 1.2
@@ -48,7 +49,11 @@ async def process_bundle(sym: str, bundle: dict) -> str:
         update_signal_outcomes(db, sym, bundle["candles"].get(STRATEGY_DEFS[sym].entryTf) or [])
     if r["canNotify"] and r["setup"]:
         out = await dispatch_setup(sym, manual=False)
-        return f"{r['setup']['id']}: {'sent to ' + str(out.get('recipients')) + ' chat(s)' if out['success'] else out['error']}"
+        try:  # app notifications (Web Push), independent of Telegram
+            pushed = await push_setup(sym)
+        except Exception as err:  # a push failure never blocks the Telegram send
+            pushed = f"push error: {err!r}"
+        return f"{r['setup']['id']}: {'sent to ' + str(out.get('recipients')) + ' chat(s)' if out['success'] else out['error']} · {pushed}"
     return f"{r['status']} · {r['headline']}"
 
 

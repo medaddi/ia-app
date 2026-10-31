@@ -5,14 +5,15 @@ import time
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import admin_user, bearer, current_user, hash_code, login, logout, password_problems, register, session_user, user_json
 from ..db import get_db
-from ..models import Signal, Subscriber, Trade, User
+from .. import push
+from ..models import PushSubscription, Signal, Subscriber, Trade, User
 from ..strategies.service import normalize_symbol
 from ..store import get_setting
 from ..telegram import bot as tg
@@ -76,6 +77,44 @@ def auth_logout(token: str = Depends(bearer), db: Session = Depends(get_db)):  #
     if token:
         logout(db, token)
     return {"success": True}
+
+
+# ---------------------------------------------------------------- app notifications (Web Push)
+
+class PushKeysIn(BaseModel):
+    p256dh: str = Field(..., max_length=200)
+    auth: str = Field(..., max_length=100)
+
+
+class PushSubIn(BaseModel):
+    endpoint: str = Field(..., max_length=600, pattern=r"^https://")
+    keys: PushKeysIn
+
+
+@router.get("/push/key")
+def push_key(_: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The public VAPID key the browser subscribes with."""
+    return {"publicKey": push.vapid_keys(db)["publicKey"]}
+
+
+@router.post("/push/subscribe")
+def push_subscribe(body: PushSubIn, request: Request, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    push.save_subscription(db, u, body.model_dump(), request.headers.get("user-agent", ""))
+    return {"success": True}
+
+
+@router.post("/push/unsubscribe")
+def push_unsubscribe(body: dict = Body(...), _: User = Depends(current_user), db: Session = Depends(get_db)):
+    push.remove_subscription(db, str(body.get("endpoint") or ""))
+    return {"success": True}
+
+
+@router.post("/push/test")
+async def push_test(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """A test notification to this account's devices: proves the push reaches the phone with the app closed."""
+    rows = db.scalars(select(PushSubscription).where(PushSubscription.user_id == u.id)).all()
+    n = await push.send_push(db, list(rows), {"title": "LiquidityDissection", "body": "Notifications OK: every new trade will arrive here.", "tag": "ld-test", "symbol": ""})
+    return {"success": n > 0, "devices": len(rows), "delivered": n}
 
 
 # ---------------------------------------------------------------- profile (daily loss limit)

@@ -239,3 +239,23 @@ def test_sign_up_waits_for_admin_approval(client, admin):
     sid = r2.json()["user"]["id"]
     assert client.delete(f"/api/users/{sid}", headers=admin).json()["success"]
     assert client.post("/api/auth/login", json={"username": "spam.bot", "accessCode": good["password"]}).status_code == 401
+
+
+def test_web_push_subscribe_and_one_push_per_trade(client, admin, monkeypatch):
+    import asyncio
+
+    from app import push
+
+    sent = []
+    monkeypatch.setattr(push, "_send_one", lambda row, payload, pem: sent.append((row.endpoint, payload)) or None)
+    key = client.get("/api/push/key", headers=admin).json()["publicKey"]
+    assert len(key) > 80 and client.get("/api/push/key", headers=admin).json()["publicKey"] == key  # created once, then kept
+    sub = {"endpoint": "https://push.example.test/abc", "keys": {"p256dh": "BOrK" * 20, "auth": "a1b2c3d4"}}
+    assert client.post("/api/push/subscribe", headers=admin, json=sub).json()["success"]
+    assert client.post("/api/push/subscribe", headers=admin, json={**sub, "endpoint": "http://insecure"}).status_code == 422
+    assert client.post("/api/push/test", headers=admin).json()["delivered"] == 1
+    signal = {"id": "XAUUSD-BO-1", "symbol": "XAU/USD", "signalType": "BUY", "entryPrice": 4000, "stopLoss": 3990, "target3": 4020, "confidence": 80}
+    assert asyncio.run(push.notify_trade(signal)) == 1 and asyncio.run(push.notify_trade(signal)) == 0  # pushed once only
+    assert "BUY XAU/USD" in sent[-1][1] and "TP 4020" in sent[-1][1]
+    assert client.post("/api/push/unsubscribe", headers=admin, json={"endpoint": sub["endpoint"]}).json()["success"]
+    assert client.post("/api/push/test", headers=admin).json()["devices"] == 0

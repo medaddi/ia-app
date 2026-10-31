@@ -80,6 +80,25 @@ class Subscriber(Base):
     risk_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # /risk 80 → each signal comes with the lot for $80
 
 
+class PushSubscription(Base):
+    """A browser / phone that turned trade notifications on (Web Push), linked to its account."""
+    __tablename__ = "push_subscriptions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    endpoint: Mapped[str] = mapped_column(String(600), unique=True, index=True)
+    p256dh: Mapped[str] = mapped_column(String(200))
+    auth: Mapped[str] = mapped_column(String(100))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PushSent(Base):
+    """A trade already pushed (setup id): every device gets it once, even with several workers or ticks."""
+    __tablename__ = "push_sent"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Signal(Base):
     __tablename__ = "signals"
     id: Mapped[str] = mapped_column(String(80), primary_key=True)  # strategy setup id
