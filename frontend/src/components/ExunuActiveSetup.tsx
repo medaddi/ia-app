@@ -1,0 +1,278 @@
+import { apiFetch } from '../api';
+import React, { useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import type { InstrumentSymbol } from '../instruments';
+import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X, Clock, CalendarClock } from 'lucide-react';
+import type { StrategyResult, TpReach } from '../strategyTypes';
+
+interface ExunuActiveSetupProps {
+  symbol: InstrumentSymbol;
+  result: StrategyResult | null;
+  explanation?: string;
+  lang?: string;
+}
+
+const TONE: Record<string, string> = {
+  SIGNAL: 'text-emerald-300 bg-emerald-500/15 ring-emerald-500/30', WATCH: 'text-gold-200 bg-gold-500/15 ring-gold-500/30',
+  IGNORE: 'text-slate-300 bg-slate-500/15 ring-slate-500/30', NO_TRADE: 'text-slate-300 bg-slate-500/15 ring-slate-500/30',
+};
+
+/** Side panel: bias, the strategy's checklist (✔/✘), its score / grade, the levels and why it enters or not. */
+export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, result, explanation, lang = 'en' }) => {
+  const ar = lang === 'ar';
+  const t = (en: string, fr: string, a: string) => (ar ? a : lang === 'fr' ? fr : en);
+  const [copied, setCopied] = useState(false);
+  const [sendState, setSendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [sendMsg, setSendMsg] = useState('');
+
+  if (!result) {
+    return <div className="p-6 bg-surface border border-line rounded-[var(--radius-card)] min-h-[320px] flex items-center justify-center text-sm text-slate-400">{t('Loading the strategy…', 'Chargement de la stratégie…', 'كيتحمل الاستراتيجية…')}</div>;
+  }
+  const s = result.setup;
+  const d = result.spec.decimals;
+  const f = (v: number) => v.toFixed(d);
+  const buy = s?.direction === 'BUY';
+  const gold = result.symbol === 'XAUUSD';
+  const single = !!s && s.params?.breakeven === false; // forex set & forget: one target
+  const scored = gold || result.strategy === 'RSI2_Connors_H4';  // score ≥ 75 (gold, RSI(2)) rather than the GPA grade
+  const signalMin = scored ? 75 : 60;
+  const grade = (result as any).grade as string | undefined;
+  const statusLabel = {
+    SIGNAL: scored ? t('Signal · score ≥ 75', 'Signal · score ≥ 75', 'إشارة · النقطة ≥ 75') : t(`Signal · grade ${grade ?? ''}`, `Signal · note ${grade ?? ''}`, `إشارة · تقييم ${grade ?? ''}`),
+    WATCH: scored ? t('Watch · score 60–74, no signal', 'À surveiller · 60–74, pas de signal', 'مراقبة · 60–74، بلا إشارة') : t('Watch · below C+ (60%), no signal', 'À surveiller · sous C+ (60 %), pas de signal', 'مراقبة · تحت C+ (60%)، بلا إشارة'),
+    IGNORE: t(`Ignored · score < ${signalMin - 15}`, `Ignoré · score < ${signalMin - 15}`, `متجاهل · النقطة < ${signalMin - 15}`),
+    NO_TRADE: t('No trade', 'Pas de trade', 'لا صفقة'),
+  }[result.status] ?? result.status;
+  const order: Record<string, string> = {
+    PENDING: t('Order pending', 'Ordre en attente', 'الأمر معلق'), OPEN: t('In trade', 'En position', 'داخل الصفقة'),
+    TP1_HIT: single ? t('Running · 1R reached', 'En cours · 1R atteint', 'جارية · وصلات 1R') : t('TP1 hit · stop at breakeven', 'TP1 touché · stop au point mort', 'ضرب TP1 · الستوب فالدخول'),
+    TP2_HIT: single ? t('Running · 1.5R reached', 'En cours · 1,5R atteint', 'جارية · وصلات 1.5R') : t('TP2 hit · runner open', 'TP2 touché · reste ouvert', 'ضرب TP2 · الباقي مفتوح'),
+    CLOSED: t('Closed', 'Clôturé', 'مسدودة'), CANCELLED: t('Cancelled (TP1 before fill)', 'Annulé (TP1 avant exécution)', 'ملغاة (TP1 قبل الدخول)'),
+    EXPIRED: t('Expired (not filled)', 'Expiré (non exécuté)', 'انتهت (ما تنفذاتش)'),
+  };
+  const canSend = result.status === 'SIGNAL' && !!s && ['PENDING', 'OPEN'].includes(s.lifecycle.state);
+  const rrTarget = s ? Math.abs(s.tp3 - s.entry) / Math.abs(s.entry - s.sl) : 0;
+
+  const copy = () => {
+    if (!s) return;
+    const text = single
+      ? `${result.symbol} ${s.direction} ${s.entryType} ${f(s.entry)}\nSL ${f(s.sl)} (${s.slPips} pips)\nTP ${f(s.tp3)} (1:${rrTarget.toFixed(1)})${grade ? `\nGrade ${grade} ${result.score}%` : ''}`
+      : `${result.symbol} ${s.direction} ${s.entryType} ${f(s.entry)}\nSL ${f(s.sl)} (${s.slPips} pips)\nTP1 ${f(s.tp1)}\nTP2 ${f(s.tp2)} (1:${s.rrTp2.toFixed(1)})\nTP3 ${f(s.tp3)}\nScore ${result.score}/100`;
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  const send = async () => {
+    setSendState('sending');
+    try {
+      const res = await apiFetch('/api/exunu/dispatch-telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol }) });
+      const data = await res.json();
+      setSendState(data.success ? 'sent' : 'error');
+      setSendMsg(data.success ? t('Sent to Telegram', 'Envoyé sur Telegram', 'تصيفطات للتيليغرام') : data.error || t('Not sent', 'Non envoyé', 'ما تصيفطاتش'));
+    } catch {
+      setSendState('error');
+      setSendMsg(t('Server unreachable', 'Serveur injoignable', 'السيرفر ما جاوبش'));
+    }
+    setTimeout(() => { setSendState('idle'); setSendMsg(''); }, 5000);
+  };
+
+  const levels = s ? (single ? [
+    { l: `${t('Entry', 'Entrée', 'الدخول')} (${s.entryType})`, v: f(s.entry), sub: s.expiresAt ? `${t('valid until', 'valable jusqu’à', 'صالح حتى')} ${new Date(s.expiresAt * 1000).toISOString().slice(11, 16)} UTC` : '', tone: 'text-gold-200' },
+    { l: 'Stop loss', v: f(s.sl), sub: `${s.slPips} pips`, tone: 'text-rose-300' },
+    { l: `TP · 1:${rrTarget.toFixed(1)}`, v: f(s.tp3), sub: s.tp3Source, tone: 'text-emerald-300' },
+    { l: t('Management', 'Gestion', 'التسيير'), v: 'Set & forget', sub: t('no partials, no breakeven', 'sans partiels, sans point mort', 'بلا إغلاق جزئي، بلا نقل الستوب'), tone: 'text-white' },
+  ] : [
+    { l: `${t('Entry', 'Entrée', 'الدخول')} (${s.entryType})`, v: f(s.entry), sub: s.expiresAt ? `${t('valid until', 'valable jusqu’à', 'صالح حتى')} ${new Date(s.expiresAt * 1000).toISOString().slice(11, 16)} UTC` : '', tone: 'text-gold-200' },
+    { l: 'Stop loss', v: f(s.sl), sub: `${s.slPips} pips`, tone: 'text-rose-300' },
+    { l: `TP1 · 1R · ${t('close 50%', 'clôturer 50 %', 'سد 50%')}`, v: f(s.tp1), sub: t('then stop to breakeven', 'puis stop au point mort', 'من بعد الستوب للدخول'), tone: 'text-emerald-300' },
+    { l: `TP2 · 1:${s.rrTp2.toFixed(1)}`, v: f(s.tp2), sub: s.tp2Source, tone: 'text-emerald-300' },
+    { l: 'TP3', v: f(s.tp3), sub: s.tp3Source, tone: 'text-emerald-300' },
+    { l: t('Stop distance', 'Distance du stop', 'مسافة الستوب'), v: f(s.slDistance), sub: `${s.slPips} pips`, tone: 'text-white' },
+  ]) : [];
+
+  return (
+    <div className="flex flex-col bg-surface border border-line rounded-[var(--radius-card)] overflow-hidden" dir={ar ? 'rtl' : 'ltr'}>
+      <div className="p-4 border-b border-line">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="text-slate-400 truncate">{result.strategyName}</span>
+          {s && (gold
+            ? <span className="font-mono text-slate-400 shrink-0">Score <span className={result.score >= 75 ? 'text-emerald-300' : 'text-gold-300'}>{result.score}</span>/100</span>
+            : <span className="font-mono text-slate-400 shrink-0">{t('Grade', 'Note', 'التقييم')} <span className={result.score >= 60 ? 'text-emerald-300' : 'text-gold-300'}>{grade} {result.score}%</span></span>)}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          {s && (
+            <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${buy ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
+              {buy ? <ArrowUpRight className="w-5 h-5" aria-hidden="true" /> : <ArrowDownRight className="w-5 h-5" aria-hidden="true" />}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="text-lg font-semibold text-white leading-tight">{s ? `${s.direction === 'BUY' ? t('BUY', 'ACHAT', 'شراء') : t('SELL', 'VENTE', 'بيع')} ${symbol} · ${s.setup}` : `${t('No trade', 'Pas de trade', 'لا صفقة')} · ${symbol}`}</div>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ring-1 ring-inset ${TONE[result.status] ?? TONE.NO_TRADE}`}>{statusLabel}</span>
+              {s && <span className="inline-flex px-2 py-0.5 rounded-md text-xs ring-1 ring-inset ring-line text-slate-300">{order[s.lifecycle.state] ?? s.lifecycle.state}</span>}
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-slate-400 break-words" dir="ltr">{result.rejection ? `${t('Missing', 'Manquant', 'ناقص')}: ${result.rejection}` : result.headline}</p>
+      </div>
+
+      <div className="px-4 py-3 border-b border-line text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-500">{t('Trend', 'Tendance', 'الاتجاه')} ({result.timeframes.bias})</span>
+          <span className={`font-semibold ${result.bias.direction === 'BULLISH' ? 'text-emerald-300' : result.bias.direction === 'BEARISH' ? 'text-rose-300' : 'text-slate-300'}`}>
+            {result.bias.direction === 'BULLISH' ? t('Bullish', 'Haussière', 'صاعد') : result.bias.direction === 'BEARISH' ? t('Bearish', 'Baissière', 'هابط') : t('Neutral', 'Neutre', 'محايد')}
+          </span>
+        </div>
+        <p className="mt-1 text-slate-500 break-words" dir="ltr">{result.bias.detail}</p>
+      </div>
+
+      {s && (
+        <div className="grid grid-cols-2 gap-px bg-line border-b border-line">
+          {levels.map(x => (
+            <div key={x.l} className="bg-surface p-3 min-w-0">
+              <div className="text-xs text-slate-500 truncate">{x.l}</div>
+              <div className={`font-mono text-base font-semibold ${x.tone}`}>{x.v}</div>
+              <div className="font-mono text-xs text-slate-500 truncate">{x.sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {s && result.tpReach && <TargetOptions reach={result.tpReach} planned={rrTarget} f={f} t={t} />}
+
+      <div className="p-4 border-b border-line">
+        <ConditionSteps items={result.checklist} ar={ar} t={t}
+          title={scored ? t('Setup checklist', 'Checklist du setup', 'شروط الإعداد') : t('GPA confluences (10% each)', 'Confluences GPA (10 % chacune)', 'نقاط GPA (10% لكل وحدة)')} />
+      </div>
+
+      <div className="px-4 py-3 border-b border-line text-xs space-y-2">
+        <div className="flex gap-2 text-slate-400">
+          <CalendarClock className="w-4 h-4 shrink-0 text-gold-400" aria-hidden="true" />
+          <span className="min-w-0 break-words">
+            {result.news.blocked ? `${t('Blocked by news', 'Bloqué par une news', 'محبوس بخبر')}: ${result.news.detail}`
+              : result.news.next ? `${t('Next high-impact news', 'Prochaine news forte', 'الخبر القوي الجاي')}: ${result.news.next}`
+                : t('No high-impact news scheduled', 'Aucune news forte prévue', 'ما كاين حتى خبر قوي')} <span className="text-slate-600">({result.news.source})</span>
+          </span>
+        </div>
+        {explanation && <p className="text-slate-400 leading-relaxed break-words" dir="ltr">{explanation}</p>}
+      </div>
+
+      <div className="p-4 flex flex-col gap-2">
+        <div className="flex gap-2">
+          <button onClick={copy} disabled={!s} className="flex-1 h-10 inline-flex items-center justify-center gap-1.5 rounded-lg border border-line text-xs font-medium text-slate-200 hover:bg-surface-2 disabled:opacity-40 cursor-pointer transition-colors">
+            {copied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}{copied ? t('Copied', 'Copié', 'تنسخ') : t('Copy levels', 'Copier les niveaux', 'نسخ المستويات')}
+          </button>
+          <button onClick={send} disabled={!canSend || sendState === 'sending'}
+            title={canSend ? t('Send this signal to Telegram', 'Envoyer ce signal sur Telegram', 'صيفط هاد الإشارة للتيليغرام') : t('Only a valid SIGNAL can be sent', 'Seul un SIGNAL valide peut être envoyé', 'غير إشارة صالحة لي تقدر تتصيفط')}
+            className="flex-1 h-10 inline-flex items-center justify-center gap-1.5 rounded-lg bg-gold-gradient bg-gold-gradient-hover text-ink-strong text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+            <Send className="w-4 h-4" />{sendState === 'sending' ? t('Sending…', 'Envoi…', 'كيتصيفط…') : t('Send to Telegram', 'Envoyer sur Telegram', 'صيفط للتيليغرام')}
+          </button>
+        </div>
+        <p role="status" className={`text-xs ${sendState === 'error' ? 'text-rose-300' : sendState === 'sent' ? 'text-emerald-300' : 'text-slate-500'}`}>
+          {sendMsg || <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden="true" />
+            {scored ? t('Telegram fires automatically once per signal (score ≥ 75, all rules passed).', 'Telegram part automatiquement une fois par signal (score ≥ 75, toutes les règles validées).', 'التيليغرام كيتصيفط أوتوماتيكياً مرة لكل إشارة (النقطة ≥ 75، كل الشروط محققة).')
+              : t('Telegram fires automatically once per signal (grade C+ 60% or better).', 'Telegram part automatiquement une fois par signal (note C+ 60 % ou mieux).', 'التيليغرام كيتصيفط أوتوماتيكياً مرة لكل إشارة (تقييم C+ 60% أو أحسن).')}</span>}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+
+/** Reachable targets: each R multiple with the share of this pair's past trades that got there before the stop. */
+const MIN_SAMPLE = 15;  // below this the odds are shown but not trusted
+function TargetOptions({ reach, planned, f, t }: { reach: TpReach; planned: number; f: (v: number) => string; t: (en: string, fr: string, ar: string) => string }) {
+  const few = reach.sample < MIN_SAMPLE;
+  const steps = reach.steps.filter(st => st.price !== undefined && st.r <= Math.max(planned, 3) + 1e-9);
+  return (
+    <div className="p-4 border-b border-line">
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <h4 className="text-xs font-semibold text-slate-300">{t('Reachable targets', 'Objectifs atteignables', 'الأهداف لي يقدر يوصل ليها السوق')}</h4>
+        <span className="text-[11px] text-slate-500">{t(`${reach.sample} past trades`, `${reach.sample} trades passés`, `${reach.sample} صفقة فاتت`)}</span>
+      </div>
+      {reach.sample === 0 ? (
+        <p className="text-xs text-slate-500">{t('No closed trade on this pair yet: no odds to show.', 'Aucun trade clôturé sur cette paire : pas encore de probabilités.', 'ما كاينة حتى صفقة مسدودة ف هاد الزوج: ما كاينينش احتمالات.')}</p>
+      ) : (
+        <ul className="space-y-1">
+          {steps.map(st => {
+            const pct = st.reach ?? 0;
+            const isPlan = Math.abs(st.r - planned) < 0.05;
+            const isReal = !few && reach.realistic === st.r;
+            return (
+              <li key={st.r} className={`grid grid-cols-[3rem_1fr_5.5rem_2.75rem] items-center gap-2 text-xs rounded-lg px-2 py-1 ${isReal ? 'bg-emerald-500/[0.07] ring-1 ring-inset ring-emerald-500/25' : ''}`}>
+                <span className="font-mono text-slate-300">{st.r}R</span>
+                <span className="h-1.5 rounded-full bg-surface-2 overflow-hidden" aria-hidden="true">
+                  <span className={`block h-full rounded-full ${pct >= 50 ? 'bg-emerald-400/80' : pct >= 30 ? 'bg-gold-400/80' : 'bg-rose-400/70'}`} style={{ width: `${pct}%` }} />
+                </span>
+                <span className="font-mono text-slate-200 text-end">{f(st.price!)}</span>
+                <span className={`font-mono text-end ${pct >= 50 ? 'text-emerald-300' : pct >= 30 ? 'text-gold-200' : 'text-rose-300'}`}>{pct}%</span>
+                {(isPlan || isReal) && (
+                  <span className="col-span-4 -mt-0.5 text-[10px] text-slate-500">
+                    {isReal && <span className="text-emerald-300">{t('Realistic: reached by at least half the past trades', 'Réaliste : atteint par au moins la moitié des trades passés', 'واقعي: وصلو ليه على الأقل نص الصفقات الفايتة')}</span>}
+                    {isReal && isPlan && ' · '}
+                    {isPlan && t('the strategy’s target', 'l’objectif de la stratégie', 'هدف الاستراتيجية')}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+        {few && reach.sample > 0 ? t(`Only ${reach.sample} past trades: treat these odds as a rough guide.`, `Seulement ${reach.sample} trades passés : probabilités indicatives.`, `غير ${reach.sample} صفقات فاتت: الاحتمالات تقريبية.`)
+          : t('Share of past trades the market carried to each level before the stop. Past odds, not a promise.', 'Part des trades passés que le marché a portés jusqu’à chaque niveau avant le stop. Le passé ne garantit rien.', 'نسبة الصفقات الفايتة لي وصلها السوق لكل مستوى قبل الستوب. الماضي ماشي ضمان.')}
+      </p>
+    </div>
+  );
+}
+
+
+/** The setup's conditions in order, as steps: each one lights up the moment it is met, the others stay dimmed;
+ * the first one still missing is marked as the one the strategy waits for. */
+function ConditionSteps({ items, title, ar, t }: { items: StrategyResult['checklist']; title: string; ar: boolean; t: (en: string, fr: string, ar: string) => string }) {
+  const reduce = useReducedMotion();
+  const met = items.filter(c => c.passed).length;
+  const next = items.findIndex(c => !c.passed);
+  const all = met === items.length;
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h4 className="text-xs font-semibold text-slate-300">{title}</h4>
+        <span className={`font-mono text-xs font-semibold ${all ? 'text-emerald-300' : 'text-gold-200'}`}>{met}/{items.length}</span>
+      </div>
+      {/* One segment per condition, lit when met */}
+      <div className="flex gap-1 mb-3" aria-hidden="true">
+        {items.map(c => (
+          <span key={c.key} className={`h-1.5 flex-1 rounded-full transition-[background-color,box-shadow] duration-500 ${c.passed ? (all ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]' : 'bg-gold-400 shadow-[0_0_8px_rgba(214,174,87,0.55)]') : 'bg-surface-3'}`} />
+        ))}
+      </div>
+      <ol className="relative">
+        {items.map((c, i) => {
+          const isNext = i === next;
+          const lit = c.passed && (i === 0 || items[i - 1].passed);  // the rail glows through consecutive met steps
+          return (
+            <li key={c.key} className={`relative flex gap-3 pb-3 last:pb-0 transition-opacity duration-500 ${c.passed || isNext ? 'opacity-100' : 'opacity-45'}`}>
+              {i < items.length - 1 && (
+                <span aria-hidden="true" className={`absolute start-[11px] top-6 bottom-0 w-[2px] rounded-full transition-colors duration-500 ${lit && items[i + 1].passed ? 'bg-gold-400/70' : 'bg-line-2'}`} />
+              )}
+              <motion.span key={String(c.passed)} initial={reduce || !c.passed ? false : { scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 380, damping: 16 }}
+                className={`relative z-[1] mt-0.5 w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${
+                  c.passed ? 'bg-gradient-to-b from-gold-300 to-gold-600 text-ink-strong shadow-[0_0_14px_rgba(214,174,87,0.55)]'
+                    : isNext ? 'bg-surface-2 text-gold-200 ring-2 ring-gold-500/60' : 'bg-surface-2 text-zinc-500 ring-1 ring-line-2'}`}>
+                {c.passed ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : i + 1}
+                {isNext && !reduce && <span aria-hidden="true" className="absolute inset-0 rounded-full ring-2 ring-gold-400/50 animate-ping" />}
+              </motion.span>
+              <span className="min-w-0 text-xs pt-0.5">
+                <span className={`font-medium ${c.passed ? 'text-white' : isNext ? 'text-gold-100' : 'text-slate-300'}`}>{ar && c.ruleAr ? c.ruleAr : c.rule}</span>
+                {c.required && <span className="text-slate-500"> · {t('required', 'obligatoire', 'ضروري')}</span>}
+                <span className="sr-only"> — {c.passed ? t('met', 'validée', 'محققة') : t('not met yet', 'pas encore validée', 'مازال ما تحققاتش')}</span>
+                {isNext && <span className="ms-1.5 inline-block px-1.5 py-px rounded bg-gold-500/15 text-[10px] font-semibold text-gold-200 align-middle">{t('waiting', 'en attente', 'كنتسناو')}</span>}
+                <span className="block text-slate-500 break-words mt-0.5" dir="ltr">{c.detail}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}

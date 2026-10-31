@@ -1,7 +1,7 @@
 {
   "users": [
     {
-      "lastLoginAt": 1792878319134,
+      "lastLoginAt": 1792929266636,
       "accessCode": "PRO-TRADER-2026-VIP",
       "role": "admin",
       "username": "admin",
@@ -198,6 +198,13 @@
       "username": "admin",
       "role": "admin",
       "expiresAt": 1795470319134
+    },
+    {
+      "token": "tok_1792929266636_kai53yav",
+      "userId": "admin-1",
+      "username": "admin",
+      "role": "admin",
+      "expiresAt": 1795521266636
     }
   ],
   "activationKeys": {
