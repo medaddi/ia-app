@@ -21,13 +21,23 @@ Every signal has **one target between 1.5R and 2R**; the stop stays at the struc
 |---|---|
 | Gold H1 breakout | 2R (was TP1 1R / TP2 2R / TP3 3R with partials) |
 | Gold Bollinger reversion | 1.5R (was 1R), still closed after 24 H1 candles |
-| RSI(2) Connors H4 (EUR/USD, GBP/USD) | 2R, or earlier at the first H4 close back over EMA5 (removing the EMA5 exit lost money) |
+| RSI(2) Connors H4 (EUR/USD, GBP/USD) | 1.5R (the more reachable end: past trades hit 1.5R 40% / 18% of the time vs 30% / 12% for 2R), or earlier at the first H4 close back over EMA5 (removing the EMA5 exit lost money) |
 | FXAlexG GPA | the next W1 / D1 zone capped at 2R; below 1.5R to the zone, no trade |
 
 Measured on each pair's own history with the app's code before the change (costs included):
 gold 2R + 1.5R gave +8.5R on 11 trades (vs +5.5R), EUR/USD +5.3R and GBP/USD +4.8R on 133 / 70 trades (unchanged within 0.5R),
 USD/CAD +3.8R on 10 trades (vs +5.0R). Small samples on gold and the GPA pairs: treat them as indicative.
-The validator rejects any signal whose target is outside 1:1.5–1:2. The figures in the sections below were measured with the old targets.
+The validator rejects any signal whose target is outside 1:1.5–1:2. Every signal shows how often the pair's past trades reached its TP.
+
+Entries on 15-minute candles were tested on the same 60 days (Yahoo keeps 60 days of 15m) and were worse on every pair
+(gold +8.5R → +6.4R, EUR/USD +1.4R → −3.5R, GBP/USD +0.4R → −2.9R, USD/CAD +3.8R → +0.7R, NZD/USD +0.4R → −0.1R): the
+decision timeframes stay H1 (gold), H4 (RSI(2)) and 30m (GPA).
+
+**Gold M15 confirmation.** A second test kept the H1 rules and ran them at every 15-minute close on the H1 candle still
+forming (same 60 days, same stop / target, followed on 15m candles): gold +9.1R on 28 trades vs +7.6R on 18 at the H1 close,
+EUR/USD +4.3R vs +4.9R, GBP/USD −8.1R vs −1.1R. Only gold uses it: its breakout or reversion is taken at the first 15-minute
+close that confirms it, up to 45 min before the H1 close, and that signal's levels are kept for the rest of the hour.
+EUR/USD and GBP/USD keep deciding at the H4 close. Small sample: watch it. The figures in the sections below were measured with the old targets.
 
 ## Shared definitions (`backend/app/strategies/shared/`)
 

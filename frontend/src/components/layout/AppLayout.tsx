@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell, BellOff, BotMessageSquare, CalendarRange, ChartCandlestick, ChartSpline, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, LayoutGrid,
-  LogOut, Menu, RefreshCw, Search, Send, Trophy, UserRoundCog, WalletCards, Workflow, X,
+  LogOut, Menu, Search, Send, Trophy, UserRoundCog, WalletCards, Workflow, X,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { MarketAsset, Language } from '../../types';
@@ -355,9 +355,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   };
 
   return (
-    <div className="h-dvh flex flex-col font-sans bg-canvas text-slate-100 w-full max-w-full overflow-x-hidden selection:bg-gold-500/30" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="h-dvh flex flex-col font-sans bg-canvas text-slate-100 w-full max-w-full overflow-x-hidden selection:bg-gold-500/30 pt-safe px-safe" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Status strip: market, session, strategies */}
-      <div className="h-8 px-4 border-b border-line bg-canvas text-[11px] flex items-center justify-between gap-3 shrink-0 select-none whitespace-nowrap overflow-hidden">
+      <div className="h-8 px-3 sm:px-4 border-b border-line bg-canvas text-[11px] flex items-center justify-between gap-3 shrink-0 select-none whitespace-nowrap overflow-hidden">
         <div className="flex items-center gap-3">
           <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-semibold ring-1 ring-inset ${open ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/25' : 'bg-slate-500/10 text-slate-300 ring-slate-500/25'}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${open ? 'bg-emerald-400' : 'bg-slate-400'}`} aria-hidden="true" />
@@ -378,19 +378,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
           {/* Navbar */}
-          <div className="shrink-0 z-20 px-3 sm:px-4 lg:px-5 pt-3">
-          <header className="h-16 px-3 sm:px-4 rounded-[22px] border border-white/[0.06] bg-surface-2/80 backdrop-blur-xl shadow-[0_18px_40px_-22px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] flex items-center justify-between gap-3">
+          <div className="shrink-0 z-20 px-2 sm:px-4 lg:px-5 pt-2 sm:pt-3">
+          <header className="h-14 sm:h-16 px-2 sm:px-4 rounded-[20px] sm:rounded-[22px] border border-white/[0.06] bg-surface-2/80 backdrop-blur-xl shadow-[0_18px_40px_-22px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button onClick={() => setDrawerOpen(true)} aria-label={t('openMenu')}
-                className="lg:hidden h-11 w-11 flex items-center justify-center rounded-2xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors shrink-0">
+                className="lg:hidden h-10 w-10 sm:h-11 sm:w-11 flex items-center justify-center rounded-2xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors shrink-0">
                 <Menu className="w-5 h-5" />
               </button>
-              <LDEmblem className="lg:hidden w-9 h-9" />
+              <LDEmblem className="hidden sm:block lg:hidden w-9 h-9" />
               <div className="min-w-0">
-                <div className="text-[11px] text-zinc-500 truncate">LiquidityDissection</div>
-                <h1 className="text-sm sm:text-base font-semibold text-white tracking-tight truncate">
+                <div className="hidden sm:block text-[11px] text-zinc-500 truncate">LiquidityDissection</div>
+                <h1 className="text-[13px] sm:text-sm font-semibold text-white tracking-tight truncate">
                   {current ? t(current.label) : ''}
-                  {['chart', 'technical'].includes(activeTab) && selectedAsset && <span className="text-zinc-400 font-normal"> · {selectedAsset.symbol}</span>}
+                  {['chart', 'technical'].includes(activeTab) && selectedAsset && <span className="hidden sm:inline text-zinc-400 font-normal"> · {selectedAsset.symbol}</span>}
                 </h1>
               </div>
             </div>
@@ -432,17 +432,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 </button>
               )}
               <NotifyButton t={t} />
-              {onForceRefresh && (
-                <button onClick={onForceRefresh} disabled={isSyncingLive} title={t('refresh')} aria-label={t('refresh')}
-                  className="h-10 w-10 flex items-center justify-center rounded-2xl border border-line-2 text-zinc-300 hover:bg-white/[0.06] hover:border-gold-500/40 cursor-pointer transition-colors">
-                  <RefreshCw className={`w-4 h-4 ${isSyncingLive ? 'animate-spin text-gold-400' : ''}`} />
-                </button>
-              )}
 
               <div className="relative" ref={langRef}>
                 <button onClick={() => setLangOpen(v => !v)} aria-label={t('language')} aria-haspopup="listbox" aria-expanded={langOpen}
                   className="h-10 px-2.5 flex items-center gap-1.5 rounded-2xl border border-line-2 hover:bg-white/[0.06] hover:border-gold-500/40 text-xs font-semibold text-zinc-200 cursor-pointer transition-colors">
-                  <Languages className="w-4 h-4 text-gold-500" aria-hidden="true" /><span className="uppercase font-mono">{lang}</span>
+                  <Languages className="hidden sm:block w-4 h-4 text-gold-500" aria-hidden="true" /><span className="uppercase font-mono">{lang}</span>
                 </button>
                 <AnimatePresence>
                   {langOpen && (
@@ -503,7 +497,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
           {tickerBarSlot && <div className="shrink-0 border-b border-line w-full max-w-full overflow-hidden">{tickerBarSlot}</div>}
 
-          <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 py-4 sm:py-5 pb-28 lg:pb-8 w-full max-w-full">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 sm:px-6 lg:px-8 py-3 sm:py-5 pb-mobile-main lg:pb-8 w-full max-w-full">
             <div className="max-w-7xl mx-auto space-y-6 w-full">{children}</div>
           </main>
         </div>
@@ -518,7 +512,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             <motion.div role="dialog" aria-modal="true" aria-label={t('openMenu')}
               initial={{ x: isAr ? '110%' : '-110%' }} animate={{ x: 0 }} exit={{ x: isAr ? '110%' : '-110%' }}
               transition={reduce ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 300 }}
-              className={`fixed top-3 bottom-3 ${isAr ? 'right-3' : 'left-3'} w-80 max-w-[86vw] z-50 flex flex-col rounded-[28px] border border-white/[0.07] bg-gradient-to-b from-surface-2 to-surface shadow-[var(--shadow-float)] lg:hidden`}>
+              style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', [isAr ? 'right' : 'left']: 'calc(env(safe-area-inset-left, 0px) + 12px)' }}
+              className={`fixed w-80 max-w-[86vw] z-50 flex flex-col rounded-[28px] border border-white/[0.07] bg-gradient-to-b from-surface-2 to-surface shadow-[var(--shadow-float)] lg:hidden`}>
               <button onClick={() => setDrawerOpen(false)} aria-label={t('closeMenu')}
                 className="absolute top-5 end-4 h-10 w-10 flex items-center justify-center rounded-2xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors z-10">
                 <X className="w-5 h-5" />
@@ -569,7 +564,7 @@ function NotifyButton({ t }: { t: (k: Key) => string }) {
         {on && <span className="absolute top-2 end-2 w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />}
       </button>
       {help && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setHelp(false)}>
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] bg-black/70 backdrop-blur-sm" onClick={() => setHelp(false)}>
           <div role="dialog" aria-modal="true" aria-labelledby="ios-help-title" onClick={e => e.stopPropagation()}
             className="w-full max-w-sm rounded-[28px] border border-white/[0.07] bg-gradient-to-b from-surface-2 to-surface p-6 shadow-[var(--shadow-float)]">
             <div className="flex items-center gap-3">

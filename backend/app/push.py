@@ -94,7 +94,9 @@ def trade_message(signal: dict) -> dict:
     sym, side = signal["symbol"], signal["signalType"]
     tp = signal.get("target3") or signal.get("target2")
     return {"title": f"{'🟢 BUY' if side == 'BUY' else '🔴 SELL'} {sym} · {signal.get('confidence', '')}%",
-            "body": f"Entry {signal.get('entryPrice')} · SL {signal.get('stopLoss')} · TP {tp}", "tag": f"ld-{signal['id']}", "symbol": sym}
+            "body": f"Entry {signal.get('entryPrice')} · SL {signal.get('stopLoss')} · TP {tp}"
+                    + (f" ({signal['targetHitPct']}% of past trades reached it)" if signal.get("targetHitPct") is not None else ""),
+            "tag": f"ld-{signal['id']}", "symbol": sym}
 
 
 async def notify_trade(signal: dict) -> int:

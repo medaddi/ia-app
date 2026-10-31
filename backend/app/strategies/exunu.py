@@ -112,6 +112,7 @@ def build_exunu_result(r: dict) -> dict:
             "target1": s["tp1"] if s else 0,
             "target2": s["tp2"] if s else 0,
             "target3": s["tp3"] if s else 0,
+        "targetHitPct": (r.get("tpReach") or {}).get("targetHit") if s else None,  # past trades that reached this TP
             "risk_reward": f"1:{to_fixed(s['rrTp2'], 1)}" if s else "—",
             "sl_pips": s["slPips"] if s else 0,
             "risk_management": {"lot_sizing": {**(s["lots"] if s else {}), "standard_risk_pct": "1.0%"}, "is_rr_valid": bool(s) and s["rrTp2"] >= 2},

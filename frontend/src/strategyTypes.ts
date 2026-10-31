@@ -72,6 +72,7 @@ export type DrawingLayer = "sessions" | "levels" | "structure" | "swings" | "liq
 /** Target options: for each R multiple, the share of this pair's past trades the market carried that far before the stop. */
 export interface TpReach {
   sample: number; median: number | null; realistic: number | null;
+  targetHit?: number | null;  // % of past trades that reached this setup's own TP
   steps: { r: number; reach: number | null; price?: number }[];
 }
 

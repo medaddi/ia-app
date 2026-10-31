@@ -22,7 +22,7 @@ export const CHART_SPEC: Record<StrategyKind, ChartSpec> = {
   gold: { entryTf: 'H1', timeframes: ['M15', 'H1', 'H4', 'D1'], emas: [50, 200], emaNote: 'trend on H1' },
   // FXAlexG Set & Forget GPA: trend W1 / D1 / H4, AOI on W1 / D1, 50 EMA rejection on H4 and 1H, 30m engulfing entry
   // RSI(2) Connors pullback: EMA200 trend filter and EMA5 exit, all on H4
-  rsi2: { entryTf: 'H4', timeframes: ['H1', 'H4', 'D1', 'W1'], emas: [5, 200], emaNote: 'exit / trend on H4' },
-  forex: { entryTf: 'M30', timeframes: ['M30', 'H1', 'H4', 'D1', 'W1'], emas: [50], emaNote: 'rejection on H4 / 1H' },
+  rsi2: { entryTf: 'H4', timeframes: ['M15', 'M30', 'H1', 'H4', 'D1', 'W1'], emas: [5, 200], emaNote: 'exit / trend on H4' },
+  forex: { entryTf: 'M30', timeframes: ['M15', 'M30', 'H1', 'H4', 'D1', 'W1'], emas: [50], emaNote: 'rejection on H4 / 1H' },
 };
 export const chartSpec = (s: InstrumentSymbol): ChartSpec => CHART_SPEC[strategyKind(s)];

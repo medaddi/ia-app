@@ -21,6 +21,13 @@ class StrategyDef:
     limits: dict
     trail: Optional[Callable[[list[Candle], str], Optional[Callable[[int], Optional[float]]]]] = None
     exit_rule: Optional[Callable[[list[Candle], str], Callable[[int], bool]]] = None  # strategy exit at a close
+    # Decide earlier: at every close of this smaller timeframe, run the rules on the entry candle still forming
+    confirmTf: Optional[str] = None
+
+
+def decision_tf(d: StrategyDef) -> str:
+    """The timeframe whose closes trigger a decision (the confirmation timeframe when the strategy has one)."""
+    return d.confirmTf or d.entryTf
 
 
 @dataclass

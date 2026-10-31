@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X, Clock, CalendarClock } from 'lucide-react';
 import type { StrategyResult, TpReach } from '../strategyTypes';
+import { TradeProgress } from './TradeProgress';
 
 interface ExunuActiveSetupProps {
   symbol: InstrumentSymbol;
@@ -76,19 +77,6 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
     setTimeout(() => { setSendState('idle'); setSendMsg(''); }, 5000);
   };
 
-  const levels = s ? (single ? [
-    { l: `${t('Entry', 'Entrée', 'الدخول')} (${s.entryType})`, v: f(s.entry), sub: s.expiresAt ? `${t('valid until', 'valable jusqu’à', 'صالح حتى')} ${new Date(s.expiresAt * 1000).toISOString().slice(11, 16)} UTC` : '', tone: 'text-gold-200' },
-    { l: 'Stop loss', v: f(s.sl), sub: `${s.slPips} pips`, tone: 'text-rose-300' },
-    { l: `TP · 1:${rrTarget.toFixed(1)}`, v: f(s.tp3), sub: s.tp3Source, tone: 'text-emerald-300' },
-    { l: t('Management', 'Gestion', 'التسيير'), v: 'Set & forget', sub: t('no partials, no breakeven', 'sans partiels, sans point mort', 'بلا إغلاق جزئي، بلا نقل الستوب'), tone: 'text-white' },
-  ] : [
-    { l: `${t('Entry', 'Entrée', 'الدخول')} (${s.entryType})`, v: f(s.entry), sub: s.expiresAt ? `${t('valid until', 'valable jusqu’à', 'صالح حتى')} ${new Date(s.expiresAt * 1000).toISOString().slice(11, 16)} UTC` : '', tone: 'text-gold-200' },
-    { l: 'Stop loss', v: f(s.sl), sub: `${s.slPips} pips`, tone: 'text-rose-300' },
-    { l: `TP1 · 1R · ${t('close 50%', 'clôturer 50 %', 'سد 50%')}`, v: f(s.tp1), sub: t('then stop to breakeven', 'puis stop au point mort', 'من بعد الستوب للدخول'), tone: 'text-emerald-300' },
-    { l: `TP2 · 1:${s.rrTp2.toFixed(1)}`, v: f(s.tp2), sub: s.tp2Source, tone: 'text-emerald-300' },
-    { l: 'TP3', v: f(s.tp3), sub: s.tp3Source, tone: 'text-emerald-300' },
-    { l: t('Stop distance', 'Distance du stop', 'مسافة الستوب'), v: f(s.slDistance), sub: `${s.slPips} pips`, tone: 'text-white' },
-  ]) : [];
 
   return (
     <div className="flex flex-col bg-surface border border-line rounded-[var(--radius-card)] overflow-hidden" dir={ar ? 'rtl' : 'ltr'}>
@@ -127,14 +115,21 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
       </div>
 
       {s && (
-        <div className="grid grid-cols-2 gap-px bg-line border-b border-line">
-          {levels.map(x => (
-            <div key={x.l} className="bg-surface p-3 min-w-0">
-              <div className="text-xs text-slate-500 truncate">{x.l}</div>
-              <div className={`font-mono text-base font-semibold ${x.tone}`}>{x.v}</div>
-              <div className="font-mono text-xs text-slate-500 truncate">{x.sub}</div>
-            </div>
-          ))}
+        <div className="p-4 border-b border-line">
+          {/* The trade as a live bar: stop, entry and target, with the price now moving between them */}
+          <TradeProgress direction={s.direction} entry={s.entry} sl={s.sl} tp={s.tp3} price={result.price} decimals={result.spec.decimals}
+            pip={result.spec.pipSize} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
+          <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-mono">
+            <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-300">1:{rrTarget.toFixed(1)}</span>
+            {result.tpReach?.targetHit != null && (
+              <span className={`px-2 py-1 rounded-lg border ${result.tpReach.targetHit >= 50 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-gold-500/10 border-gold-500/30 text-gold-200'}`}>
+                {t('TP hit', 'TP atteint', 'TP وصلو')} {result.tpReach.targetHit}%
+              </span>
+            )}
+            <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-300">SL {s.slPips} pips</span>
+            {s.expiresAt && <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-400">{t('valid until', 'valable jusqu’à', 'صالح حتى')} {new Date(s.expiresAt * 1000).toISOString().slice(11, 16)} UTC</span>}
+            <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-400">{single ? t('Set & forget', 'Set & forget', 'Set & forget') : s.tp3Source}</span>
+          </div>
         </div>
       )}
 

@@ -161,3 +161,29 @@ def test_reversion_time_exit_after_24_candles():
         c.append(Candle(c[-1].time + 3600, e, e + 0.5, e - 0.5, e + 0.1))
     lc = run(c)["setup"]["lifecycle"]
     assert lc["state"] == "CLOSED" and lc["events"][-1]["type"] == "TIME_EXIT" and lc["exitTime"] == c[-1].time
+
+
+def test_m15_confirmation_takes_the_breakout_before_the_h1_close(monkeypatch):
+    from app.strategies import service
+
+    monkeypatch.setattr(service, "market_session_status", lambda sym: {"isOpen": True})  # the test may run on a weekend
+
+    c = series(+1)
+    bo = c[-1]  # the breakout candle: here it is still forming, seen through its first two 15-minute candles
+    closed = c[:-1]
+    mid = bo.open + (bo.close - bo.open) * 0.9
+    m15 = [Candle(bo.time, bo.open, bo.open + 0.6 * (bo.close - bo.open), bo.open - 0.2, bo.open + 0.5 * (bo.close - bo.open)),
+           Candle(bo.time + 900, bo.open + 0.5 * (bo.close - bo.open), mid + 0.2, bo.open + 0.4 * (bo.close - bo.open), mid)]
+    base = {"candles": {"H1": closed + [bo], "M15": m15}, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": "test",
+            "news": {"events": [], "source": "test"}}
+    service._early.pop("XAU/USD", None)
+    now = bo.time + 2 * 900 + 5  # 30 min into the H1 candle
+    r = service._early_signal("XAU/USD", base, now, {"trades": 0, "losses": 0})
+    assert r and r["status"] == "SIGNAL" and r["setup"]["direction"] == "BUY" and r["facts"]["confirmation"]["tf"] == "M15"
+    assert r["setup"]["entry"] == round(mid, 2) and r["setup"]["id"] == f"XAUUSD-BO-{bo.time}"  # same id as at the H1 close
+    # Later in the same H1 candle the first signal stays as it was (its levels never move)
+    m15.append(Candle(bo.time + 1800, mid, mid + 5, mid - 0.1, mid + 4))
+    assert service._early_signal("XAU/USD", base, now + 900, {"trades": 0, "losses": 0})["setup"]["entry"] == r["setup"]["entry"]
+    service._early.pop("XAU/USD", None)
+    # Before any 15-minute candle has closed in the hour there is nothing to confirm
+    assert service._early_signal("XAU/USD", base, bo.time + 60, {"trades": 0, "losses": 0}) is None

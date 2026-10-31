@@ -42,7 +42,7 @@ export function PendingApproval({ user, lang, onApproved, onLogout }: { user: Ap
   ];
 
   return (
-    <div className="relative min-h-dvh flex items-center justify-center p-4 sm:p-6 bg-canvas text-slate-100 overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="relative min-h-dvh flex items-center justify-center p-4 sm:p-6 pt-[calc(env(safe-area-inset-top,0px)+16px)] pb-[calc(env(safe-area-inset-bottom,0px)+16px)] px-safe bg-canvas text-slate-100 overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[12%] -translate-x-1/2 w-[720px] h-[720px] max-w-[150vw] rounded-full bg-gold-500/[0.07] blur-3xl" />
       <motion.section initial={reduce ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         className="relative w-full max-w-[480px] rounded-[32px] border border-white/[0.07] bg-gradient-to-b from-surface-2 to-surface p-6 sm:p-8 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.05)]"

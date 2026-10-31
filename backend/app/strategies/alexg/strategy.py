@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-from ..shared.common import HISTORY_MAX, active_window, item, new_result, to_signal_json, history_stats, tp_options, trade_record
+from ..shared.common import HISTORY_MAX, active_window, item, new_result, target_hit_pct, to_signal_json, history_stats, tp_options, trade_record
 from ..shared.drawings import trade_drawings
 from ..shared.indicators import atr_series, avg_body_series, ema_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
@@ -476,6 +476,8 @@ def evaluate_alexg(inp: dict, cfg: dict) -> dict:
     result["checklist"] = checklist
     result["setup"] = setup
     result["tpReach"] = tp_options(tp_past, setup, cfg["spec"]["decimals"])
+    if result["tpReach"] is not None:
+        result["tpReach"]["targetHit"] = target_hit_pct(tp_past, setup)  # how often past trades reached this TP
     failed = [c for c in checklist if c["required"] and not c["passed"]]
     score = g.get("score", 0) if g["items"] else 0
     result["score"] = score if setup else 0

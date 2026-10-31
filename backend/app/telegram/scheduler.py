@@ -11,6 +11,7 @@ import time
 
 from ..db import SessionLocal
 from ..market.data import market_session_status
+from ..strategies.replay import decision_tf
 from ..strategies.service import STRATEGY_DEFS, get_strategy_result
 from ..strategies.shared.jsnum import iso
 from ..strategies.shared.types import TF_SEC
@@ -31,11 +32,12 @@ def next_close_sec(now: float, tf_sec: int) -> int:
 
 async def _on_close(sym: str, close: int) -> None:
     d = STRATEGY_DEFS[sym]
-    tf_sec = TF_SEC[d.entryTf]
+    tf = decision_tf(d)  # gold decides at every M15 close (confirmation on the forming H1)
+    tf_sec = TF_SEC[tf]
     bundle = None
     for _ in range(MAX_RETRIES + 1):
         bundle = await get_strategy_result(sym, fresh=True)
-        entry = bundle["candles"].get(d.entryTf) or []
+        entry = bundle["candles"].get(tf) or []
         if any(c.time == close - tf_sec for c in entry):
             break
         await asyncio.sleep(RETRY)
@@ -64,14 +66,15 @@ async def _decide(sym: str) -> dict:
     """The analysis for the candle that just closed: re-downloaded (no cache) until the provider has published that bar,
     a few seconds at most; between closes the cached analysis is enough (nothing can change before the next close)."""
     d = STRATEGY_DEFS[sym]
-    tf_sec = TF_SEC[d.entryTf]
+    tf = decision_tf(d)
+    tf_sec = TF_SEC[tf]
     close = int(time.time() // tf_sec) * tf_sec
     if _decided.get(sym) == close:
         return await get_strategy_result(sym)
     bundle = None
     for attempt in range(3):
         bundle = await get_strategy_result(sym, fresh=True)
-        if any(c.time == close - tf_sec for c in bundle["candles"].get(d.entryTf) or []):
+        if any(c.time == close - tf_sec for c in bundle["candles"].get(tf) or []):
             _decided[sym] = close
             break
         await asyncio.sleep(RETRY)  # bar not published yet: the next tick tries again if this one runs out
@@ -98,8 +101,9 @@ async def tick() -> dict:
 
 
 async def run_symbol(sym: str, stop: asyncio.Event) -> None:
-    tf_sec = TF_SEC[STRATEGY_DEFS[sym].entryTf]
-    print(f"[candle-close] {sym} evaluated at every {STRATEGY_DEFS[sym].entryTf} close (+{GRACE}s)")
+    tf = decision_tf(STRATEGY_DEFS[sym])
+    tf_sec = TF_SEC[tf]
+    print(f"[candle-close] {sym} evaluated at every {tf} close (+{GRACE}s)")
     while not stop.is_set():
         close = next_close_sec(time.time(), tf_sec)
         try:

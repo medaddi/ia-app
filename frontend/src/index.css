@@ -235,6 +235,11 @@
   .pt-safe {
     padding-top: env(safe-area-inset-top, 0px);
   }
+  /* Landscape iPhone / Android with a notch or camera hole: keep content clear of the sides */
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
 
   /* Custom sleek scrollbar */
   ::-webkit-scrollbar {
@@ -373,6 +378,10 @@
 @media (max-width: 1024px) {
   .pb-mobile-nav {
     padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 16px));
+  }
+  /* Main content clears the bottom bar and the home indicator */
+  .pb-mobile-main {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
   }
 }
 

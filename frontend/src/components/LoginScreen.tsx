@@ -139,7 +139,7 @@ export function LoginScreen({ onLoginSuccess, lang, setLang }: LoginScreenProps)
   const label = 'block text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 mb-1.5';
 
   return (
-    <div className="relative min-h-dvh flex items-center justify-center p-4 sm:p-6 bg-canvas text-slate-100 overflow-hidden" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="relative min-h-dvh flex items-center justify-center p-4 sm:p-6 pt-[calc(env(safe-area-inset-top,0px)+16px)] pb-[calc(env(safe-area-inset-bottom,0px)+16px)] px-safe bg-canvas text-slate-100 overflow-hidden" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Ambient background: warm gold glow + the emblem's faint geometry (static) */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[12%] -translate-x-1/2 w-[720px] h-[720px] max-w-[150vw] rounded-full bg-gold-500/[0.08] blur-3xl" />
@@ -154,7 +154,7 @@ export function LoginScreen({ onLoginSuccess, lang, setLang }: LoginScreenProps)
       </div>
 
       {setLang && (
-        <div className="absolute top-4 end-4 flex items-center gap-1 rounded-2xl border border-white/[0.06] bg-surface-2/80 backdrop-blur-xl p-1" role="radiogroup" aria-label={t('Language', 'Langue', 'اللغة')}>
+        <div style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }} className="absolute end-4 flex items-center gap-1 rounded-2xl border border-white/[0.06] bg-surface-2/80 backdrop-blur-xl p-1" role="radiogroup" aria-label={t('Language', 'Langue', 'اللغة')}>
           <Languages className="w-4 h-4 text-gold-500 mx-1.5" aria-hidden="true" />
           {(['fr', 'en', 'ar'] as const).map(c => (
             <button key={c} role="radio" aria-checked={lang === c} onClick={() => setLang(c)}

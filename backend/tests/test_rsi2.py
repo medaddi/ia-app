@@ -85,3 +85,15 @@ def test_past_trades_are_tp_sl_or_be_and_score_the_pair():
     assert (st["trades"], st["tp"], st["sl"], st["be"], st["winRate"]) == (5, 2, 2, 1, 50)
     assert st["totalR"] == 0.51 and st["profitFactor"] == 1.25 and st["maxDrawdownR"] == 2.0 and st["maxLosingRun"] == 2
     assert history_stats([])["winRate"] is None
+
+
+def test_signal_shows_how_often_past_trades_reached_its_tp():
+    from app.strategies.shared.common import target_hit_pct
+    from app.telegram.bot import format_signal_message
+
+    past = [{"reachR": x} for x in (0.4, 1.6, 2.5, 1.5, 0.9)]
+    assert target_hit_pct(past, {"entry": 1.1, "sl": 1.099, "tp3": 1.1015}) == 60  # 1.5R: 3 of 5 got there
+    assert target_hit_pct([], {"entry": 1.1, "sl": 1.099, "tp3": 1.1015}) is None
+    msg = format_signal_message({"symbol": "EUR/USD", "signalType": "BUY", "entryPrice": 1.1, "stopLoss": 1.099, "target1": 1.101, "target2": 1.10125,
+                                 "target3": 1.1015, "confidence": 80, "targetHitPct": 60, "signalJson": {"setup": "RSI2", "entry_type": "MARKET"}})
+    assert "TP <code>1.10150</code> · 1:1.5" in msg and "reached by 60%" in msg

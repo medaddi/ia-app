@@ -11,7 +11,7 @@ One trade at a time, replayed in order like the backtest.
 
 from typing import Optional
 
-from ..shared.common import HISTORY_MAX, item, new_result, to_signal_json, history_stats, tp_options, trade_record
+from ..shared.common import HISTORY_MAX, item, new_result, target_hit_pct, to_signal_json, history_stats, tp_options, trade_record
 from ..shared.drawings import trade_drawings
 from ..shared.indicators import atr_series, ema_series, rsi_series
 from ..shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to, to_fixed
@@ -178,6 +178,8 @@ def evaluate_rsi2(inp: dict, cfg: dict) -> dict:
     result["checklist"] = checklist
     result["setup"] = setup
     result["tpReach"] = tp_options(tp_past, setup, cfg["spec"]["decimals"])
+    if result["tpReach"] is not None:
+        result["tpReach"]["targetHit"] = target_hit_pct(tp_past, setup)  # how often past trades reached this TP
     failed = [x for x in checklist if x["required"] and not x["passed"]]
     result["score"] = score_checklist(checklist) if setup else 0
     result["rejection"] = f"{failed[0]['rule']}: {failed[0]['detail']}" if failed else None

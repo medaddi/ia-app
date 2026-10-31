@@ -1,6 +1,6 @@
 import { apiFetch } from '../api';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Send, RefreshCw, Activity } from 'lucide-react';
+import { Send, Activity } from 'lucide-react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { LotCalculator } from './LotCalculator';
@@ -139,9 +139,6 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
               <Send className="w-4 h-4 text-gold-400" aria-hidden="true" /><span className="hidden sm:inline">Telegram</span>
             </button>
           )}
-          <button onClick={refreshAll} disabled={isLoading} className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-line text-slate-300 hover:bg-surface-2" aria-label={t('Refresh the analysis', 'Actualiser l’analyse', 'تحديث التحليل')}>
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-gold-400' : ''}`} />
-          </button>
         </div>
       </div>
 

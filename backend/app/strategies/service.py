@@ -19,7 +19,7 @@ from .alexg.config import ALEXG_CONFIGS
 from .alexg.strategy import evaluate_alexg
 from .rsi2.config import RSI2_CONFIGS
 from .rsi2.strategy import evaluate_rsi2, exit_rule as rsi2_exit
-from .replay import ReplayState, StrategyDef, replay, stats_at
+from .replay import ReplayState, StrategyDef, decision_tf, replay, stats_at
 from .shared.jsnum import fmt_utc_minute
 from .shared.news import load_news_calendar
 from .shared.common import active_window
@@ -48,9 +48,12 @@ def _rsi2_def(cfg: dict) -> StrategyDef:
 
 STRATEGY_DEFS: dict[str, StrategyDef] = {
     "XAU/USD": StrategyDef(
-        entryTf="H1", run=evaluate_xauusd, tfs=["H1"],
-        limits={"H1": 5000},
+        entryTf="H1", run=evaluate_xauusd, tfs=["H1", "M15"],
+        limits={"H1": 5000, "M15": 200},
         canSignalAt=lambda close: True,  # every H1 close while the market is open
+        # M15 confirmation: the H1 rules run at every 15-minute close on the H1 candle still forming, so a breakout or a
+        # reversion is taken up to 45 min before the H1 close (60 days: +9.1R on 28 trades vs +7.6R on 18 at the close)
+        confirmTf="M15",
     ),
     # Each pair runs the strategy that held up on it: RSI(2) H4 on EUR/USD and GBP/USD, FXAlexG GPA on the others
     **{pair: (_rsi2_def(RSI2_CONFIGS[pair]) if pair in RSI2_CONFIGS else _fx_def(cfg)) for pair, cfg in ALEXG_CONFIGS.items()},
@@ -103,8 +106,38 @@ _last_good: dict[str, tuple[dict, float]] = {}
 
 def _reusable(sym: str) -> bool:
     hit = _cache.get(sym)
-    tf_sec = TF_SEC[STRATEGY_DEFS[sym].entryTf]
+    tf_sec = TF_SEC[decision_tf(STRATEGY_DEFS[sym])]
     return bool(hit) and hit[1] > time.time() and _slot.get(sym) == int(time.time()) // tf_sec
+
+
+_early: dict[str, tuple[int, dict]] = {}  # symbol → (entry candle start, the first signal its confirmation gave)
+
+
+def _early_signal(sym: str, base: dict, now_sec: int, day: dict) -> Optional[dict]:
+    """M15 confirmation: the strategy's rules on the entry candle still forming, rebuilt from the confirmation candles
+    closed so far. The first signal of an entry candle is kept (its levels never change while that candle forms)."""
+    d = STRATEGY_DEFS[sym]
+    tf, ctf = TF_SEC[d.entryTf], TF_SEC[d.confirmTf]
+    start = now_sec - now_sec % tf
+    held = _early.get(sym)
+    if held and held[0] == start:
+        return held[1]
+    parts = [c for c in base["candles"].get(d.confirmTf) or [] if start <= c.time and c.time + ctf <= now_sec]
+    if not parts or len(parts) * ctf >= tf:  # nothing closed yet in this candle, or the candle is complete (normal close decision)
+        return None
+    forming = Candle(start, parts[0].open, max(c.high for c in parts), min(c.low for c in parts), parts[-1].close, 0)
+    closed = [c for c in base["candles"][d.entryTf] if c.time < start]
+    r = d.run({**base, "candles": {**base["candles"], d.entryTf: closed + [forming]}, "nowSec": start + tf,
+               "isMarketOpen": market_session_status(sym)["isOpen"], "day": day})
+    s = r["setup"]
+    if not (s and s["isFresh"] and r["status"] == "SIGNAL" and r["canNotify"]):
+        return None
+    at = parts[-1].time + ctf
+    r["facts"]["confirmation"] = {"tf": d.confirmTf, "at": at, "candle": d.entryTf}
+    r["headline"] = f"{d.confirmTf} confirmation · {r['headline']}"
+    r["dataQuality"] = {**r["dataQuality"], "source": f"{r['dataQuality'].get('source', '')} · {d.confirmTf} confirmation on the forming {d.entryTf}"}
+    _early[sym] = (start, r)
+    return r
 
 
 async def _with_live_price(sym: str, bundle: dict) -> dict:
@@ -136,7 +169,7 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
             return await _with_live_price(sym, _cache[sym][0])
         price = live_price if live_price and live_price > 0 else (await fetch_live_price(sym, fresh))["price"]
         # A new entry candle has closed since the last run: download it now (the raw candle cache is up to 60 s old)
-        new_candle = _slot.get(sym) != int(time.time()) // TF_SEC[STRATEGY_DEFS[sym].entryTf]
+        new_candle = _slot.get(sym) != int(time.time()) // TF_SEC[decision_tf(STRATEGY_DEFS[sym])]
         loaded, news = await asyncio.gather(load_strategy_candles(sym, price, fresh or new_candle), load_news_calendar())
         now_sec = int(time.time())
         base = {"candles": loaded["candles"], "livePrice": price, "spread": None, "isRealData": loaded["isReal"], "dataSource": loaded["source"], "news": news}
@@ -144,6 +177,10 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
         # Replaying today's bars is CPU work: keep it off the event loop
         day = await _cpu_run(_today_stats, sym, base, now_sec) if loaded["isReal"] else {"trades": 0, "losses": 0}
         result = await _cpu_run(d.run, {**base, "nowSec": now_sec, "isMarketOpen": market_session_status(sym)["isOpen"], "day": day})
+        if d.confirmTf and loaded["isReal"] and result["dataQuality"]["ok"] and not (result["setup"] and result["setup"]["isFresh"]):
+            early = await _cpu_run(_early_signal, sym, base, now_sec, day)
+            if early:
+                result = {**early, "price": result["price"]}
         if result["signal"]:
             result["signal"]["explanation"] = build_explanation(result)
         bundle = {"result": result, "candles": loaded["candles"]}
@@ -162,7 +199,7 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
                 _cache[sym] = (bundle, time.time() + 5)  # retry the feed soon
                 return bundle
         _cache[sym] = (bundle, time.time() + REUSE_SEC)
-        _slot[sym] = now_sec // TF_SEC[d.entryTf]
+        _slot[sym] = now_sec // TF_SEC[decision_tf(d)]
         return bundle
 
 

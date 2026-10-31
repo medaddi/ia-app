@@ -60,7 +60,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav 
       aria-label="Mobile Bottom Navigation"
-      className={`fixed bottom-0 inset-x-0 z-40 lg:hidden border-t backdrop-blur-2xl transition-all duration-200 pb-safe ${
+      className={`fixed bottom-0 inset-x-0 z-40 lg:hidden border-t backdrop-blur-2xl transition-all duration-200 pb-safe px-safe ${
         isLight 
           ? 'bg-white/90 border-paper-line-2 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]' 
           : 'bg-surface/90 border-line shadow-[0_-8px_24px_rgba(0,0,0,0.5)]'

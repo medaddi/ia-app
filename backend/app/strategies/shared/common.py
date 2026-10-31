@@ -99,6 +99,16 @@ def history_stats(past: list[dict]) -> dict:
             "since": past[0]["signalTime"] if past else None}
 
 
+def target_hit_pct(past: list[dict], setup: Optional[dict]) -> Optional[int]:
+    """Share of the pair's past trades that reached this setup's target R before their stop (None without history)."""
+    reach = [p["reachR"] for p in past if p.get("reachR") is not None]
+    if not setup or not reach:
+        return None
+    risk = abs(setup["entry"] - setup["sl"])
+    target_r = abs(setup["tp3"] - setup["entry"]) / risk if risk else 0
+    return round(100 * sum(x >= target_r - 0.01 for x in reach) / len(reach))
+
+
 def trade_record(s: dict, entry_tf_sec: int, c: Optional[list] = None, i: Optional[int] = None) -> dict:
     """A finished trade of the strategy, compact, for the history list: where it started, its levels, how it ended,
     and how far the market went for it before the stop (used to rate the reachable targets)."""

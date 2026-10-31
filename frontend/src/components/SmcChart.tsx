@@ -16,7 +16,7 @@ import {
   createSeriesMarkers,
   Time,
 } from 'lightweight-charts';
-import { Check, ChevronDown, Expand, Layers as LayersIcon, Maximize2, Minimize2, RefreshCw, X } from 'lucide-react';
+import { Check, ChevronDown, Expand, Layers as LayersIcon, Maximize2, Minimize2, X } from 'lucide-react';
 import type { StrategyResult, DrawingLayer } from '../strategyTypes';
 import { DrawingsPrimitive, OverlayTheme } from '../chart-overlays/drawingsPrimitive';
 
@@ -473,11 +473,6 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
             aria-label={full ? t('Exit full screen', 'Quitter le plein écran', 'خرج من الشاشة الكاملة') : t('Full screen', 'Plein écran', 'شاشة كاملة')} title={full ? t('Exit full screen', 'Quitter le plein écran', 'خرج من الشاشة الكاملة') : t('Full screen', 'Plein écran', 'شاشة كاملة')}>
             {full ? <Minimize2 className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
           </button>
-          {onRefresh && (
-            <button onClick={onRefresh} className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white hover:bg-surface-2 cursor-pointer" aria-label={t('Refresh', 'Actualiser', 'تحديث')} title={t('Refresh', 'Actualiser', 'تحديث')}>
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-gold-400' : ''}`} />
-            </button>
-          )}
         </div>
       </div>
 

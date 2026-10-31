@@ -6,6 +6,7 @@ import { Language } from '../types';
 import { fmtMoney, fmtR, tr } from './ui';
 import type { Stats, Today, Trade } from './AccountView';
 import { strategyKind } from '../instruments';
+import { TradeProgress } from './TradeProgress';
 
 // ---------------------------------------------------------------- API shape (/api/dashboard)
 
@@ -512,6 +513,41 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
           </section>
         </Reveal>
       </div>
+
+      {/* Open trades first: each one as a live bar (stop, entry, target, price now) */}
+      {running.length > 0 && (
+        <Reveal i={2}>
+          <section aria-labelledby="open-trades" className="rounded-2xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/[0.05] to-surface-2/80 p-4 sm:p-5">
+            <header className="flex items-center justify-between gap-3 mb-4">
+              <h3 id="open-trades" className="flex items-center gap-2.5 text-sm font-semibold text-white">
+                <span className="icon-tile w-8 h-8 text-emerald-300" aria-hidden="true"><Flame className="w-4 h-4" /></span>
+                {t('Open trades', 'Trades en cours', 'الصفقات الجارية')} <span className="font-mono text-emerald-300">{running.length}</span>
+              </h3>
+              <span className="text-xs text-slate-500 hidden sm:inline">{t('Live price · click a trade to open its chart', 'Prix en direct · cliquez un trade pour son graphique', 'الثمن المباشر · كليكي على صفقة باش تحل الشارت')}</span>
+            </header>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {running.map(m => {
+                const s = m.setup!;
+                return (
+                  <button key={m.symbol} onClick={() => onOpenChart(m.symbol)}
+                    className="text-left rounded-2xl border border-line bg-surface p-4 cursor-pointer transition-[border-color,transform] duration-200 hover:border-gold-500/40 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold-400">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ring-1 ring-inset ${s.direction === 'BUY' ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' : 'bg-rose-500/15 text-rose-300 ring-rose-500/30'}`}>{s.direction}</span>
+                        <span className="font-mono font-semibold text-white">{m.symbol}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{m.entryTf}</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400 truncate">{stateLabel(m.symbol, s.state)}</span>
+                    </div>
+                    <TradeProgress direction={s.direction} entry={s.entry} sl={s.sl} tp={s.target} price={m.price} decimals={m.decimals}
+                      pip={m.symbol === 'XAU/USD' ? 0.1 : 0.0001} lang={lang} compact />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </Reveal>
+      )}
 
       {/* KPI tiles */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
