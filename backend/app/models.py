@@ -28,6 +28,10 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     access_code_hash: Mapped[str] = mapped_column(String(200))
     role: Mapped[str] = mapped_column(String(16), default="user")  # admin | user
+    # Self sign-up: the account exists at once but stays "pending" (can only see the waiting page) until an admin approves it
+    status: Mapped[str] = mapped_column(String(16), default="approved")  # approved | pending
+    first_name: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    last_name: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     daily_loss_limit: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # $; None = no limit
     risk_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # $ risked per signal → the lot shown to this user
     # One-time code the user sends to the Telegram bot to link this account to their chat

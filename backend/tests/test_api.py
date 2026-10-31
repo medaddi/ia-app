@@ -210,3 +210,32 @@ def test_admin_makes_the_telegram_code_for_a_user(client, admin, monkeypatch):
     rows = {u["username"]: u for u in client.get("/api/users", headers=admin).json()["users"]}
     assert rows["viaadmin"]["telegramLinked"] and rows["viaadmin"]["telegramChatId"] == "5151"
     assert client.delete(f"/api/users/{uid}/telegram-link", headers=admin).json()["user"]["telegramLinked"] is False
+
+
+def test_sign_up_waits_for_admin_approval(client, admin):
+    good = {"firstName": "Salma", "lastName": "El Amrani", "username": "Salma.Trader", "password": "Gold!Rush2026x"}
+    # Weak passwords are refused with what they miss
+    weak = client.post("/api/auth/register", json={**good, "password": "short1"})
+    assert weak.status_code == 400 and "10 characters" in weak.text and "uppercase" in weak.text and "symbol" in weak.text
+    assert client.post("/api/auth/register", json={**good, "password": "Salma.trader!99X"}).status_code == 400  # contains the username
+    assert client.get("/api/auth/password-check", params={"password": good["password"]}).json()["missing"] == []
+    assert client.post("/api/auth/register", json={**good, "firstName": "S4lma"}).status_code == 400
+    # A pending account logs in but only sees who it is, nothing else
+    r = client.post("/api/auth/register", json=good)
+    assert r.status_code == 200, r.text
+    me = {"Authorization": f"Bearer {r.json()['token']}"}
+    u = client.get("/api/auth/me", headers=me).json()["user"]
+    assert (u["status"], u["username"], u["firstName"], u["lastName"]) == ("pending", "salma.trader", "Salma", "El Amrani")
+    assert client.get("/api/me", headers=me).status_code == 403 and client.get("/api/dashboard", headers=me).status_code == 403
+    assert client.post("/api/auth/register", json=good).status_code == 409
+    # The admin sees it waiting, approves it: the whole app opens
+    listed = next(x for x in client.get("/api/users", headers=admin).json()["users"] if x["username"] == "salma.trader")
+    assert listed["status"] == "pending"
+    assert client.post(f"/api/users/{listed['id']}/approve", headers=me).status_code == 403
+    assert client.post(f"/api/users/{listed['id']}/approve", headers=admin).json()["user"]["status"] == "approved"
+    assert client.get("/api/me", headers=me).status_code == 200
+    # A refused sign-up is deleted: that login no longer works
+    r2 = client.post("/api/auth/register", json={**good, "username": "spam.bot", "firstName": "Spam"})
+    sid = r2.json()["user"]["id"]
+    assert client.delete(f"/api/users/{sid}", headers=admin).json()["success"]
+    assert client.post("/api/auth/login", json={"username": "spam.bot", "accessCode": good["password"]}).status_code == 401

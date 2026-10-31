@@ -7,6 +7,7 @@ const SentimentRadar = lazy(() => import('./components/SentimentRadar').then(m =
 const TelegramSettingsModal = lazy(() => import('./components/TelegramSettingsModal').then(m => ({ default: m.TelegramSettingsModal })));
 import { ToolsSidebarDrawer } from './components/ToolsSidebarDrawer';
 import { LoginScreen } from './components/LoginScreen';
+import { PendingApproval } from './components/PendingApproval';
 import { MobileBottomNav } from './components/MobileBottomNav';
 const DesignSystemShowcase = lazy(() => import('./components/DesignSystemShowcase').then(m => ({ default: m.DesignSystemShowcase })));
 const MarketsTableView = lazy(() => import('./components/MarketsTableView').then(m => ({ default: m.MarketsTableView })));
@@ -126,7 +127,7 @@ export default function App() {
 
   // Prices and signals every second (live), news and sentiment every 2 min; refresh when the tab comes back
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.status === 'pending') return;  // a pending account only sees its waiting page
     syncAllMarketData();
     const live = (fn: () => Promise<void>) => { let busy = false; return () => { if (busy || document.hidden) return; busy = true; fn().finally(() => { busy = false; }); }; };
     // The dashboard and the chart refresh themselves every second: in the background these lists can go slower there
@@ -143,6 +144,16 @@ export default function App() {
       window.removeEventListener('online', onVisible);
     };
   }, [currentUser?.id, ['overview', 'chart', 'technical'].includes(activeTab)]);
+
+  // Admin: how many self sign-ups wait for approval (badge on "Users"), checked every minute
+  const [pendingUsers, setPendingUsers] = useState(0);
+  useEffect(() => {
+    if (currentUser?.role !== 'admin') return;
+    const load = () => { if (!document.hidden) apiJson<{ users: AppUser[] }>('/api/users').then(r => setPendingUsers(r.users.filter(u => u.status === 'pending').length)).catch(() => {}); };
+    load();
+    const id = setInterval(load, 60000);
+    return () => clearInterval(id);
+  }, [currentUser?.id, currentUser?.role, activeTab]);
 
   // A clicked trade notification opens the chart on its pair (service worker message, direct click, or a new window ?symbol=)
   useEffect(() => {
@@ -177,9 +188,15 @@ export default function App() {
       <LoginScreen
         onLoginSuccess={(user) => setCurrentUser(user)}
         lang={lang}
+        setLang={setLang}
         theme={theme}
       />
     );
+  }
+
+  // A self sign-up waiting for the admin: only the waiting page, it opens the app by itself once approved
+  if (!isAuthChecking && currentUser?.status === 'pending') {
+    return <PendingApproval user={currentUser} lang={lang} onApproved={setCurrentUser} onLogout={handleLogout} />;
   }
 
   if (!selectedAsset || isAuthChecking) {
@@ -220,6 +237,7 @@ export default function App() {
           if (found) setSelectedSymbol(found.symbol);
         }}
         activeSignalsCount={signals.filter((s) => s.isActionableNow).length}
+        pendingUsers={pendingUsers}
         isSyncingLive={isSyncingLive}
         onForceRefresh={() => syncAllMarketData()}
         onOpenAssistant={() => setIsAssistantOpen(true)}

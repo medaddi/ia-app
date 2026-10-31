@@ -8,7 +8,8 @@ import { Button, Card, Field, Notice, Stat, fmtDate, fmtMoney, fmtPct, fmtR, inp
 export interface AppUser {
   id: number; username: string; role: 'admin' | 'user'; dailyLossLimit?: number | null; riskUsd?: number | null; telegramChatId?: string | null;
   capital?: number | null; riskPct?: number | null; effectiveRisk?: number | null; telegramLinked?: boolean;
-  active?: boolean; lastLoginAt?: string | null;
+  active?: boolean; lastLoginAt?: string | null; createdAt?: string;
+  firstName?: string | null; lastName?: string | null; status?: 'approved' | 'pending';  // self sign-ups wait for an admin
 }
 
 export interface Trade {

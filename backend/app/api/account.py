@@ -5,12 +5,12 @@ import time
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import admin_user, bearer, current_user, hash_code, login, logout, user_json
+from ..auth import admin_user, bearer, current_user, hash_code, login, logout, password_problems, register, session_user, user_json
 from ..db import get_db
 from ..models import Signal, Subscriber, Trade, User
 from ..strategies.service import normalize_symbol
@@ -36,13 +36,43 @@ def auth_login(body: LoginIn, db: Session = Depends(get_db)):
     return {"success": True, **out}
 
 
+class RegisterIn(BaseModel):
+    firstName: str = Field(..., max_length=64)
+    lastName: str = Field(..., max_length=64)
+    username: str = Field(..., max_length=32)
+    password: str = Field(..., max_length=128)
+
+
+_signups: dict[str, list[float]] = {}  # client → recent sign-up times (a few accounts per hour at most)
+SIGNUPS_PER_HOUR = 5
+
+
+@router.post("/auth/register")
+def auth_register(body: RegisterIn, request: Request, db: Session = Depends(get_db)):
+    """Self sign-up: the account is created "pending" and logged in; it sees only the waiting page until an admin approves it."""
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "?")).split(",")[0].strip()
+    now = time.time()
+    recent = [t for t in _signups.get(ip, []) if now - t < 3600]
+    if len(recent) >= SIGNUPS_PER_HOUR:
+        raise HTTPException(429, "Too many sign-ups from this connection, try again later")
+    out = register(db, body.firstName, body.lastName, body.username, body.password)
+    _signups[ip] = recent + [now]
+    return {"success": True, **out}
+
+
+@router.get("/auth/password-check")
+def auth_password_check(password: str = "", username: str = ""):
+    """The rules a password still misses (the sign-up form shows them live; nothing is stored)."""
+    return {"missing": password_problems(password, username.strip().lower())}
+
+
 @router.get("/auth/me")
-def auth_me(u: User = Depends(current_user)):
+def auth_me(u: User = Depends(session_user)):
     return {"authenticated": True, "user": user_json(u)}
 
 
 @router.post("/auth/logout")
-def auth_logout(token: str = Depends(bearer), db: Session = Depends(get_db)):
+def auth_logout(token: str = Depends(bearer), db: Session = Depends(get_db)):  # also for a pending account
     if token:
         logout(db, token)
     return {"success": True}
@@ -218,6 +248,17 @@ def users_update(user_id: int, body: UserPatch, admin: User = Depends(admin_user
         u.active = body.active
     if body.accessCode:
         u.access_code_hash = hash_code(body.accessCode)
+    db.commit()
+    return {"success": True, "user": user_json(u)}
+
+
+@router.post("/users/{user_id}/approve")
+def users_approve(user_id: int, _: User = Depends(admin_user), db: Session = Depends(get_db)):
+    """Validates a self sign-up: from now on the account sees the whole app."""
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    u.status = "approved"
     db.commit()
     return {"success": True, "user": user_json(u)}
 

@@ -20,6 +20,7 @@ export interface AppLayoutProps {
   selectedAsset: MarketAsset;
   onSelectAsset?: (symbol: string) => void;
   activeSignalsCount: number;
+  pendingUsers?: number;  // admin: self sign-ups waiting for approval (badge on Users)
   isSyncingLive?: boolean;
   onForceRefresh?: () => void;
   onOpenAssistant: () => void;
@@ -100,7 +101,7 @@ function useSession(): Key {
 const initials = (name?: string) => (name || '?').slice(0, 2).toUpperCase();
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
-  children, activeTab, onSelectTab, lang, setLang, selectedAsset, onSelectAsset, activeSignalsCount, isSyncingLive = false, onForceRefresh,
+  children, activeTab, onSelectTab, lang, setLang, selectedAsset, onSelectAsset, activeSignalsCount, pendingUsers = 0, isSyncingLive = false, onForceRefresh,
   onOpenAssistant, onOpenTelegram, isMobileDrawerOpen: controlledDrawerOpen, setIsMobileDrawerOpen: setControlledDrawerOpen, currentUser, onLogout,
   tickerBarSlot,
 }) => {
@@ -162,7 +163,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     ] },
     { title: 'gAccount', items: [
       { id: 'account', label: 'account', icon: Wallet },
-      ...(isAdmin ? [{ id: 'admin', label: 'admin' as Key, icon: UserCog }] : []),
+      ...(isAdmin ? [{ id: 'admin', label: 'admin' as Key, icon: UserCog, count: pendingUsers }] : []),
     ] },
     { title: 'gTools', items: [
       { id: 'assistant', label: 'assistant', icon: Bot, action: 'assistant' as const },

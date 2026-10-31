@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Copy, Send, Settings2, ShieldCheck, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Check, Clock, Copy, Send, Settings2, ShieldCheck, Trash2, UserCheck, UserPlus, Users } from 'lucide-react';
 import { apiJson } from '../api';
 import { Language } from '../types';
 import type { AppUser, Stats, Today, Trade } from './AccountView';
@@ -60,6 +60,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
   };
 
   useEffect(() => { load(); }, []);
+  // New sign-ups arrive while the page is open: refresh the list every 30 s
+  useEffect(() => { const id = setInterval(() => { if (!document.hidden) load(); }, 30000); return () => clearInterval(id); }, []);
+  const pending = users.filter(u => u.status === 'pending');
+  const approved = users.filter(u => u.status !== 'pending');
 
   if (detail) {
     return (
@@ -80,6 +84,36 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
     <div className="space-y-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
 
+      {pending.length > 0 && (
+        <Card isLight={isLight} icon={<Clock className="w-4 h-4" />} title={`${t('Waiting for approval', 'En attente de validation', 'كيتسناو الموافقة')} (${pending.length})`}
+          right={<span className="text-[11px] text-slate-500">{t('Self sign-ups: they only see a waiting page until you approve them', 'Inscriptions : elles ne voient qu’une page d’attente jusqu’à votre validation', 'تسجيلات جديدة: كيشوفو غير صفحة الانتظار حتى توافق')}</span>}>
+          <ul className="space-y-2">
+            {pending.map(u => (
+              <li key={u.id} className={`flex flex-wrap items-center gap-3 rounded-2xl border px-3.5 py-3 ${isLight ? 'border-paper-line bg-paper' : 'border-gold-500/20 bg-gold-500/[0.04]'}`}>
+                <span className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-gold-200 to-gold-600 text-ink-strong flex items-center justify-center text-xs font-bold" aria-hidden="true">
+                  {((u.firstName || u.username)[0] + (u.lastName?.[0] ?? '')).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className={`text-sm font-semibold truncate ${isLight ? 'text-ink-strong' : 'text-white'}`}>{[u.firstName, u.lastName].filter(Boolean).join(' ') || u.username}</div>
+                  <div className="text-xs text-slate-500 font-mono truncate">@{u.username} · {t('signed up', 'inscrit', 'تسجل')} {fmtDate(u.createdAt)} UTC</div>
+                </div>
+                <div className="flex gap-2">
+                  <Button disabled={busy} onClick={() => run(async () => {
+                    await apiJson(`/api/users/${u.id}/approve`, { method: 'POST' });
+                    await load();
+                    return t(`${u.username} approved: the app opens for them now.`, `${u.username} validé : l’app s’ouvre pour lui maintenant.`, `${u.username} تفاليدا: التطبيق تحل ليه دابا.`);
+                  })}><UserCheck className="w-4 h-4 me-1.5 inline" aria-hidden="true" />{t('Approve', 'Valider', 'وافق')}</Button>
+                  <Button variant="danger" disabled={busy} onClick={() => {
+                    if (window.confirm(t(`Delete the sign-up of ${u.username}?`, `Supprimer l’inscription de ${u.username} ?`, `حذف التسجيل ديال ${u.username}؟`)))
+                      run(async () => { await apiJson(`/api/users/${u.id}`, { method: 'DELETE' }); await load(); return t(`${u.username} deleted.`, `${u.username} supprimé.`, `${u.username} تحذف.`); });
+                  }}><Trash2 className="w-4 h-4 me-1.5 inline" aria-hidden="true" />{t('Delete', 'Supprimer', 'حذف')}</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <Card isLight={isLight} icon={<UserPlus className="w-4 h-4" />} title={t('New account', 'Nouveau compte', 'حساب جديد')}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
           <Field label={t('Username', "Nom d'utilisateur", 'اسم المستخدم')}><input value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} className={inputCls(isLight)} /></Field>
@@ -97,14 +131,14 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
         </div>
       </Card>
 
-      <Card isLight={isLight} icon={<Users className="w-4 h-4" />} title={`${t('Accounts', 'Comptes', 'الحسابات')} (${users.length})`}>
+      <Card isLight={isLight} icon={<Users className="w-4 h-4" />} title={`${t('Accounts', 'Comptes', 'الحسابات')} (${approved.length})`}>
         <div className="overflow-x-auto"><table className="w-full text-xs tabular-nums">
           <thead className="text-slate-500 text-left"><tr>
             {[t('User', 'Utilisateur', 'المستخدم'), t('Trades', 'Trades', 'الصفقات'), 'Lots', t('Win rate', 'Réussite', 'النجاح'), 'P&L', t('Today', "Aujourd'hui", 'اليوم'),
               t('Last login', 'Connexion', 'آخر دخول'), 'Telegram', t('New access code', 'Nouveau code d’accès', 'رمز دخول جديد'), ''].map(h => <th key={h} className="px-1.5 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
           </tr></thead>
           <tbody>
-            {users.map(u => (
+            {approved.map(u => (
               <tr key={u.id} className={`border-t ${isLight ? 'border-paper-line' : 'border-line'} ${u.active === false ? 'opacity-40' : ''}`}>
                 <td className="px-1.5 py-1.5 whitespace-nowrap">
                   <button onClick={() => run(async () => setDetail(await apiJson(`/api/users/${u.id}`)))} className="font-semibold text-gold-500 hover:underline cursor-pointer">{u.username}</button>

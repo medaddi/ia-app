@@ -49,7 +49,8 @@ def init_db() -> None:
 def _add_missing_columns(conn) -> None:
     """create_all() never alters existing tables: add columns introduced after the first deploy."""
     added = {"users": {"default_lot": "FLOAT", "daily_loss_limit": "FLOAT", "risk_usd": "FLOAT",
-                       "telegram_link_code": "VARCHAR(16)", "telegram_link_expires": "INTEGER"},
+                       "telegram_link_code": "VARCHAR(16)", "telegram_link_expires": "INTEGER",
+                       "status": "VARCHAR(16) DEFAULT 'approved'", "first_name": "VARCHAR(64)", "last_name": "VARCHAR(64)"},
              "subscribers": {"muted": "BOOLEAN DEFAULT FALSE", "risk_usd": "FLOAT"}}
     insp = inspect(conn)
     for table, cols in added.items():
