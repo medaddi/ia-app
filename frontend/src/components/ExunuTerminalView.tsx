@@ -3,8 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Send } from 'lucide-react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
-import { LotCalculator } from './LotCalculator';
-import { PastTrades } from './PastTrades';
+import { AgentsConsensus, type Consensus } from './AgentsConsensus';
 import type { ExunuSMCResult } from '../strategyTypes';
 import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, chartSpec, type ChartSpec, type InstrumentSymbol } from '../instruments';
 import type { StrategyResult } from '../strategyTypes';
@@ -140,42 +139,12 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
           <SmcChart symbol={symbol} candles={candles} result={result} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
             emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
             onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
-          <LotCalculator result={result} lang={lang as Language} />
-          <PastTrades result={result} lang={lang as Language} />
+          {(bundle as any)?.consensus && (
+            <AgentsConsensus consensus={(bundle as any).consensus as Consensus} hasSetup={!!result?.setup} lang={lang as Language} />
+          )}
         </div>
         <div className="lg:col-span-4 min-w-0">
           <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />
-          {(bundle as any)?.tradeDesk && (() => {
-            const desk = (bundle as any).tradeDesk as { approved: boolean; checks: { key: string; label: string; passed: boolean; detail: string }[] };
-            const ok = desk.checks.filter(c => c.passed).length;
-            const names: Record<string, string> = {
-              rules: t('Strategy rules re-checked', 'Règles de la stratégie revérifiées', 'شروط الاستراتيجية متحقق منها'),
-              data: t('Live, fresh data', 'Données en direct et fraîches', 'معطيات مباشرة وجديدة'),
-              drift: t('Price still near the entry', 'Prix encore proche de l’entrée', 'الثمن باقي قريب من الدخول'),
-              liveRr: t('R:R still valid from the live price', 'R:R encore valable au prix actuel', 'العائد/المخاطرة باقي صالح'),
-              market: t('Market open, no news window', 'Marché ouvert, pas de news', 'السوق مفتوح، بلا أخبار'),
-              exposure: t('Currency exposure (max 2 the same way)', 'Exposition par devise (max 2 dans le même sens)', 'التعرض للعملة (2 فالاتجاه نفسو كحد أقصى)'),
-            };
-            return (
-              <details className="group mt-4 rounded-[var(--radius-card)] glass border border-line text-xs">
-                <summary className="flex items-center justify-between gap-2 p-4 cursor-pointer list-none">
-                  <span className="font-semibold text-slate-200">{t('AI trade desk', 'Desk IA', 'مكتب الذكاء')} <span className="font-normal text-slate-500">· {t('last check before sending', 'dernier contrôle avant envoi', 'آخر فحص قبل الإرسال')}</span></span>
-                  <span className={`font-mono font-semibold ${desk.approved ? 'text-emerald-300' : 'text-rose-300'}`}>
-                    {desk.approved ? t('Approved', 'Validé', 'مقبول') : t('Blocked', 'Bloqué', 'محبوس')} · {ok}/{desk.checks.length}
-                  </span>
-                </summary>
-                <ul className="space-y-1.5 px-4 pb-4">
-                  {desk.checks.map(c => (
-                    <li key={c.key} className="flex gap-2">
-                      <span className={`mt-0.5 w-4 h-4 shrink-0 rounded-full flex items-center justify-center text-[10px] ${c.passed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>{c.passed ? '✓' : '✕'}</span>
-                      <span className="min-w-0"><span className="text-slate-200">{names[c.key] ?? c.label}</span>
-                        <span className="block text-slate-500 break-words" dir="ltr">{c.detail}</span></span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            );
-          })()}
         </div>
       </div>
 

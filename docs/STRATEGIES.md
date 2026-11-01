@@ -13,6 +13,22 @@ strategy's config file. Same closed candles → same result, every time.
 | Timeframes | Trend, setup and entry on H1 | Trend, entry and exit on H4 | Trend W1 + D1 + H4 · AOI W1 / D1 · Pattern & EMA 1H · Entry 30m |
 | Order | MARKET (close of the signal candle) | MARKET (close of the RSI(2) extreme), exit at the first close back over EMA5 | MARKET (close of the 30m engulfing), one target at the next W1 / D1 zone (≥ 1:2) |
 
+## Three agents decide every trade
+
+A signal is sent (Telegram and phone notifications) only when three agents agree (`backend/app/agent/agents.py`):
+
+1. **Market analysis**: reads the market on its own: daily trend (EMA20 / EMA50 on daily candles), volatility regime
+   (ATR now vs its usual level) and high-impact news of the pair's currencies in the next 6 h. It objects to a trade
+   against the daily trend, in a volatility spike (ATR > 2.5× usual) or with major news less than 1 h away.
+2. **Strategy**: the pair's strategy decision (rules, score, a fresh setup it may send) turned into the plan (entry, stop,
+   target, R:R); it agrees only when the signal fits the market report.
+3. **Risk & execution**: the AI trade desk (rules re-checked, live data, price drift, live R:R, market open, currency
+   exposure) plus the open book (at most 4 signals open at once).
+
+On each pair's past trades, the market agent's trend veto blocked 8 of 111 trades for about the same total (+0.3R):
+it mostly removes counter-trend trades (NZD/USD, EUR/CHF, NZD/CAD losers) but also blocked some USD/CAD and gold winners.
+Each agent can only block; none can create or improve a trade.
+
 ## Target rule (every strategy)
 
 Every signal has **one target between 1.5R and 2R**; the stop stays at the structure (no partial closes, no breakeven):

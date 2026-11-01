@@ -114,16 +114,14 @@ async def notify_trade(signal: dict) -> int:
 
 
 async def push_setup(symbol: str) -> str:
-    """At a candle close: pushes the fresh signal of `symbol` if the strategy may notify it and the AI trade desk approves it."""
-    from .agent.trade_desk import review
+    """At a candle close: pushes the fresh signal of `symbol` when the three agents agree (the same vote as Telegram)."""
     from .strategies.exunu import run_exunu, to_ai_signal
 
     res = await run_exunu(symbol)
     r = res["strategy"]
     if not (r["market"]["isOpen"] and r["status"] == "SIGNAL" and r["canNotify"] and r["setup"]):
         return "no signal to push"
-    with SessionLocal() as db:
-        if not review(r, db)["approved"]:
-            return "trade desk rejected"
+    if not (res.get("consensus") or {}).get("approved"):
+        return "agents did not agree"
     n = await notify_trade(to_ai_signal(res))
     return f"pushed to {n} device(s)"

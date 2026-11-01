@@ -10,10 +10,11 @@ import { PendingApproval } from './components/PendingApproval';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { AppLayout } from './components/layout/AppLayout';
 import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
+const PairPerformanceView = lazy(() => import('./components/PairPerformanceView').then(m => ({ default: m.PairPerformanceView })));
 const ExunuTerminalView = lazy(() => import('./components/ExunuTerminalView').then(m => ({ default: m.ExunuTerminalView })));
 import { DashboardView } from './components/DashboardView';
 import { isInstrument } from './instruments';
-import { notifyEnabled, notifyNewSignals, requestLotFocus, subscribePush } from './notifications';
+import { notifyEnabled, notifyNewSignals, subscribePush } from './notifications';
 import { LDEmblem } from './components/LiquidityDissectionLogo';
 const AgentPanel = lazy(() => import('./components/AgentPanel').then(m => ({ default: m.AgentPanel })));
 import type { AppUser } from './components/AccountView';
@@ -172,7 +173,6 @@ export default function App() {
       if (typeof sym !== 'string' || !isInstrument(sym)) return;
       setSelectedSymbol(sym);
       setActiveTab('chart');
-      requestLotFocus(sym);  // straight to the lot for my risk on that trade
     };
     const q = new URLSearchParams(window.location.search).get('symbol');
     if (q) { open(q); window.history.replaceState(null, '', window.location.pathname); }
@@ -306,6 +306,19 @@ export default function App() {
           )}
 
 
+
+          {activeTab === 'pairs' && (
+            <motion.div
+              key="pairs"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+            >
+              <InternalPageTemplate subtitle={isFr ? 'Choisissez une paire : le bilan de sa stratégie et ses trades clôturés.' : isAr ? 'ختار زوج: النتائج ديال الاستراتيجية ديالو والصفقات المسدودة.' : 'Pick a pair: its strategy’s track record and closed trades.'}>
+                <PairPerformanceView lang={lang} initialSymbol={selectedSymbol} />
+              </InternalPageTemplate>
+            </motion.div>
+          )}
 
           {activeTab === 'news' && (
             <motion.div

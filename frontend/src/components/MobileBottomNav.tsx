@@ -63,7 +63,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       className={`fixed bottom-0 inset-x-0 z-40 lg:hidden border-t backdrop-blur-2xl transition-all duration-200 pb-safe px-safe ${
         isLight 
           ? 'bg-white/90 border-paper-line-2 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]' 
-          : 'bg-surface/90 border-line shadow-[0_-8px_24px_rgba(0,0,0,0.5)]'
+          : 'glass-nav !rounded-none !border-x-0 !border-b-0'
       }`}
     >
       <div className="grid grid-cols-4 h-16 max-w-lg mx-auto px-1 items-center">

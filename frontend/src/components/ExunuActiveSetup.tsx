@@ -1,6 +1,5 @@
-import { apiFetch } from '../api';
-import React, { useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { apiFetch, apiJson } from '../api';
+import React, { useEffect, useState } from 'react';
 import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X, Clock, CalendarClock } from 'lucide-react';
 import type { StrategyResult, TpReach } from '../strategyTypes';
@@ -119,6 +118,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
           {/* The trade as a live bar: stop, entry and target, with the price now moving between them */}
           <TradeProgress direction={s.direction} entry={s.entry} sl={s.sl} tp={s.tp3} price={result.price} decimals={result.spec.decimals}
             pip={result.spec.pipSize} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
+          <AutoLot symbol={result.spec.displaySymbol} entry={s.entry} sl={s.sl} t={t} />
           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-mono">
             <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-300">1:{rrTarget.toFixed(1)}</span>
             {result.tpReach?.targetHit != null && (
@@ -134,11 +134,6 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
       )}
 
       {s && result.tpReach && <TargetOptions reach={result.tpReach} planned={rrTarget} f={f} t={t} />}
-
-      <div className="p-4 border-b border-line">
-        <ConditionSteps items={result.checklist} ar={ar} t={t}
-          title={scored ? t('Setup checklist', 'Checklist du setup', 'شروط الإعداد') : t('GPA confluences (10% each)', 'Confluences GPA (10 % chacune)', 'نقاط GPA (10% لكل وحدة)')} />
-      </div>
 
       <div className="px-4 py-3 border-b border-line text-xs space-y-2">
         <div className="flex gap-2 text-slate-400">
@@ -229,52 +224,36 @@ function TargetOptions({ reach, planned, f, t }: { reach: TpReach; planned: numb
 }
 
 
-/** The setup's conditions in order, as steps: each one lights up the moment it is met, the others stay dimmed;
- * the first one still missing is marked as the one the strategy waits for. */
-function ConditionSteps({ items, title, ar, t }: { items: StrategyResult['checklist']; title: string; ar: boolean; t: (en: string, fr: string, ar: string) => string }) {
-  const reduce = useReducedMotion();
-  const met = items.filter(c => c.passed).length;
-  const next = items.findIndex(c => !c.passed);
-  const all = met === items.length;
+/** The lot for this trade, worked out from the risk saved in the user's account (Mon compte): the trade's own stop,
+ * spread and slippage included, rounded down so the loss at the stop stays within that risk. */
+interface LotAnswer { lots: number; actualRisk: number; riskUsd: number; tooSmall: boolean }
+function AutoLot({ symbol, entry, sl, t }: { symbol: string; entry: number; sl: number; t: (en: string, fr: string, ar: string) => string }) {
+  const [lot, setLot] = useState<LotAnswer | null>(null);
+  useEffect(() => {
+    let live = true;
+    apiJson<LotAnswer>(`/api/lot?symbol=${encodeURIComponent(symbol)}&entry=${entry}&sl=${sl}`)
+      .then(r => { if (live) setLot(r); }).catch(() => { if (live) setLot(null); });
+    return () => { live = false; };
+  }, [symbol, entry, sl]);
+  if (!lot) return null;
+  if (!lot.riskUsd) {
+    return (
+      <p className="mt-3 rounded-xl border border-gold-500/30 bg-gold-500/[0.06] px-3 py-2 text-xs text-gold-200">
+        {t('Set your risk per trade in My account: the lot for each trade appears here.', 'Indiquez votre risque par trade dans Mon compte : le lot de chaque trade s’affiche ici.', 'حدد المخاطرة ديالك ف حسابي: اللوت ديال كل صفقة غادي يبان هنا.')}
+      </p>
+    );
+  }
   return (
-    <div>
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h4 className="text-xs font-semibold text-slate-300">{title}</h4>
-        <span className={`font-mono text-xs font-semibold ${all ? 'text-emerald-300' : 'text-gold-200'}`}>{met}/{items.length}</span>
+    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-gold-500/30 bg-gold-500/[0.07] px-3 py-2.5">
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-gold-300/80">{t('Your lot', 'Votre lot', 'اللوت ديالك')}</div>
+        <div className="font-mono text-2xl font-bold tabular-nums text-gold-200">{lot.lots.toFixed(2)}</div>
       </div>
-      {/* One segment per condition, lit when met */}
-      <div className="flex gap-1 mb-3" aria-hidden="true">
-        {items.map(c => (
-          <span key={c.key} className={`h-1.5 flex-1 rounded-full transition-[background-color,box-shadow] duration-500 ${c.passed ? (all ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]' : 'bg-gold-400 shadow-[0_0_8px_rgba(214,174,87,0.55)]') : 'bg-surface-3'}`} />
-        ))}
+      <div className="text-end text-[11px] font-mono leading-relaxed">
+        <div className="text-rose-300">−${lot.actualRisk.toFixed(2)} {t('at the stop', 'au stop', 'ف الستوب')}</div>
+        <div className="text-slate-500">{t('your risk', 'votre risque', 'المخاطرة ديالك')} ${lot.riskUsd}</div>
+        {lot.tooSmall && <div className="text-gold-300">{t('0.01 is the minimum lot', '0,01 est le lot minimum', '0.01 هو أقل لوت')}</div>}
       </div>
-      <ol className="relative">
-        {items.map((c, i) => {
-          const isNext = i === next;
-          const lit = c.passed && (i === 0 || items[i - 1].passed);  // the rail glows through consecutive met steps
-          return (
-            <li key={c.key} className={`relative flex gap-3 pb-3 last:pb-0 transition-opacity duration-500 ${c.passed || isNext ? 'opacity-100' : 'opacity-45'}`}>
-              {i < items.length - 1 && (
-                <span aria-hidden="true" className={`absolute start-[11px] top-6 bottom-0 w-[2px] rounded-full transition-colors duration-500 ${lit && items[i + 1].passed ? 'bg-gold-400/70' : 'bg-line-2'}`} />
-              )}
-              <motion.span key={String(c.passed)} initial={reduce || !c.passed ? false : { scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 380, damping: 16 }}
-                className={`relative z-[1] mt-0.5 w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[10px] font-mono font-bold ${
-                  c.passed ? 'bg-gradient-to-b from-gold-300 to-gold-600 text-ink-strong shadow-[0_0_14px_rgba(214,174,87,0.55)]'
-                    : isNext ? 'bg-surface-2 text-gold-200 ring-2 ring-gold-500/60' : 'bg-surface-2 text-zinc-500 ring-1 ring-line-2'}`}>
-                {c.passed ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : i + 1}
-                {isNext && !reduce && <span aria-hidden="true" className="absolute inset-0 rounded-full ring-2 ring-gold-400/50 animate-ping" />}
-              </motion.span>
-              <span className="min-w-0 text-xs pt-0.5">
-                <span className={`font-medium ${c.passed ? 'text-white' : isNext ? 'text-gold-100' : 'text-slate-300'}`}>{ar && c.ruleAr ? c.ruleAr : c.rule}</span>
-                {c.required && <span className="text-slate-500"> · {t('required', 'obligatoire', 'ضروري')}</span>}
-                <span className="sr-only"> — {c.passed ? t('met', 'validée', 'محققة') : t('not met yet', 'pas encore validée', 'مازال ما تحققاتش')}</span>
-                {isNext && <span className="ms-1.5 inline-block px-1.5 py-px rounded bg-gold-500/15 text-[10px] font-semibold text-gold-200 align-middle">{t('waiting', 'en attente', 'كنتسناو')}</span>}
-                <span className="block text-slate-500 break-words mt-0.5" dir="ltr">{c.detail}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
     </div>
   );
 }

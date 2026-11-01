@@ -39,6 +39,7 @@ const T = {
   markets: ['Markets', 'Marchés', 'الأسواق'],
   strategies: ['Strategies', 'Stratégies', 'الاستراتيجيات'],
   performance: ['Signal results', 'Résultats des signaux', 'نتائج الإشارات'],
+  pairPerf: ['Pair performance', 'Performance des paires', 'أداء الأزواج'],
   news: ['News & calendar', 'Actualités & calendrier', 'الأخبار والأجندة'],
   account: ['My account & trades', 'Mon compte & trades', 'حسابي وصفقاتي'],
   admin: ['Users', 'Utilisateurs', 'المستخدمون'],
@@ -162,6 +163,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     ] },
     { title: 'gResults', items: [
       { id: 'performance', label: 'performance', icon: Trophy },
+      { id: 'pairs', label: 'pairPerf', icon: ChartSpline },
       { id: 'news', label: 'news', icon: CalendarRange },
     ] },
     { title: 'gAccount', items: [
@@ -214,7 +216,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           active ? 'text-white' : 'text-zinc-400 hover:text-slate-100 hover:bg-white/[0.035]'}`}>
         {active && (
           <motion.span layoutId={mobile ? 'nav-active-m' : 'nav-active'} transition={{ duration: reduce ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-0 rounded-2xl bg-white/[0.06] ring-1 ring-inset ring-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" />
+            className="absolute inset-0 rounded-2xl glass-pill" />
         )}
         <span className={`relative icon-tile w-8 h-8 transition-[color,box-shadow] duration-200 ${active ? 'icon-tile-gold' : 'text-zinc-400 group-hover:text-zinc-100'}`}>
           <Icon className="w-4 h-4" />
@@ -374,7 +376,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       <div className="relative flex-1 flex overflow-hidden w-full max-w-full">
         {/* Desktop sidebar: a floating rounded panel */}
         <aside className={`hidden lg:flex shrink-0 select-none z-30 p-3 pe-0 transition-[width] duration-200 ease-out ${isCollapsed ? 'w-[100px]' : 'w-[276px]'}`} aria-label={t('openMenu')}>
-          <div className="relative flex-1 flex flex-col min-h-0 rounded-[28px] border glass">
+          <div className="relative flex-1 flex flex-col min-h-0 rounded-[28px] border glass-nav">
             {SidebarBody({})}
           </div>
         </aside>
@@ -382,7 +384,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
           {/* Navbar */}
           <div className="shrink-0 z-20 px-2 sm:px-4 lg:px-5 pt-2 sm:pt-3">
-          <header className="h-14 sm:h-16 px-2 sm:px-4 rounded-[20px] sm:rounded-[22px] border glass flex items-center justify-between gap-3">
+          <header className="relative h-14 sm:h-16 px-2 sm:px-4 rounded-[20px] sm:rounded-[22px] border glass-nav flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button onClick={() => setDrawerOpen(true)} aria-label={t('openMenu')}
                 className="lg:hidden h-10 w-10 sm:h-11 sm:w-11 flex items-center justify-center rounded-2xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors shrink-0">
@@ -516,7 +518,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               initial={{ x: isAr ? '110%' : '-110%' }} animate={{ x: 0 }} exit={{ x: isAr ? '110%' : '-110%' }}
               transition={reduce ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 300 }}
               style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', [isAr ? 'right' : 'left']: 'calc(env(safe-area-inset-left, 0px) + 12px)' }}
-              className={`fixed w-80 max-w-[86vw] z-50 flex flex-col rounded-[28px] border glass-strong lg:hidden`}>
+              className={`fixed w-80 max-w-[86vw] z-50 flex flex-col rounded-[28px] border glass-nav glass-strong lg:hidden`}>
               <button onClick={() => setDrawerOpen(false)} aria-label={t('closeMenu')}
                 className="absolute top-5 end-4 h-10 w-10 flex items-center justify-center rounded-2xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors z-10">
                 <X className="w-5 h-5" />

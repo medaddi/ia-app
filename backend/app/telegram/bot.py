@@ -19,7 +19,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..agent.trade_desk import review
 from ..db import SessionLocal
 from ..market.data import FX_TICKERS, market_session_status
 from ..models import ActivationKey, Signal, Subscriber, User, Watermark
@@ -271,12 +270,12 @@ async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
             return {"success": False, "state": state, "error": "Telegram is disabled or has no bot token"}
         if cfg.get("assets") and symbol not in cfg["assets"]:
             return {"success": False, "state": state, "error": f"{symbol} is not in the Telegram asset list"}
-        # AI trade desk: rules re-checked + live price drift, live R:R, data freshness, news and currency exposure.
-        # It can only reject, never approve what the strategy rejected
-        check = review(r, db)
+        # Three agents must agree: market analysis (daily trend, volatility, news ahead), strategy (a valid fresh signal
+        # that fits the market), risk & execution (AI trade desk + open book). Each one can only block
+        check = res.get("consensus") or {"approved": False, "issues": ["The agents did not vote"]}
         if not check["approved"]:
             log_event("SIGNAL", f"{setup['direction']} {symbol} blocked", "; ".join(check["issues"]), False)
-            return {"success": False, "state": state, "error": f"Trade desk rejected: {'; '.join(check['issues'])}", "check": check}
+            return {"success": False, "state": state, "error": f"Agents: {'; '.join(check['issues'])}", "check": check}
         recipients = {s.chat_id: s for s in active_subscribers(db) if not s.muted}
         if cfg["chatId"]:
             recipients.setdefault(str(cfg["chatId"]), None)

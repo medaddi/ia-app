@@ -142,13 +142,15 @@ async def run_exunu(symbol: str = "XAU/USD", price: Optional[float] = None, as_o
     bundle = await (get_strategy_result_as_of(symbol, as_of) if as_of > 0 else get_strategy_result(symbol, live_price=price))
     out = build_exunu_result(bundle["result"])
     r = bundle["result"]
-    if r["setup"] and r["status"] in ("SIGNAL", "WATCH") and as_of <= 0:
-        # The AI trade desk's live verdict on this setup (the same checks run right before a Telegram send)
-        from ..agent.trade_desk import review
+    if as_of <= 0:
+        # The three agents (market analysis, strategy, risk & execution): the same votes decide a Telegram / push send
+        from ..agent.agents import consensus, market_candles
         from ..db import SessionLocal
+        from .shared.news import load_news_calendar
 
+        news = await load_news_calendar()
         with SessionLocal() as db:
-            out["tradeDesk"] = review(r, db)
+            out["consensus"] = consensus(r, market_candles(bundle), news["events"], db if r["setup"] else None)
     return out
 
 
