@@ -24,9 +24,65 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      /* The intro (at least 4 s, while the app gathers its data underneath): a gold circle appears, the app's logo is
+         revealed from its centre, glows, a sparkle lights the tip of its arrow, the circle opens out and fades; the logo
+         then breathes until the app is ready (src/splash.ts fades the whole intro out). */
+      html, body { margin: 0; background: #07090D; }
+      #splash { position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: radial-gradient(circle at 50% 46%, #0E121A 0%, #0E121A 22%, #090B10 60%, #07090D 100%);
+        transition: opacity .8s ease-in-out, visibility .8s; font-family: Inter, system-ui, sans-serif; }
+      #splash.fade-out { opacity: 0; visibility: hidden; }
+      .ld-intro { position: relative; width: 260px; height: 260px; display: flex; align-items: center; justify-content: center; }
+      .ld-intro-circle { position: absolute; width: 210px; height: 210px; border-radius: 50%; border: 2px solid #C9A04A; opacity: 0;
+        box-shadow: 0 0 15px rgba(214, 174, 87, .2); animation: ld-circle 3.8s ease-in-out forwards; pointer-events: none; z-index: 2; }
+      .ld-intro-logo { position: relative; width: 200px; height: 200px; clip-path: circle(0% at 50% 50%);
+        animation: ld-reveal 3.8s cubic-bezier(.4, 0, .2, 1) forwards, ld-breathe 2.6s ease-in-out infinite 3.8s; }
+      .ld-intro-logo img { width: 100%; height: 100%; display: block; animation: ld-logo-glow 3.8s ease-in-out forwards; }
+      .ld-intro-spark { position: absolute; left: calc(50% - 100px + 200px * .84 - 7px); top: calc(50% - 100px + 200px * .11 - 7px);
+        width: 14px; height: 14px; border-radius: 50%; opacity: 0; z-index: 3;
+        background: radial-gradient(circle, #fff 10%, #FFE08A 50%, transparent 70%); animation: ld-spark 3.8s ease-in-out forwards; }
+      .ld-intro-spark::before, .ld-intro-spark::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+      .ld-intro-spark::before { width: 30px; height: 2px; background: linear-gradient(90deg, transparent, #fff, transparent); }
+      .ld-intro-spark::after { width: 2px; height: 30px; background: linear-gradient(180deg, transparent, #fff, transparent); }
+      .ld-intro-name { margin-top: 18px; font-size: 17px; font-weight: 700; letter-spacing: .02em; color: #fff; opacity: 0;
+        transform: translateY(6px); animation: ld-name .9s ease-out forwards 2.9s; }
+      .ld-intro-name span { color: #E3C374; }
+      .ld-intro-bar { margin-top: 14px; width: 120px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(214, 174, 87, .12);
+        opacity: 0; animation: ld-name .6s ease-out forwards 3.2s; }
+      .ld-intro-bar::after { content: ''; display: block; width: 40%; height: 100%; border-radius: 2px;
+        background: linear-gradient(90deg, transparent, #E3C374, transparent); animation: ld-bar 1.3s ease-in-out infinite; }
+      @keyframes ld-circle { 0% { opacity: 0; transform: scale(.85); } 15% { opacity: .4; transform: scale(1); }
+        35% { opacity: 1; border-width: 4px; box-shadow: 0 0 20px rgba(214, 174, 87, .5); } 60% { opacity: 1; transform: scale(1); }
+        80% { opacity: .55; transform: scale(1.12); border-width: 2px; } 100% { opacity: 0; transform: scale(1.25); } }
+      @keyframes ld-reveal { 0%, 20% { clip-path: circle(0% at 50% 50%); } 60% { clip-path: circle(42% at 50% 50%); }
+        85%, 100% { clip-path: circle(75% at 50% 50%); } }
+      @keyframes ld-logo-glow { 0%, 60% { filter: drop-shadow(0 0 0 rgba(214, 174, 87, 0)); }
+        78% { filter: drop-shadow(0 0 26px rgba(214, 174, 87, .65)); } 100% { filter: drop-shadow(0 0 10px rgba(214, 174, 87, .3)); } }
+      @keyframes ld-spark { 0%, 62% { opacity: 0; transform: scale(0) rotate(0); } 72% { opacity: 1; transform: scale(1.5) rotate(45deg); }
+        86% { opacity: .85; transform: scale(1) rotate(90deg); } 100% { opacity: 0; transform: scale(.5) rotate(135deg); } }
+      @keyframes ld-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+      @keyframes ld-name { to { opacity: 1; transform: none; } }
+      @keyframes ld-bar { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      /* the loaders inside the app (same logo, smaller, spinning gold arc) */
+      .ld-logo-loader { position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; }
+      .ld-logo-loader .ld-circle { position: absolute; inset: 0; border-radius: 50%; border: 3px solid rgba(214, 174, 87, .1);
+        border-top-color: #D6AE57; animation: ld-spin 1.5s linear infinite; }
+      .ld-logo-loader img { width: 62%; height: 62%; border-radius: 50%; animation: ld-breathe 2.6s ease-in-out infinite; }
+      .ld-logo-loader.is-small { width: 72px; height: 72px; }
+      .ld-logo-loader.is-small .ld-circle { border-width: 2px; }
+      @keyframes ld-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        .ld-intro-logo { clip-path: none; animation: none; }
+        .ld-intro-logo img, .ld-intro-circle, .ld-intro-spark { animation: none; }
+        .ld-intro-name, .ld-intro-bar { opacity: 1; transform: none; animation: none; }
+        .ld-logo-loader .ld-circle { animation-duration: 3s; }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="splash" role="status" aria-label="Loading"><div class="ld-intro"><div class="ld-intro-circle"></div><div class="ld-intro-logo"><img src="/brand/emblem-512.webp" alt="" width="200" height="200" /></div><div class="ld-intro-spark"></div></div><div class="ld-intro-name">Liquidity <span>Dissection</span></div><div class="ld-intro-bar"></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

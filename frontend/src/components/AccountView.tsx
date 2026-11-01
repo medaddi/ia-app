@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { INSTRUMENT_SYMBOLS } from '../instruments';
-import { Check, Copy, History, KeyRound, OctagonAlert, Plus, Send, ShieldOff, Target, Wallet, Zap } from 'lucide-react';
+import { History, OctagonAlert, Plus, Send, ShieldOff, Target, Wallet, Zap } from 'lucide-react';
 import { apiJson } from '../api';
 import { AISignal, Language, MarketAsset } from '../types';
 import { Button, Card, Field, Notice, Stat, fmtDate, fmtMoney, fmtPct, fmtR, inputCls, tr } from './ui';
 
 export interface AppUser {
   id: number; username: string; role: 'admin' | 'user'; dailyLossLimit?: number | null; riskUsd?: number | null; telegramChatId?: string | null;
-  capital?: number | null; riskPct?: number | null; effectiveRisk?: number | null; telegramLinked?: boolean;
+  capital?: number | null; riskPct?: number | null; effectiveRisk?: number | null; telegramLinked?: boolean; telegramName?: string | null;
   active?: boolean; lastLoginAt?: string | null; createdAt?: string;
   firstName?: string | null; lastName?: string | null; status?: 'approved' | 'pending';  // self sign-ups wait for an admin
 }
@@ -107,55 +107,34 @@ const EMPTY = { symbol: 'XAU/USD', direction: 'BUY' as 'BUY' | 'SELL', entry: ''
 
 function TelegramLinkCard({ isLight, lang, user, onUserChange }: { isLight: boolean; lang: Language; user: AppUser; onUserChange: (u: AppUser) => void }) {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
-  const [link, setLink] = useState<{ code: string; expiresAt: number; bot: string | null; deepLink: string | null } | null>(null);
-  const [now, setNow] = useState(Date.now());
-  const [copied, setCopied] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => { if (!link) return; const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, [link]);
-  // While a code is waiting, check every 3 s whether the bot received it
-  useEffect(() => {
-    if (!link || user.telegramLinked) return;
-    const id = setInterval(async () => {
-      try { const r = await apiJson<{ user: AppUser }>('/api/me'); if (r.user.telegramLinked) { onUserChange(r.user); setLink(null); } } catch { /* retry */ }
-    }, 3000);
-    return () => clearInterval(id);
-  }, [link, user.telegramLinked]);
-  const left = link ? Math.max(0, link.expiresAt - Math.floor(now / 1000)) : 0;
-  const generate = async () => {
-    setErr(null);
-    try { setLink(await apiJson('/api/me/telegram-link', { method: 'POST' })); } catch (e: any) { setErr(e.message); }
-  };
+  const [bot, setBot] = useState<{ bot: string | null; link: string | null } | null>(null);
+  useEffect(() => { if (!user.telegramLinked) apiJson('/api/telegram/bot').then(setBot).catch(() => setBot(null)); }, [user.telegramLinked]);
+  const steps = [
+    t('Open the bot', 'Ouvrez le bot', 'حل البوت'),
+    t('Press Start: it sends you an invitation link', 'Appuyez sur Démarrer : il vous envoie un lien d’invitation', 'ضغط Start: كيصيفط ليك رابط دعوة'),
+    t('The link opens the app: tap Accept', 'Le lien ouvre l’app : touchez Accepter', 'الرابط كيحل التطبيق: ضغط قبول'),
+  ];
   return (
     <Card isLight={isLight} icon={<Send className="w-4 h-4" />} title={t('Telegram bot', 'Bot Telegram', 'بوت تيليغرام')}
-      right={user.telegramLinked ? <span className="text-xs font-semibold text-emerald-500">● {t('Linked', 'Connecté', 'مربوط')}</span> : undefined}>
+      right={user.telegramLinked ? <span className="text-xs font-semibold text-emerald-500">● {user.telegramName || t('Linked', 'Lié', 'مربوط')}</span> : undefined}>
       {user.telegramLinked ? (
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-          <p className="text-slate-400">{t('The bot knows this account: every signal comes with your own lot', 'Le bot connaît ce compte : chaque signal arrive avec votre lot', 'البوت كيعرف هاد الحساب: كل إشارة كتجيك باللوت ديالك')}
-            {user.effectiveRisk ? ` ($${user.effectiveRisk} / trade)` : ''}. Chat <span className="font-mono">{user.telegramChatId}</span></p>
+          <p className="text-slate-400">{t('The bot works with this account: every trade comes with your lot', 'Le bot travaille avec ce compte : chaque trade arrive avec votre lot', 'البوت خدام بهاد الحساب: كل صفقة كتجيك باللوت ديالك')}
+            {user.effectiveRisk ? ` ($${user.effectiveRisk} / trade)` : ''}. {t('One Telegram per account.', 'Un Telegram par compte.', 'تيليغرام واحد لكل حساب.')}</p>
           <Button variant="ghost" onClick={async () => { const r = await apiJson<{ user: AppUser }>('/api/me/telegram-link', { method: 'DELETE' }); onUserChange(r.user); }}>
-            {t('Unlink', 'Déconnecter', 'فك الربط')}
+            {t('Unlink', 'Délier', 'فك الربط')}
           </Button>
         </div>
-      ) : link && left > 0 ? (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-400">{t('Send this code to the bot (or tap "Open the bot"). It works once, for 15 minutes.', 'Envoyez ce code au bot (ou touchez « Ouvrir le bot »). Il marche une fois, pendant 15 minutes.', 'صيفط هاد الكود للبوت (ولا كليكي "حل البوت"). كيخدم مرة وحدة، 15 دقيقة.')}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <code className={`px-4 py-2.5 rounded-xl text-xl font-mono font-bold tracking-[0.2em] border ${isLight ? 'bg-paper border-paper-line-2 text-ink-strong' : 'bg-surface border-gold-500/40 text-gold-200'}`}>{link.code}</code>
-            <Button variant="ghost" onClick={() => { navigator.clipboard?.writeText(link.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {}); }}>
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}{copied ? t('Copied', 'Copié', 'تنسخ') : t('Copy', 'Copier', 'نسخ')}
-            </Button>
-            {link.deepLink && <a href={link.deepLink} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-ink-strong bg-gold-gradient cursor-pointer"><Send className="w-3.5 h-3.5" />{t('Open the bot', 'Ouvrir le bot', 'حل البوت')}{link.bot ? ` @${link.bot}` : ''}</a>}
-          </div>
-          <p className="text-[11px] text-slate-500 font-mono">{t('Expires in', 'Expire dans', 'كيسالي من بعد')} {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')} · {t('waiting for the bot…', 'en attente du bot…', 'كنتسناو البوت…')}</p>
-        </div>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-slate-400 max-w-xl">{t('Link your account to the Telegram bot: it will send you the signals with the lot for your capital and risk, and /risk, /capital in the bot change this account.',
-            "Liez votre compte au bot Telegram : il vous envoie les signaux avec le lot pour votre capital et votre risque, et /risk, /capital dans le bot modifient ce compte.",
-            'اربط الحساب ديالك بالبوت: غادي يصيفط ليك الإشارات باللوت على حساب الرأسمال والمخاطرة ديالك، و /risk و /capital ف البوت كيبدلو هاد الحساب.')}</p>
-          <Button onClick={generate}><KeyRound className="w-3.5 h-3.5" />{t('Get my link code', 'Obtenir mon code', 'عطيني الكود ديالي')}</Button>
-          {err && <p className="text-xs text-rose-500 basis-full">{err}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <ol className="space-y-1.5 text-xs text-slate-300">
+            {steps.map((st, k) => (
+              <li key={k} className="flex items-center gap-2"><span className="w-5 h-5 shrink-0 rounded-full bg-gold-500/15 text-gold-300 font-semibold flex items-center justify-center text-[11px]">{k + 1}</span>{st}</li>
+            ))}
+          </ol>
+          {bot?.link
+            ? <a href={bot.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-ink-strong bg-gold-gradient cursor-pointer"><Send className="w-3.5 h-3.5" />{t('Open the bot', 'Ouvrir le bot', 'حل البوت')} @{bot.bot}</a>
+            : <span className="text-xs text-slate-500">{t('The bot is not set up yet', 'Le bot n’est pas encore configuré', 'البوت مازال ما تعدل')}</span>}
         </div>
       )}
     </Card>

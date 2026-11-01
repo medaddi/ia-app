@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Clock, Copy, Send, Settings2, ShieldCheck, Trash2, UserCheck, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, Clock, Settings2, ShieldCheck, Trash2, UserCheck, UserPlus, Users } from 'lucide-react';
 import { apiJson } from '../api';
 import { Language } from '../types';
 import type { AppUser, Stats, Today, Trade } from './AccountView';
@@ -27,9 +27,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
   const [users, setUsers] = useState<UserRow[]>([]);
   const [form, setForm] = useState(NEW_USER);
   const [codes, setCodes] = useState<Record<number, string>>({});
-  // Telegram link codes made by the admin, per user (valid 24 h, one use)
-  const [tgCodes, setTgCodes] = useState<Record<number, { code: string; expiresAt: number; deepLink: string | null }>>({});
-  const [copied, setCopied] = useState<number | null>(null);
   const roleLabel = (r: string) => (r === 'admin' ? t('Admin', 'Admin', 'مدير') : t('Trader', 'Trader', 'متداول'));
   const [detail, setDetail] = useState<{ user: AppUser; stats: Stats; trades: Trade[] } | null>(null);
   const [appSettings, setAppSettings] = useState<{ app: any } | null>(null);
@@ -161,26 +158,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
                         return t(`${u.username} unlinked from Telegram`, `${u.username} délié de Telegram`, `تم فك ربط ${u.username}`);
                       })}>{t('Unlink', 'Délier', 'فك')}</Button>
                     </span>
-                  ) : tgCodes[u.id] && tgCodes[u.id].expiresAt * 1000 > Date.now() ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <code className={`px-2 py-1 rounded-md font-mono font-bold tracking-wider border ${isLight ? 'border-paper-line-2' : 'border-gold-500/40 text-gold-200'}`}>{tgCodes[u.id].code}</code>
-                      <button aria-label={t('Copy the code', 'Copier le code', 'نسخ الكود')} className="p-1 text-slate-400 hover:text-gold-400 cursor-pointer"
-                        onClick={() => navigator.clipboard?.writeText(tgCodes[u.id].code).then(() => { setCopied(u.id); setTimeout(() => setCopied(null), 1500); }).catch(() => {})}>
-                        {copied === u.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                      {tgCodes[u.id].deepLink && (
-                        <button aria-label={t('Copy the bot link', 'Copier le lien du bot', 'نسخ رابط البوت')} title={tgCodes[u.id].deepLink!} className="p-1 text-slate-400 hover:text-gold-400 cursor-pointer"
-                          onClick={() => navigator.clipboard?.writeText(tgCodes[u.id].deepLink!).catch(() => {})}><Send className="w-3.5 h-3.5" /></button>
-                      )}
-                    </span>
                   ) : (
-                    <Button variant="ghost" className="py-1" disabled={busy} onClick={() => run(async () => {
-                      const r = await apiJson<{ code: string; expiresAt: number; deepLink: string | null }>(`/api/users/${u.id}/telegram-link`, { method: 'POST' });
-                      setTgCodes({ ...tgCodes, [u.id]: r });
-                      return t(`Code for ${u.username}: ${r.code} (24 h, one use). They send it to the bot from their Telegram.`,
-                        `Code pour ${u.username} : ${r.code} (24 h, une fois). Il l’envoie au bot depuis son Telegram.`,
-                        `الكود ديال ${u.username}: ${r.code} (24 ساعة، مرة وحدة). كيصيفطو للبوت من التيليغرام ديالو.`);
-                    })}><Send className="w-3.5 h-3.5" />{t('Make code', 'Créer un code', 'صاوب كود')}</Button>
+                    <span className="text-slate-500">○ {t('Not linked', 'Non lié', 'ماشي مربوط')}</span>
                   )}
                 </td>
                 <td className="px-1.5 py-1"><input aria-label="new access code" value={codes[u.id] ?? ''} placeholder="••••••" onChange={x => setCodes({ ...codes, [u.id]: x.target.value })} className={`${inputCls(isLight)} w-24 py-1`} /></td>
@@ -207,9 +186,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
           </tbody>
         </table></div>
         <p className="mt-3 text-xs text-slate-500">
-          {t('Each user records the lot they took on every signal; their P&L, win rate and daily loss limit are their own. Click a name to see that user’s statistics and history. Telegram: make a code for a user and send it to them; the Telegram account that sends it to the bot becomes theirs and gets the signals with their own capital and risk.',
-            'Chaque utilisateur indique le lot pris sur chaque signal ; son P&L, son taux de réussite et sa perte journalière max lui sont propres. Cliquez un nom pour voir ses statistiques. Telegram : créez un code pour un utilisateur et envoyez-le-lui ; le compte Telegram qui l’envoie au bot devient le sien et reçoit les signaux avec son capital et son risque.',
-            'كل مستخدم كيدخل اللوت لي دخل بيه فكل صفقة، والأرباح ونسبة النجاح والخسارة اليومية ديالو بوحدو. اضغط على الاسم لرؤية الإحصائيات ديالو. تيليغرام: صاوب كود لمستخدم وصيفطو ليه؛ حساب التيليغرام لي يصيفطو للبوت كيولي ديالو وكتوصلو الإشارات على حساب الرأسمال والمخاطرة ديالو.')}
+          {t('Click a name to see that user’s statistics and history. Telegram: each user sends /connect to the bot and logs in; the column shows who is linked. Unlink cuts the bot off at once.',
+            'Cliquez un nom pour voir ses statistiques et son historique. Telegram : chaque utilisateur envoie /connect au bot et se connecte ; la colonne montre qui est lié. Délier coupe le bot tout de suite.',
+            'اضغط على الاسم باش تشوف الإحصائيات ديالو. تيليغرام: كل مستخدم كيصيفط /connect للبوت وكيدخل لحسابو؛ العمود كيبين شكون مربوط. فك الربط كيقطع البوت دغيا.')}
         </p>
       </Card>
 

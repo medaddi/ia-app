@@ -80,6 +80,16 @@ class Subscriber(Base):
     risk_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # /risk 80 → each signal comes with the lot for $80
 
 
+class TelegramConnect(Base):
+    """A one-time "Connect" link the bot gives a chat (/connect): whoever logs in to the app through it links that chat
+    to their account. Valid 15 minutes, used once."""
+    __tablename__ = "telegram_connect"
+    token: Mapped[str] = mapped_column(String(48), primary_key=True)
+    chat_id: Mapped[str] = mapped_column(String(32), index=True)
+    first_name: Mapped[str] = mapped_column(String(120), default="")
+    expires_at: Mapped[int] = mapped_column(Integer)  # unix seconds
+
+
 class PushSubscription(Base):
     """A browser / phone that turned trade notifications on (Web Push), linked to its account."""
     __tablename__ = "push_subscriptions"

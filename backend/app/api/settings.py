@@ -1,7 +1,6 @@
-"""App parameters, Telegram configuration, activation codes, and subscribers."""
+"""App parameters, Telegram configuration, and the accounts linked to Telegram."""
 
 import hmac
-import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -13,7 +12,7 @@ from sqlalchemy.orm import Session
 from ..auth import admin_user
 from ..config import settings
 from ..db import SessionLocal, get_db
-from ..models import ActivationKey, Signal, Subscriber, User
+from ..models import Signal, Subscriber, User
 from ..store import get_setting, public_telegram, set_setting
 from ..strategies.service import STRATEGY_DEFS, normalize_symbol
 from ..telegram import bot
@@ -125,63 +124,16 @@ def telegram_trace(ref: str, _: User = Depends(admin_user), db: Session = Depend
 
 @router.get("/telegram/subscribers")
 def telegram_subscribers(_: User = Depends(admin_user), db: Session = Depends(get_db)):
-    now = datetime.now(timezone.utc)
-    out = []
-    for s in db.scalars(select(Subscriber).order_by(Subscriber.activated_at.desc())):
-        exp = s.expires_at.replace(tzinfo=timezone.utc) if s.expires_at and not s.expires_at.tzinfo else s.expires_at
-        out.append({"chatId": s.chat_id, "firstName": s.first_name, "code": s.code, "activatedAt": s.activated_at.isoformat() if s.activated_at else None,
-                    "expiresAt": exp.isoformat() if exp else None, "active": bool(exp and exp > now)})
+    """The accounts linked to Telegram (the only way to get the signals)."""
+    subs = {s.chat_id: s for s in bot.active_subscribers(db)}
+    out = [{"chatId": u.telegram_chat_id, "username": u.username, "firstName": (subs.get(u.telegram_chat_id).first_name if subs.get(u.telegram_chat_id) else ""),
+            "active": u.telegram_chat_id in subs, "muted": bool(subs.get(u.telegram_chat_id) and subs[u.telegram_chat_id].muted)}
+           for u in db.scalars(select(User).where(User.telegram_chat_id.is_not(None)).order_by(User.username))]
     return {"subscribers": out}
 
 
 @router.delete("/telegram/subscribers/{chat_id}")
 def telegram_subscriber_delete(chat_id: str, _: User = Depends(admin_user), db: Session = Depends(get_db)):
-    s = db.get(Subscriber, chat_id)
-    if s:
-        db.delete(s)
-        db.commit()
-    return {"success": True}
-
-
-class CodeIn(BaseModel):
-    durationHours: int = Field(720, gt=0, le=24 * 365 * 10)
-    label: str = ""
-    multiUse: bool = False
-    count: int = Field(1, ge=1, le=50)
-
-
-@router.post("/telegram/activation/generate")
-def activation_generate(body: CodeIn, _: User = Depends(admin_user), db: Session = Depends(get_db)):
-    codes = []
-    for _i in range(body.count):
-        code = f"EXU-{secrets.token_hex(3).upper()}-{secrets.token_hex(2).upper()}"
-        db.add(ActivationKey(code=code, label=body.label, duration_hours=body.durationHours, multi_use=body.multiUse))
-        codes.append(code)
-    db.commit()
-    return {"success": True, "codes": codes, "code": codes[0]}
-
-
-@router.post("/telegram/activation/apply")
-def activation_apply(body: dict = Body(...), _: User = Depends(admin_user), db: Session = Depends(get_db)):
-    chat_id, code = str(body.get("chatId") or "").strip(), str(body.get("code") or "").strip()
-    if not chat_id or not code:
-        raise HTTPException(400, "chatId and code are required")
-    return bot.activate(db, chat_id, code, str(body.get("firstName") or ""))
-
-
-@router.get("/telegram/activation/status")
-def activation_status(_: User = Depends(admin_user), db: Session = Depends(get_db)):
-    keys = db.scalars(select(ActivationKey).order_by(ActivationKey.created_at.desc())).all()
-    return {"success": True, "activeSubscribers": len(bot.active_subscribers(db)),
-            "codes": [{"code": k.code, "label": k.label, "durationHours": k.duration_hours, "multiUse": k.multi_use, "usedCount": k.used_count,
-                       "revoked": k.revoked, "createdAt": k.created_at.isoformat()} for k in keys]}
-
-
-@router.delete("/telegram/activation/{code}")
-def activation_revoke(code: str, _: User = Depends(admin_user), db: Session = Depends(get_db)):
-    k = db.get(ActivationKey, code)
-    if not k:
-        raise HTTPException(404, "Code not found")
-    k.revoked = True
+    bot.unlink_chat(db, chat_id)
     db.commit()
     return {"success": True}

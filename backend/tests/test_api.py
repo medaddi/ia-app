@@ -104,10 +104,9 @@ def test_settings_and_telegram_config(client, admin):
     assert r.json()["app"]["appName"] == "EXUNU" and "bogus" not in r.json()["app"] and "risk" not in r.json()
     cfg = client.post("/api/telegram/config", headers=admin, json={"botToken": "123456:ABCDEFGHIJKLMNOP", "chatId": "42"}).json()["config"]
     assert cfg["hasBotToken"] and cfg["botToken"] == "" and cfg["chatId"] == "42"  # token is never sent back
-    codes = client.post("/api/telegram/activation/generate", headers=admin, json={"durationHours": 24, "count": 2}).json()["codes"]
-    assert client.post("/api/telegram/activation/apply", headers=admin, json={"chatId": "777", "code": codes[0]}).json()["success"]
-    assert not client.post("/api/telegram/activation/apply", headers=admin, json={"chatId": "888", "code": codes[0]}).json()["success"]
-    assert client.get("/api/telegram/subscribers", headers=admin).json()["subscribers"][0]["active"]
+    # No activation codes any more: access to the bot comes only from a linked app account
+    assert client.post("/api/telegram/activation/generate", headers=admin, json={"durationHours": 24}).status_code in (404, 405)
+    assert client.get("/api/telegram/subscribers", headers=admin).json()["subscribers"] == []
     assert client.post("/api/risk/calculate", json={}).status_code == 404  # removed
 
 
@@ -166,9 +165,6 @@ def test_telegram_link_code_and_capital_risk(client, admin, monkeypatch):
     assert (u["capital"], u["riskPct"], u["effectiveRisk"], u["riskUsd"]) == (5000, 1, 50, None)
     assert client.get("/api/lot?symbol=XAU/USD&entry=4000&sl=3995", headers=me).json()["lots"] == 0.09  # $50 / ($5.30 × 100 oz)
 
-    code = client.post("/api/me/telegram-link", headers=me).json()["code"]
-    assert code.startswith("LD-") and len(code) == 9
-
     sent = []
 
     async def fake_send(token, chat_id, text, reply_markup=None, protect=False):
@@ -177,12 +173,21 @@ def test_telegram_link_code_and_capital_risk(client, admin, monkeypatch):
     monkeypatch.setattr(bot, "send_message", fake_send)
     say = lambda text: asyncio.run(bot.handle_update("T", {"message": {"text": text, "chat": {"id": 4242}, "from": {"first_name": "L"}}})) or sent[-1]  # noqa: E731
 
-    assert "invalid or expired" in say("LD-ZZZZZZ")
-    assert "Linked to <b>linker</b>" in say(f"/start {code.replace('-', '')}") and "$50 per trade (1% of $5000)" in sent[-1]
-    assert "invalid or expired" in say(code)  # one-time code
+    # Not linked: every command asks to connect; typed text (old codes included) gets no answer
+    assert "Connect your app account first" in say("/signal")
+    n = len(sent)
+    asyncio.run(bot.handle_update("T", {"message": {"text": "EXU-ABC123-DEF4", "chat": {"id": 4242}, "from": {"first_name": "L"}}}))
+    assert len(sent) == n
+    # /connect → one-time link → the logged-in account takes the chat
+    token = __import__("re").search(r"\?tg=([\w-]+)", say("/connect")).group(1)
+    assert client.post("/api/telegram/connect", headers=me, json={"token": "nope"}).status_code == 400
+    assert client.post("/api/telegram/connect", headers=me, json={"token": token}).json()["user"]["telegramLinked"] is True
+    assert "Connected</b> · linker" in sent[-1] and "$50 per trade (1% of $5000)" in sent[-1]
+    assert client.post("/api/telegram/connect", headers=me, json={"token": token}).status_code == 400  # used once
     with SessionLocal() as db:
         assert db.scalar(__import__("sqlalchemy").select(User).where(User.username == "linker")).telegram_chat_id == "4242"
-        assert bot.chat_risks(db, ["4242"]) == {"4242": 50} and db.get(Subscriber, "4242").expires_at is not None
+        assert bot.chat_risks(db, ["4242"]) == {"4242": 50} and "4242" in {x.chat_id for x in bot.active_subscribers(db)}
+    assert "Account: <b>linker</b>" in say("/status")
     # The bot's /capital and /risk change the app account too
     assert "$6000" in say("/capital 6000") and "$60" in sent[-1]
     assert "$80" in say("/risk 80")
@@ -192,24 +197,32 @@ def test_telegram_link_code_and_capital_risk(client, admin, monkeypatch):
     assert client.delete("/api/me/telegram-link", headers=me).json()["user"]["telegramLinked"] is False
 
 
-def test_admin_makes_the_telegram_code_for_a_user(client, admin, monkeypatch):
+def test_admin_sees_telegram_links_and_access_follows_the_account(client, admin, monkeypatch):
     import asyncio
+    import re
 
+    from app.db import SessionLocal
     from app.telegram import bot
 
     uid = client.post("/api/users", headers=admin, json={"username": "viaadmin", "accessCode": "secret-987"}).json()["user"]["id"]
     trader = login(client, "viaadmin", "secret-987")
-    assert client.post(f"/api/users/{uid}/telegram-link", headers=trader).status_code == 403  # admin only
-    out = client.post(f"/api/users/{uid}/telegram-link", headers=admin).json()
-    assert out["code"].startswith("LD-") and out["expiresAt"] - __import__("time").time() > 23 * 3600  # valid 24 h
+    sent = []
 
     async def fake_send(token, chat_id, text, reply_markup=None, protect=False):
+        sent.append(text)
         return {"success": True}
     monkeypatch.setattr(bot, "send_message", fake_send)
-    asyncio.run(bot.handle_update("T", {"message": {"text": out["code"], "chat": {"id": 5151}, "from": {"first_name": "V"}}}))
+    say = lambda text: asyncio.run(bot.handle_update("T", {"message": {"text": text, "chat": {"id": 5151}, "from": {"first_name": "V"}}})) or sent[-1]  # noqa: E731
+    token = re.search(r"\?tg=([\w-]+)", say("/start")).group(1)
+    client.post("/api/telegram/connect", headers=trader, json={"token": token})
     rows = {u["username"]: u for u in client.get("/api/users", headers=admin).json()["users"]}
     assert rows["viaadmin"]["telegramLinked"] and rows["viaadmin"]["telegramChatId"] == "5151"
+    assert "Welcome back" in say("/start")
+    # The admin unlinks: the chat loses its access at once
     assert client.delete(f"/api/users/{uid}/telegram-link", headers=admin).json()["user"]["telegramLinked"] is False
+    assert "Connect your app account first" in say("/open")
+    with SessionLocal() as db:
+        assert "5151" not in {x.chat_id for x in bot.active_subscribers(db)}
 
 
 def test_sign_up_waits_for_admin_approval(client, admin):
@@ -277,3 +290,47 @@ def test_a_login_lasts_one_hour(client):
         db.get(SessionToken, r["token"]).expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
         db.commit()
     assert client.get("/api/auth/me", headers=me).status_code == 401
+
+
+def test_one_telegram_per_account_and_deleted_account_loses_the_bot(client, admin, monkeypatch):
+    import asyncio
+    import re
+
+    from app.db import SessionLocal
+    from app.telegram import bot
+
+    uid = client.post("/api/users", headers=admin, json={"username": "onetg", "accessCode": "secret-321"}).json()["user"]["id"]
+    me = login(client, "onetg", "secret-321")
+    client.post("/api/users", headers=admin, json={"username": "othertg", "accessCode": "secret-322"})
+    other = login(client, "othertg", "secret-322")
+    sent = []
+
+    async def fake_send(token, chat_id, text, reply_markup=None, protect=False):
+        sent.append((chat_id, text))
+        return {"success": True}
+    monkeypatch.setattr(bot, "send_message", fake_send)
+
+    def invite(chat):
+        asyncio.run(bot.handle_update("T", {"message": {"text": "/start", "chat": {"id": chat}, "from": {"first_name": "Tg"}}}))
+        return re.search(r"\?tg=([\w-]+)", sent[-1][1]).group(1)
+
+    first = invite(6001)
+    info = client.get(f"/api/telegram/connect/{first}", headers=me).json()
+    assert info["firstName"] == "Tg" and info["problem"] is None  # what the Accept screen shows
+    linked = client.post("/api/telegram/connect", headers=me, json={"token": first}).json()["user"]
+    assert linked["telegramLinked"] and linked["telegramName"] == "Tg"  # the name the sidebar shows
+    # A second Telegram for the same account is refused (one per account)…
+    second = invite(6002)
+    assert "already linked to another Telegram" in client.get(f"/api/telegram/connect/{second}", headers=me).json()["problem"]
+    assert client.post("/api/telegram/connect", headers=me, json={"token": second}).status_code == 400
+    # …and a Telegram already linked cannot be taken by another account
+    asyncio.run(bot.handle_update("T", {"message": {"text": "/connect", "chat": {"id": 6001}, "from": {"first_name": "Tg"}}}))
+    assert "?tg=" not in sent[-1][1] and "One Telegram per account" in sent[-1][1]
+    # The admin deletes the account: the chat is told, then loses the bot
+    assert client.delete(f"/api/users/{uid}", headers=admin).json()["success"]
+    assert sent[-1] == ("6001", "⛔ Your account was removed: the bot stops here.")
+    with SessionLocal() as db:
+        assert "6001" not in {s.chat_id for s in bot.active_subscribers(db)}
+    asyncio.run(bot.handle_update("T", {"message": {"text": "/signal", "chat": {"id": 6001}, "from": {"first_name": "Tg"}}}))
+    assert "Connect your app account first" in sent[-1][1]
+    assert other  # the other account is untouched

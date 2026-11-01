@@ -100,7 +100,13 @@ def test_bot_commands(monkeypatch):
 
     monkeypatch.setattr(bot, "send_message", fake_send)
     with SessionLocal() as db:
-        db.merge(Subscriber(chat_id="9001", first_name="Ali", expires_at=datetime.now(timezone.utc) + timedelta(days=5)))
+        from app.auth import hash_code
+        from app.models import User
+        from sqlalchemy import select
+        u = db.scalar(select(User).where(User.username == "ali-tg")) or User(username="ali-tg", access_code_hash=hash_code("secret-111"))
+        u.telegram_chat_id, u.active, u.status = "9001", True, "approved"  # access comes from the linked app account
+        db.add(u)
+        db.merge(Subscriber(chat_id="9001", first_name="Ali", code="ACCOUNT"))
         db.merge(Signal(id="XAUUSD-BO-1", symbol="XAU/USD", setup="BREAKOUT", direction="BUY", entry_type="MARKET", entry=4000, sl=3990,
                         tp1=4010, tp2=4020, tp3=4030, rr_tp2=2, score=90, signal_time=1, state="CLOSED", outcome="WIN", r_multiple=1.75,
                         params={}, payload={}))
@@ -174,14 +180,13 @@ def test_bot_reads_only_commands_and_codes(monkeypatch):
     monkeypatch.setattr(bot, "send_message", fake_send)
     msg = lambda text: {"message": {"text": text, "chat": {"id": 777001}, "from": {"first_name": "T"}}}  # noqa: E731
     asyncio.run(bot.handle_update("t", msg("/signal")))
-    assert "Not activated" in sent[-1]  # commands need an active access
+    assert "Connect your app account first" in sent[-1]  # commands need a linked account
     asyncio.run(bot.handle_update("t", msg("/help")))
     assert "<b>📊 Market</b>" in sent[-1] and "/signal\n<i>Every pair right now</i>" in sent[-1]
-    asyncio.run(bot.handle_update("t", msg("WRONGCODE")))
-    assert "⛔" in sent[-1]  # before activation, text is read as an activation code
     n = len(sent)
-    asyncio.run(bot.handle_update("t", msg("hello, how are you?")))
-    assert len(sent) == n  # not a code, not a command: no answer
+    for typed in ("WRONGCODE", "EXU-ABC123-DEF4", "hello, how are you?"):
+        asyncio.run(bot.handle_update("t", msg(typed)))
+    assert len(sent) == n  # nothing typed gets an answer: no codes, no chat
 
 
 def test_send_retries_on_rate_limit(monkeypatch):
@@ -193,3 +198,55 @@ def test_send_retries_on_rate_limit(monkeypatch):
     assert asyncio.run(bot.send_message("t", "1", "hi")) == {"success": True, "messageId": 7}  # waited, then delivered
     monkeypatch.setattr(bot, "call", lambda *a, **k: asyncio.sleep(0, {"ok": False, "error_code": 403, "description": "Forbidden: bot was blocked"}))
     assert asyncio.run(bot.send_message("t", "1", "hi"))["success"] is False  # a blocked bot is not retried
+
+
+def test_chart_picture_and_command(monkeypatch):
+    import asyncio
+    import math
+
+    from sqlalchemy import select
+
+    from app.auth import hash_code
+    from app.db import SessionLocal, init_db
+    from app.models import User
+    from app.strategies.shared.types import Candle
+    from app.telegram import chart_image
+
+    init_db()
+
+    # The picture: a PNG of the pair with its trade
+    candles = [Candle(time=1_800_000_000 + i * 3600, open=100 + math.sin(i / 5), high=101 + math.sin(i / 5), low=99 + math.sin(i / 5),
+                      close=100.3 + math.sin(i / 5), volume=0) for i in range(300)]
+    result = {"spec": {"decimals": 2}, "displaySymbol": "XAU/USD", "strategyName": "Gold · H1 Trend Breakout", "price": 100.2, "status": "SIGNAL",
+              "setup": {"direction": "SELL", "entry": 100.5, "sl": 102.5, "tp3": 96.5, "signalTime": candles[-5].time, "lifecycle": {"state": "OPEN"}}}
+    png = chart_image.render("XAU/USD", candles, result, "H1", [50, 200])
+    assert png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 10_000
+
+    # The bot: /chart lists the pairs, /chart_gold sends the picture
+    with SessionLocal() as db:
+        u = db.scalar(select(User).where(User.username == "chart-tg")) or User(username="chart-tg", access_code_hash=hash_code("secret-222"))
+        u.telegram_chat_id, u.active, u.status = "9333", True, "approved"
+        db.add(u)
+        db.commit()
+    sent, photos = [], []
+
+    async def fake_send(token, chat_id, text, reply_markup=None, protect=False):
+        sent.append(text)
+        return {"success": True}
+
+    async def fake_photo(token, chat_id, data, caption=""):
+        photos.append((chat_id, caption))
+        return {"success": True}
+
+    async def fake_chart(sym):
+        return png, f"<b>{sym}</b>"
+    monkeypatch.setattr(bot, "send_message", fake_send)
+    monkeypatch.setattr(bot, "send_photo", fake_photo)
+    monkeypatch.setattr(chart_image, "pair_chart", fake_chart)
+    say = lambda text: asyncio.run(bot.handle_update("T", {"message": {"text": text, "chat": {"id": 9333}, "from": {"first_name": "C"}}}))  # noqa: E731
+    say("/chart")
+    assert "/chart_gold · XAU/USD" in sent[-1] and "/chart_audchf · AUD/CHF" in sent[-1]
+    say("/chart_gold")
+    assert photos[-1] == ("9333", "<b>XAU/USD</b>")
+    say("/chart_eurusd")
+    assert photos[-1][1] == "<b>EUR/USD</b>"

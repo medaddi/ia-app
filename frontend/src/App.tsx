@@ -15,12 +15,15 @@ const ExunuTerminalView = lazy(() => import('./components/ExunuTerminalView').th
 import { DashboardView } from './components/DashboardView';
 import { isInstrument } from './instruments';
 import { notifyEnabled, notifyNewSignals, subscribePush } from './notifications';
-import { LDEmblem } from './components/LiquidityDissectionLogo';
+import { GoldLoader, LogoLoader } from './components/GoldLoader';
+import { hideSplash } from './splash';
 const AgentPanel = lazy(() => import('./components/AgentPanel').then(m => ({ default: m.AgentPanel })));
 import type { AppUser } from './components/AccountView';
 const AccountView = lazy(() => import('./components/AccountView').then(m => ({ default: m.AccountView })));
 const AdminView = lazy(() => import('./components/AdminView').then(m => ({ default: m.AdminView })));
 import { motion, AnimatePresence } from 'motion/react';
+
+const TG_KEY = 'ld_tg_connect';  // the bot's one-time Connect token, kept through the login
 
 const ACCOUNT_TABS = ['account', 'positions', 'history', 'settings'];
 
@@ -68,6 +71,104 @@ export default function App() {
 
   // A login lasts one hour: at its end (or when the server refuses the session) the app shows the login page again
   const [sessionEnded, setSessionEnded] = useState(false);
+
+  // Telegram "Connect": the bot's button opens the app with ?tg=<one-time token>; it waits through the login,
+  // then links that Telegram chat to the account that logged in
+  const [tgPending, setTgPending] = useState<boolean>(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('tg');
+      if (q) { sessionStorage.setItem(TG_KEY, q); window.history.replaceState(null, '', window.location.pathname); }
+      return !!sessionStorage.getItem(TG_KEY);
+    } catch { return false; }
+  });
+  const [tgNotice, setTgNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [tgAsk, setTgAsk] = useState<{ token: string; firstName: string; problem: string | null } | null>(null);
+  const tgText = (en: string, fr: string, ar: string) => (lang === 'fr' ? fr : lang === 'ar' ? ar : en);
+  useEffect(() => {
+    if (!currentUser || currentUser.status === 'pending') return;
+    let token: string | null = null;
+    try { token = sessionStorage.getItem(TG_KEY); sessionStorage.removeItem(TG_KEY); } catch { /* storage blocked */ }
+    if (!token) return;
+    setTgPending(false);
+    apiJson<{ firstName: string; problem: string | null }>(`/api/telegram/connect/${encodeURIComponent(token)}`)
+      .then(r => setTgAsk({ token: token!, firstName: r.firstName, problem: r.problem }))
+      .catch((e: Error) => setTgNotice({ ok: false, text: e.message }));
+  }, [currentUser?.id, currentUser?.status]);
+  const tgAccept = async () => {
+    if (!tgAsk) return;
+    try {
+      const r = await apiJson<{ user: AppUser }>('/api/telegram/connect', { method: 'POST', body: JSON.stringify({ token: tgAsk.token }) });
+      setCurrentUser(r.user);
+      setTgNotice({ ok: true, text: tgText('Telegram is linked to your account. Go back to the bot: everything is there.', 'Telegram est lié à votre compte. Retournez au bot : tout y est.', 'تيليغرام تربط بحسابك. رجع للبوت: كلشي تما.') });
+    } catch (e: any) {
+      setTgNotice({ ok: false, text: e.message });
+    }
+    setTgAsk(null);
+  };
+  useEffect(() => { if (!tgNotice) return; const id = setTimeout(() => setTgNotice(null), 9000); return () => clearTimeout(id); }, [tgNotice]);
+  // Sidebar "Link Telegram": opens the bot; the Accept happens in the tab its invitation opens, so this one checks the
+  // account every 5 s for 3 minutes to show the linked Telegram as soon as it is there
+  const [tgWatch, setTgWatch] = useState(0);
+  const linkTelegram = async () => {
+    const win = window.open('about:blank', '_blank');  // opened in the click itself, or the browser blocks it
+    try {
+      const r = await apiJson<{ link: string | null }>('/api/telegram/bot');
+      if (!r.link) throw new Error(tgText('The bot is not set up yet.', 'Le bot n’est pas encore configuré.', 'البوت مازال ما تعدل.'));
+      if (win) win.location.href = r.link; else window.location.href = r.link;
+      setTgWatch(Date.now());
+    } catch (e: any) {
+      win?.close();
+      setTgNotice({ ok: false, text: e.message });
+    }
+  };
+  useEffect(() => {
+    if (!tgWatch || currentUser?.telegramLinked) return;
+    const id = setInterval(async () => {
+      if (Date.now() - tgWatch > 180000) { clearInterval(id); return; }
+      try { const r = await apiJson<{ user: AppUser }>('/api/me'); if (r.user.telegramLinked) { setCurrentUser(r.user); clearInterval(id); } } catch { /* next try */ }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [tgWatch, currentUser?.telegramLinked]);
+  const unlinkTelegram = async () => {
+    if (!window.confirm(tgText('Disconnect Telegram? The bot stops sending you the trades.', 'Déconnecter Telegram ? Le bot n’enverra plus les trades.', 'قطع ربط تيليغرام؟ البوت غادي يوقف يصيفط ليك الصفقات.'))) return;
+    try {
+      const r = await apiJson<{ user: AppUser }>('/api/me/telegram-link', { method: 'DELETE' });
+      setCurrentUser(r.user);
+      setTgNotice({ ok: true, text: tgText('Telegram disconnected from your account.', 'Telegram déconnecté de votre compte.', 'تيليغرام تقطع من حسابك.') });
+    } catch (e: any) {
+      setTgNotice({ ok: false, text: e.message });
+    }
+  };
+  const tgDialog = tgAsk && currentUser ? (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="tg-accept-title">
+      <div className="w-full max-w-sm glass-strong rounded-3xl border border-line p-6 text-center shadow-2xl">
+        <span className="mx-auto w-14 h-14 rounded-2xl bg-[#229ED9] flex items-center justify-center" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white"><path d="M9.8 15.3 9.6 19c.4 0 .6-.2.8-.4l2-1.9 4.1 3c.8.4 1.3.2 1.5-.7l2.7-12.7c.3-1.1-.4-1.6-1.1-1.3L3.7 10.8c-1.1.4-1 1-.2 1.3l4.1 1.3 9.5-6c.4-.3.9-.1.6.2z" /></svg>
+        </span>
+        <h2 id="tg-accept-title" className="mt-4 text-base font-semibold text-white">{tgText('Link Telegram to your account?', 'Lier Telegram à votre compte ?', 'ربط تيليغرام بحسابك؟')}</h2>
+        <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+          {tgText('Telegram', 'Telegram', 'تيليغرام')} <b className="text-slate-100">{tgAsk.firstName || '—'}</b> → {tgText('account', 'compte', 'الحساب')} <b className="text-gold-200">{currentUser.username}</b><br />
+          {tgText('The bot will send you every trade with your lot. One Telegram per account.', 'Le bot vous enverra chaque trade avec votre lot. Un Telegram par compte.', 'البوت غادي يصيفط ليك كل صفقة باللوت ديالك. تيليغرام واحد لكل حساب.')}
+        </p>
+        {tgAsk.problem && <p className="mt-3 rounded-xl bg-rose-500/10 border border-rose-500/30 px-3 py-2 text-xs text-rose-200">{tgAsk.problem}</p>}
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button onClick={() => setTgAsk(null)} className="h-11 rounded-xl border border-line text-sm text-slate-300 hover:bg-white/[0.04] cursor-pointer">{tgText('Cancel', 'Annuler', 'إلغاء')}</button>
+          <button onClick={tgAccept} disabled={!!tgAsk.problem} className="h-11 rounded-xl text-sm font-semibold text-ink-strong bg-gold-gradient cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">{tgText('Accept', 'Accepter', 'قبول')}</button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+  const tgBanner = (tgPending && !currentUser) || tgNotice ? (
+    <div role="status" className={`fixed z-[100] top-[max(12px,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 w-[min(92vw,460px)] glass-strong rounded-2xl border px-4 py-3 flex items-center gap-3 shadow-2xl ${tgNotice && !tgNotice.ok ? 'border-rose-500/40' : 'border-sky-400/40'}`}>
+      <span className="w-9 h-9 shrink-0 rounded-xl bg-[#229ED9] flex items-center justify-center" aria-hidden="true">
+        <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white"><path d="M9.8 15.3 9.6 19c.4 0 .6-.2.8-.4l2-1.9 4.1 3c.8.4 1.3.2 1.5-.7l2.7-12.7c.3-1.1-.4-1.6-1.1-1.3L3.7 10.8c-1.1.4-1 1-.2 1.3l4.1 1.3 9.5-6c.4-.3.9-.1.6.2z" /></svg>
+      </span>
+      <p className="min-w-0 flex-1 text-xs text-slate-100">
+        {tgNotice ? tgNotice.text : tgText('Log in, then accept: your Telegram will be linked to your account.', 'Connectez-vous puis acceptez : votre Telegram sera lié à votre compte.', 'دخل لحسابك ومن بعد قبل: التيليغرام ديالك غادي يتربط بيه.')}
+      </p>
+      {tgNotice && <button onClick={() => setTgNotice(null)} className="text-slate-400 hover:text-white text-lg leading-none cursor-pointer" aria-label="Close">×</button>}
+    </div>
+  ) : null;
   useEffect(() => {
     const onExpired = () => { setCurrentUser(null); setSessionEnded(true); };
     window.addEventListener('ld-session-expired', onExpired);
@@ -187,22 +288,31 @@ export default function App() {
   useEffect(() => { if (currentUser) loadSentiment(); }, [selectedSymbol]);
 
   const setSelectedAsset = (a: MarketAsset | null) => { if (a) setSelectedSymbol(a.symbol); };
+  // The intro fades out once there is a real screen to show: the login or the waiting page at once, the app once its data is in
+  useEffect(() => {
+    if (isAuthChecking) return;
+    if (!currentUser || currentUser.status === 'pending') hideSplash();
+    else if (selectedAsset) hideSplash(true);  // the dashboard (or chart) is filling in under the intro
+  },
+    [isAuthChecking, currentUser?.id, currentUser?.status, !!selectedAsset]);
 
   const isAr = lang === 'ar';
   const isFr = lang === 'fr';
 
-  const isLight = theme === 'light';
 
   // 0. Render Login Screen if user is not authenticated
   if (!isAuthChecking && !currentUser) {
     return (
-      <LoginScreen
-        onLoginSuccess={(user) => { setSessionEnded(false); setCurrentUser(user); }}
-        sessionEnded={sessionEnded}
-        lang={lang}
-        setLang={setLang}
-        theme={theme}
-      />
+      <>
+        {tgBanner}
+        <LoginScreen
+          onLoginSuccess={(user) => { setSessionEnded(false); setCurrentUser(user); }}
+          sessionEnded={sessionEnded}
+          lang={lang}
+          setLang={setLang}
+          theme={theme}
+        />
+      </>
     );
   }
 
@@ -213,29 +323,16 @@ export default function App() {
 
   if (!selectedAsset || isAuthChecking) {
     return (
-      <div
-        role="status"
-        aria-live="polite"
-        className={`min-h-screen flex flex-col items-center justify-center p-4 transition-colors ${
-          isLight ? 'bg-paper text-slate-700' : 'bg-canvas text-slate-300'
-        }`}
-      >
-        <LDEmblem className="w-14 h-14 mb-5" />
-        <h2 className={`text-base font-semibold tracking-tight mb-1.5 ${isLight ? 'text-slate-900' : 'text-white'}`}>LiquidityDissection</h2>
-        <p className={`text-xs text-center max-w-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-          {backendDown
-            ? (lang === 'fr' ? 'Le serveur se réveille (hébergement gratuit), cela peut prendre une minute…' : isAr ? 'الخادم يستيقظ (استضافة مجانية)، قد يستغرق ذلك دقيقة…' : 'The server is waking up (free hosting), this can take a minute…')
-            : (lang === 'fr' ? 'Chargement des stratégies or et forex…' : isAr ? 'جاري تحميل استراتيجيات الذهب والفوركس…' : 'Loading the gold and forex strategies…')}
-        </p>
-        <div className={`mt-5 h-0.5 w-40 overflow-hidden rounded-full ${isLight ? 'bg-paper-line-2' : 'bg-line'}`}>
-          <div className="h-full w-1/2 rounded-full bg-gold-gradient animate-shimmer" />
-        </div>
-      </div>
+      <GoldLoader label={backendDown
+        ? (lang === 'fr' ? 'Le serveur se réveille, cela peut prendre une minute…' : isAr ? 'الخادم كيفيق، يقدر ياخد دقيقة…' : 'The server is waking up, this can take a minute…')
+        : (lang === 'fr' ? 'Chargement des stratégies or et forex…' : isAr ? 'جاري تحميل استراتيجيات الذهب والفوركس…' : 'Loading the gold and forex strategies…')} />
     );
   }
 
   return (
     <>
+      {tgBanner}
+      {tgDialog}
       <AppLayout
         activeTab={activeTab}
         onSelectTab={setActiveTab}
@@ -256,7 +353,9 @@ export default function App() {
         onOpenTelegram={() => setIsTelegramOpen(true)}
         isMobileDrawerOpen={isMobileDrawerOpen}
         setIsMobileDrawerOpen={setIsMobileDrawerOpen}
-        currentUser={currentUser ? { id: String(currentUser.id), username: currentUser.username, role: currentUser.role } : null}
+        currentUser={currentUser ? { id: String(currentUser.id), username: currentUser.username, role: currentUser.role, telegramLinked: currentUser.telegramLinked, telegramName: currentUser.telegramName } : null}
+        onLinkTelegram={linkTelegram}
+        onUnlinkTelegram={unlinkTelegram}
         onLogout={handleLogout}
       >
         <Suspense fallback={<PageFallback />}>
@@ -406,8 +505,8 @@ export default function App() {
 // Shown for the moment a page's code is downloaded the first time (each page is its own small file)
 function PageFallback() {
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3" aria-busy="true">
-      {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 rounded-2xl border border-line bg-surface-2 animate-pulse" />)}
+    <div className="min-h-[50vh] flex items-center justify-center" role="status" aria-busy="true" aria-label="Loading">
+      <LogoLoader small />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { apiFetch } from '../api';
+import { markDataReady } from '../splash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
@@ -70,7 +71,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
       const res = await apiFetch(`/api/exunu/setup?symbol=${encodeURIComponent(sym)}${asOfParam}`, { cache: 'no-store' });
       const json = await res.json();
       if (viewRef.current.symbol !== sym) return null;
-      if (json.success && json.result?.strategy) { setBundle(json.result); return json.result; }
+      if (json.success && json.result?.strategy) { setBundle(json.result); markDataReady(); return json.result; }
     } catch {
       // next poll retries
     }

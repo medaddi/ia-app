@@ -1,3 +1,4 @@
+import { markDataReady } from '../splash';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Activity, ArrowDownRight, ArrowUpRight, CalendarDays, ChartSpline, Clock, Flame, Newspaper, Radar, ShieldAlert, Target, Trophy, Wallet } from 'lucide-react';
@@ -334,6 +335,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
         const d = await apiJson<Dashboard>('/api/dashboard');
         if (stop) return;
         setData(d);
+        markDataReady();
         completeRef.current = d.complete !== false;
         setError(null);
         // Until the user has closed trades of their own, show what the strategies did

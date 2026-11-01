@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { INSTRUMENT_SYMBOLS } from '../instruments';
-import { Bot, Check, Copy, KeyRound, Send, ShieldCheck, Trash2, Users, X, Zap } from 'lucide-react';
+import { Bot, KeyRound, Send, ShieldCheck, Trash2, Users, X, Zap } from 'lucide-react';
 import { apiJson } from '../api';
 import { Language } from '../types';
 import { Button, Card, Field, Notice, Stat, fmtDate, inputCls, tr } from './ui';
@@ -17,11 +17,9 @@ interface Config {
   hasBotToken: boolean; botTokenMasked: string;
 }
 interface LogRow { id: string; type: string; title: string; details: string; sentAt: string; status: string; error?: string | null }
-interface Code { code: string; label: string; durationHours: number; multiUse: boolean; usedCount: number; revoked: boolean; createdAt: string }
-interface Sub { chatId: string; firstName: string; code: string | null; expiresAt: string | null; active: boolean }
+interface Sub { chatId: string; username: string; firstName: string; active: boolean; muted: boolean }
 
 const ASSETS: readonly string[] = INSTRUMENT_SYMBOLS;
-const DURATIONS = [{ h: 24, l: '1 d' }, { h: 168, l: '7 d' }, { h: 720, l: '30 d' }, { h: 2160, l: '90 d' }, { h: 8760, l: '1 y' }];
 
 /** Admin settings of the Telegram bot. The bot token is stored on the server only and never sent back to the browser. */
 export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ isOpen, onClose, lang, theme = 'dark' }) => {
@@ -31,10 +29,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
   const [token, setToken] = useState('');
   const [botName, setBotName] = useState<string | null>(null);
   const [history, setHistory] = useState<LogRow[]>([]);
-  const [codes, setCodes] = useState<Code[]>([]);
   const [subs, setSubs] = useState<Sub[]>([]);
-  const [duration, setDuration] = useState(720);
-  const [label, setLabel] = useState('');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -54,12 +49,9 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
 
   const load = async () => {
     try {
-      const [c, a, s] = await Promise.all([
-        apiJson('/api/telegram/config'), apiJson('/api/telegram/activation/status'), apiJson('/api/telegram/subscribers'),
-      ]);
+      const [c, s] = await Promise.all([apiJson('/api/telegram/config'), apiJson('/api/telegram/subscribers')]);
       setCfg(c.config);
       setHistory(c.history || []);
-      setCodes(a.codes || []);
       setSubs(s.subscribers || []);
       if (c.config.hasBotToken) apiJson('/api/telegram/bot-info').then(b => setBotName(b.success ? `@${b.username}` : null)).catch(() => setBotName(null));
     } catch (e: any) {
@@ -159,45 +151,17 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
             </div>
           </Card>
 
-          <Card isLight={isLight} icon={<Users className="w-4 h-4" />} title={t('Subscribers and access codes', 'Abonnés et codes', 'المشتركون ورموز التفعيل')}
-            right={<span className="text-xs text-slate-500">{subs.filter(s => s.active).length} {t('active', 'actifs', 'نشط')}</span>}>
-            <div className="flex flex-wrap items-end gap-2 mb-3">
-              <Field label={t('Duration', 'Durée', 'المدة')}>
-                <select value={duration} onChange={e => setDuration(Number(e.target.value))} className={inputCls(isLight)}>
-                  {DURATIONS.map(d => <option key={d.h} value={d.h}>{d.l}</option>)}
-                </select>
-              </Field>
-              <Field label={t('Label', 'Libellé', 'الوصف')}><input value={label} onChange={e => setLabel(e.target.value)} className={inputCls(isLight)} /></Field>
-              <Button disabled={busy} onClick={() => run(async () => {
-                const r = await apiJson('/api/telegram/activation/generate', { method: 'POST', body: JSON.stringify({ durationHours: duration, label }) });
-                await load();
-                copy(r.code);
-                return t(`Code ${r.code} created and copied. The subscriber sends it to the bot.`, `Code ${r.code} créé et copié. L'abonné l'envoie au bot.`, `تم إنشاء الرمز ${r.code} ونسخه. يرسله المشترك إلى البوت.`);
-              })}>{t('New code', 'Nouveau code', 'رمز جديد')}</Button>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3 text-xs">
-              <div className="space-y-1.5">
-                {codes.slice(0, 12).map(c => (
-                  <div key={c.code} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isLight ? 'border-paper-line' : 'border-line'} ${c.revoked ? 'opacity-40' : ''}`}>
-                    <button onClick={() => copy(c.code)} className="font-mono text-gold-500 flex items-center gap-1 cursor-pointer">
-                      {copied === c.code ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}{c.code}
-                    </button>
-                    <span className="text-slate-500">{Math.round(c.durationHours / 24)}d · {c.usedCount} {t('used', 'utilisé', 'استعمال')}</span>
-                    {!c.revoked && <button aria-label="revoke" onClick={() => run(async () => { await apiJson(`/api/telegram/activation/${c.code}`, { method: 'DELETE' }); await load(); })} className="text-slate-500 hover:text-rose-500 cursor-pointer"><Trash2 className="w-3 h-3" /></button>}
-                  </div>
-                ))}
-                {!codes.length && <p className="text-slate-500">{t('No codes yet.', 'Aucun code.', 'لا توجد رموز.')}</p>}
-              </div>
-              <div className="space-y-1.5">
-                {subs.map(s => (
-                  <div key={s.chatId} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isLight ? 'border-paper-line' : 'border-line'}`}>
-                    <span className={s.active ? 'text-emerald-500' : 'text-slate-500'}>{s.firstName || s.chatId}</span>
-                    <span className="text-slate-500">{s.active ? `→ ${fmtDate(s.expiresAt).slice(0, 10)}` : t('expired', 'expiré', 'منتهي')}</span>
-                    <button aria-label="remove" onClick={() => run(async () => { await apiJson(`/api/telegram/subscribers/${s.chatId}`, { method: 'DELETE' }); await load(); })} className="text-slate-500 hover:text-rose-500 cursor-pointer"><Trash2 className="w-3 h-3" /></button>
-                  </div>
-                ))}
-                {!subs.length && <p className="text-slate-500">{t('No subscriber yet.', 'Aucun abonné.', 'لا يوجد مشتركون.')}</p>}
-              </div>
+          <Card isLight={isLight} icon={<Users className="w-4 h-4" />} title={t('Accounts linked to Telegram', 'Comptes liés à Telegram', 'الحسابات المربوطة بتيليغرام')}
+            right={<span className="text-xs text-slate-500">{subs.filter(s => s.active).length} {t('receive the signals', 'reçoivent les signaux', 'كيتوصلو بالإشارات')}</span>}>
+            <div className="grid sm:grid-cols-2 gap-1.5 text-xs">
+              {subs.map(s => (
+                <div key={s.chatId} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isLight ? 'border-paper-line' : 'border-line'}`}>
+                  <span className="min-w-0 truncate"><span className={s.active ? 'text-emerald-500 font-semibold' : 'text-slate-500'}>● {s.username}</span>
+                    {s.firstName && <span className="text-slate-500"> · {s.firstName}</span>}{s.muted && <span className="text-gold-400"> · {t('paused', 'en pause', 'موقوف')}</span>}</span>
+                  <button aria-label={t('Unlink', 'Délier', 'فك')} onClick={() => run(async () => { await apiJson(`/api/telegram/subscribers/${s.chatId}`, { method: 'DELETE' }); await load(); })} className="text-slate-500 hover:text-rose-500 cursor-pointer"><Trash2 className="w-3 h-3" /></button>
+                </div>
+              ))}
+              {!subs.length && <p className="text-slate-500">{t('No account linked yet: each user presses Start in the bot and accepts in the app.', 'Aucun compte lié : chaque utilisateur appuie sur Démarrer dans le bot puis accepte dans l’app.', 'حتى حساب ما مربوط: كل مستخدم كيضغط Start ف البوت ومن بعد كيقبل ف التطبيق.')}</p>}
             </div>
           </Card>
 

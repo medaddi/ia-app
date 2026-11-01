@@ -38,12 +38,24 @@ def _aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def _telegram_name(u: User) -> Optional[str]:
+    """The linked Telegram as the person sees it ("Ali · @ali_fx"), kept when the chat was linked."""
+    from sqlalchemy.orm import object_session
+
+    from .models import Subscriber
+
+    db = object_session(u)
+    sub = db.get(Subscriber, u.telegram_chat_id) if db is not None and u.telegram_chat_id else None
+    return (sub.first_name or None) if sub else None
+
+
 def user_json(u: User) -> dict:
     from .trading import effective_risk
 
     return {"id": u.id, "username": u.username, "firstName": u.first_name, "lastName": u.last_name, "status": u.status or "approved", "role": u.role, "dailyLossLimit": u.daily_loss_limit, "riskUsd": u.risk_usd,
             "capital": u.capital or None, "riskPct": u.risk_pct if (u.capital or 0) > 0 else None,
             "effectiveRisk": effective_risk(u.risk_usd, u.capital, u.risk_pct), "telegramLinked": bool(u.telegram_chat_id),
+            "telegramName": _telegram_name(u),
             "telegramChatId": u.telegram_chat_id, "active": u.active,
             "createdAt": _aware(u.created_at).isoformat(), "lastLoginAt": _aware(u.last_login_at).isoformat() if u.last_login_at else None}
 

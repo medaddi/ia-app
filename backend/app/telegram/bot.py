@@ -11,18 +11,20 @@ reference code (protection.py) and protect_content.
 import asyncio
 import html
 import re
+import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
 from ..market.data import FX_TICKERS, market_session_status
-from ..models import ActivationKey, Signal, Subscriber, User, Watermark
+from ..config import settings
+from ..models import Signal, Subscriber, TelegramConnect, User, Watermark
 from ..store import get_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
@@ -84,6 +86,18 @@ async def send_message(token: str, chat_id: str, text: str, reply_markup: Option
             return {"success": False, "error": data.get("description") or "Telegram error"}
         await asyncio.sleep(min(float(retry or 1 + attempt), 5))  # Telegram says how long to wait on a 429
     return {"success": True, "messageId": (data.get("result") or {}).get("message_id")}
+
+
+async def send_photo(token: str, chat_id: str, png: bytes, caption: str = "") -> dict:
+    """A picture (the /chart image) with an HTML caption."""
+    try:
+        r = await client().post(API.format(token=token, method="sendPhoto"),
+                                data={"chat_id": chat_id, "caption": caption, "parse_mode": "HTML"},
+                                files={"photo": ("chart.png", png, "image/png")})
+        data = r.json()
+    except (httpx.HTTPError, ValueError) as err:
+        return {"success": False, "error": str(err) or "Telegram unreachable"}
+    return {"success": True} if data.get("ok") else {"success": False, "error": data.get("description") or "Telegram error"}
 
 
 async def bot_info(token: str) -> dict:
@@ -236,61 +250,103 @@ def chat_risks(db: Session, chat_ids: list[str]) -> dict[str, Optional[float]]:
             for s in db.scalars(select(Subscriber).where(Subscriber.chat_id.in_(chat_ids)))}
 
 
-LINK_RE = re.compile(r"LD-?([A-HJ-NP-Z2-9]{6})", re.I)
-ACTIVATION_RE = re.compile(r"EXU-[0-9A-F]{6}-[0-9A-F]{4}", re.I)  # codes made in the admin page
-CODE_RE = re.compile(r"[A-Za-z0-9\-_]{4,64}")  # any other activation key is read only before activation
-
-
-def link_account(db: Session, chat_id: str, code: str, first_name: str) -> str:
-    """Links the app account that generated `code` to this chat; the account then receives the signals with its own risk."""
-    m = LINK_RE.fullmatch(code.strip())
-    if not m:
-        return "⛔ Invalid link code."
-    full = f"LD-{m.group(1).upper()}"
-    u = db.scalar(select(User).where(User.telegram_link_code == full))
-    if not u or not u.active or (u.telegram_link_expires or 0) < time.time():
-        return "⛔ This link code is invalid or expired. Generate a new one in the app (Account → Telegram)."
-    for other in db.scalars(select(User).where(User.telegram_chat_id == chat_id, User.id != u.id)):
-        other.telegram_chat_id = None  # one account per chat
+def _link(db: Session, u: User, chat_id: str, first_name: str) -> str:
+    """Links this chat to the app account `u` (one Telegram per account, one account per Telegram): the bot then works
+    with that account (access, risk, lot)."""
     u.telegram_chat_id, u.telegram_link_code, u.telegram_link_expires = chat_id, None, None
     now = datetime.now(timezone.utc)
     sub = db.get(Subscriber, chat_id) or Subscriber(chat_id=chat_id)
     sub.first_name = first_name or sub.first_name
-    if not sub.expires_at or _aware(sub.expires_at) < now:  # app accounts are created by the admin: they get access
-        sub.code, sub.activated_at, sub.expires_at, sub.expired_notified = "ACCOUNT", now, now + timedelta(days=3650), False
+    sub.code, sub.activated_at, sub.expires_at, sub.expired_notified = "ACCOUNT", now, None, False  # access = the account
     sub.risk_usd, sub.capital, sub.risk_pct, sub.muted = u.risk_usd, u.capital or 0, u.risk_pct, False
     db.merge(sub)
     db.commit()
     risk = effective_risk(u.risk_usd, u.capital, u.risk_pct)
     how = (f"${risk:g} per trade" + (f" ({u.risk_pct:g}% of ${u.capital:g})" if not u.risk_usd and u.capital else "")) if risk else "not set yet (/risk 80 or /risk 1%)"
-    return (f"✅ Linked to <b>{u.username}</b>.\nRisk: <b>{how}</b> · every signal comes with your lot.\n"
-            "Change it in the app (Account) or here with /risk and /capital.")
+    return (f"✅ <b>Connected</b> · {html.escape(u.username)}\n{LINE}\n💵 Risk: <b>{how}</b>\n"
+            "Every trade arrives here with your lot, then its follow-up until it closes.\n\n📋 /help · all commands")
+
+
+CONNECT_TTL = 15 * 60
+
+
+def connect_button(db: Session, chat_id: str, first_name: str) -> tuple[str, Optional[dict]]:
+    """The invitation: a one-time link that opens the app, where the person logs in and accepts the link."""
+    token = secrets.token_urlsafe(24)
+    db.add(TelegramConnect(token=token, chat_id=chat_id, first_name=first_name, expires_at=int(time.time()) + CONNECT_TTL))
+    db.commit()
+    url = f"{settings.public_app_url or 'http://localhost:3000'}/?tg={token}"
+    text = (f"🔗 <b>Link your account</b>\n{LINE}\n1. Tap the button\n2. Log in to the app\n3. Tap <b>Accept</b>\n\n"
+            "The bot then works with your account: your access, your risk and your lot.\n<i>The link works once, for 15 minutes.</i>")
+    if "localhost" in url or "127.0.0.1" in url:  # Telegram refuses local addresses on buttons: the link goes in the text
+        return f"{text}\n\n{url}", None
+    return text, {"inline_keyboard": [[{"text": "🔗 Open the app and link", "url": url}]]}
+
+
+def _connect_row(db: Session, token: str) -> Optional[TelegramConnect]:
+    row = db.get(TelegramConnect, token.strip()) if token else None
+    if row and row.expires_at < time.time():
+        db.delete(row)
+        db.commit()
+        return None
+    return row
+
+
+def connect_info(db: Session, token: str, u: User) -> dict:
+    """What the app shows before Accept: whose Telegram asks, and whether this account may take it."""
+    row = _connect_row(db, token)
+    if not row:
+        return {"success": False, "error": "This Telegram link has expired: press Start in the bot again."}
+    problem = _link_problem(db, row.chat_id, u)
+    return {"success": True, "firstName": row.first_name, "problem": problem}
+
+
+def _link_problem(db: Session, chat_id: str, u: User) -> Optional[str]:
+    """One Telegram per account and one account per Telegram."""
+    if u.telegram_chat_id and u.telegram_chat_id != chat_id:
+        return "This account is already linked to another Telegram. Unlink it first in My account."
+    other = db.scalar(select(User).where(User.telegram_chat_id == chat_id, User.id != u.id))
+    if other:
+        return "This Telegram is already linked to another account."
+    return None
+
+
+def connect_chat(db: Session, token: str, u: User) -> dict:
+    """Accept: the logged-in account `u` takes the chat that asked for `token` (one-to-one)."""
+    row = _connect_row(db, token)
+    if not row:
+        return {"success": False, "error": "This Telegram link has expired: press Start in the bot again."}
+    problem = _link_problem(db, row.chat_id, u)
+    if problem:
+        return {"success": False, "error": problem}
+    chat_id, name = row.chat_id, row.first_name
+    db.delete(row)
+    message = _link(db, u, chat_id, name)
+    return {"success": True, "chatId": chat_id, "message": message}
+
+
+def account_of(db: Session, chat_id: str) -> Optional[User]:
+    """The app account linked to this chat, when it may receive the signals (active and approved)."""
+    return db.scalar(select(User).where(User.telegram_chat_id == chat_id, User.active.is_(True),
+                                        or_(User.status.is_(None), User.status != "pending")))
 
 
 def active_subscribers(db: Session) -> list[Subscriber]:
-    now = datetime.now(timezone.utc)
-    return [s for s in db.scalars(select(Subscriber)) if s.expires_at and _aware(s.expires_at) > now]
+    """The chats that get the signals: exactly the ones linked to an active, approved app account."""
+    linked = {u.telegram_chat_id for u in db.scalars(select(User).where(User.telegram_chat_id.is_not(None), User.active.is_(True),
+                                                                        or_(User.status.is_(None), User.status != "pending")))}
+    return [s for s in db.scalars(select(Subscriber).where(Subscriber.chat_id.in_(linked)))] if linked else []
 
 
-def activate(db: Session, chat_id: str, code: str, first_name: str = "") -> dict:
-    key = db.get(ActivationKey, code.strip().upper()) or db.get(ActivationKey, code.strip())
-    if not key or key.revoked:
-        return {"success": False, "error": "Invalid code"}
-    if not key.multi_use and key.used_count > 0:
-        sub = db.get(Subscriber, chat_id)
-        if not sub or sub.code != key.code:
-            return {"success": False, "error": "Code already used"}
-    now = datetime.now(timezone.utc)
-    sub = db.get(Subscriber, chat_id) or Subscriber(chat_id=chat_id)
-    sub.first_name = first_name or sub.first_name
-    sub.code = key.code
-    sub.activated_at = now
-    sub.expires_at = now + timedelta(hours=key.duration_hours)
-    sub.expired_notified = False
-    db.merge(sub)
-    key.used_count += 1
-    db.commit()
-    return {"success": True, "expiresAt": sub.expires_at.isoformat(), "label": key.label}
+def unlink_chat(db: Session, chat_id: Optional[str]) -> None:
+    """The account is gone, disabled or unlinked: forget its chat (it gets no signal and must link again)."""
+    if not chat_id:
+        return
+    for u in db.scalars(select(User).where(User.telegram_chat_id == chat_id)):
+        u.telegram_chat_id = None
+    sub = db.get(Subscriber, chat_id)
+    if sub:
+        db.delete(sub)
 
 
 # ---------------------------------------------------------------- dispatch
@@ -409,6 +465,7 @@ SECTIONS = [
     ("📊 Market", [
         ("signal", "Every pair right now"),
         ("pairs", "One pair in detail"),
+        ("chart", "The chart of a pair (picture)"),
         ("open", "Trades running now"),
         ("news", "Next high-impact news"),
         ("market", "Market hours and session"),
@@ -418,7 +475,8 @@ SECTIONS = [
         ("stats", "Win rate and results"),
     ]),
     ("👤 My account", [
-        ("status", "My access"),
+        ("connect", "Link this Telegram to my app account"),
+        ("status", "My account and access"),
         ("risk", "My risk per trade: /risk 80 or /risk 1%"),
         ("stop", "Pause the signals"),
         ("resume", "Receive the signals again"),
@@ -432,11 +490,12 @@ COMMANDS = [("start", "Start / activate"), *(c for _, cmds in SECTIONS for c in 
 LINE = "━━━━━━━━━━━━━━"
 HELP = "🤖 <b>LiquidityDissection</b>\n" + LINE + "\n\n" + "\n\n".join(
     f"<b>{title}</b>\n" + "\n".join(f"/{c}\n<i>{d}</i>" for c, d in cmds) for title, cmds in SECTIONS)
-WELCOME = "🔑 Send your <b>activation code</b> (or your app link code) to receive the signals."
+WELCOME = "🔗 Send /connect and log in to the app: this Telegram is then linked to your account."
 DESCRIPTION = ("Gold and forex signals: entry, TP, SL and your lot, then every step until the trade closes (filled, +1R, "
-               "near SL, news, TP / SL).\n\nSend your activation code to start.")
+               "near SL, news, TP / SL).\n\nPress Start, then Connect with your app account.")
 SHORT_DESCRIPTION = "Gold & forex signals · entry, TP, SL, lot and trade follow-up."
 PAIR_EMOJI = {"XAU/USD": "🥇"}
+CHART_PAIRS = {"gold": "XAU/USD", **{p.replace("/", "").lower(): p for p in ("XAU/USD", *FX_TICKERS)}}  # /chart_gold, /chart_eurusd…
 NEWS_CCYS = {"USD", *(c for pair in FX_TICKERS for c in pair.split("/"))}
 PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD", "/gbp": "GBP/USD", "/cable": "GBP/USD", "/pound": "GBP/USD",
                 "/loonie": "USD/CAD", "/kiwi": "NZD/USD", **{"/" + pair.replace("/", "").lower(): pair for pair in FX_TICKERS}}
@@ -639,25 +698,34 @@ async def handle_update(token: str, upd: dict) -> None:
     chat_id = str((msg.get("chat") or {}).get("id") or "")
     if not chat_id or not text:
         return
-    name = html.escape((msg.get("from") or {}).get("first_name") or "")
+    sender = msg.get("from") or {}
+    name = html.escape(sender.get("first_name") or "")
+    # how the app names this Telegram once linked: "Ali · @ali_fx"
+    display = " · ".join(x for x in (sender.get("first_name") or "", f"@{sender['username']}" if sender.get("username") else "") if x)[:120]
     cmd = text.split()[0].split("@")[0].lower()
+    markup: Optional[dict] = None
     with SessionLocal() as db:
         sub = db.get(Subscriber, chat_id)
-        active = bool(sub and sub.expires_at and _aware(sub.expires_at) > datetime.now(timezone.utc))
-        start_arg = text.split(maxsplit=1)[1] if cmd == "/start" and len(text.split()) > 1 else ""
-        if cmd == "/start" and start_arg and LINK_RE.fullmatch(start_arg):
-            reply = link_account(db, chat_id, start_arg, name)  # t.me/<bot>?start=LDXXXXXX from the app
-        elif LINK_RE.fullmatch(text):
-            reply = link_account(db, chat_id, text, name)
-        elif not text.startswith("/") and not ACTIVATION_RE.fullmatch(text) and not (not active and CODE_RE.fullmatch(text)):
-            return  # the bot is not a chat: only its commands and an activation / link code get an answer
+        account = account_of(db, chat_id)  # access comes only from a linked, active app account
+        active = bool(account)
+        if active and not sub:
+            sub = Subscriber(chat_id=chat_id, first_name=name, code="ACCOUNT", activated_at=datetime.now(timezone.utc))
+            db.add(sub)
+            db.commit()
+        if not text.startswith("/"):
+            return  # the bot is not a chat: it reads its commands only
+        if cmd in ("/connect", "/start") and not active:
+            reply, markup = connect_button(db, chat_id, display)
+            reply = f"👋 Welcome, <b>{name}</b>\n\n" + reply
+        elif cmd == "/connect":
+            reply = (f"✅ Connected to <b>{html.escape(account.username)}</b>.\n"
+                     "One Telegram per account: to use another one, unlink this one in the app (My account).")
         elif cmd == "/start":
-            reply = (f"👋 Welcome back, <b>{name}</b>\n✅ Access active until <b>{_aware(sub.expires_at):%Y-%m-%d}</b>\n\n"
-                     "Every trade arrives here: entry, TP, SL and your lot, then its follow-up until it closes.\n\n"
-                     "📋 /help · all commands" if active
-                     else f"👋 Welcome, <b>{name}</b>\n{LINE}\n{WELCOME}")
-        elif not active and text.startswith("/") and cmd not in ("/help", "/myid"):
-            reply = f"⛔ Not activated.\n{WELCOME}"
+            reply = (f"👋 Welcome back, <b>{html.escape(account.username)}</b>\n✅ Your account is connected\n\n"
+                     "Every trade arrives here: entry, TP, SL and your lot, then its follow-up until it closes.\n\n📋 /help · all commands")
+        elif not active and cmd not in ("/help", "/myid"):
+            reply, markup = connect_button(db, chat_id, display)
+            reply = "🔒 <b>Connect your app account first</b>\n\n" + reply
         elif cmd == "/help":
             reply = HELP
         elif cmd == "/myid":
@@ -667,9 +735,10 @@ async def handle_update(token: str, upd: dict) -> None:
         elif cmd == "/capital":
             reply = _capital_reply(db, sub, active, text)
         elif cmd == "/status":
-            reply = ((f"👤 <b>My access</b>\n{LINE}\n✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>\n"
-                      + ("⏸ Signals paused · /resume" if sub.muted else "🔔 Signals on")
-                      + f"\n{_risk_text(sub)}") if active else f"⛔ Not activated.\n{WELCOME}")
+            who = (f"👤 Account: <b>{html.escape(account.username)}</b>"
+                   + (f" · {html.escape(' '.join(x for x in (account.first_name, account.last_name) if x))}" if account.first_name or account.last_name else ""))
+            reply = (f"👤 <b>My account</b>\n{LINE}\n{who}\n" + ("⏸ Signals paused · /resume" if sub.muted else "🔔 Signals on")
+                     + f"\n{_risk_text(sub)}")
         elif cmd in ("/stop", "/pause"):
             if sub:
                 sub.muted = True
@@ -692,6 +761,20 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = await _signal_text()
         elif cmd == "/pairs":
             reply = _pairs_text()
+        elif cmd == "/chart":
+            reply = (f"📈 <b>Charts</b>\n{LINE}\nTap a pair:\n\n"
+                     + "\n".join(f"{_icon(sym)} /chart_{_cmd_of(sym)[1:]} · {sym}" for sym in STRATEGY_DEFS))
+        elif cmd.startswith("/chart_") and cmd[7:] in CHART_PAIRS:
+            from .chart_image import pair_chart  # Pillow loads only when a chart is asked for
+            try:
+                png, caption = await pair_chart(CHART_PAIRS[cmd[7:]])
+            except Exception as err:
+                reply = f"⚠️ Chart unavailable right now ({err.__class__.__name__}). Try again in a minute."
+            else:
+                out = await send_photo(token, chat_id, png, caption)
+                if out["success"]:
+                    return
+                reply = f"⚠️ The chart could not be sent: {html.escape(out['error'])}"
         elif cmd in PAIR_ALIASES:
             reply = await _pair_text(PAIR_ALIASES[cmd], detailed=True)
         elif cmd in ("/open", "/running", "/trades"):
@@ -717,14 +800,9 @@ async def handle_update(token: str, upd: dict) -> None:
                         f"✅ {s['wins']}   ❌ {s['losses']}   ➖ {s['breakevens']}\n"
                         f"🎯 Win rate <b>{wr}</b> · total <b>{s['totalR']:+}R</b>" + (f"\n{per}" if per else ""))
             reply = f"📊 <b>Results</b>\n{LINE}\n{block('Last 30 days', recent)}\n\n{block('All time', all_rows)}"
-        elif not text.startswith("/"):  # an activation code (the only text the bot reads)
-            out = activate(db, chat_id, text, name)
-            reply = (f"🎉 <b>Activated</b> · {out.get('label') or 'access'}\n{LINE}\n✅ Until <b>{out['expiresAt'][:10]}</b>\n\n"
-                     "Set your risk to get your lot with every trade: /risk 80\n📋 /help · all commands"
-                     if out["success"] else f"⛔ {out['error']}.")
         else:
             reply = HELP
-    await send_message(token, chat_id, reply)
+    await send_message(token, chat_id, reply, markup)
 
 
 async def poll_forever(stop: asyncio.Event) -> None:
@@ -753,5 +831,5 @@ def recent_signals(db: Session, limit: int = 50) -> list[dict]:
     return [signal_json(s) for s in db.scalars(select(Signal).order_by(Signal.sent_at.desc()).limit(limit))]
 
 
-__all__ = ["dispatch_setup", "notify_closed", "send_update", "format_close_message", "send_message", "bot_info", "set_webhook", "handle_update", "format_signal_message", "activate", "active_subscribers", "trace_leak",
+__all__ = ["dispatch_setup", "notify_closed", "send_update", "format_close_message", "send_message", "bot_info", "set_webhook", "handle_update", "format_signal_message", "active_subscribers", "trace_leak",
            "poll_forever", "history", "recent_signals", "market_session_status"]

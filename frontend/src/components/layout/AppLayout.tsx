@@ -28,7 +28,9 @@ export interface AppLayoutProps {
   onOpenTelegram?: () => void;
   isMobileDrawerOpen?: boolean;
   setIsMobileDrawerOpen?: (open: boolean) => void;
-  currentUser?: { id: string; username: string; role: string } | null;
+  currentUser?: { id: string; username: string; role: string; telegramLinked?: boolean; telegramName?: string | null } | null;
+  onLinkTelegram?: () => void;  // opens the bot (Start there → invitation → Accept in the app)
+  onUnlinkTelegram?: () => void;
   onLogout?: () => void;
   tickerBarSlot?: React.ReactNode;
 }
@@ -89,6 +91,8 @@ const T = {
   ctaText: ['Every trade with the lot for your risk, the moment it is taken', 'Chaque trade avec le lot pour votre risque, dès qu’il est pris', 'كل صفقة باللوت ديال المخاطرة ديالك، فاللحظة لي كتاخد'],
   ctaButton: ['Link Telegram', 'Lier Telegram', 'ربط تيليغرام'],
   ctaLinked: ['Telegram linked', 'Telegram lié', 'تيليغرام مربوط'],
+  ctaLinkedText: ['Every trade arrives on this Telegram', 'Chaque trade arrive sur ce Telegram', 'كل صفقة كتوصل لهاد التيليغرام'],
+  ctaDisconnect: ['Disconnect', 'Déconnecter', 'قطع الربط'],
 } as const;
 type Key = keyof typeof T;
 
@@ -110,10 +114,12 @@ const initials = (name?: string) => (name || '?').slice(0, 2).toUpperCase();
 export const AppLayout: React.FC<AppLayoutProps> = ({
   children, activeTab, onSelectTab, lang, setLang, selectedAsset, onSelectAsset, activeSignalsCount, pendingUsers = 0, isSyncingLive = false, onForceRefresh,
   onOpenAssistant, onOpenTelegram, isMobileDrawerOpen: controlledDrawerOpen, setIsMobileDrawerOpen: setControlledDrawerOpen, currentUser, onLogout,
-  tickerBarSlot,
+  tickerBarSlot, onLinkTelegram, onUnlinkTelegram,
 }) => {
   const isAr = lang === 'ar';
   const t = (k: Key) => T[k][lang === 'fr' ? 1 : isAr ? 2 : 0];
+  const tgLinked = !!currentUser?.telegramLinked;
+  const linkTelegram = () => { (onLinkTelegram ?? (() => onSelectTab('account')))(); setDrawerOpen(false); };
   const reduce = useReducedMotion();
   const session = useSession();
   const isAdmin = currentUser?.role === 'admin';
@@ -335,15 +341,40 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* Call to action: link Telegram (lot for my risk on every trade) */}
         <div className={`shrink-0 ${compact ? 'p-3 flex justify-center' : 'p-3'} ${mobile ? 'pb-safe' : ''}`}>
           {compact ? (
-            <button onClick={() => onSelectTab('account')} title={t('ctaButton')} aria-label={t('ctaButton')}
-              className="w-11 h-11 rounded-2xl bg-gradient-to-b from-gold-300 to-gold-600 text-ink-strong flex items-center justify-center shadow-[0_8px_24px_-8px_rgba(214,174,87,0.7)] hover:brightness-110 cursor-pointer transition">
-              <Send className="w-4 h-4" />
-            </button>
+            tgLinked ? (
+              <button onClick={() => onSelectTab('account')} title={`${t('ctaLinked')} · ${currentUser?.telegramName ?? ''}`} aria-label={t('ctaLinked')}
+                className="relative w-11 h-11 rounded-2xl bg-[#229ED9] text-white flex items-center justify-center hover:brightness-110 cursor-pointer transition">
+                <Send className="w-4 h-4" /><span className="absolute -top-0.5 -end-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-canvas" aria-hidden="true" />
+              </button>
+            ) : (
+              <button onClick={linkTelegram} title={t('ctaButton')} aria-label={t('ctaButton')}
+                className="w-11 h-11 rounded-2xl bg-gradient-to-b from-gold-300 to-gold-600 text-ink-strong flex items-center justify-center shadow-[0_8px_24px_-8px_rgba(214,174,87,0.7)] hover:brightness-110 cursor-pointer transition">
+                <Send className="w-4 h-4" />
+              </button>
+            )
+          ) : tgLinked ? (
+            /* Linked: the Telegram this account uses, and Disconnect (one Telegram per account) */
+            <div className="rounded-3xl border border-[#229ED9]/30 bg-gradient-to-b from-[#229ED9]/[0.10] to-white/[0.015] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <div className="flex items-center gap-3">
+                <span className="relative w-10 h-10 shrink-0 rounded-2xl bg-[#229ED9] text-white flex items-center justify-center" aria-hidden="true">
+                  <Send className="w-4 h-4" /><span className="absolute -top-0.5 -end-0.5 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-canvas" />
+                </span>
+                <div className="min-w-0 text-start">
+                  <div className="text-[11px] uppercase tracking-wider text-emerald-300">{t('ctaLinked')}</div>
+                  <div className="text-sm font-semibold text-white truncate" title={currentUser?.telegramName ?? ''}>{currentUser?.telegramName || 'Telegram'}</div>
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">{t('ctaLinkedText')}</p>
+              <button onClick={() => { onUnlinkTelegram?.(); setDrawerOpen(false); }}
+                className="mt-3 w-full h-9 rounded-2xl border border-white/10 text-xs font-semibold text-zinc-300 hover:text-rose-200 hover:border-rose-400/40 hover:bg-rose-500/10 cursor-pointer transition">
+                {t('ctaDisconnect')}
+              </button>
+            </div>
           ) : (
             <div className="rounded-3xl border border-white/[0.06] bg-gradient-to-b from-white/[0.05] to-white/[0.015] p-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
               <div className="text-sm font-semibold text-white">{t('ctaTitle')}</div>
               <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">{t('ctaText')}</p>
-              <button onClick={() => { onSelectTab('account'); setDrawerOpen(false); }}
+              <button onClick={linkTelegram}
                 className="mt-3 w-full h-10 rounded-2xl bg-gradient-to-b from-gold-300 to-gold-600 text-ink-strong text-xs font-bold inline-flex items-center justify-center gap-2 shadow-[0_10px_28px_-10px_rgba(214,174,87,0.8)] hover:brightness-110 cursor-pointer transition">
                 <Send className="w-4 h-4" />{t('ctaButton')}
               </button>

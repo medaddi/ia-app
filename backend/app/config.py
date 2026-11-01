@@ -55,6 +55,10 @@ class Settings:
     cron_secret: str = os.environ.get("CRON_SECRET", "")
     telegram_webhook_secret: str = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
     telegram_webhook_url: str = os.environ.get("TELEGRAM_WEBHOOK_URL", "")
+    # The app's public address (https://liquiditydissection.com): the bot's "Connect" button opens it
+    # (the frontend is its own Vercel project: else the first non-local CORS origin, which is that app)
+    public_app_url: str = (os.environ.get("PUBLIC_APP_URL") or next(
+        (o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip().startswith("https://")), "")).rstrip("/")
 
     @property
     def database_missing(self) -> bool:

@@ -172,52 +172,62 @@ def lot(symbol: str, entry: float, sl: float, riskUsd: Optional[float] = None, u
     return {"success": True, "symbol": normalize_symbol(symbol), **lot_for_risk(symbol, entry, sl, risk)}
 
 
-LINK_TTL = 15 * 60  # code the user makes for themself
-ADMIN_LINK_TTL = 24 * 3600  # code the admin makes and sends to the user
-_LINK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I
-
-
-async def _new_link_code(u: User, db: Session, ttl: int) -> dict:
-    """A one-time code the user sends to the bot: the bot then links that Telegram chat to this account."""
-    code = "LD-" + "".join(secrets.choice(_LINK_ALPHABET) for _ in range(6))
-    u.telegram_link_code, u.telegram_link_expires = code, int(time.time()) + ttl
-    db.commit()
+@router.get("/telegram/bot")
+async def telegram_bot_link(_: User = Depends(current_user), db: Session = Depends(get_db)):
+    """The bot to open from the app (Start there gives the invitation link back)."""
     cfg = get_setting(db, "telegram")
     info = await tg.bot_info(cfg["botToken"]) if cfg.get("botToken") else {"success": False}
     name = info.get("username") if info.get("success") else None
-    return {"success": True, "code": code, "expiresAt": u.telegram_link_expires, "bot": name,
-            "deepLink": f"https://t.me/{name}?start={code.replace('-', '')}" if name else None, "user": user_json(u)}
+    return {"success": bool(name), "bot": name, "link": f"https://t.me/{name}" if name else None}
 
 
-@router.post("/me/telegram-link")
-async def telegram_link_code(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    return await _new_link_code(u, db, LINK_TTL)
+@router.get("/telegram/connect/{token}")
+def telegram_connect_info(token: str, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Before Accept: which Telegram asks to be linked, and whether this account may take it."""
+    out = tg.connect_info(db, token, u)
+    if not out["success"]:
+        raise HTTPException(400, out["error"])
+    return out
 
 
-@router.post("/users/{user_id}/telegram-link")
-async def admin_telegram_link_code(user_id: int, _: User = Depends(admin_user), db: Session = Depends(get_db)):
-    """The admin makes the code for a user; whichever Telegram account sends it to the bot becomes that user's chat."""
-    u = db.get(User, user_id)
-    if not u:
-        raise HTTPException(404, "User not found")
-    return await _new_link_code(u, db, ADMIN_LINK_TTL)
+@router.post("/telegram/connect")
+async def telegram_connect(body: dict = Body(...), u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Accept: that Telegram chat becomes this account's (one Telegram per account)."""
+    out = tg.connect_chat(db, str(body.get("token") or ""), u)
+    if not out["success"]:
+        raise HTTPException(400, out["error"])
+    cfg = get_setting(db, "telegram")
+    if cfg.get("botToken"):
+        await tg.send_message(cfg["botToken"], out["chatId"], out["message"])
+    return {"success": True, "user": user_json(u)}
 
 
 @router.delete("/users/{user_id}/telegram-link")
-def admin_telegram_unlink(user_id: int, _: User = Depends(admin_user), db: Session = Depends(get_db)):
+async def admin_telegram_unlink(user_id: int, _: User = Depends(admin_user), db: Session = Depends(get_db)):
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(404, "User not found")
-    u.telegram_chat_id, u.telegram_link_code, u.telegram_link_expires = None, None, None
+    await _cut_bot(db, u, "🔒 Your Telegram was unlinked from your account. Press Start to link it again.")
     db.commit()
     return {"success": True, "user": user_json(u)}
 
 
 @router.delete("/me/telegram-link")
-def telegram_unlink(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    u.telegram_chat_id, u.telegram_link_code, u.telegram_link_expires = None, None, None
+async def telegram_unlink(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    await _cut_bot(db, u, "🔒 You unlinked this Telegram from your account. Press Start to link it again.")
     db.commit()
     return {"success": True, "user": user_json(u)}
+
+
+async def _cut_bot(db: Session, u: User, message: Optional[str]) -> None:
+    """The account loses its bot: the chat is told once, then forgotten."""
+    chat = u.telegram_chat_id
+    if not chat:
+        return
+    tg.unlink_chat(db, chat)
+    cfg = get_setting(db, "telegram")
+    if message and cfg.get("botToken"):
+        await tg.send_message(cfg["botToken"], chat, message)
 
 
 # ---------------------------------------------------------------- users (admin: accounts only)
@@ -303,12 +313,13 @@ def users_approve(user_id: int, _: User = Depends(admin_user), db: Session = Dep
 
 
 @router.delete("/users/{user_id}")
-def users_delete(user_id: int, admin: User = Depends(admin_user), db: Session = Depends(get_db)):
+async def users_delete(user_id: int, admin: User = Depends(admin_user), db: Session = Depends(get_db)):
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(404, "User not found")
     if u.id == admin.id:
         raise HTTPException(400, "You cannot delete yourself")
+    await _cut_bot(db, u, "⛔ Your account was removed: the bot stops here.")  # a deleted account takes its bot with it
     db.delete(u)
     db.commit()
     return {"success": True}
