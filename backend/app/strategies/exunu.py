@@ -144,13 +144,17 @@ async def run_exunu(symbol: str = "XAU/USD", price: Optional[float] = None, as_o
     r = bundle["result"]
     if as_of <= 0:
         # The three agents (market analysis, strategy, risk & execution): the same votes decide a Telegram / push send
-        from ..agent.agents import consensus, market_candles
+        from ..agent.agents import consensus, manager_agent, market_candles
+        from .service import STRATEGY_DEFS
         from ..db import SessionLocal
         from .shared.news import load_news_calendar
 
         news = await load_news_calendar()
         with SessionLocal() as db:
             out["consensus"] = consensus(r, market_candles(bundle), news["events"], db if r["setup"] else None)
+        market = next((a for a in out["consensus"]["agents"] if a["key"] == "market"), None)
+        entry_c = bundle["candles"].get(STRATEGY_DEFS[normalize_symbol(symbol)].entryTf) or []
+        out["management"] = manager_agent(r, entry_c, market)
     return out
 
 

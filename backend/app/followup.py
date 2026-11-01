@@ -5,6 +5,7 @@ that got the trade) and on the phones (Web Push). Each notice goes out once per 
 - 📈 +1R            one risk in profit (targets are 1.5R–2R) → hold
 - ⚠️ NEAR SL        down 0.7R → keep the stop, add nothing
 - 📰 NEWS IN N MIN  high-impact news on one of the pair's currencies within 30 min → keep the SL
+- 🚪 EXIT SOON / ⌛ CANCEL  the trade-management agent: the strategy's exit is forming, or a limit order is about to expire
 How a trade ends (TP / SL / BE / cancelled) is sent by notify_closed / push_closed.
 """
 
@@ -22,6 +23,7 @@ from .trading import TERMINAL, signal_json
 
 NEWS_WINDOW = 1800  # warn this long before the news
 FILLED = ("OPEN", "TP1_HIT", "TP2_HIT")
+MANAGER_NOTICE = {"EXIT_SOON": "🚪 EXIT SOON", "CANCEL": "⌛ CANCEL THE ORDER"}  # the trade manager's verdicts sent as notices
 
 
 def _currencies(symbol: str) -> set[str]:
@@ -63,8 +65,9 @@ def _claim(db, key: str, signal_id: str) -> bool:
         return False
 
 
-async def follow_up(symbol: str, price: Optional[float]) -> int:
-    """Sends the notices due now for the running trades of `symbol`. Returns how many notices went out."""
+async def follow_up(symbol: str, price: Optional[float], manager: Optional[dict] = None, setup_id: Optional[str] = None) -> int:
+    """Sends the notices due now for the running trades of `symbol`. Returns how many notices went out.
+    `manager`: the trade-management agent's verdict on the trade `setup_id` (its EXIT SOON / CANCEL become a notice too)."""
     from .push import push_update
     from .strategies.shared.news import load_news_calendar
     from .telegram.bot import send_update
@@ -78,8 +81,12 @@ async def follow_up(symbol: str, price: Optional[float]) -> int:
         except Exception:  # no calendar: price notices still go out
             news = []
         now = time.time()
-        due = [(signal_json(s), key, head, todo) for s in running for key, head, todo in events_for(s, price, news, now)
-               if _claim(db, key, s.id)]
+        items = [(s, key, head, todo) for s in running for key, head, todo in events_for(s, price, news, now)]
+        for s in running:
+            if manager and s.id == setup_id and manager.get("verdict") in MANAGER_NOTICE:
+                head = MANAGER_NOTICE[manager["verdict"]]
+                items.append((s, f"{manager['verdict'].lower()}{manager.get('exitAt') or ''}", head, f"👉 {manager['action']['en']}"))
+        due = [(signal_json(s), key, head, todo) for s, key, head, todo in items if _claim(db, key, s.id)]
     for sig, key, head, todo in due:
         await send_update(sig, head, todo)
         await push_update(sig, head, todo, f"ld-{key}-{sig['id']}")

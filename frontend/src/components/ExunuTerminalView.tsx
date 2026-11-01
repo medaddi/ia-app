@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentsConsensus, type Consensus } from './AgentsConsensus';
+import type { ManagerVote } from './TradeManagement';
 import { PairFlags } from './PairFlags';
 import { useDragScroll } from '../useDragScroll';
 import type { ExunuSMCResult } from '../strategyTypes';
@@ -136,11 +137,11 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
             onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
           {(bundle as any)?.consensus && (
-            <AgentsConsensus consensus={(bundle as any).consensus as Consensus} hasSetup={!!result?.setup} lang={lang as Language} />
+            <AgentsConsensus consensus={(bundle as any).consensus as Consensus} hasSetup={!!result?.setup} manager={(bundle as any)?.management as ManagerVote | null} lang={lang as Language} />
           )}
         </div>
         <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
-          <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />
+          <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} manager={(bundle as any)?.management as ManagerVote | null} lang={lang} />
         </div>
       </div>
 

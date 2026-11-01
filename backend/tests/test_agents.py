@@ -57,3 +57,34 @@ def test_strategy_agent_and_consensus_need_all_three(monkeypatch):
     assert not out["approved"] and out["agreed"] < 3 and any("Market analysis" in i for i in out["issues"])
     ok = consensus(buy, c, [], None)
     assert ok["approved"] and ok["agreed"] == 3 and ok["summary"].startswith("3/3")
+
+
+def test_trade_manager_agent():
+    from app.agent.agents import manager_agent
+    from app.strategies.shared.types import Candle
+
+    now = 1_800_000_000
+    base = {"spec": {"decimals": 5}, "timeframes": {"entry": "H4"}, "facts": {}, "price": 1.1010}
+    setup = {"direction": "BUY", "entryType": "MARKET", "entry": 1.1000, "sl": 1.0980, "tp3": 1.1040, "signalTime": now - 4 * 14400,
+             "setup": "GPA", "params": {}, "expiresAt": None, "lifecycle": {"state": "OPEN", "fillTime": now - 4 * 14400}}
+    candles = [Candle(time=now - 4 * 14400, open=1.1, high=1.1025, low=1.0995, close=1.102, volume=0)]
+    m = manager_agent({**base, "setup": setup}, candles, None, now)
+    assert m["verdict"] == "HOLD" and m["rNow"] == 0.5 and m["bestR"] == 1.25 and "Hold" in m["action"]["en"]
+    # gave back a +1.25R gain: caution, still hold
+    m = manager_agent({**base, "price": 1.1002, "setup": setup}, candles, None, now)
+    assert m["verdict"] == "CAUTION" and "Hold" in m["action"]["en"]
+    # news within the hour from the market agent
+    market = {"report": {"newsAhead": [{"currency": "USD", "title": "CPI", "inMin": 20}], "volatility": "normal", "dailyTrend": "bullish"}}
+    m = manager_agent({**base, "setup": setup}, candles, market, now)
+    assert m["verdict"] == "CAUTION" and "USD news in 20 min" in m["action"]["en"]
+    # RSI(2): price back above EMA5 → exit forming at the H4 close
+    rsi = {**setup, "setup": "RSI2", "params": {"maxBars": 48}}
+    m = manager_agent({**base, "facts": {"ema5": 1.1005}, "setup": rsi}, candles, None, now)
+    assert m["verdict"] == "EXIT_SOON" and "close the trade" in m["action"]["en"] and m["exitAt"] % 14400 == 0
+    # time exit within one candle
+    old = {**setup, "params": {"maxBars": 5}}
+    assert manager_agent({**base, "setup": old}, candles, None, now)["verdict"] == "EXIT_SOON"
+    # a limit order about to expire, and no trade at all
+    pend = {**setup, "entryType": "LIMIT", "expiresAt": now + 600, "lifecycle": {"state": "PENDING", "fillTime": None}}
+    assert manager_agent({**base, "setup": pend}, [], None, now)["verdict"] == "CANCEL"
+    assert manager_agent({**base, "setup": None}, [], None, now) is None

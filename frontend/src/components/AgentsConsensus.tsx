@@ -1,9 +1,11 @@
 import React from 'react';
-import { Check, Radar, ShieldCheck, Workflow, X } from 'lucide-react';
+import { Check, Compass, Radar, ShieldCheck, Workflow, X } from 'lucide-react';
 import type { Language } from '../types';
 import { tr } from './ui';
+import { verdictLabel, verdictStyle, type ManagerVote } from './TradeManagement';
 
-/** The three agents' votes on the pair's trade: market analysis, strategy, risk & execution. A trade goes out on 3/3. */
+/** The three agents' votes on the pair's trade (market analysis, strategy, risk & execution: a trade goes out on 3/3),
+ * then agent 4, trade management, once the trade is placed. */
 export interface AgentVote {
   key: 'market' | 'strategy' | 'risk';
   name: string;
@@ -16,7 +18,7 @@ export interface Consensus { approved: boolean; agreed: number; agents: AgentVot
 
 const ICON = { market: Radar, strategy: Workflow, risk: ShieldCheck } as const;
 
-export const AgentsConsensus: React.FC<{ consensus: Consensus; hasSetup: boolean; lang?: Language }> = ({ consensus, hasSetup, lang = 'en' }) => {
+export const AgentsConsensus: React.FC<{ consensus: Consensus; hasSetup: boolean; manager?: ManagerVote | null; lang?: Language }> = ({ consensus, hasSetup, manager, lang = 'en' }) => {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
   const names: Record<string, string> = {
     market: t('Market analysis', 'Analyse du marché', 'تحليل السوق'),
@@ -28,7 +30,7 @@ export const AgentsConsensus: React.FC<{ consensus: Consensus; hasSetup: boolean
   return (
     <section className="mt-4 rounded-[var(--radius-card)] glass border p-4" aria-labelledby="agents-title">
       <header className="flex items-center justify-between gap-2 mb-3">
-        <h3 id="agents-title" className="text-sm font-semibold text-white">{t('3 agents', '3 agents', '3 وكلاء')}</h3>
+        <h3 id="agents-title" className="text-sm font-semibold text-white">{manager ? t('4 agents', '4 agents', '4 وكلاء') : t('3 agents', '3 agents', '3 وكلاء')}</h3>
         {hasSetup && (
           <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold ring-1 ring-inset ${consensus.approved ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' : 'bg-rose-500/10 text-rose-300 ring-rose-500/25'}`}>
             {consensus.agreed}/3 {consensus.approved ? t('agree', 'd’accord', 'متفقين') : ''}
@@ -84,6 +86,18 @@ export const AgentsConsensus: React.FC<{ consensus: Consensus; hasSetup: boolean
             </li>
           );
         })}
+        {manager && (
+          <li>
+            <div className="flex items-center gap-3 p-2.5 rounded-xl border border-gold-500/25 bg-gold-500/[0.04]">
+              <span className="icon-tile w-8 h-8 icon-tile-gold" aria-hidden="true"><Compass className="w-4 h-4" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-white">4. {t('Trade management', 'Gestion du trade', 'تسيير الصفقة')}</span>
+                <span className="block text-[11px] text-slate-400 truncate">{manager.action[lang as 'en' | 'fr' | 'ar'] ?? manager.action.en}</span>
+              </span>
+              <span className={`shrink-0 px-2 py-0.5 rounded-md text-[11px] font-semibold ring-1 ring-inset ${verdictStyle(manager.verdict)}`}>{verdictLabel(manager.verdict, t)}</span>
+            </div>
+          </li>
+        )}
       </ol>
     </section>
   );

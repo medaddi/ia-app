@@ -3,13 +3,14 @@ import React, { useEffect, useState } from 'react';
 import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X } from 'lucide-react';
 import type { StrategyResult, TpReach } from '../strategyTypes';
-import { TradeManagement } from './TradeManagement';
+import { TradeManagement, type ManagerVote } from './TradeManagement';
 import { TradeProgress } from './TradeProgress';
 
 interface ExunuActiveSetupProps {
   symbol: InstrumentSymbol;
   result: StrategyResult | null;
   explanation?: string;
+  manager?: ManagerVote | null;  // agent 4 · trade management (server)
   lang?: string;
 }
 
@@ -19,7 +20,7 @@ const TONE: Record<string, string> = {
 };
 
 /** Side panel: bias, the strategy's checklist (✔/✘), its score / grade, the levels and why it enters or not. */
-export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, result, explanation, lang = 'en' }) => {
+export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, result, explanation, manager, lang = 'en' }) => {
   const ar = lang === 'ar';
   const t = (en: string, fr: string, a: string) => (ar ? a : lang === 'fr' ? fr : en);
   const [copied, setCopied] = useState(false);
@@ -117,7 +118,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
           {/* The trade as a live bar: stop, entry and target, with the price now moving between them */}
           <TradeProgress direction={s.direction} entry={s.entry} sl={s.sl} tp={s.tp3} price={result.price} decimals={result.spec.decimals}
             pip={result.spec.pipSize} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
-          <TradeManagement result={result} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
+          <TradeManagement manager={manager} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
           <AutoLot symbol={result.spec.displaySymbol} entry={s.entry} sl={s.sl} t={t} />
           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-mono">
             <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-300">1:{rrTarget.toFixed(1)}</span>
