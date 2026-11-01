@@ -96,4 +96,4 @@ def test_signal_shows_how_often_past_trades_reached_its_tp():
     assert target_hit_pct([], {"entry": 1.1, "sl": 1.099, "tp3": 1.1015}) is None
     msg = format_signal_message({"symbol": "EUR/USD", "signalType": "BUY", "entryPrice": 1.1, "stopLoss": 1.099, "target1": 1.101, "target2": 1.10125,
                                  "target3": 1.1015, "confidence": 80, "targetHitPct": 60, "signalJson": {"setup": "RSI2", "entry_type": "MARKET"}})
-    assert "TP <code>1.10150</code> · 1:1.5" in msg and "reached by 60%" in msg
+    assert "🎯 TP: <code>1.10150</code>" in msg

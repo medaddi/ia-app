@@ -16,8 +16,8 @@ from ..strategies.service import STRATEGY_DEFS, get_strategy_result
 from ..strategies.shared.jsnum import iso
 from ..strategies.shared.types import TF_SEC
 from ..trading import update_signal_outcomes
-from ..push import push_setup
-from .bot import dispatch_setup
+from ..push import push_closed, push_setup
+from .bot import dispatch_setup, notify_closed
 
 GRACE = 1.2
 RETRY = 2.0
@@ -47,8 +47,15 @@ async def _on_close(sym: str, close: int) -> None:
 async def process_bundle(sym: str, bundle: dict) -> str:
     """Updates the outcome of the signals already sent and dispatches a fresh SIGNAL. Returns what happened."""
     r = bundle["result"]
+    ended: list[dict] = []
     with SessionLocal() as db:
-        update_signal_outcomes(db, sym, bundle["candles"].get(STRATEGY_DEFS[sym].entryTf) or [])
+        update_signal_outcomes(db, sym, bundle["candles"].get(STRATEGY_DEFS[sym].entryTf) or [], ended)
+    if ended:  # how each trade ended: Telegram and the phones
+        try:
+            await notify_closed(ended)
+            await push_closed(ended)
+        except Exception as err:  # never blocks the new signal below
+            print(f"[result] {sym}: {err!r}")
     if r["canNotify"] and r["setup"]:
         out = await dispatch_setup(sym, manual=False)
         try:  # app notifications (Web Push), independent of Telegram

@@ -91,7 +91,7 @@ def test_pairs_and_message():
     assert normalize_symbol("eurchf") == "EUR/CHF" and normalize_symbol("EUR") == "EUR/USD" and normalize_symbol("nzd") == "NZD/USD"
     msg = format_signal_message({"symbol": "GBP/USD", "signalType": "BUY", "entryPrice": 1.3, "stopLoss": 1.298, "target1": 1.302, "target2": 1.304,
                                  "target3": 1.30697, "confidence": 80, "grade": "A+", "signalJson": {"setup": "GPA", "entry_type": "MARKET"}})
-    assert "TP <code>1.30697</code> · 1:3.5" in msg and "TP1" not in msg and "Grade <b>A+</b> · 80%" in msg
+    assert "🎯 TP: <code>1.30697</code>" in msg and "TP1" not in msg
 
 
 def test_agent_answers_in_the_five_parts():

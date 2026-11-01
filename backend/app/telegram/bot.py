@@ -117,43 +117,65 @@ def _levels(signal: dict) -> Optional[dict]:
 
 
 def format_signal_message(signal: dict, lot: Optional[dict] = None, ref: Optional[str] = None) -> str:
-    """Short message: side, entry, SL, target(s) and this person's lot. Prices are tap-to-copy for MetaTrader.
+    """The trade, one value per line (prices tap-to-copy for MetaTrader):
+    🟢 BUY | XAU/USD · 📍 Entry · 🎯 TP · 🛑 SL, then this person's lot when a risk is set.
     `lot`: None = no lot line (a group chat), {} = subscriber without a risk set, else lot_for_risk()."""
     L = _levels(signal)
     if not L:
         return f"⚠️ {normalize_symbol(signal.get('symbol', ''))}: signal levels incomplete, not sent."
-    entry, sl = L["entry"], L["sl"]
-    risk = abs(entry - sl)
     c = lambda v: f"<code>{to_fixed(v, L['decimals'])}</code>"  # noqa: E731
-    pips = lambda v: int(js_round(abs(v - entry) / L["pip"]))  # noqa: E731
-    rr_of = lambda v: to_fixed(abs(v - entry) / risk, 1) if risk > 0 else "—"  # noqa: E731
-    order = "" if L["orderType"] == "MARKET" else f" {L['orderType'].lower()}"
-    lines = [f"{'🟢' if L['buy'] else '🔴'} <b>{'BUY' if L['buy'] else 'SELL'}{order} {L['symbol']}</b>", "",
-             f"Entry {c(entry)}", f"SL {c(sl)} · {pips(sl)} pips"]
-    if L["setup"] == "RSI2":
-        lines.append(f"TP {c(L['tp3'])} · 1:{rr_of(L['tp3'])} · or earlier at the first H4 close {'above' if L['buy'] else 'below'} EMA5")
-    elif L["single"]:
-        lines.append(f"TP {c(L['tp3'])} · 1:{rr_of(L['tp3'])}")
-    else:
-        lines.append(f"TP1 {c(L['tp1'])} · close 50%, SL → entry")
-        lines.append(f"TP2 {c(L['tp2'])} · 1:{rr_of(L['tp2'])}")
-        if L["tp3"] is not None:
-            lines.append(f"TP3 {c(L['tp3'])} · 1:{rr_of(L['tp3'])}")
-    if L.get("hit") is not None:
-        lines.append(f"🎯 TP reached by {L['hit']}% of this pair's past trades")
-    grade = signal.get("grade")
-    if grade:
-        lines.append(f"Grade <b>{grade}</b> · {signal.get('confidence')}%")
+    order = "" if L["orderType"] == "MARKET" else f" {L['orderType']}"
+    lines = [f"{'🟢' if L['buy'] else '🔴'} <b>{'BUY' if L['buy'] else 'SELL'}{order} | {L['symbol']}</b>",
+             f"📍 Entry: {c(L['entry'])}",
+             f"🎯 TP: {c(L['tp3'] if L['tp3'] is not None else L['tp2'])}",
+             f"🛑 SL: {c(L['sl'])}"]
     if lot and lot.get("lots"):
-        warn = " · min lot, above your risk" if lot["tooSmall"] else ""
-        lines.append(f"Lot <code>{lot['lots']:.2f}</code> · risk ${lot['actualRisk']:g}{warn}")
-    elif lot is not None:
-        lines.append("Lot: send /risk 80 to get your lot for $80")
-    if L["orderType"] == "LIMIT" and L["expires"]:
-        lines.append(f"⏱ valid until {L['expires'][11:16]} UTC")
+        lines.append(f"📦 Lot: <code>{lot['lots']:.2f}</code>")
     if ref:
-        lines.append(f"\n🔐 <i>Personal copy · Ref {ref}</i>")
+        lines.append(f"<i>Ref {ref}</i>")
     return "\n".join(lines)
+
+
+def close_message(sig: dict) -> tuple[str, str]:
+    """How a sent trade ended, as (headline, result): TP hit, SL hit, breakeven, closed early, or a limit order never filled."""
+    r, outcome, state = sig.get("rMultiple"), sig.get("outcome"), sig.get("state")
+    if state in ("CANCELLED", "EXPIRED"):
+        return "⚪ CANCELLED", "Order not filled: delete it"
+    target = sig.get("rrTarget") or 0
+    if outcome == "WIN":
+        head = "✅ TP HIT" if r is not None and target and r >= target * 0.95 else "✅ CLOSED IN PROFIT"
+    elif outcome == "LOSS":
+        head = "❌ SL HIT" if r is not None and r <= -0.95 else "❌ CLOSED AT A LOSS"
+    else:
+        head = "➖ BREAKEVEN"
+    return head, (f"Result: {r:+.2f}R" if r is not None else "Result: —")
+
+
+def format_close_message(sig: dict) -> str:
+    """✅ TP HIT | XAU/USD (BUY) over the result in R."""
+    head, res = close_message(sig)
+    return f"<b>{head} | {sig['symbol']} ({sig['direction']})</b>\n🎯 {res}"
+
+
+async def notify_closed(closed: list[dict]) -> int:
+    """Tells the chats that received each trade how it ended (once per trade: the state change is stored before)."""
+    if not closed:
+        return 0
+    sent = 0
+    with SessionLocal() as db:
+        cfg = get_setting(db, "telegram")
+        if not cfg["enabled"] or not cfg["botToken"]:
+            return 0
+        for sig in closed:
+            chats = {w.chat_id for w in db.scalars(select(Watermark).where(Watermark.signal_id == sig["id"]))}
+            if cfg["chatId"]:
+                chats.add(str(cfg["chatId"]))
+            text = format_close_message(sig)
+            outs = await asyncio.gather(*(send_message(cfg["botToken"], c, text) for c in chats))
+            sent += sum(1 for o in outs if o["success"])
+            head, res = close_message(sig)
+            log_event("RESULT", f"{sig['direction']} {sig['symbol']}", f"{head} · {res} · {len(chats)} chat(s)", True)
+    return sent
 
 
 def copy_keyboard(signal: dict, lot: Optional[dict] = None) -> Optional[dict]:
@@ -189,6 +211,8 @@ def chat_risks(db: Session, chat_ids: list[str]) -> dict[str, Optional[float]]:
 
 
 LINK_RE = re.compile(r"LD-?([A-HJ-NP-Z2-9]{6})", re.I)
+ACTIVATION_RE = re.compile(r"EXU-[0-9A-F]{6}-[0-9A-F]{4}", re.I)  # codes made in the admin page
+CODE_RE = re.compile(r"[A-Za-z0-9\-_]{4,64}")  # any other activation key is read only before activation
 
 
 def link_account(db: Session, chat_id: str, code: str, first_name: str) -> str:
@@ -376,7 +400,8 @@ COMMANDS = [
     ("myid", "Your Telegram chat id"),
     ("help", "All commands"),
 ]
-HELP = "<b>LiquidityDissection bot</b>\n" + "\n".join(f"/{c} — {d}" for c, d in COMMANDS) + "\nSend your activation code to activate."
+HELP = "<b>Commands</b>\n\n" + "\n\n".join(f"/{c}\n<i>{d}</i>" for c, d in COMMANDS)
+WELCOME = "🔑 Send your <b>activation code</b> (or your app link code) to receive the signals."
 NEWS_CCYS = {"USD", *(c for pair in FX_TICKERS for c in pair.split("/"))}
 PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD", "/gbp": "GBP/USD", "/cable": "GBP/USD", "/pound": "GBP/USD",
                 "/loonie": "USD/CAD", "/kiwi": "NZD/USD", **{"/" + pair.replace("/", "").lower(): pair for pair in FX_TICKERS}}
@@ -535,9 +560,13 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = link_account(db, chat_id, start_arg, name)  # t.me/<bot>?start=LDXXXXXX from the app
         elif LINK_RE.fullmatch(text):
             reply = link_account(db, chat_id, text, name)
+        elif not text.startswith("/") and not ACTIVATION_RE.fullmatch(text) and not (not active and CODE_RE.fullmatch(text)):
+            return  # the bot is not a chat: only its commands and an activation / link code get an answer
         elif cmd == "/start":
             reply = (f"👋 <b>{name}</b>, your access is active until <b>{_aware(sub.expires_at):%Y-%m-%d}</b>.\n\n{HELP}" if active
-                     else f"👋 Welcome <b>{name}</b>!\n🔑 Send your <b>activation code</b> to receive the signals.\n\n{HELP}")
+                     else f"👋 Welcome <b>{name}</b>!\n{WELCOME}")
+        elif not active and text.startswith("/") and cmd not in ("/help", "/myid"):
+            reply = f"⛔ Not activated.\n{WELCOME}"
         elif cmd == "/help":
             reply = HELP
         elif cmd == "/myid":
@@ -592,7 +621,7 @@ async def handle_update(token: str, upd: dict) -> None:
                         f"✅ {s['wins']} · ❌ {s['losses']} · ➖ {s['breakevens']} · win rate <b>{s['winRate'] if s['winRate'] is not None else '—'}%</b> · "
                         f"total <b>{s['totalR']:+}R</b>" + (f"\n{per}" if per else ""))
             reply = f"📊 {block('Last 30 days', recent)}\n\n{block('All time', all_rows)}"
-        elif re.fullmatch(r"[A-Za-z0-9\-_]{4,64}", text) and not text.startswith("/"):
+        elif not text.startswith("/"):  # an activation code (the only text the bot reads)
             out = activate(db, chat_id, text, name)
             reply = (f"🎉 Activated ({out.get('label') or 'access'}) until <b>{out['expiresAt'][:10]}</b>. Send /help to see the commands."
                      if out["success"] else f"⛔ {out['error']}.")
@@ -626,5 +655,5 @@ def recent_signals(db: Session, limit: int = 50) -> list[dict]:
     return [signal_json(s) for s in db.scalars(select(Signal).order_by(Signal.sent_at.desc()).limit(limit))]
 
 
-__all__ = ["dispatch_setup", "send_message", "bot_info", "set_webhook", "handle_update", "format_signal_message", "activate", "active_subscribers", "trace_leak",
+__all__ = ["dispatch_setup", "notify_closed", "format_close_message", "send_message", "bot_info", "set_webhook", "handle_update", "format_signal_message", "activate", "active_subscribers", "trace_leak",
            "poll_forever", "history", "recent_signals", "market_session_status"]

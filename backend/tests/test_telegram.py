@@ -45,8 +45,9 @@ def test_next_candle_close():
 
 def test_message_prints_exact_levels_only():
     msg = bot.format_signal_message({**EURO, "confirmationCheckPassed": True, "confirmationCloseTime": 1790668800})
-    assert "1.13530" in msg and "1.13772" in msg and "1.13046" in msg
-    assert "24 pips" in msg and "Lot" not in msg and "risk" not in msg  # no lot line for a group chat
+    # one value per line, the single target (TP3) only
+    assert msg.split("\n") == ["🔴 <b>SELL LIMIT | EUR/USD</b>", "📍 Entry: <code>1.13530</code>", "🎯 TP: <code>1.12804</code>",
+                                "🛑 SL: <code>1.13772</code>"]  # no lot line for a group chat
 
 
 def test_lot_from_the_risk_in_dollars():
@@ -62,8 +63,8 @@ def test_lot_from_the_risk_in_dollars():
     assert small["lots"] == 0.01 and small["tooSmall"]
 
     msg = bot.format_signal_message(EURO, lot, "ABC123")
-    assert "Lot <code>0.31</code> · risk $78.74" in msg and "Ref ABC123" in msg
-    assert "/risk 80" in bot.format_signal_message(EURO, {})  # subscriber without a risk
+    assert "📦 Lot: <code>0.31</code>" in msg and "Ref ABC123" in msg
+    assert "Lot" not in bot.format_signal_message(EURO, {})  # subscriber without a risk
     kb = bot.copy_keyboard(EURO, lot)["inline_keyboard"]
     copied = [b["copy_text"]["text"] for row in kb for b in row]
     assert copied == ["1.13530", "1.13772", "1.13288", "1.13046", "1.12804", "0.31"]
@@ -125,3 +126,34 @@ def test_bot_commands(monkeypatch):
     assert "Bollinger reversion" in say("/rules") and "Breakout" in sent[-1]
     assert "/gold" in say("/help") and "/news" in sent[-1]
     assert "No signal running" in say("/open")
+
+
+def test_close_messages():
+    base = {"id": "x", "symbol": "XAU/USD", "direction": "BUY", "state": "CLOSED", "rrTarget": 2.0}
+    assert bot.format_close_message({**base, "outcome": "WIN", "rMultiple": 2.0}) == "<b>✅ TP HIT | XAU/USD (BUY)</b>\n🎯 Result: +2.00R"
+    assert bot.close_message({**base, "outcome": "WIN", "rMultiple": 0.8})[0] == "✅ CLOSED IN PROFIT"  # RSI(2) EMA5 exit
+    assert bot.close_message({**base, "outcome": "LOSS", "rMultiple": -1.03})[0] == "❌ SL HIT"
+    assert bot.close_message({**base, "outcome": "BREAKEVEN", "rMultiple": 0.0})[0] == "➖ BREAKEVEN"
+    assert bot.close_message({**base, "state": "EXPIRED", "outcome": None, "rMultiple": None}) == ("⚪ CANCELLED", "Order not filled: delete it")
+
+
+def test_bot_reads_only_commands_and_codes(monkeypatch):
+    import asyncio
+
+    sent = []
+
+    async def fake_send(token, chat_id, text, *a, **k):
+        sent.append(text)
+        return {"success": True}
+
+    monkeypatch.setattr(bot, "send_message", fake_send)
+    msg = lambda text: {"message": {"text": text, "chat": {"id": 777001}, "from": {"first_name": "T"}}}  # noqa: E731
+    asyncio.run(bot.handle_update("t", msg("/signal")))
+    assert "Not activated" in sent[-1]  # commands need an active access
+    asyncio.run(bot.handle_update("t", msg("/help")))
+    assert sent[-1].startswith("<b>Commands</b>") and "/gold\n<i>Gold (XAU/USD) analysis</i>" in sent[-1]
+    asyncio.run(bot.handle_update("t", msg("WRONGCODE")))
+    assert "⛔" in sent[-1]  # before activation, text is read as an activation code
+    n = len(sent)
+    asyncio.run(bot.handle_update("t", msg("hello, how are you?")))
+    assert len(sent) == n  # not a code, not a command: no answer

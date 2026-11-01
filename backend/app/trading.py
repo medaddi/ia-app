@@ -261,8 +261,9 @@ def signal_json(s: Signal) -> dict:
 TERMINAL = ("CLOSED", "CANCELLED", "EXPIRED")
 
 
-def update_signal_outcomes(db: Session, symbol: str, entry_candles: list) -> int:
-    """Re-runs the lifecycle of every unfinished signal of `symbol` on the latest candles."""
+def update_signal_outcomes(db: Session, symbol: str, entry_candles: list, ended: Optional[list] = None) -> int:
+    """Re-runs the lifecycle of every unfinished signal of `symbol` on the latest candles.
+    `ended` collects the signals that reached a final state now (closed, cancelled or expired), for the result notifications."""
     sym = normalize_symbol(symbol)
     d = STRATEGY_DEFS[sym]
     index_of = {c.time: i for i, c in enumerate(entry_candles)}
@@ -274,6 +275,8 @@ def update_signal_outcomes(db: Session, symbol: str, entry_candles: list) -> int
         s.state, s.outcome, s.r_multiple, s.exit_time = lc["state"], lc.get("outcome"), lc.get("rMultiple"), lc.get("exitTime")
         changed += 1
         if lc["state"] in TERMINAL:
+            if ended is not None:
+                ended.append({**signal_json(s), "rrTarget": abs((s.tp3 or s.tp2) - s.entry) / abs(s.entry - s.sl) if s.entry != s.sl else 0})
             exit_price = lc["events"][-1]["price"] if lc["events"] else s.entry
             for t in db.scalars(select(Trade).where(Trade.signal_id == s.id, Trade.status == "OPEN")):
                 if lc["state"] == "CLOSED":

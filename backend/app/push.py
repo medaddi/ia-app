@@ -138,6 +138,27 @@ async def notify_trade(signal: dict) -> int:
         return sent
 
 
+async def push_closed(ended: list[dict]) -> int:
+    """Pushes how each trade ended ("✅ TP HIT · XAU/USD (BUY)" over "Result: +2.00R"), once per trade."""
+    from .telegram.bot import close_message
+
+    sent = 0
+    with SessionLocal() as db:
+        rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
+                          .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()
+        for sig in ended:
+            db.add(PushSent(id=f"end:{sig['id']}"[:80]))
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                continue  # already pushed
+            head, res = close_message(sig)
+            sent += await send_push(db, list(rows), {"title": f"{head} · {sig['symbol']} ({sig['direction']})", "body": res,
+                                                     "tag": f"ld-end-{sig['id']}", "symbol": sig["symbol"]})
+    return sent
+
+
 async def push_setup(symbol: str) -> str:
     """At a candle close: pushes the fresh signal of `symbol` when the three agents agree (the same vote as Telegram)."""
     from .strategies.exunu import run_exunu, to_ai_signal
