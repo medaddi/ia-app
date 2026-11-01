@@ -8,7 +8,6 @@
  */
 import { apiFetch, apiJson } from './api';
 import type { AISignal, Language } from './types';
-import { strategyKind } from './instruments';
 
 const ENABLED_KEY = 'ld_notify_enabled';
 const SEEN_KEY = 'ld_notify_seen_v1';
@@ -95,9 +94,19 @@ async function show(title: string, body: string, tag: string, symbol: string) {
   n.onclick = () => { window.focus(); window.dispatchEvent(new CustomEvent('ld-open-symbol', { detail: symbol })); n.close(); };
 }
 
-const word = (lang: Language, side: string) => (side === 'BUY' ? { en: 'BUY', fr: 'ACHAT', ar: 'شراء' } : { en: 'SELL', fr: 'VENTE', ar: 'بيع' })[lang];
+/** One line, like the push: "🟢 XAU/USD (BUY)" over "Entry: 2745.50 | LOT: 0.07 | TP: 2760.00 | SL: 2738.00". */
+async function tradeNotice(s: AISignal): Promise<[string, string]> {
+  const dec = s.symbol === 'XAU/USD' ? 2 : 5;
+  const f = (v: number | null | undefined) => (v == null ? '—' : Number(v).toFixed(dec));
+  let lots = 0;
+  try {
+    const r = await apiJson<{ lots: number; riskUsd: number }>(`/api/lot?symbol=${encodeURIComponent(s.symbol)}&entry=${s.entryPrice}&sl=${s.stopLoss}`);
+    if (r.riskUsd > 0) lots = r.lots;
+  } catch { /* no lot: the line goes without it */ }
+  const parts = [`Entry: ${f(s.entryPrice)}`, ...(lots ? [`LOT: ${lots.toFixed(2)}`] : []), `TP: ${f(s.target3 ?? s.target2)}`, `SL: ${f(s.stopLoss)}`];
+  return [`${s.signalType === 'BUY' ? '🟢' : '🔴'} ${s.symbol} (${s.signalType})`, parts.join(' | ')];
+}
 
-/** Call with every fresh signals list: notifies the trades that were not seen before (the first list is the baseline). */
 export function notifyNewSignals(signals: AISignal[], lang: Language) {
   let seen: string[] | null = null;
   try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); } catch { seen = null; }
@@ -108,9 +117,6 @@ export function notifyNewSignals(signals: AISignal[], lang: Language) {
   try { localStorage.setItem(SEEN_KEY, JSON.stringify([...known].slice(-200))); } catch { /* storage unavailable */ }
   if (!notifyEnabled()) return;
   for (const s of fresh) {
-    const kind = strategyKind(s.symbol);
-    const tp = `TP ${s.target3 ?? s.target2}${kind === 'rsi2' ? ' · or EMA5' : ''}`;  // every strategy: one target between 1.5R and 2R
-    const body = lang === 'fr' ? `Entrée ${s.entryPrice} · SL ${s.stopLoss} · ${tp}` : lang === 'ar' ? `الدخول ${s.entryPrice} · SL ${s.stopLoss} · ${tp}` : `Entry ${s.entryPrice} · SL ${s.stopLoss} · ${tp}`;
-    show(`${word(lang, s.signalType)} ${s.symbol} · ${s.confidence}%`, body, `ld-${s.id}`, s.symbol).catch(() => {});
+    tradeNotice(s).then(([title, body]) => show(title, body, `ld-${s.id}`, s.symbol)).catch(() => {});
   }
 }

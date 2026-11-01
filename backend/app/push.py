@@ -22,6 +22,8 @@ from sqlalchemy.orm import Session
 from .db import SessionLocal
 from .models import PushSent, PushSubscription, User
 from .store import get_setting, set_setting
+from .strategies.service import CONFIGS, normalize_symbol
+from .trading import effective_risk, lot_for_risk
 
 SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:alerts@liquiditydissection.app")  # contact the push services may use
 TTL = 3600  # a trade notification older than an hour is useless: the push service may drop it after that
@@ -89,14 +91,31 @@ async def send_push(db: Session, rows: list[PushSubscription], message: dict) ->
     return sum(s is None for s in results)
 
 
-def trade_message(signal: dict) -> dict:
-    """The notification of a new trade (same content as the in-app one): side, pair, entry, stop and target."""
+def trade_message(signal: dict, lots: Optional[float] = None) -> dict:
+    """The notification of a new trade, one line: "🟢 XAU/USD (BUY) — Entry: 2745.50 | LOT: 0.07 | TP: 2760.00 | SL: 2738.00".
+    The pair and side are the title, the levels the body; LOT is the lot for the receiver's own risk (left out when unset)."""
     sym, side = signal["symbol"], signal["signalType"]
     tp = signal.get("target3") or signal.get("target2")
-    return {"title": f"{'🟢 BUY' if side == 'BUY' else '🔴 SELL'} {sym} · {signal.get('confidence', '')}%",
-            "body": f"Entry {signal.get('entryPrice')} · SL {signal.get('stopLoss')} · TP {tp}"
-                    + (f" ({signal['targetHitPct']}% of past trades reached it)" if signal.get("targetHitPct") is not None else ""),
+    try:
+        dec = CONFIGS[normalize_symbol(sym)]["spec"]["decimals"]
+    except KeyError:
+        dec = 5
+    fmt = lambda v: f"{float(v):.{dec}f}" if v is not None else "—"
+    parts = [f"Entry: {fmt(signal.get('entryPrice'))}"]
+    if lots:
+        parts.append(f"LOT: {lots:.2f}")
+    parts += [f"TP: {fmt(tp)}", f"SL: {fmt(signal.get('stopLoss'))}"]
+    return {"title": f"{'🟢' if side == 'BUY' else '🔴'} {sym} ({side})", "body": " | ".join(parts),
             "tag": f"ld-{signal['id']}", "symbol": sym}
+
+
+def _user_lot(u: User, signal: dict) -> Optional[float]:
+    """The lot for this user's saved risk with the signal's own stop (None when no risk is set)."""
+    risk = effective_risk(u.risk_usd, u.capital, u.risk_pct) or 0
+    entry, sl = signal.get("entryPrice"), signal.get("stopLoss")
+    if risk <= 0 or entry is None or sl is None:
+        return None
+    return lot_for_risk(signal["symbol"], float(entry), float(sl), risk)["lots"] or None
 
 
 async def notify_trade(signal: dict) -> int:
@@ -110,7 +129,13 @@ async def notify_trade(signal: dict) -> int:
             return 0  # already pushed (another tick or worker)
         rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
                           .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()
-        return await send_push(db, list(rows), trade_message(signal))
+        by_user: dict[int, list[PushSubscription]] = {}
+        for r in rows:
+            by_user.setdefault(r.user_id, []).append(r)
+        sent = 0
+        for uid, subs in by_user.items():  # each account gets the lot for its own risk
+            sent += await send_push(db, subs, trade_message(signal, _user_lot(db.get(User, uid), signal)))
+        return sent
 
 
 async def push_setup(symbol: str) -> str:
