@@ -141,6 +141,7 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
           ctx.font = '600 10px Inter, system-ui, sans-serif';
           ctx.textBaseline = 'middle';
           const rightLabels: { y: number; text: string; color: string }[] = [];
+          const tradeYs: number[] = [];  // entry / SL / TP rows: their axis badges, kept free of level labels
 
           for (const d of items) {
             const color = pal[d.color];
@@ -182,10 +183,9 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
                 ctx.beginPath(); ctx.moveTo(left, ym); ctx.lineTo(right, ym); ctx.stroke();
                 ctx.setLineDash([]);
               }
-              if (d.text && h >= 11 && right - left > 46) {
+              if (d.text && !isTrade && h >= 11 && right - left > 46) {
                 ctx.fillStyle = rgba(color, d.faded ? 0.55 : 0.95);
-                // Trade zones label their far edge (TP / SL), other zones their top-left corner
-                const ly = isTrade ? (yb < ya ? yb + 8 : yb - 8) : top + Math.min(h / 2, 8);
+                const ly = top + Math.min(h / 2, 8);  // top-left corner (trade zones: their levels are on the price axis)
                 ctx.fillText(d.text, left + 5, ly);
               }
               continue;
@@ -200,6 +200,7 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
               ctx.setLineDash(d.style === 'dashed' ? [5, 3] : d.style === 'dotted' ? [1.5, 3] : []);
               ctx.beginPath(); ctx.moveTo(left, Math.round(y) + 0.5); ctx.lineTo(right, Math.round(y) + 0.5); ctx.stroke();
               ctx.setLineDash([]);
+              if (d.layer === 'trade') { tradeYs.push(y); continue; }
               if (!d.text) continue;
               if (d.t2 === null) rightLabels.push({ y, text: d.text, color });
               else if (right - left > 24) {
@@ -249,7 +250,7 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
             rightLabels.sort((a, b) => a.y - b.y);
             let lastY = -Infinity;
             for (const l of rightLabels) {
-              if (l.y - lastY < 12) continue;
+              if (l.y - lastY < 16 || tradeYs.some(ty => Math.abs(ty - l.y) < 14)) continue;
               lastY = l.y;
               const w = ctx.measureText(l.text).width + 8;
               ctx.fillStyle = pal.labelBg;

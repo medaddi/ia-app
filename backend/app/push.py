@@ -154,9 +154,18 @@ async def push_closed(ended: list[dict]) -> int:
                 db.rollback()
                 continue  # already pushed
             head, res = close_message(sig)
-            sent += await send_push(db, list(rows), {"title": f"{head} · {sig['symbol']} ({sig['direction']})", "body": res,
+            sent += await send_push(db, list(rows), {"title": f"{head} · {sig['symbol']} ({sig['direction']})", "body": res.replace("\n", " "),
                                                      "tag": f"ld-end-{sig['id']}", "symbol": sig["symbol"]})
     return sent
+
+
+async def push_update(sig: dict, head: str, body: str, tag: str) -> int:
+    """A follow-up notice of a running trade to every approved account's devices (claimed once by app.followup)."""
+    with SessionLocal() as db:
+        rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
+                          .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()
+        return await send_push(db, list(rows), {"title": f"{head} · {sig['symbol']} ({sig['direction']})", "body": body.replace("\n", " "),
+                                                "tag": tag[:120], "symbol": sig["symbol"]})
 
 
 async def push_setup(symbol: str) -> str:

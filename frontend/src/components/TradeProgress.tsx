@@ -17,11 +17,12 @@ export interface TradeProgressProps {
   pip?: number;  // price units per pip (gold 0.1, forex 0.0001)
   lang?: Language;
   compact?: boolean;  // dashboard cards: smaller labels
+  state?: string;  // lifecycle state: adds one line saying what to do now (same advice as the notifications)
 }
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
-export const TradeProgress: React.FC<TradeProgressProps> = ({ direction, entry, sl, tp, price, decimals, pip, lang = 'en', compact = false }) => {
+export const TradeProgress: React.FC<TradeProgressProps> = ({ direction, entry, sl, tp, price, decimals, pip, lang = 'en', compact = false, state }) => {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
   const f = (v: number) => v.toFixed(decimals);
   const span = tp - sl;
@@ -40,6 +41,13 @@ export const TradeProgress: React.FC<TradeProgressProps> = ({ direction, entry, 
   };
   const fillFrom = Math.min(ePos, pPos), fillTo = Math.max(ePos, pPos);
   const label = compact ? 'text-[10px]' : 'text-[11px]';
+  // What to do now: the same words as the follow-up notifications (Telegram and phone)
+  const advice = !state ? null
+    : state === 'PENDING' ? { tone: 'text-slate-300', text: t('⏳ Limit order waiting at the entry', '⏳ Ordre limite en attente à l’entrée', '⏳ الأمر المعلق كيتسنى ف الدخول') }
+    : hitTp ? { tone: 'text-emerald-300', text: t('✅ Target reached', '✅ Objectif atteint', '✅ وصل للهدف') }
+    : r >= 1 ? { tone: 'text-emerald-300', text: t('📈 Hold the trade, don’t close early', '📈 Gardez le trade, ne fermez pas trop tôt', '📈 خلي الصفقة، ما تسدهاش بكري') }
+    : r <= -0.7 ? { tone: 'text-rose-300', text: t('⚠️ Keep the stop where it is, add nothing', '⚠️ Gardez le stop où il est, n’ajoutez rien', '⚠️ خلي الستوب فبلاصتو، ما تزيدش') }
+    : { tone: 'text-slate-300', text: t('👉 Keep SL and TP as they are', '👉 Gardez SL et TP tels quels', '👉 خلي SL و TP كيف ما هوما') };
 
   return (
     <div className="select-none" dir="ltr" aria-label={t(`Trade progress: ${r >= 0 ? '+' : ''}${r.toFixed(2)}R`, `Progression du trade : ${r >= 0 ? '+' : ''}${r.toFixed(2)}R`, `تقدم الصفقة: ${r.toFixed(2)}R`)}>
@@ -92,6 +100,7 @@ export const TradeProgress: React.FC<TradeProgressProps> = ({ direction, entry, 
           <div className={`font-mono tabular-nums text-emerald-300 ${compact ? 'text-xs' : 'text-sm'}`}>{f(tp)}</div>
         </div>
       </div>
+      {advice && <div className={`mt-1 rounded-lg bg-white/[0.03] border border-line px-2.5 py-1.5 ${compact ? 'text-[11px]' : 'text-xs'} ${advice.tone}`} role="status">{advice.text}</div>}
     </div>
   );
 };

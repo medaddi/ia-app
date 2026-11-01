@@ -122,19 +122,44 @@ def test_bot_commands(monkeypatch):
     assert "paused" in say("/status").lower()
     assert "resumed" in say("/resume").lower()
     assert "XAU/USD" in say("/history") and "+1.75R" in sent[-1]
-    assert "All time" in say("/stats") and "win rate" in sent[-1]
+    assert "All time" in say("/stats") and "Win rate" in sent[-1]
     assert "Bollinger reversion" in say("/rules") and "Breakout" in sent[-1]
-    assert "/gold" in say("/help") and "/news" in sent[-1]
-    assert "No signal running" in say("/open")
+    assert "/pairs" in say("/help") and "/news" in sent[-1]
+    assert "/gold · XAU/USD" in say("/pairs") and "/eurusd · EUR/USD" in sent[-1]  # the pair commands, tappable
+    assert "No trade running" in say("/open")
 
 
 def test_close_messages():
     base = {"id": "x", "symbol": "XAU/USD", "direction": "BUY", "state": "CLOSED", "rrTarget": 2.0}
-    assert bot.format_close_message({**base, "outcome": "WIN", "rMultiple": 2.0}) == "<b>✅ TP HIT | XAU/USD (BUY)</b>\n🎯 Result: +2.00R"
+    assert bot.format_close_message({**base, "outcome": "WIN", "rMultiple": 2.0}) == \
+        "<b>✅ TP HIT | XAU/USD (BUY)</b>\nResult: +2.00R\n👉 Profit taken. Nothing to do."
     assert bot.close_message({**base, "outcome": "WIN", "rMultiple": 0.8})[0] == "✅ CLOSED IN PROFIT"  # RSI(2) EMA5 exit
     assert bot.close_message({**base, "outcome": "LOSS", "rMultiple": -1.03})[0] == "❌ SL HIT"
     assert bot.close_message({**base, "outcome": "BREAKEVEN", "rMultiple": 0.0})[0] == "➖ BREAKEVEN"
-    assert bot.close_message({**base, "state": "EXPIRED", "outcome": None, "rMultiple": None}) == ("⚪ CANCELLED", "Order not filled: delete it")
+    assert bot.close_message({**base, "state": "EXPIRED", "outcome": None, "rMultiple": None}) == \
+        ("⚪ CANCELLED", "Order not filled.\n👉 Delete your pending order.")
+
+
+def test_follow_up_notices():
+    from types import SimpleNamespace as N
+
+    from app.followup import events_for
+
+    now = 1_800_000_000
+    sig = N(symbol="EUR/USD", direction="SELL", entry=1.1000, sl=1.1020, entry_type="LIMIT", state="OPEN")
+    keys = lambda price, news=(): [k for k, _, _ in events_for(sig, price, list(news), now)]  # noqa: E731
+    assert keys(1.0990) == ["fill"]  # +0.5R: just filled
+    assert keys(1.0978) == ["fill", "1r"]  # +1.1R
+    assert keys(1.1015) == ["fill", "nearsl"]  # -0.75R
+    news = [{"time": now + 900, "impact": "High", "currency": "USD", "title": "CPI"},
+            {"time": now + 900, "impact": "High", "currency": "JPY", "title": "BoJ"},  # not one of the pair's currencies
+            {"time": now + 7200, "impact": "High", "currency": "EUR", "title": "ECB"}]  # too far
+    ev = events_for(sig, 1.0995, news, now)
+    assert [k for k, _, _ in ev] == ["fill", f"news{now + 900}"] and ev[1][1] == "📰 NEWS IN 15 MIN" and "USD CPI" in ev[1][2]
+    pending = N(**{**sig.__dict__, "state": "PENDING"})
+    assert [k for k, _, _ in events_for(pending, 1.0978, [], now)] == []  # not filled: no price notice
+    market = N(**{**sig.__dict__, "entry_type": "MARKET"})
+    assert [k for k, _, _ in events_for(market, 1.0995, [], now)] == []  # a market order is live at once
 
 
 def test_bot_reads_only_commands_and_codes(monkeypatch):
@@ -151,9 +176,20 @@ def test_bot_reads_only_commands_and_codes(monkeypatch):
     asyncio.run(bot.handle_update("t", msg("/signal")))
     assert "Not activated" in sent[-1]  # commands need an active access
     asyncio.run(bot.handle_update("t", msg("/help")))
-    assert sent[-1].startswith("<b>Commands</b>") and "/gold\n<i>Gold (XAU/USD) analysis</i>" in sent[-1]
+    assert "<b>📊 Market</b>" in sent[-1] and "/signal\n<i>Every pair right now</i>" in sent[-1]
     asyncio.run(bot.handle_update("t", msg("WRONGCODE")))
     assert "⛔" in sent[-1]  # before activation, text is read as an activation code
     n = len(sent)
     asyncio.run(bot.handle_update("t", msg("hello, how are you?")))
     assert len(sent) == n  # not a code, not a command: no answer
+
+
+def test_send_retries_on_rate_limit(monkeypatch):
+    import asyncio
+
+    answers = [{"ok": False, "error_code": 429, "description": "Too Many Requests", "parameters": {"retry_after": 0}},
+               {"ok": True, "result": {"message_id": 7}}]
+    monkeypatch.setattr(bot, "call", lambda *a, **k: asyncio.sleep(0, answers.pop(0)))
+    assert asyncio.run(bot.send_message("t", "1", "hi")) == {"success": True, "messageId": 7}  # waited, then delivered
+    monkeypatch.setattr(bot, "call", lambda *a, **k: asyncio.sleep(0, {"ok": False, "error_code": 403, "description": "Forbidden: bot was blocked"}))
+    assert asyncio.run(bot.send_message("t", "1", "hi"))["success"] is False  # a blocked bot is not retried

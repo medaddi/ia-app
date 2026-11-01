@@ -537,7 +537,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                       <span className="text-[11px] text-slate-400 truncate">{stateLabel(m.symbol, s.state)}</span>
                     </div>
                     <TradeProgress direction={s.direction} entry={s.entry} sl={s.sl} tp={s.target} price={m.price} decimals={m.decimals}
-                      pip={m.symbol === 'XAU/USD' ? 0.1 : 0.0001} lang={lang} compact />
+                      pip={m.symbol === 'XAU/USD' ? 0.1 : 0.0001} lang={lang} compact state={s.state} />
                   </button>
                 );
               })}

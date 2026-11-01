@@ -9,6 +9,7 @@ reference code (protection.py) and protect_content.
 """
 
 import asyncio
+import html
 import re
 import time
 from datetime import datetime, timedelta, timezone
@@ -73,9 +74,15 @@ async def send_message(token: str, chat_id: str, text: str, reply_markup: Option
     if protect:
         # Telegram blocks forwarding, saving and copying of protected messages
         payload["protect_content"] = True
-    data = await call(token, "sendMessage", payload)
-    if not data.get("ok"):
-        return {"success": False, "error": data.get("description") or "Telegram error"}
+    for attempt in range(3):
+        data = await call(token, "sendMessage", payload)
+        if data.get("ok"):
+            break
+        retry = (data.get("parameters") or {}).get("retry_after")
+        transient = data.get("error_code") in (429, 500, 502, 503, 504) or "error_code" not in data  # rate limit, Telegram or network down
+        if attempt == 2 or not transient:
+            return {"success": False, "error": data.get("description") or "Telegram error"}
+        await asyncio.sleep(min(float(retry or 1 + attempt), 5))  # Telegram says how long to wait on a 429
     return {"success": True, "messageId": (data.get("result") or {}).get("message_id")}
 
 
@@ -137,24 +144,43 @@ def format_signal_message(signal: dict, lot: Optional[dict] = None, ref: Optiona
 
 
 def close_message(sig: dict) -> tuple[str, str]:
-    """How a sent trade ended, as (headline, result): TP hit, SL hit, breakeven, closed early, or a limit order never filled."""
+    """How a sent trade ended, as (headline, result + what to do): TP hit, SL hit, breakeven, closed early by the strategy,
+    or a limit order never filled."""
     r, outcome, state = sig.get("rMultiple"), sig.get("outcome"), sig.get("state")
     if state in ("CANCELLED", "EXPIRED"):
-        return "⚪ CANCELLED", "Order not filled: delete it"
+        return "⚪ CANCELLED", "Order not filled.\n👉 Delete your pending order."
     target = sig.get("rrTarget") or 0
-    if outcome == "WIN":
-        head = "✅ TP HIT" if r is not None and target and r >= target * 0.95 else "✅ CLOSED IN PROFIT"
+    if outcome == "WIN" and r is not None and target and r >= target * 0.95:
+        head, todo = "✅ TP HIT", "👉 Profit taken. Nothing to do."
+    elif outcome == "WIN":
+        head, todo = "✅ CLOSED IN PROFIT", "👉 The strategy closed it early: close it if it is still open."
+    elif outcome == "LOSS" and r is not None and r <= -0.95:
+        head, todo = "❌ SL HIT", "👉 The stop limited the loss. Wait for the next signal."
     elif outcome == "LOSS":
-        head = "❌ SL HIT" if r is not None and r <= -0.95 else "❌ CLOSED AT A LOSS"
+        head, todo = "❌ CLOSED AT A LOSS", "👉 The strategy closed it early: close it if it is still open."
     else:
-        head = "➖ BREAKEVEN"
-    return head, (f"Result: {r:+.2f}R" if r is not None else "Result: —")
+        head, todo = "➖ BREAKEVEN", "👉 Closed at entry. Nothing to do."
+    return head, f"Result: {r:+.2f}R\n{todo}" if r is not None else todo
 
 
 def format_close_message(sig: dict) -> str:
-    """✅ TP HIT | XAU/USD (BUY) over the result in R."""
+    """✅ TP HIT | XAU/USD (BUY), the result in R, then what to do."""
     head, res = close_message(sig)
-    return f"<b>{head} | {sig['symbol']} ({sig['direction']})</b>\n🎯 {res}"
+    return f"<b>{head} | {sig['symbol']} ({sig['direction']})</b>\n{res}"
+
+
+async def send_update(sig: dict, head: str, body: str) -> int:
+    """A follow-up notice of a running trade (filled, +1R, near SL, news) to the chats that got it."""
+    with SessionLocal() as db:
+        cfg = get_setting(db, "telegram")
+        if not cfg["enabled"] or not cfg["botToken"]:
+            return 0
+        chats = {w.chat_id for w in db.scalars(select(Watermark).where(Watermark.signal_id == sig["id"]))}
+    if cfg["chatId"]:
+        chats.add(str(cfg["chatId"]))
+    text = f"<b>{head} | {sig['symbol']} ({sig['direction']})</b>\n{body}"
+    outs = await asyncio.gather(*(send_message(cfg["botToken"], c, text) for c in chats))
+    return sum(1 for o in outs if o["success"])
 
 
 async def notify_closed(closed: list[dict]) -> int:
@@ -174,7 +200,7 @@ async def notify_closed(closed: list[dict]) -> int:
             outs = await asyncio.gather(*(send_message(cfg["botToken"], c, text) for c in chats))
             sent += sum(1 for o in outs if o["success"])
             head, res = close_message(sig)
-            log_event("RESULT", f"{sig['direction']} {sig['symbol']}", f"{head} · {res} · {len(chats)} chat(s)", True)
+            log_event("RESULT", f"{sig['direction']} {sig['symbol']}", f"{head} · {res.splitlines()[0]} · {len(chats)} chat(s)", True)
     return sent
 
 
@@ -378,40 +404,64 @@ def trace_leak(db: Session, ref: str) -> list[dict]:
 
 # ---------------------------------------------------------------- commands
 
-COMMANDS = [
-    ("start", "Activation and welcome"),
-    ("signal", "Current analysis of every pair"),
-    ("gold", "Gold (XAU/USD) analysis"),
-    ("euro", "EUR/USD analysis"),
-    ("gbp", "GBP/USD analysis"),
-    *((pair.replace("/", "").lower(), f"{pair} analysis") for pair in FX_TICKERS if pair not in ("EUR/USD", "GBP/USD")),
-    ("open", "Signals still running"),
-    ("history", "Last 10 signals and their result"),
-    ("stats", "Win rate and results (30 days and all time)"),
-    ("levels", "Key levels of every pair"),
-    ("news", "Next high-impact news"),
-    ("market", "Market hours and current session"),
-    ("rules", "How the strategies work"),
-    ("status", "Your subscription"),
-    ("stop", "Pause signals"),
-    ("resume", "Resume signals"),
-    ("risk", "Your risk per trade: /risk 80 ($) or /risk 1% (of your capital)"),
-    ("capital", "Your capital in $ (/capital 5000), for a risk in %"),
-    ("myid", "Your Telegram chat id"),
-    ("help", "All commands"),
+# The "/" menu: grouped, the most used first. Pair commands (/gold, /eurusd…) still work; /pairs lists them.
+SECTIONS = [
+    ("📊 Market", [
+        ("signal", "Every pair right now"),
+        ("pairs", "One pair in detail"),
+        ("open", "Trades running now"),
+        ("news", "Next high-impact news"),
+        ("market", "Market hours and session"),
+    ]),
+    ("📈 Results", [
+        ("history", "Last 10 signals and their result"),
+        ("stats", "Win rate and results"),
+    ]),
+    ("👤 My account", [
+        ("status", "My access"),
+        ("risk", "My risk per trade: /risk 80 or /risk 1%"),
+        ("stop", "Pause the signals"),
+        ("resume", "Receive the signals again"),
+    ]),
+    ("ℹ️ Info", [
+        ("rules", "How the strategies work"),
+        ("help", "All commands"),
+    ]),
 ]
-HELP = "<b>Commands</b>\n\n" + "\n\n".join(f"/{c}\n<i>{d}</i>" for c, d in COMMANDS)
+COMMANDS = [("start", "Start / activate"), *(c for _, cmds in SECTIONS for c in cmds)]
+LINE = "━━━━━━━━━━━━━━"
+HELP = "🤖 <b>LiquidityDissection</b>\n" + LINE + "\n\n" + "\n\n".join(
+    f"<b>{title}</b>\n" + "\n".join(f"/{c}\n<i>{d}</i>" for c, d in cmds) for title, cmds in SECTIONS)
 WELCOME = "🔑 Send your <b>activation code</b> (or your app link code) to receive the signals."
+DESCRIPTION = ("Gold and forex signals: entry, TP, SL and your lot, then every step until the trade closes (filled, +1R, "
+               "near SL, news, TP / SL).\n\nSend your activation code to start.")
+SHORT_DESCRIPTION = "Gold & forex signals · entry, TP, SL, lot and trade follow-up."
+PAIR_EMOJI = {"XAU/USD": "🥇"}
 NEWS_CCYS = {"USD", *(c for pair in FX_TICKERS for c in pair.split("/"))}
 PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD", "/gbp": "GBP/USD", "/cable": "GBP/USD", "/pound": "GBP/USD",
                 "/loonie": "USD/CAD", "/kiwi": "NZD/USD", **{"/" + pair.replace("/", "").lower(): pair for pair in FX_TICKERS}}
-STATE_TXT = {"PENDING": "⏳ pending", "OPEN": "🟡 open", "TP1_HIT": "🟢 TP1 hit, SL at entry", "TP2_HIT": "🟢 TP2 hit", "CLOSED": "closed",
+STATE_TXT = {"PENDING": "⏳ waiting for entry", "OPEN": "🟡 running", "TP1_HIT": "🟡 running", "TP2_HIT": "🟡 running", "CLOSED": "closed",
              "CANCELLED": "⚪ cancelled", "EXPIRED": "⚪ expired"}
+STATUS_ICON = {"SIGNAL": "🟢", "WATCH": "🟡", "NO_TRADE": "⚪"}
+TREND_TXT = {"BULLISH": "📈 Bullish", "BEARISH": "📉 Bearish"}
 
 
 async def set_commands(token: str) -> None:
-    """Shows the commands in Telegram's "/" menu."""
+    """The bot's profile: the "/" menu (with what each command does) and the text shown before /start."""
     await call(token, "setMyCommands", {"commands": [{"command": c, "description": d} for c, d in COMMANDS]})
+    await call(token, "setMyDescription", {"description": DESCRIPTION})
+    await call(token, "setMyShortDescription", {"short_description": SHORT_DESCRIPTION})
+
+
+_profile_token: Optional[str] = None
+
+
+async def sync_profile(token: str) -> None:
+    """Once per process: keeps the menu and the description of a running bot up to date (no admin step needed)."""
+    global _profile_token
+    if _profile_token != token:
+        _profile_token = token
+        await set_commands(token)
 
 
 def _res(sig: Signal) -> str:
@@ -425,20 +475,58 @@ def _p(sym: str, v: float) -> str:
     return to_fixed(v, 2 if sym == "XAU/USD" else 5)
 
 
+def _icon(sym: str) -> str:
+    return PAIR_EMOJI.get(sym, "💱")
+
+
+def _cmd_of(sym: str) -> str:
+    return {"XAU/USD": "/gold"}.get(sym, "/" + sym.replace("/", "").lower())
+
+
+def _levels_lines(sym: str, direction: str, entry: float, tp: float, sl: float, state: str) -> list[str]:
+    return [f"{'🟢 BUY' if direction == 'BUY' else '🔴 SELL'} · {STATE_TXT.get(state, state)}",
+            f"📍 Entry: <code>{_p(sym, entry)}</code>", f"🎯 TP: <code>{_p(sym, tp)}</code>", f"🛑 SL: <code>{_p(sym, sl)}</code>"]
+
+
 async def _pair_text(sym: str, detailed: bool = False) -> str:
+    """One pair: price, trend, status, then its trade (or why there is none)."""
     r = (await get_strategy_result(sym))["result"]
     s = r["setup"]
-    lines = [f"<b>{r['displaySymbol']}</b> · {r['strategyName'].split('·')[-1].strip()}",
-             f"Price <code>{_p(sym, r['price'])}</code> · Bias <b>{r['bias']['direction']}</b>",
-             f"Status: <b>{r['status']}</b>" + (f" · score {r['score']}" if r["setup"] else ""),
-             r["headline"]]
-    if s and r["status"] in ("SIGNAL", "WATCH"):
-        lines.append(f"{s['direction']} {s['entryType']} <code>{_p(sym, s['entry'])}</code> · SL <code>{_p(sym, s['sl'])}</code> · "
-                     f"TP1 <code>{_p(sym, s['tp1'])}</code> · TP2 <code>{_p(sym, s['tp2'])}</code> · TP3 <code>{_p(sym, s['tp3'])}</code> · "
-                     f"{STATE_TXT.get(s['lifecycle']['state'], s['lifecycle']['state'])}")
-    if detailed:
-        lines.append("\n".join(f"{'✔' if c['passed'] else '✘'} {c['rule']}" for c in r["checklist"]))
+    running = bool(s) and r["status"] in ("SIGNAL", "WATCH") and s["lifecycle"]["state"] in ("PENDING", "OPEN", "TP1_HIT", "TP2_HIT")
+    status = (f"{STATUS_ICON.get(r['status'], '⚪')} Status: <b>{r['status']}</b> · score {r['score']}" if running
+              else "⚪ Status: <b>NO TRADE</b>")  # a finished trade is history, not a signal
+    lines = [f"{_icon(sym)} <b>{r['displaySymbol']}</b> · {html.escape(r['strategyName'].split('·')[-1].strip())}", LINE,
+             f"💲 Price: <code>{_p(sym, r['price'])}</code>",
+             f"🧭 Trend: {TREND_TXT.get(r['bias']['direction'], '➖ Neutral')}", status]
+    if running:
+        lines += [LINE, *_levels_lines(sym, s["direction"], s["entry"], s["tp3"], s["sl"], s["lifecycle"]["state"])]
+    elif s and s["lifecycle"].get("outcome"):
+        o, rr = s["lifecycle"]["outcome"], s["lifecycle"].get("rMultiple")
+        lines += ["", f"Last trade: {'✅' if o == 'WIN' else '❌' if o == 'LOSS' else '➖'} {o}" + (f" {rr:+.2f}R" if rr is not None else "")]
+    else:
+        lines += ["", f"<i>{html.escape(r['headline'])}</i>"]
     return "\n".join(lines)
+
+
+async def _signal_text() -> str:
+    """Every pair on one line: status, price and its trade."""
+    rows = []
+    for sym in STRATEGY_DEFS:
+        try:
+            r = (await get_strategy_result(sym))["result"]
+        except Exception:
+            rows.append(f"⚠️ <b>{sym}</b> · no data")
+            continue
+        s = r["setup"]
+        running = s and s["lifecycle"]["state"] in ("PENDING", "OPEN", "TP1_HIT", "TP2_HIT") and r["status"] in ("SIGNAL", "WATCH")
+        trade = f"{'🟢 BUY' if s['direction'] == 'BUY' else '🔴 SELL'} · {STATE_TXT.get(s['lifecycle']['state'], '')}" if running else "no trade"
+        rows.append(f"{STATUS_ICON.get(r['status'], '⚪') if running else '⚪'} <b>{sym}</b> <code>{_p(sym, r['price'])}</code>\n      {trade}")
+    now = datetime.now(timezone.utc)
+    return f"📊 <b>Market now</b> · {now:%H:%M} UTC\n{LINE}\n" + "\n".join(rows) + "\n\nDetails: /pairs"
+
+
+def _pairs_text() -> str:
+    return "💱 <b>Pairs</b>\n" + LINE + "\n" + "\n".join(f"{_icon(sym)} {_cmd_of(sym)} · {sym}" for sym in STRATEGY_DEFS)
 
 
 async def _levels_text() -> str:
@@ -461,9 +549,10 @@ async def _news_text() -> str:
     up = sorted((e for e in cal["events"] if e["time"] > now - 1800 and e.get("impact") == "High" and e.get("currency") in NEWS_CCYS),
                 key=lambda e: e["time"])[:8]
     if not up:
-        return "📰 No high-impact news for the app's currencies in the calendar."
-    return "📰 <b>High-impact news (UTC)</b>\n" + "\n".join(f"{fmt_utc_minute(e['time'])} · {e['currency']} {e['title']}" for e in up) + \
-        "\n<i>No signal is sent 30 min before and after these.</i>"
+        return f"📰 <b>High-impact news</b>\n{LINE}\nNothing scheduled for the app's currencies."
+    return (f"📰 <b>High-impact news</b> (UTC)\n{LINE}\n"
+            + "\n".join(f"🕐 {fmt_utc_minute(e['time'])} · <b>{e['currency']}</b> {html.escape(e['title'])}" for e in up)
+            + "\n\n<i>No new signal 30 min before and after.</i>")
 
 
 def _market_text() -> str:
@@ -471,8 +560,8 @@ def _market_text() -> str:
     m = now.hour * 60 + now.minute
     session = "Asia" if m < 7 * 60 else "London" if m < 12 * 60 else "London / New York" if m < 16 * 60 else "New York" if m < 21 * 60 else "Rollover"
     st = market_session_status("XAU/USD")
-    return (f"🕒 {now:%a %H:%M} UTC · {'🟢 market open' if st['isOpen'] else '🔴 market closed'}\nSession: <b>{session}</b>\n"
-            "Forex and gold trade Sunday 22:00 → Friday 21:00 UTC.")
+    return (f"🕒 <b>Market</b> · {now:%a %H:%M} UTC\n{LINE}\n{'🟢 Open' if st['isOpen'] else '🔴 Closed'}\n🌍 Session: <b>{session}</b>\n\n"
+            "<i>Gold and forex: Sunday 22:00 → Friday 21:00 UTC.</i>")
 
 
 RULES = """<b>How the signals work</b>
@@ -550,7 +639,7 @@ async def handle_update(token: str, upd: dict) -> None:
     chat_id = str((msg.get("chat") or {}).get("id") or "")
     if not chat_id or not text:
         return
-    name = (msg.get("from") or {}).get("first_name") or ""
+    name = html.escape((msg.get("from") or {}).get("first_name") or "")
     cmd = text.split()[0].split("@")[0].lower()
     with SessionLocal() as db:
         sub = db.get(Subscriber, chat_id)
@@ -563,8 +652,10 @@ async def handle_update(token: str, upd: dict) -> None:
         elif not text.startswith("/") and not ACTIVATION_RE.fullmatch(text) and not (not active and CODE_RE.fullmatch(text)):
             return  # the bot is not a chat: only its commands and an activation / link code get an answer
         elif cmd == "/start":
-            reply = (f"👋 <b>{name}</b>, your access is active until <b>{_aware(sub.expires_at):%Y-%m-%d}</b>.\n\n{HELP}" if active
-                     else f"👋 Welcome <b>{name}</b>!\n{WELCOME}")
+            reply = (f"👋 Welcome back, <b>{name}</b>\n✅ Access active until <b>{_aware(sub.expires_at):%Y-%m-%d}</b>\n\n"
+                     "Every trade arrives here: entry, TP, SL and your lot, then its follow-up until it closes.\n\n"
+                     "📋 /help · all commands" if active
+                     else f"👋 Welcome, <b>{name}</b>\n{LINE}\n{WELCOME}")
         elif not active and text.startswith("/") and cmd not in ("/help", "/myid"):
             reply = f"⛔ Not activated.\n{WELCOME}"
         elif cmd == "/help":
@@ -576,8 +667,9 @@ async def handle_update(token: str, upd: dict) -> None:
         elif cmd == "/capital":
             reply = _capital_reply(db, sub, active, text)
         elif cmd == "/status":
-            reply = ((f"✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>"
-                      + ("\n⏸ Signals paused: send /resume" if sub.muted else "")) if active else "⛔ Not activated. Send your activation code.")
+            reply = ((f"👤 <b>My access</b>\n{LINE}\n✅ Active until <b>{_aware(sub.expires_at):%Y-%m-%d %H:%M} UTC</b>\n"
+                      + ("⏸ Signals paused · /resume" if sub.muted else "🔔 Signals on")
+                      + f"\n{_risk_text(sub)}") if active else f"⛔ Not activated.\n{WELCOME}")
         elif cmd in ("/stop", "/pause"):
             if sub:
                 sub.muted = True
@@ -597,18 +689,21 @@ async def handle_update(token: str, upd: dict) -> None:
         elif cmd == "/levels":
             reply = await _levels_text()
         elif cmd in ("/signal", "/live", "/now", "/analysis"):
-            reply = "\n\n".join([await _pair_text(sym) for sym in STRATEGY_DEFS])
+            reply = await _signal_text()
+        elif cmd == "/pairs":
+            reply = _pairs_text()
         elif cmd in PAIR_ALIASES:
             reply = await _pair_text(PAIR_ALIASES[cmd], detailed=True)
         elif cmd in ("/open", "/running", "/trades"):
             rows = db.scalars(select(Signal).where(Signal.state.not_in(("CLOSED", "CANCELLED", "EXPIRED"))).order_by(Signal.sent_at.desc())).all()
-            reply = ("🟡 <b>Running signals</b>\n" + "\n".join(
-                f"{x.symbol} {x.direction} <code>{_p(x.symbol, x.entry)}</code> · SL <code>{_p(x.symbol, x.sl)}</code> · TP2 <code>{_p(x.symbol, x.tp2)}</code> · {_res(x)}"
-                for x in rows)) if rows else "No signal running right now."
+            reply = (f"🟡 <b>Running trades</b> ({len(rows)})\n{LINE}\n" + "\n\n".join(
+                f"{_icon(x.symbol)} <b>{x.symbol}</b>\n" + "\n".join(_levels_lines(x.symbol, x.direction, x.entry, x.tp3 or x.tp2, x.sl, x.state))
+                for x in rows)) if rows else f"🟡 <b>Running trades</b>\n{LINE}\nNo trade running right now."
         elif cmd in ("/history", "/last"):
             rows = db.scalars(select(Signal).order_by(Signal.sent_at.desc()).limit(10)).all()
-            reply = ("🗂 <b>Last signals</b>\n" + "\n".join(
-                f"{x.sent_at:%m-%d %H:%M} {x.symbol} {x.direction} <code>{_p(x.symbol, x.entry)}</code> · {_res(x)}" for x in rows)) if rows else "No signal sent yet."
+            reply = (f"🗂 <b>Last signals</b>\n{LINE}\n" + "\n".join(
+                f"<code>{x.sent_at:%m-%d %H:%M}</code> {'🟢' if x.direction == 'BUY' else '🔴'} <b>{x.symbol}</b> · {_res(x)}" for x in rows)
+                ) if rows else f"🗂 <b>Last signals</b>\n{LINE}\nNo signal sent yet."
         elif cmd in ("/stats", "/winrate", "/performance", "/results"):
             all_rows = db.scalars(select(Signal)).all()
             since = datetime.now(timezone.utc) - timedelta(days=30)
@@ -616,14 +711,16 @@ async def handle_update(token: str, upd: dict) -> None:
 
             def block(title, rows):
                 s = stats(rows, "signal")
-                per = " · ".join(f"{k} {v['winRate'] if v['winRate'] is not None else '—'}% ({v['totalR']:+}R)" for k, v in s["bySymbol"].items())
-                return (f"<b>{title}</b>: {s['total']} signals · {s['closed']} closed · {s['open']} open\n"
-                        f"✅ {s['wins']} · ❌ {s['losses']} · ➖ {s['breakevens']} · win rate <b>{s['winRate'] if s['winRate'] is not None else '—'}%</b> · "
-                        f"total <b>{s['totalR']:+}R</b>" + (f"\n{per}" if per else ""))
-            reply = f"📊 {block('Last 30 days', recent)}\n\n{block('All time', all_rows)}"
+                wr = f"{s['winRate']}%" if s["winRate"] is not None else "—"
+                per = "\n".join(f"   {k} · {v['winRate'] if v['winRate'] is not None else '—'}% · {v['totalR']:+}R" for k, v in s["bySymbol"].items())
+                return (f"<b>{title}</b>\n{s['total']} signals · {s['closed']} closed · {s['open']} running\n"
+                        f"✅ {s['wins']}   ❌ {s['losses']}   ➖ {s['breakevens']}\n"
+                        f"🎯 Win rate <b>{wr}</b> · total <b>{s['totalR']:+}R</b>" + (f"\n{per}" if per else ""))
+            reply = f"📊 <b>Results</b>\n{LINE}\n{block('Last 30 days', recent)}\n\n{block('All time', all_rows)}"
         elif not text.startswith("/"):  # an activation code (the only text the bot reads)
             out = activate(db, chat_id, text, name)
-            reply = (f"🎉 Activated ({out.get('label') or 'access'}) until <b>{out['expiresAt'][:10]}</b>. Send /help to see the commands."
+            reply = (f"🎉 <b>Activated</b> · {out.get('label') or 'access'}\n{LINE}\n✅ Until <b>{out['expiresAt'][:10]}</b>\n\n"
+                     "Set your risk to get your lot with every trade: /risk 80\n📋 /help · all commands"
                      if out["success"] else f"⛔ {out['error']}.")
         else:
             reply = HELP
@@ -639,6 +736,7 @@ async def poll_forever(stop: asyncio.Event) -> None:
         if not token:
             await asyncio.sleep(30)
             continue
+        await sync_profile(token)
         data = await call(token, "getUpdates", {"offset": offset, "timeout": 25, "allowed_updates": ["message"]})
         if not data.get("ok"):
             await asyncio.sleep(5)
@@ -655,5 +753,5 @@ def recent_signals(db: Session, limit: int = 50) -> list[dict]:
     return [signal_json(s) for s in db.scalars(select(Signal).order_by(Signal.sent_at.desc()).limit(limit))]
 
 
-__all__ = ["dispatch_setup", "notify_closed", "format_close_message", "send_message", "bot_info", "set_webhook", "handle_update", "format_signal_message", "activate", "active_subscribers", "trace_leak",
+__all__ = ["dispatch_setup", "notify_closed", "send_update", "format_close_message", "send_message", "bot_info", "set_webhook", "handle_update", "format_signal_message", "activate", "active_subscribers", "trace_leak",
            "poll_forever", "history", "recent_signals", "market_session_status"]

@@ -16,8 +16,10 @@ from ..strategies.service import STRATEGY_DEFS, get_strategy_result
 from ..strategies.shared.jsnum import iso
 from ..strategies.shared.types import TF_SEC
 from ..trading import update_signal_outcomes
+from ..followup import follow_up
 from ..push import push_closed, push_setup
-from .bot import dispatch_setup, notify_closed
+from ..store import get_setting
+from .bot import dispatch_setup, notify_closed, sync_profile
 
 GRACE = 1.2
 RETRY = 2.0
@@ -56,6 +58,10 @@ async def process_bundle(sym: str, bundle: dict) -> str:
             await push_closed(ended)
         except Exception as err:  # never blocks the new signal below
             print(f"[result] {sym}: {err!r}")
+    try:  # running trades: filled, +1R, near SL, news ahead
+        await follow_up(sym, r.get("price"))
+    except Exception as err:
+        print(f"[follow-up] {sym}: {err!r}")
     if r["canNotify"] and r["setup"]:
         out = await dispatch_setup(sym, manual=False)
         try:  # app notifications (Web Push), independent of Telegram
@@ -103,6 +109,13 @@ async def tick() -> dict:
         except Exception as err:  # one symbol failing must not stop the others
             return f"error: {err!r}"
 
+    try:  # the bot's menu and description follow the code (once per instance)
+        with SessionLocal() as db:
+            token = get_setting(db, "telegram")["botToken"]
+        if token:
+            await asyncio.wait_for(sync_profile(token), timeout=5)
+    except Exception:
+        pass
     syms = list(STRATEGY_DEFS)
     return dict(zip(syms, await asyncio.gather(*(one(s) for s in syms))))
 

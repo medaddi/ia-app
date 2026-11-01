@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X } from 'lucide-react';
 import type { StrategyResult, TpReach } from '../strategyTypes';
+import { TradeManagement } from './TradeManagement';
 import { TradeProgress } from './TradeProgress';
 
 interface ExunuActiveSetupProps {
@@ -116,6 +117,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
           {/* The trade as a live bar: stop, entry and target, with the price now moving between them */}
           <TradeProgress direction={s.direction} entry={s.entry} sl={s.sl} tp={s.tp3} price={result.price} decimals={result.spec.decimals}
             pip={result.spec.pipSize} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
+          <TradeManagement result={result} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
           <AutoLot symbol={result.spec.displaySymbol} entry={s.entry} sl={s.sl} t={t} />
           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-mono">
             <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-300">1:{rrTarget.toFixed(1)}</span>

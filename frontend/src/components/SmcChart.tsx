@@ -355,7 +355,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       let snap: number | null = null;
       for (const b of bars) { if (b.time <= signalBarTime) snap = b.time; else break; }
       const buy = setup.direction === 'BUY';
-      if (snap !== null) markers.push({ time: snap as Time, position: buy ? 'belowBar' : 'aboveBar', color: buy ? PAL[theme].bull : PAL[theme].bear, shape: buy ? 'arrowUp' : 'arrowDown', text: `${setup.direction} · ${result!.score}`, size: 1.2 });
+      if (snap !== null) markers.push({ time: snap as Time, position: buy ? 'belowBar' : 'aboveBar', color: buy ? PAL[theme].bull : PAL[theme].bear, shape: buy ? 'arrowUp' : 'arrowDown', text: setup.direction, size: 1.2 });
     }
     markersRef.current?.setMarkers(markers);
   }, [result, bars, layers, tfSec, timeframe, theme, setup, signalBarTime]);
