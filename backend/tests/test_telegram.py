@@ -215,11 +215,17 @@ def test_chart_picture_and_command(monkeypatch):
     init_db()
 
     # The picture: a PNG of the pair with its trade
-    candles = [Candle(time=1_800_000_000 + i * 3600, open=100 + math.sin(i / 5), high=101 + math.sin(i / 5), low=99 + math.sin(i / 5),
+    candles = [Candle(time=1_800_000_000 + i * 900, open=100 + math.sin(i / 5), high=101 + math.sin(i / 5), low=99 + math.sin(i / 5),
                       close=100.3 + math.sin(i / 5), volume=0) for i in range(300)]
     result = {"spec": {"decimals": 2}, "displaySymbol": "XAU/USD", "strategyName": "Gold · H1 Trend Breakout", "price": 100.2, "status": "SIGNAL",
               "setup": {"direction": "SELL", "entry": 100.5, "sl": 102.5, "tp3": 96.5, "signalTime": candles[-5].time, "lifecycle": {"state": "OPEN"}}}
-    png = chart_image.render("XAU/USD", candles, result, "H1", [50, 200])
+    result.update(drawings=[{"kind": "hline", "layer": "structure", "t1": candles[-40].time, "t2": None, "p1": 100.4,
+                             "text": "Breakout 20h low", "color": "bear", "style": "solid"}],
+                  checklist=[{"rule": "H1 close beyond the 20-hour low", "passed": True}, {"rule": "Spread <= $0.5", "passed": True}],
+                  timeframes={"entry": "H1"}, headline="SELL breakout")
+    png = chart_image.render_chart(candles, result)
+    card = chart_image.render_card(result, {"verdict": "HOLD", "action": {"en": "Hold: plan intact."}})
+    assert card[:8] == b"\x89PNG\r\n\x1a\n" and len(card) > 5_000  # the follow-up card
     assert png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 10_000
 
     # The bot: /chart lists the pairs, /chart_gold sends the picture

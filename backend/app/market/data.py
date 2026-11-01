@@ -32,6 +32,10 @@ _client: httpx.AsyncClient | None = None
 _price_cache: dict[str, tuple[dict, float]] = {}
 _raw_cache: dict[str, tuple[list[Candle], float]] = {}
 _last_known: dict[str, dict] = {}
+# Gold: the last real spot − futures gap (spot feed vs COMEX GC=F). When the spot feed is down, the futures price is put
+# back in spot terms with it, so prices, candles and a trade's levels never jump by the gap between two views.
+_gold_basis: list[float] = []
+SPOT_SOURCE = "Interbank OTC Spot Feed (gold-api)"
 
 
 def client() -> httpx.AsyncClient:
@@ -144,7 +148,7 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
                 if 2000 < p < 8000:
                     chg = float(d.get("chgp") or d.get("changePercent") or 0)
                     price = round_to(p, 2)
-                    result = _price_result(sym, price, chg, round_to(price + 14.5, 2), round_to(price - 12, 2), "Interbank OTC Spot Feed (gold-api)")
+                    result = _price_result(sym, price, chg, round_to(price + 14.5, 2), round_to(price - 12, 2), SPOT_SOURCE)
         except (httpx.HTTPError, ValueError, TypeError):
             pass
     if result is None and sym in FX_TICKERS:
@@ -161,10 +165,13 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
         if ok:
             prev = float(meta.get("previousClose") or meta.get("chartPreviousClose") or p) or p
             dec = 5 if fx else 2
-            price = round_to(p, dec)
+            if not fx and not _gold_basis and _last_known.get(sym, {}).get("source") == SPOT_SOURCE:
+                return {**_last_known[sym], "lastUpdated": int(time.time() * 1000)}  # no gap known yet: the last real spot
+            adj = 0.0 if fx else (_gold_basis[0] if _gold_basis else 0.0)  # gold futures back in spot terms
+            price = round_to(p + adj, dec)
             result = _price_result(sym, price, round_to((p - prev) / prev * 100, 2),
-                                   float(meta.get("regularMarketDayHigh") or price), float(meta.get("regularMarketDayLow") or price),
-                                   f"Interbank Forex {FX_TICKERS[sym]}" if fx else "COMEX / Interbank Gold Feed (GC=F)")
+                                   round_to(float(meta.get("regularMarketDayHigh") or p) + adj, dec), round_to(float(meta.get("regularMarketDayLow") or p) + adj, dec),
+                                   f"Interbank Forex {FX_TICKERS[sym]}" if fx else f"COMEX GC=F adjusted to spot ({adj:+g})")
     if result is None:
         last = _last_known.get(sym)
         if last:
@@ -255,10 +262,16 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
             last = candles[-1]
             # Spot-futures basis (gold only). Ignore implausible gaps (stale spot feed, contract roll day).
             basis = 0.0
-            if not euro and spot:
-                raw = spot - last.close
-                if abs(raw) / spot < 0.02:
-                    basis = round_to(raw, 2)
+            if not euro:
+                # The gap is measured only against the real spot feed; otherwise the last measured one is reused
+                live = await fetch_live_price(symbol)
+                if live.get("source") == SPOT_SOURCE and live.get("price"):
+                    raw = live["price"] - last.close
+                    if abs(raw) / live["price"] < 0.02:
+                        basis = round_to(raw, 2)
+                        _gold_basis[:] = [basis]
+                elif _gold_basis:
+                    basis = _gold_basis[0]
             if basis:
                 for c in candles:
                     c.open, c.high, c.low, c.close = (round_to(x + basis, decimals) for x in (c.open, c.high, c.low, c.close))

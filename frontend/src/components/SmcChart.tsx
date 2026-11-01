@@ -250,10 +250,15 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     ro.observe(el);
     return () => {
       ro.disconnect();
-      chart.remove();
       chartRef.current = null;
       candleRef.current = null;
+      volRef.current = null;
+      emaRefs.current = [];
+      bandRefs.current = [];
+      markersRef.current = null;
       primitiveRef.current = null;
+      // Removed on the next frame: a repaint already scheduled for this one would otherwise draw a disposed chart
+      requestAnimationFrame(() => { try { chart.remove(); } catch { /* already gone */ } });
     };
   }, [theme, decimals]);
 

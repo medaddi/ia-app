@@ -704,6 +704,7 @@ async def handle_update(token: str, upd: dict) -> None:
     display = " · ".join(x for x in (sender.get("first_name") or "", f"@{sender['username']}" if sender.get("username") else "") if x)[:120]
     cmd = text.split()[0].split("@")[0].lower()
     markup: Optional[dict] = None
+    pictures: list[str] = []  # pairs whose running trade follows the reply as pictures (chart, then its follow-up card)
     with SessionLocal() as db:
         sub = db.get(Subscriber, chat_id)
         account = account_of(db, chat_id)  # access comes only from a linked, active app account
@@ -759,6 +760,7 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = await _levels_text()
         elif cmd in ("/signal", "/live", "/now", "/analysis"):
             reply = await _signal_text()
+            pictures = await _running_pairs()
         elif cmd == "/pairs":
             reply = _pairs_text()
         elif cmd == "/chart":
@@ -782,6 +784,7 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = (f"🟡 <b>Running trades</b> ({len(rows)})\n{LINE}\n" + "\n\n".join(
                 f"{_icon(x.symbol)} <b>{x.symbol}</b>\n" + "\n".join(_levels_lines(x.symbol, x.direction, x.entry, x.tp3 or x.tp2, x.sl, x.state))
                 for x in rows)) if rows else f"🟡 <b>Running trades</b>\n{LINE}\nNo trade running right now."
+            pictures = list(dict.fromkeys(x.symbol for x in rows))
         elif cmd in ("/history", "/last"):
             rows = db.scalars(select(Signal).order_by(Signal.sent_at.desc()).limit(10)).all()
             reply = (f"🗂 <b>Last signals</b>\n{LINE}\n" + "\n".join(
@@ -803,6 +806,27 @@ async def handle_update(token: str, upd: dict) -> None:
         else:
             reply = HELP
     await send_message(token, chat_id, reply, markup)
+    for sym in pictures[:4]:  # each running trade: how it was set up, then where it stands now
+        try:
+            from .chart_image import trade_pictures
+            for png, caption in await trade_pictures(sym):
+                await send_photo(token, chat_id, png, caption)
+        except Exception as err:  # a picture that fails never hides the text reply
+            print(f"[telegram] pictures for {sym} failed: {err!r}")
+
+
+async def _running_pairs() -> list[str]:
+    """The pairs with a trade running now (from the cached analyses)."""
+    out = []
+    for sym in STRATEGY_DEFS:
+        try:
+            r = (await get_strategy_result(sym))["result"]
+        except Exception:
+            continue
+        s = r["setup"]
+        if s and s["lifecycle"]["state"] in ("PENDING", "OPEN", "TP1_HIT", "TP2_HIT") and r["status"] in ("SIGNAL", "WATCH"):
+            out.append(sym)
+    return out
 
 
 async def poll_forever(stop: asyncio.Event) -> None:
