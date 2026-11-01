@@ -31,16 +31,8 @@ export const SentimentRadar: React.FC<SentimentProps> = ({ sentiment, lang, them
           </div>
           <div>
             <h3 className={`font-bold text-sm flex items-center gap-2 ${isLight ? 'text-ink-strong' : 'text-white'}`}>
-              <span>{isFr ? 'Radar de Sentiment & Flux Social' : isAr ? 'تحليل المشاعر والتدفق المؤسساتي' : 'Sentiment Radar & Flow'}</span>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${
-                isLight ? 'bg-paper text-gold-700 border-gold-200' : 'bg-surface-2 text-gold-400 border-gold-700'
-              }`}>
-                Institutional Aggregate
-              </span>
+              <span>{isFr ? 'Sentiment' : isAr ? 'مزاج السوق' : 'Sentiment'}</span>
             </h3>
-            <p className={`text-xs ${isLight ? 'text-slate-500' : 'text-slate-400'}`}>
-              {isFr ? 'Agrégation des positions institutionnelles et sentiment retail' : isAr ? 'قياس مزاج السوق وتمركزات السيولة المؤسساتية' : 'Aggregated market positioning & institutional sentiment'}
-            </p>
           </div>
         </div>
 

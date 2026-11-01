@@ -328,13 +328,14 @@ export default function App() {
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <InternalPageTemplate subtitle={isFr ? 'Les annonces économiques fortes : aucun signal 30 min autour.' : isAr ? 'الأخبار الاقتصادية القوية: حتى إشارة 30 دقيقة قبل وبعد.' : 'High-impact economic news: no signal 30 min around them.'}>
-                <NewsAISection
-                  news={news}
-                  lang={lang}
-                  theme={theme}
-                  onRefreshNews={loadNews}
-                />
-                <SentimentRadar sentiment={sentiment} lang={lang} theme={theme} />
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+                  <div className="xl:col-span-8 min-w-0">
+                    <NewsAISection news={news} lang={lang} theme={theme} onRefreshNews={loadNews} />
+                  </div>
+                  <div className="xl:col-span-4 min-w-0 xl:sticky xl:top-0">
+                    <SentimentRadar sentiment={sentiment} lang={lang} theme={theme} />
+                  </div>
+                </div>
               </InternalPageTemplate>
             </motion.div>
           )}

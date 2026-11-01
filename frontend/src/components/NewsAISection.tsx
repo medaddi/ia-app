@@ -65,23 +65,16 @@ export const NewsAISection: React.FC<NewsProps> = ({ news, lang, theme = 'dark',
             <div className="flex items-center gap-2">
               <h3 className="font-extrabold text-sm sm:text-base text-white tracking-tight">
                 {isFr
-                  ? 'Flux Macroéconomique & Impact de Liquidité 24/7'
+                  ? 'Actualités macro'
                   : isAr
-                  ? 'رادار الأخبار الماكرو وتأثيرها المباشر على السيولة'
-                  : 'Live Macroeconomic News & Liquidity Radar'}
+                  ? 'أخبار الماكرو'
+                  : 'Macro news'}
               </h3>
               <span className="flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full bg-gold-500/15 text-gold-500 border border-gold-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-pulse" />
                 <span>{isFr ? 'En Direct' : isAr ? 'بث حي ومحدث' : 'Real-time Feed'}</span>
               </span>
             </div>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              {isFr
-                ? 'Données temps réel (Reuters, Bloomberg, Fed, Yahoo) intégrées dans notre moteur de décision 10 Piliers.'
-                : isAr
-                ? 'جلب فوري ولحظي من مصادر معتمدة دولياً ومربوطة بمحرك قرارات الصفقات لمنع التداول العشوائي.'
-                : 'Live multi-source feeds (Yahoo Finance, Reuters, Bloomberg) directly factoring into our 10-Pillar Decision Engine.'}
-            </p>
           </div>
         </div>
 
@@ -118,19 +111,6 @@ export const NewsAISection: React.FC<NewsProps> = ({ news, lang, theme = 'dark',
                   : (isFr ? 'MARCHÉ STABLE : CONDITIONS FAVORABLES AUX TRADES' : isAr ? 'المحيط الاقتصادي مستقر: مسموح بتنفيذ الصفقات الفنية' : 'MACRO BACKDROP CLEAR: TECHNICAL SETUPS ALLOWED')}
               </span>
             </div>
-            <p className="text-xs leading-relaxed text-zinc-400 mt-0.5">
-              {hasActiveLockout
-                ? (isFr
-                    ? 'Des événements économiques majeurs ou une volatilité incertaine ont été détectés. Le robot bloque tout nouveau trade pour protéger votre capital.'
-                    : isAr
-                    ? 'تم رصد بيانات اقتصادية فائقة التأثير أو تضارب حاد في السوق. تم تعليق فتح الصفقات آلياً لمنع الانزلاقات السعرية وحماية الحساب بنسبة 100%.'
-                    : 'Major economic releases or market uncertainty detected. The desk halts new executions to preserve capital.')
-                : (isFr
-                    ? 'Aucun risque macroéconomique bloquant. Les signaux techniques SMC sont autorisés avec le strict respect du risque 1%.'
-                    : isAr
-                    ? 'لا توجد بيانات اقتصادية مفاجئة تعارض الاتجاه. الصفقات الفنية مسموح بتنفيذها بعد تأكيد كسر الهيكل وشمعة التأكيد.'
-                    : 'Zero conflicting macro hazards detected. Signals are verified with 1% risk allocation.')}
-            </p>
           </div>
         </div>
 

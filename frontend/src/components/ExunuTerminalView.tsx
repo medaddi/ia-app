@@ -139,7 +139,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             <AgentsConsensus consensus={(bundle as any).consensus as Consensus} hasSetup={!!result?.setup} lang={lang as Language} />
           )}
         </div>
-        <div className="lg:col-span-4 min-w-0">
+        <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
           <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />
         </div>
       </div>

@@ -495,6 +495,19 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                 <div className="mt-1 font-mono text-sm text-white tabular-nums">{mmss(session.h4)}</div>
               </div>
             </div>
+            <div className="flex-1 min-h-0">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 mb-1.5"><Newspaper className="w-3.5 h-3.5" aria-hidden="true" />{t('High-impact news', 'News à fort impact', 'أخبار قوية')}</div>
+              {data.news.length === 0 ? <p className="text-xs text-slate-500">{t('Nothing scheduled', 'Rien de prévu', 'ما كاين والو')}</p> : (
+                <ul className="space-y-1 text-xs">
+                  {data.news.slice(0, 3).map(n => (
+                    <li key={n.id} className={`flex items-center gap-2 min-w-0 ${n.isLockoutEvent ? 'text-amber-300' : 'text-slate-300'}`}>
+                      <span className="font-mono text-slate-500 shrink-0">{n.publishedAt.slice(5, 16).replace('T', ' ')}</span>
+                      <span className="truncate" title={n.title}>{n.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
         </Reveal>
       </div>
@@ -509,7 +522,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                 {t('Open trades', 'Trades en cours', 'الصفقات الجارية')} <span className="font-mono text-emerald-300">{running.length}</span>
               </h3>
             </header>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,max(300px,calc((100%-1.5rem)/3))),1fr))]">
               {running.map(m => {
                 const s = m.setup!;
                 return (
@@ -544,64 +557,6 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
             </div>
           </Reveal>
         ))}
-      </div>
-
-      {/* Equity + profit/loss days */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <Reveal i={9} className="xl:col-span-8">
-          <Panel icon={<ChartSpline className="w-4 h-4" />}
-            title={mode === 'me' ? t('Equity curve ($, closed trades)', 'Courbe de capital ($, trades clôturés)', 'منحنى الرصيد ($، صفقات مسدودة)') : t('Strategies equity (R, closed signals)', 'Capital des stratégies (R, signaux clôturés)', 'منحنى الاستراتيجيات (R)')}>
-            <EquityChart days={days.days} mode={mode} lang={lang} />
-          </Panel>
-        </Reveal>
-        <Reveal i={10} className="xl:col-span-4">
-          <Panel icon={<Trophy className="w-4 h-4" />} title={t('Profit days & loss days', 'Jours gagnants & perdants', 'أيام الربح وأيام الخسارة')}>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3">
-                <div className="text-slate-400">{t('Profit days', 'Jours gagnants', 'أيام الربح')}</div>
-                <div className="font-mono text-3xl font-semibold text-emerald-400">▲ <Counter value={days.profitDays} format={v => String(Math.round(v))} /></div>
-                <div className="text-slate-500 font-mono">{t('avg', 'moy.', 'المعدل')} {days.avgProfitDay !== null ? fmt(days.avgProfitDay) : '—'}</div>
-              </div>
-              <div className="rounded-xl border border-rose-500/25 bg-rose-500/5 p-3">
-                <div className="text-slate-400">{t('Loss days', 'Jours perdants', 'أيام الخسارة')}</div>
-                <div className="font-mono text-3xl font-semibold text-rose-400">▼ <Counter value={days.lossDays} format={v => String(Math.round(v))} /></div>
-                <div className="text-slate-500 font-mono">{t('avg', 'moy.', 'المعدل')} {days.avgLossDay !== null ? fmt(days.avgLossDay) : '—'}</div>
-              </div>
-            </div>
-            {days.profitDays + days.lossDays > 0 && (
-              <div className="mt-3 flex h-2 rounded-full overflow-hidden gap-0.5" aria-hidden="true">
-                <motion.div className="bg-emerald-500 rounded-full" initial={{ width: 0 }} animate={{ width: `${profitShare}%` }} transition={{ duration: 0.7, ease: EASE }} />
-                <motion.div className="bg-rose-500 rounded-full flex-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.3 }} />
-              </div>
-            )}
-            <dl className="mt-3 space-y-1.5 text-xs">
-              {[
-                [t('Day win rate', 'Jours gagnants %', 'نسبة الأيام الرابحة'), days.dayWinRate !== null ? `${days.dayWinRate}%` : '—', undefined],
-                [t('Best day', 'Meilleur jour', 'أحسن نهار'), days.bestDay ? `${fmt(days.bestDay.value)} · ${days.bestDay.day.slice(5)}` : '—', tone(days.bestDay?.value)],
-                [t('Worst day', 'Pire jour', 'أسوأ نهار'), days.worstDay ? `${fmt(days.worstDay.value)} · ${days.worstDay.day.slice(5)}` : '—', tone(days.worstDay?.value)],
-                [t('Current streak', 'Série actuelle', 'السلسلة الحالية'), days.streak ? `${days.streak > 0 ? '▲' : '▼'} ${Math.abs(days.streak)} ${days.streak > 0 ? t('profit day(s)', 'jour(s) gagnant(s)', 'أيام ربح') : t('loss day(s)', 'jour(s) perdant(s)', 'أيام خسارة')}` : '—', tone(days.streak)],
-                [t('Flat days', 'Jours neutres', 'أيام بلا نتيجة'), String(days.flatDays), undefined],
-              ].map(([k, v, c]) => (
-                <div key={k as string} className="flex items-center justify-between gap-2 border-t border-line pt-1.5">
-                  <dt className="text-slate-500">{k}</dt><dd className={`font-mono ${c ?? 'text-slate-200'}`}>{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </Panel>
-        </Reveal>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <Reveal i={11} className="xl:col-span-7">
-          <Panel icon={<Target className="w-4 h-4" />} title={t('Result per day · last 30 trading days', 'Résultat par jour · 30 derniers jours', 'النتيجة ديال كل نهار · آخر 30 يوم')}>
-            <DailyBars days={days.days} mode={mode} lang={lang} />
-          </Panel>
-        </Reveal>
-        <Reveal i={12} className="xl:col-span-5">
-          <Panel icon={<CalendarDays className="w-4 h-4" />} title={t('This month', 'Ce mois', 'هاد الشهر')}>
-            <MonthCalendar days={days.days} mode={mode} lang={lang} />
-          </Panel>
-        </Reveal>
       </div>
 
       {/* Live analysis */}
@@ -659,7 +614,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                       <span className={`font-mono ${m.liveGrade.score >= 60 ? 'text-emerald-300' : 'text-slate-300'}`}>{m.liveGrade.grade} · {m.liveGrade.score}%</span>
                     </div>
                   )}
-                  <p className="mt-2 text-xs text-slate-400 leading-relaxed line-clamp-2">{m.dataOk ? m.headline : m.dataReason}</p>
+                  {!m.dataOk && <p className="mt-2 text-xs text-amber-300/80 line-clamp-2">{m.dataReason}</p>}
                 </motion.button>
               );
             })}
@@ -667,11 +622,114 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
         </Panel>
       </Reveal>
 
+      {/* History: curve + day stats, then daily bars + month; with fewer than two closed days only the day stats and the month */}
+      {days.days.length >= 2 ? (<>
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <Reveal i={13} className="xl:col-span-5">
+        <Reveal i={9} className="xl:col-span-8">
+          <Panel icon={<ChartSpline className="w-4 h-4" />}
+            title={mode === 'me' ? t('Equity curve ($, closed trades)', 'Courbe de capital ($, trades clôturés)', 'منحنى الرصيد ($، صفقات مسدودة)') : t('Strategies equity (R, closed signals)', 'Capital des stratégies (R, signaux clôturés)', 'منحنى الاستراتيجيات (R)')}>
+            <EquityChart days={days.days} mode={mode} lang={lang} />
+          </Panel>
+        </Reveal>
+        <Reveal i={10} className="xl:col-span-4">
+          <Panel icon={<Trophy className="w-4 h-4" />} title={t('Profit days & loss days', 'Jours gagnants & perdants', 'أيام الربح وأيام الخسارة')}>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3">
+                <div className="text-slate-400">{t('Profit days', 'Jours gagnants', 'أيام الربح')}</div>
+                <div className="font-mono text-3xl font-semibold text-emerald-400">▲ <Counter value={days.profitDays} format={v => String(Math.round(v))} /></div>
+                <div className="text-slate-500 font-mono">{t('avg', 'moy.', 'المعدل')} {days.avgProfitDay !== null ? fmt(days.avgProfitDay) : '—'}</div>
+              </div>
+              <div className="rounded-xl border border-rose-500/25 bg-rose-500/5 p-3">
+                <div className="text-slate-400">{t('Loss days', 'Jours perdants', 'أيام الخسارة')}</div>
+                <div className="font-mono text-3xl font-semibold text-rose-400">▼ <Counter value={days.lossDays} format={v => String(Math.round(v))} /></div>
+                <div className="text-slate-500 font-mono">{t('avg', 'moy.', 'المعدل')} {days.avgLossDay !== null ? fmt(days.avgLossDay) : '—'}</div>
+              </div>
+            </div>
+            {days.profitDays + days.lossDays > 0 && (
+              <div className="mt-3 flex h-2 rounded-full overflow-hidden gap-0.5" aria-hidden="true">
+                <motion.div className="bg-emerald-500 rounded-full" initial={{ width: 0 }} animate={{ width: `${profitShare}%` }} transition={{ duration: 0.7, ease: EASE }} />
+                <motion.div className="bg-rose-500 rounded-full flex-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.3 }} />
+              </div>
+            )}
+            <dl className="mt-3 space-y-1.5 text-xs">
+              {[
+                [t('Day win rate', 'Jours gagnants %', 'نسبة الأيام الرابحة'), days.dayWinRate !== null ? `${days.dayWinRate}%` : '—', undefined],
+                [t('Best day', 'Meilleur jour', 'أحسن نهار'), days.bestDay ? `${fmt(days.bestDay.value)} · ${days.bestDay.day.slice(5)}` : '—', tone(days.bestDay?.value)],
+                [t('Worst day', 'Pire jour', 'أسوأ نهار'), days.worstDay ? `${fmt(days.worstDay.value)} · ${days.worstDay.day.slice(5)}` : '—', tone(days.worstDay?.value)],
+                [t('Current streak', 'Série actuelle', 'السلسلة الحالية'), days.streak ? `${days.streak > 0 ? '▲' : '▼'} ${Math.abs(days.streak)} ${days.streak > 0 ? t('profit day(s)', 'jour(s) gagnant(s)', 'أيام ربح') : t('loss day(s)', 'jour(s) perdant(s)', 'أيام خسارة')}` : '—', tone(days.streak)],
+                [t('Flat days', 'Jours neutres', 'أيام بلا نتيجة'), String(days.flatDays), undefined],
+              ].map(([k, v, c]) => (
+                <div key={k as string} className="flex items-center justify-between gap-2 border-t border-line pt-1.5">
+                  <dt className="text-slate-500">{k}</dt><dd className={`font-mono ${c ?? 'text-slate-200'}`}>{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </Panel>
+        </Reveal>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <Reveal i={11} className="xl:col-span-7">
+          <Panel icon={<Target className="w-4 h-4" />} title={t('Result per day · last 30 trading days', 'Résultat par jour · 30 derniers jours', 'النتيجة ديال كل نهار · آخر 30 يوم')}>
+            <DailyBars days={days.days} mode={mode} lang={lang} />
+          </Panel>
+        </Reveal>
+        <Reveal i={12} className="xl:col-span-5">
+          <Panel icon={<CalendarDays className="w-4 h-4" />} title={t('This month', 'Ce mois', 'هاد الشهر')}>
+            <MonthCalendar days={days.days} mode={mode} lang={lang} />
+          </Panel>
+        </Reveal>
+      </div>
+      </>) : (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <Reveal i={9} className="lg:col-span-5">
+          <Panel icon={<Trophy className="w-4 h-4" />} title={t('Profit days & loss days', 'Jours gagnants & perdants', 'أيام الربح وأيام الخسارة')}>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3">
+                <div className="text-slate-400">{t('Profit days', 'Jours gagnants', 'أيام الربح')}</div>
+                <div className="font-mono text-3xl font-semibold text-emerald-400">▲ <Counter value={days.profitDays} format={v => String(Math.round(v))} /></div>
+                <div className="text-slate-500 font-mono">{t('avg', 'moy.', 'المعدل')} {days.avgProfitDay !== null ? fmt(days.avgProfitDay) : '—'}</div>
+              </div>
+              <div className="rounded-xl border border-rose-500/25 bg-rose-500/5 p-3">
+                <div className="text-slate-400">{t('Loss days', 'Jours perdants', 'أيام الخسارة')}</div>
+                <div className="font-mono text-3xl font-semibold text-rose-400">▼ <Counter value={days.lossDays} format={v => String(Math.round(v))} /></div>
+                <div className="text-slate-500 font-mono">{t('avg', 'moy.', 'المعدل')} {days.avgLossDay !== null ? fmt(days.avgLossDay) : '—'}</div>
+              </div>
+            </div>
+            {days.profitDays + days.lossDays > 0 && (
+              <div className="mt-3 flex h-2 rounded-full overflow-hidden gap-0.5" aria-hidden="true">
+                <motion.div className="bg-emerald-500 rounded-full" initial={{ width: 0 }} animate={{ width: `${profitShare}%` }} transition={{ duration: 0.7, ease: EASE }} />
+                <motion.div className="bg-rose-500 rounded-full flex-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.3 }} />
+              </div>
+            )}
+            <dl className="mt-3 space-y-1.5 text-xs">
+              {[
+                [t('Day win rate', 'Jours gagnants %', 'نسبة الأيام الرابحة'), days.dayWinRate !== null ? `${days.dayWinRate}%` : '—', undefined],
+                [t('Best day', 'Meilleur jour', 'أحسن نهار'), days.bestDay ? `${fmt(days.bestDay.value)} · ${days.bestDay.day.slice(5)}` : '—', tone(days.bestDay?.value)],
+                [t('Worst day', 'Pire jour', 'أسوأ نهار'), days.worstDay ? `${fmt(days.worstDay.value)} · ${days.worstDay.day.slice(5)}` : '—', tone(days.worstDay?.value)],
+                [t('Current streak', 'Série actuelle', 'السلسلة الحالية'), days.streak ? `${days.streak > 0 ? '▲' : '▼'} ${Math.abs(days.streak)} ${days.streak > 0 ? t('profit day(s)', 'jour(s) gagnant(s)', 'أيام ربح') : t('loss day(s)', 'jour(s) perdant(s)', 'أيام خسارة')}` : '—', tone(days.streak)],
+                [t('Flat days', 'Jours neutres', 'أيام بلا نتيجة'), String(days.flatDays), undefined],
+              ].map(([k, v, c]) => (
+                <div key={k as string} className="flex items-center justify-between gap-2 border-t border-line pt-1.5">
+                  <dt className="text-slate-500">{k}</dt><dd className={`font-mono ${c ?? 'text-slate-200'}`}>{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </Panel>
+        </Reveal>
+        <Reveal i={10} className="lg:col-span-7">
+          <Panel icon={<CalendarDays className="w-4 h-4" />} title={t('This month', 'Ce mois', 'هاد الشهر')}>
+            <MonthCalendar days={days.days} mode={mode} lang={lang} />
+          </Panel>
+        </Reveal>
+      </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <Reveal i={13} className="xl:col-span-7">
           <Panel icon={<Activity className="w-4 h-4" />} title={mode === 'me' ? t('My result per pair ($)', 'Mon résultat par paire ($)', 'النتيجة ديالي حسب الزوج ($)') : t('Signals sent: result per pair', 'Signaux envoyés : résultat par paire', 'الإشارات المرسلة حسب الزوج')}>
             {pairRows.length === 0
-              ? <p className="text-xs text-slate-500">{mode === 'me' ? t('Log the trades you take (Account page) to see your result per pair.', 'Enregistrez vos trades (page Compte) pour voir votre résultat par paire.', 'سجل الصفقات ديالك (صفحة الحساب) باش تشوف النتيجة حسب الزوج.') : t('No closed signal yet: results appear once a signal reaches its TP or SL.', 'Aucun signal clôturé : les résultats apparaissent quand un signal touche son TP ou SL.', 'ما كاين حتى إشارة مسدودة.')}</p>
+              ? <p className="text-xs text-slate-500">{mode === 'me' ? t('No trade logged yet', 'Aucun trade enregistré', 'ما كاين حتى صفقة مسجلة') : t('No closed signal yet', 'Aucun signal clôturé', 'ما كاين حتى إشارة مسدودة')}</p>
               : <PairBars rows={pairRows} mode={mode} />}
             {strategy.recent.length > 0 && (
               <ul className="mt-4 space-y-1 text-xs font-mono">
@@ -685,7 +743,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
             )}
           </Panel>
         </Reveal>
-        <Reveal i={14} className="xl:col-span-4">
+        <Reveal i={14} className="xl:col-span-5">
           <Panel icon={<Wallet className="w-4 h-4" />} title={t('My open trades', 'Mes trades ouverts', 'صفقاتي المفتوحة')}>
             {me.openTrades.length === 0 ? <p className="text-xs text-slate-500">{t('No open trade.', 'Aucun trade ouvert.', 'ما كاين حتى صفقة مفتوحة.')}</p> : (
               <ul className="space-y-2 text-xs font-mono">
@@ -697,21 +755,6 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                 ))}
               </ul>
             )}
-          </Panel>
-        </Reveal>
-        <Reveal i={15} className="xl:col-span-3">
-          <Panel icon={<Newspaper className="w-4 h-4" />} title={t('High-impact news', 'News à fort impact', 'أخبار قوية')}>
-            {data.news.length === 0 ? <p className="text-xs text-slate-500">{t('Nothing scheduled.', 'Rien de prévu.', 'ما كاين والو.')}</p> : (
-              <ul className="space-y-2 text-xs">
-                {data.news.map(n => (
-                  <li key={n.id} className={`border-t border-line pt-1.5 ${n.isLockoutEvent ? 'text-amber-300' : 'text-slate-300'}`}>
-                    <div className="font-mono text-slate-500">{n.publishedAt.slice(5, 16).replace('T', ' ')} UTC</div>
-                    <div className="truncate" title={n.title}>{n.title}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="mt-2 text-[11px] text-slate-500">{t('No signal 30 min before and after these.', 'Aucun signal 30 min avant et après.', 'ما كاين حتى إشارة 30 دقيقة قبل وبعد.')}</p>
           </Panel>
         </Reveal>
       </div>

@@ -68,11 +68,6 @@ export const SignalPerformanceTracker: React.FC<SignalPerformanceTrackerProps> =
           <Stat isLight={isLight} label={t('Total', 'Total', 'المجموع')} value={fmtR(s?.totalR)} tone={(s?.totalR ?? 0) >= 0 ? 'good' : 'bad'} />
           <Stat isLight={isLight} label={t('Profit factor', 'Profit factor', 'معامل الربح')} value={s?.profitFactor ?? '—'} />
         </div>
-        <p className="mt-3 text-xs text-slate-500">
-          {t('Win rate counts closed trades only (breakevens excluded). Results are in R: 1R = the risk of the trade. Unfilled limit orders are counted as cancelled, not as trades.',
-            'Le taux de réussite ne compte que les trades clôturés (hors breakeven). Résultats en R : 1R = le risque du trade. Les ordres limites non exécutés sont annulés, pas comptés.',
-            'نسبة النجاح تحسب الصفقات المغلقة فقط (بدون التعادل). النتائج بوحدة R: 1R = مخاطرة الصفقة. الأوامر المعلقة غير المنفذة لا تحسب كصفقات.')}
-        </p>
       </Card>
 
       {s && Object.keys(s.bySymbol).length > 0 && (
@@ -91,7 +86,7 @@ export const SignalPerformanceTracker: React.FC<SignalPerformanceTrackerProps> =
       <Card isLight={isLight} title={t('Signal history', 'Historique des signaux', 'سجل الإشارات')}
         right={onOpenTelegram && <Button variant="ghost" onClick={onOpenTelegram}><Send className="w-3.5 h-3.5" />Telegram</Button>}>
         {!data?.signals.length ? (
-          <p className="text-xs text-slate-500">{t('No signal has been sent yet. Signals appear here the moment a strategy sends one to Telegram.', "Aucun signal envoyé pour l'instant. Les signaux apparaissent ici dès leur envoi sur Telegram.", 'لم يتم إرسال أي إشارة بعد. تظهر الإشارات هنا لحظة إرسالها إلى تيليجرام.')}</p>
+          <p className="text-xs text-slate-500">{t('No signal yet', 'Aucun signal pour l’instant', 'ما كاينة حتى إشارة دابا')}</p>
         ) : (
           <div className="overflow-x-auto -mx-1">
             <table className="w-full text-xs tabular-nums">
