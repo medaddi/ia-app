@@ -8,6 +8,7 @@ import { MarketAsset, Language } from '../../types';
 import { disableNotifications, enableNotifications, needsInstall, notifyEnabled, notifyPermission, testPush } from '../../notifications';
 import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS } from '../../instruments';
 import { LDEmblem } from '../LiquidityDissectionLogo';
+import { PairFlags } from '../PairFlags';
 
 export interface AppLayoutProps {
   children: React.ReactNode;
@@ -245,7 +246,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <button onClick={() => openPair(sym)} aria-current={on ? 'true' : undefined}
                 className={`w-full flex items-center justify-between gap-2 rounded-xl px-2.5 h-8 text-xs cursor-pointer transition-colors ${
                   on ? 'bg-white/[0.06] text-white font-semibold' : 'text-zinc-400 hover:text-slate-100 hover:bg-white/[0.035]'}`}>
-                <span className="font-mono">{sym}</span>
+                <span className="inline-flex items-center gap-2 min-w-0"><PairFlags symbol={sym} size={14} /><span className="font-mono">{sym}</span></span>
                 <span className={`text-[10px] truncate ${on ? 'text-gold-300' : 'text-zinc-600'}`}>{INSTRUMENT_LABELS[sym]}</span>
               </button>
             </li>
@@ -420,7 +421,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                       <li key={s} role="option" aria-selected={i === hit}>
                         <button onMouseDown={e => { e.preventDefault(); pick(s); }} onMouseEnter={() => setHit(i)}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm cursor-pointer ${i === hit ? 'bg-gold-500/10 text-gold-200' : 'text-zinc-300'}`}>
-                          <span className="font-mono font-semibold">{s}</span><span className="text-xs text-zinc-500">{INSTRUMENT_LABELS[s]}</span>
+                          <span className="inline-flex items-center gap-2"><PairFlags symbol={s} size={16} /><span className="font-mono font-semibold">{s}</span></span><span className="text-xs text-zinc-500">{INSTRUMENT_LABELS[s]}</span>
                         </button>
                       </li>
                     ))}

@@ -435,7 +435,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-semibold text-white font-mono">{symbol}</span>
           <span className="px-1.5 py-0.5 rounded bg-surface-2 text-[11px] font-mono text-gold-300">{timeframe}</span>
-          {timeframe === entryTf && <span className="hidden sm:inline text-[11px] text-slate-500">{t('decision timeframe', 'unité de décision', 'فريم القرار')}</span>}
+          
         </div>
         <div className="flex items-center gap-1.5">
           <div role="tablist" aria-label={t('Timeframe', 'Unité de temps', 'الفريم')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5">
@@ -576,10 +576,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       {/* Layers + provenance */}
       <div className="flex flex-col gap-2 px-3 sm:px-4 py-2 border-t border-line text-[11px]">
         <span className="font-mono text-slate-500 truncate">
-          {age !== null && (
-            <span className={age > 5 ? 'text-rose-300' : 'text-emerald-400'}>{age > 5 ? `● ${t('Stale', 'Ancien', 'قديم')} · ${age}s` : `● Live · ${age}s`} · {t('every 1 s', 'chaque seconde', 'كل ثانية')} · </span>
-          )}
-          {result ? `${result.strategyName} · ${result.dataQuality.source} · ${t(`decides at each ${entryTf} close · click a drawing to explain it`, `décide à chaque clôture ${entryTf} · cliquez un dessin pour l’expliquer`, `كتقرر عند كل إغلاق ${entryTf} · كليكي على رسم باش يتشرح`)}` : ''}
+          {age !== null && <span className={age > 5 ? 'text-rose-300' : 'text-emerald-400'}>{age > 5 ? `● ${t('Stale', 'Ancien', 'قديم')} · ${age}s` : `● Live · ${age}s`}</span>}
         </span>
       </div>
     </div>

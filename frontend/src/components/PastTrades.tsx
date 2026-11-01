@@ -99,11 +99,6 @@ export const PastTrades: React.FC<{ result: StrategyResult | null; lang?: Langua
           {all ? t('Show less', 'Afficher moins', 'بان أقل') : t(`Show the last ${list.length}`, `Afficher les ${list.length} derniers`, `بان آخر ${list.length}`)}
         </button>
       )}
-      <p className="px-4 pb-3 pt-2 text-[11px] text-slate-500">
-        {t('R includes spread and slippage; gold’s breakout closes part at TP1 / TP2, so its R blends those partial exits. Past results, not a promise.',
-          'Le R inclut spread et slippage ; le breakout or prend une partie à TP1 / TP2, son R mélange ces sorties partielles. Résultats passés, aucune garantie.',
-          'الـ R فيه السبريد والانزلاق؛ اختراق الذهب كيسد جزء ف TP1 / TP2، داكشي علاش الـ R ديالو مخلط. نتائج فايتة، ماشي ضمان.')}
-      </p>
     </section>
   );
 };

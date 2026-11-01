@@ -1,7 +1,7 @@
 import { apiFetch, apiJson } from '../api';
 import React, { useEffect, useState } from 'react';
 import type { InstrumentSymbol } from '../instruments';
-import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X, Clock, CalendarClock } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X } from 'lucide-react';
 import type { StrategyResult, TpReach } from '../strategyTypes';
 import { TradeProgress } from './TradeProgress';
 
@@ -38,7 +38,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
   const signalMin = scored ? 75 : 60;
   const grade = (result as any).grade as string | undefined;
   const statusLabel = {
-    SIGNAL: scored ? t('Signal · score ≥ 75', 'Signal · score ≥ 75', 'إشارة · النقطة ≥ 75') : t(`Signal · grade ${grade ?? ''}`, `Signal · note ${grade ?? ''}`, `إشارة · تقييم ${grade ?? ''}`),
+    SIGNAL: scored ? t('Signal', 'Signal', 'إشارة') : t(`Signal · ${grade ?? ''}`, `Signal · ${grade ?? ''}`, `إشارة · ${grade ?? ''}`),
     WATCH: scored ? t('Watch · score 60–74, no signal', 'À surveiller · 60–74, pas de signal', 'مراقبة · 60–74، بلا إشارة') : t('Watch · below C+ (60%), no signal', 'À surveiller · sous C+ (60 %), pas de signal', 'مراقبة · تحت C+ (60%)، بلا إشارة'),
     IGNORE: t(`Ignored · score < ${signalMin - 15}`, `Ignoré · score < ${signalMin - 15}`, `متجاهل · النقطة < ${signalMin - 15}`),
     NO_TRADE: t('No trade', 'Pas de trade', 'لا صفقة'),
@@ -100,7 +100,6 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
             </div>
           </div>
         </div>
-        <p className="mt-3 text-xs text-slate-400 break-words" dir="ltr">{result.rejection ? `${t('Missing', 'Manquant', 'ناقص')}: ${result.rejection}` : result.headline}</p>
       </div>
 
       <div className="px-4 py-3 border-b border-line text-xs">
@@ -110,7 +109,6 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
             {result.bias.direction === 'BULLISH' ? t('Bullish', 'Haussière', 'صاعد') : result.bias.direction === 'BEARISH' ? t('Bearish', 'Baissière', 'هابط') : t('Neutral', 'Neutre', 'محايد')}
           </span>
         </div>
-        <p className="mt-1 text-slate-500 break-words" dir="ltr">{result.bias.detail}</p>
       </div>
 
       {s && (
@@ -127,30 +125,11 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
               </span>
             )}
             <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-300">SL {s.slPips} pips</span>
-            {s.expiresAt && <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-400">{t('valid until', 'valable jusqu’à', 'صالح حتى')} {new Date(s.expiresAt * 1000).toISOString().slice(11, 16)} UTC</span>}
-            <span className="px-2 py-1 rounded-lg bg-surface-2 border border-line text-slate-400">{single ? t('Set & forget', 'Set & forget', 'Set & forget') : s.tp3Source}</span>
           </div>
         </div>
       )}
 
       {s && result.tpReach && <TargetOptions reach={result.tpReach} planned={rrTarget} f={f} t={t} />}
-
-      <div className="px-4 py-3 border-b border-line text-xs space-y-2">
-        <div className="flex gap-2 text-slate-400">
-          <CalendarClock className="w-4 h-4 shrink-0 text-gold-400" aria-hidden="true" />
-          <span className="min-w-0 break-words">
-            {result.news.blocked ? `${t('Blocked by news', 'Bloqué par une news', 'محبوس بخبر')}: ${result.news.detail}`
-              : result.news.next ? `${t('Next high-impact news', 'Prochaine news forte', 'الخبر القوي الجاي')}: ${result.news.next}`
-                : t('No high-impact news scheduled', 'Aucune news forte prévue', 'ما كاين حتى خبر قوي')} <span className="text-slate-600">({result.news.source})</span>
-          </span>
-        </div>
-        {explanation && (
-          <details className="group">
-            <summary className="cursor-pointer list-none text-slate-400 hover:text-gold-300">{t('Why this analysis', 'Pourquoi cette analyse', 'علاش هاد التحليل')} <span className="group-open:hidden">▸</span><span className="hidden group-open:inline">▾</span></summary>
-            <p className="mt-1.5 text-slate-400 leading-relaxed break-words" dir="ltr">{explanation}</p>
-          </details>
-        )}
-      </div>
 
       <div className="p-4 flex flex-col gap-2">
         <div className="flex gap-2">
@@ -163,11 +142,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
             <Send className="w-4 h-4" />{sendState === 'sending' ? t('Sending…', 'Envoi…', 'كيتصيفط…') : t('Send to Telegram', 'Envoyer sur Telegram', 'صيفط للتيليغرام')}
           </button>
         </div>
-        <p role="status" className={`text-xs ${sendState === 'error' ? 'text-rose-300' : sendState === 'sent' ? 'text-emerald-300' : 'text-slate-500'}`}>
-          {sendMsg || <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden="true" />
-            {scored ? t('Telegram fires automatically once per signal (score ≥ 75, all rules passed).', 'Telegram part automatiquement une fois par signal (score ≥ 75, toutes les règles validées).', 'التيليغرام كيتصيفط أوتوماتيكياً مرة لكل إشارة (النقطة ≥ 75، كل الشروط محققة).')
-              : t('Telegram fires automatically once per signal (grade C+ 60% or better).', 'Telegram part automatiquement une fois par signal (note C+ 60 % ou mieux).', 'التيليغرام كيتصيفط أوتوماتيكياً مرة لكل إشارة (تقييم C+ 60% أو أحسن).')}</span>}
-        </p>
+        {sendMsg && <p role="status" className={`text-xs ${sendState === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>{sendMsg}</p>}
       </div>
     </div>
   );
@@ -214,10 +189,6 @@ function TargetOptions({ reach, planned, f, t }: { reach: TpReach; planned: numb
           })}
         </ul>
       )}
-      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-        {few && reach.sample > 0 ? t(`Only ${reach.sample} past trades: treat these odds as a rough guide.`, `Seulement ${reach.sample} trades passés : probabilités indicatives.`, `غير ${reach.sample} صفقات فاتت: الاحتمالات تقريبية.`)
-          : t('Share of past trades the market carried to each level before the stop. Past odds, not a promise.', 'Part des trades passés que le marché a portés jusqu’à chaque niveau avant le stop. Le passé ne garantit rien.', 'نسبة الصفقات الفايتة لي وصلها السوق لكل مستوى قبل الستوب. الماضي ماشي ضمان.')}
-      </p>
       </div>
     </details>
   );
@@ -239,7 +210,7 @@ function AutoLot({ symbol, entry, sl, t }: { symbol: string; entry: number; sl: 
   if (!lot.riskUsd) {
     return (
       <p className="mt-3 rounded-xl border border-gold-500/30 bg-gold-500/[0.06] px-3 py-2 text-xs text-gold-200">
-        {t('Set your risk per trade in My account: the lot for each trade appears here.', 'Indiquez votre risque par trade dans Mon compte : le lot de chaque trade s’affiche ici.', 'حدد المخاطرة ديالك ف حسابي: اللوت ديال كل صفقة غادي يبان هنا.')}
+        {t('Set your risk in My account', 'Définissez votre risque dans Mon compte', 'حدد المخاطرة ف حسابي')}
       </p>
     );
   }
@@ -251,8 +222,7 @@ function AutoLot({ symbol, entry, sl, t }: { symbol: string; entry: number; sl: 
       </div>
       <div className="text-end text-[11px] font-mono leading-relaxed">
         <div className="text-rose-300">−${lot.actualRisk.toFixed(2)} {t('at the stop', 'au stop', 'ف الستوب')}</div>
-        <div className="text-slate-500">{t('your risk', 'votre risque', 'المخاطرة ديالك')} ${lot.riskUsd}</div>
-        {lot.tooSmall && <div className="text-gold-300">{t('0.01 is the minimum lot', '0,01 est le lot minimum', '0.01 هو أقل لوت')}</div>}
+        {lot.tooSmall && <div className="text-gold-300">{t('min. lot', 'lot min.', 'أقل لوت')}</div>}
       </div>
     </div>
   );

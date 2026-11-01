@@ -150,7 +150,7 @@ function EquityChart({ days, mode, lang }: { days: Day[]; mode: Mode; lang: Lang
   const [hover, setHover] = useState<number | null>(null);
   const pts = useMemo(() => { let eq = 0; return days.map(d => ({ ...d, eq: (eq += d.value) })); }, [days]);
   if (pts.length < 2) {
-    return <p className="text-xs text-slate-500 py-14 text-center">{tr(lang, 'The curve appears after two trading days with closed results.', 'La courbe apparaît après deux jours de trading avec des résultats clôturés.', 'المنحنى كيبان من بعد جوج أيام فيهم نتائج مسدودة.')}</p>;
+    return <p className="text-xs text-slate-500 py-14 text-center">{tr(lang, 'No data yet', 'Pas encore de données', 'ما كاين حتى معطى')}</p>;
   }
   const W = 640, H = 230, padL = 56, padR = 12, padT = 14, padB = 26;
   const vals = [0, ...pts.map(p => p.eq)];
@@ -508,7 +508,6 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                 <span className="icon-tile w-8 h-8 text-emerald-300" aria-hidden="true"><Flame className="w-4 h-4" /></span>
                 {t('Open trades', 'Trades en cours', 'الصفقات الجارية')} <span className="font-mono text-emerald-300">{running.length}</span>
               </h3>
-              <span className="text-xs text-slate-500 hidden sm:inline">{t('Live price · click a trade to open its chart', 'Prix en direct · cliquez un trade pour son graphique', 'الثمن المباشر · كليكي على صفقة باش تحل الشارت')}</span>
             </header>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {running.map(m => {
@@ -607,8 +606,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
 
       {/* Live analysis */}
       <Reveal i={12}>
-        <Panel icon={<Radar className="w-4 h-4" />} title={t('Live analysis', 'Analyse en direct', 'التحليل المباشر')}
-          right={<span className="text-xs text-slate-500 hidden sm:inline">{t('Click a pair to open its chart', 'Cliquez une paire pour ouvrir son graphique', 'كليكي على زوج باش تحل الشارت')}</span>}>
+        <Panel icon={<Radar className="w-4 h-4" />} title={t('Live analysis', 'Analyse en direct', 'التحليل المباشر')}>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
             {data.markets.map((m, i) => {
               if (m.loading) return (

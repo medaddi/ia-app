@@ -23,19 +23,12 @@ export const AgentsConsensus: React.FC<{ consensus: Consensus; hasSetup: boolean
     strategy: t('Strategy', 'Stratégie', 'الاستراتيجية'),
     risk: t('Risk & execution', 'Risque & exécution', 'المخاطرة والتنفيذ'),
   };
-  const roles: Record<string, string> = {
-    market: t('daily trend, volatility, news ahead', 'tendance journalière, volatilité, news à venir', 'الاتجاه اليومي، التقلب، الأخبار الجاية'),
-    strategy: t('signal and plan', 'signal et plan', 'الإشارة والخطة'),
-    risk: t('stop, R:R, exposure, open book', 'stop, R:R, exposition, positions ouvertes', 'الستوب، العائد، التعرض، الصفقات المفتوحة'),
-  };
   const market = consensus.agents.find(a => a.key === 'market');
   const trendWord = (w?: string) => (w === 'bullish' ? t('bullish', 'haussière', 'صاعد') : w === 'bearish' ? t('bearish', 'baissière', 'هابط') : t('neutral', 'neutre', 'محايد'));
   return (
     <section className="mt-4 rounded-[var(--radius-card)] glass border p-4" aria-labelledby="agents-title">
       <header className="flex items-center justify-between gap-2 mb-3">
-        <h3 id="agents-title" className="text-sm font-semibold text-white">{t('3 agents', '3 agents', '3 وكلاء')}
-          <span className="ms-1.5 text-xs font-normal text-slate-500">{t('a trade needs all three', 'un trade demande les trois', 'الصفقة خاصها الثلاثة')}</span>
-        </h3>
+        <h3 id="agents-title" className="text-sm font-semibold text-white">{t('3 agents', '3 agents', '3 وكلاء')}</h3>
         {hasSetup && (
           <span className={`px-2 py-0.5 rounded-md text-[11px] font-mono font-bold ring-1 ring-inset ${consensus.approved ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' : 'bg-rose-500/10 text-rose-300 ring-rose-500/25'}`}>
             {consensus.agreed}/3 {consensus.approved ? t('agree', 'd’accord', 'متفقين') : ''}
@@ -68,8 +61,7 @@ export const AgentsConsensus: React.FC<{ consensus: Consensus; hasSetup: boolean
                 <summary className="flex items-center gap-3 p-2.5 cursor-pointer list-none">
                   <span className={`icon-tile w-8 h-8 ${vote ? 'icon-tile-gold' : 'text-slate-400'}`} aria-hidden="true"><Icon className="w-4 h-4" /></span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-semibold text-white">{i + 1}. {names[a.key] ?? a.name} <span className="font-normal text-slate-500">· {roles[a.key]}</span></span>
-                    <span className="block text-[11px] text-slate-400 truncate" dir="ltr">{a.summary}</span>
+                    <span className="block text-xs font-semibold text-white">{i + 1}. {names[a.key] ?? a.name}</span>
                   </span>
                   {vote !== null && (
                     <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${vote ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}
@@ -93,7 +85,6 @@ export const AgentsConsensus: React.FC<{ consensus: Consensus; hasSetup: boolean
           );
         })}
       </ol>
-      <p className="mt-3 text-[11px] text-slate-500">{hasSetup ? consensus.summary : t('No trade on this pair right now: the market agent keeps reporting.', 'Pas de trade sur cette paire : l’agent marché continue son rapport.', 'ما كاينة صفقة دابا: وكيل السوق كيكمل التقرير ديالو.')}</p>
     </section>
   );
 };

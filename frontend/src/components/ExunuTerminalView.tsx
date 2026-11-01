@@ -1,9 +1,10 @@
 import { apiFetch } from '../api';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentsConsensus, type Consensus } from './AgentsConsensus';
+import { PairFlags } from './PairFlags';
+import { useDragScroll } from '../useDragScroll';
 import type { ExunuSMCResult } from '../strategyTypes';
 import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, chartSpec, type ChartSpec, type InstrumentSymbol } from '../instruments';
 import type { StrategyResult } from '../strategyTypes';
@@ -100,20 +101,20 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   }, [symbol, timeframe, loadStrategy, loadCandles]);
 
   const t = (en: string, fr: string, ar: string) => (lang === 'ar' ? ar : lang === 'fr' ? fr : en);
+  const pairBar = useDragScroll<HTMLDivElement>();
 
   return (
     <div className="flex flex-col gap-4 w-full">
       <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-4 py-3 glass border rounded-[var(--radius-card)]">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="hidden sm:block">
-            <div className="text-sm font-semibold tracking-wide text-white">{t('Live chart', 'Graphique en direct', 'الشارت المباشر')}</div>
-            <div className="text-xs text-slate-500">{result?.strategyName ?? t('Loading…', 'Chargement…', 'كيتحمل…')}</div>
-          </div>
-          <div role="tablist" aria-label={t('Instrument', 'Instrument', 'الأداة')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5 overflow-x-auto max-w-full">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* Pairs: each with its flags; scrolls sideways on a phone without a visible scrollbar */}
+          <div ref={pairBar} role="tablist" aria-label={t('Instrument', 'Instrument', 'الأداة')}
+            className="no-scrollbar select-none cursor-grab flex items-center gap-1 overflow-x-auto max-w-full -mx-1 px-1 [mask-image:linear-gradient(90deg,transparent,#000_12px,#000_calc(100%-16px),transparent)]">
             {INSTRUMENT_SYMBOLS.map(id => (
               <button key={id} role="tab" aria-selected={symbol === id}
                 onClick={() => setSymbol(id)}
-                className={`h-9 px-3 shrink-0 rounded-md text-xs font-medium transition-colors ${symbol === id ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>
+                className={`h-10 ps-2 pe-3 shrink-0 inline-flex items-center gap-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${symbol === id ? 'glass-pill text-gold-100' : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'}`}>
+                <PairFlags symbol={id} size={18} />
                 <span className="font-mono">{id}</span><span className="hidden 2xl:inline text-slate-500"> · {INSTRUMENTS[id].label}</span>
               </button>
             ))}
@@ -126,11 +127,6 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             <span className="text-slate-400">{result?.market.isOpen ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
             <span className="text-white font-semibold tabular-nums">{result ? result.price.toFixed(result.spec.decimals) : '—'}</span>
           </div>
-          {onOpenTelegram && (
-            <button onClick={onOpenTelegram} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-line text-xs text-slate-200 hover:bg-surface-2">
-              <Send className="w-4 h-4 text-gold-400" aria-hidden="true" /><span className="hidden sm:inline">Telegram</span>
-            </button>
-          )}
         </div>
       </div>
 
