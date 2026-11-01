@@ -25,7 +25,6 @@ export interface AppLayoutProps {
   onForceRefresh?: () => void;
   onOpenAssistant: () => void;
   onOpenTelegram?: () => void;
-  onOpenDesignSystem?: () => void;
   isMobileDrawerOpen?: boolean;
   setIsMobileDrawerOpen?: (open: boolean) => void;
   currentUser?: { id: string; username: string; role: string } | null;
@@ -160,8 +159,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     { title: 'gTrading', items: [
       { id: 'overview', label: 'dashboard', icon: LayoutGrid },
       { id: 'chart', label: 'chart', icon: ChartCandlestick, count: activeSignalsCount },
-      { id: 'markets', label: 'markets', icon: ChartSpline },
-      { id: 'analysis', label: 'strategies', icon: Workflow },
     ] },
     { title: 'gResults', items: [
       { id: 'performance', label: 'performance', icon: Trophy },
@@ -264,7 +261,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             {flyout && (
               <motion.div initial={{ opacity: 0, x: isAr ? 6 : -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: isAr ? 6 : -6 }} transition={{ duration: 0.14 }}
                 style={{ top: flyout.top, [isAr ? 'right' : 'left']: flyout.x - 12 }} className="fixed ps-3 pe-3 z-50">
-                <div className="w-52 rounded-2xl border border-line-2 bg-surface-2 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] p-1.5">
+                <div className="w-52 rounded-2xl border glass-strong p-1.5">
                   <div className="px-2.5 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">{t('pairs')}</div>
                   {list(true)}
                 </div>
@@ -355,9 +352,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   };
 
   return (
-    <div className="h-dvh flex flex-col font-sans bg-canvas text-slate-100 w-full max-w-full overflow-x-hidden selection:bg-gold-500/30 pt-safe px-safe" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="relative h-dvh flex flex-col font-sans bg-canvas text-slate-100 w-full max-w-full overflow-x-hidden selection:bg-gold-500/30 pt-safe px-safe" dir={isAr ? 'rtl' : 'ltr'}>
+      {/* The login background behind the whole app: gold on black, drifting slowly */}
+      <div aria-hidden="true" className="login-gradient fixed inset-0 -z-0 pointer-events-none" />
+      <div aria-hidden="true" className="fixed inset-0 -z-0 pointer-events-none overflow-hidden">
+        <div className="login-orb absolute -top-40 -left-32 w-[560px] h-[560px] rounded-full bg-gold-500/[0.10] blur-3xl" />
+        <div className="login-orb-2 absolute -bottom-48 -right-32 w-[620px] h-[620px] rounded-full bg-gold-700/[0.12] blur-3xl" />
+      </div>
       {/* Status strip: market, session, strategies */}
-      <div className="h-8 px-3 sm:px-4 border-b border-line bg-canvas text-[11px] flex items-center justify-between gap-3 shrink-0 select-none whitespace-nowrap overflow-hidden">
+      <div className="relative h-8 px-3 sm:px-4 border-b border-line bg-black/20 text-[11px] flex items-center justify-between gap-3 shrink-0 select-none whitespace-nowrap overflow-hidden">
         <div className="flex items-center gap-3">
           <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-semibold ring-1 ring-inset ${open ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/25' : 'bg-slate-500/10 text-slate-300 ring-slate-500/25'}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${open ? 'bg-emerald-400' : 'bg-slate-400'}`} aria-hidden="true" />
@@ -368,10 +371,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <span className="hidden md:inline text-zinc-500">{t('engines')} <span className="text-zinc-300">{t('engineText')}</span></span>
       </div>
 
-      <div className="flex-1 flex overflow-hidden w-full max-w-full">
+      <div className="relative flex-1 flex overflow-hidden w-full max-w-full">
         {/* Desktop sidebar: a floating rounded panel */}
         <aside className={`hidden lg:flex shrink-0 select-none z-30 p-3 pe-0 transition-[width] duration-200 ease-out ${isCollapsed ? 'w-[100px]' : 'w-[276px]'}`} aria-label={t('openMenu')}>
-          <div className="relative flex-1 flex flex-col min-h-0 rounded-[28px] border border-white/[0.06] bg-gradient-to-b from-surface-2 to-surface shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="relative flex-1 flex flex-col min-h-0 rounded-[28px] border glass">
             {SidebarBody({})}
           </div>
         </aside>
@@ -379,7 +382,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden w-full max-w-full">
           {/* Navbar */}
           <div className="shrink-0 z-20 px-2 sm:px-4 lg:px-5 pt-2 sm:pt-3">
-          <header className="h-14 sm:h-16 px-2 sm:px-4 rounded-[20px] sm:rounded-[22px] border border-white/[0.06] bg-surface-2/80 backdrop-blur-xl shadow-[0_18px_40px_-22px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.04)] flex items-center justify-between gap-3">
+          <header className="h-14 sm:h-16 px-2 sm:px-4 rounded-[20px] sm:rounded-[22px] border glass flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button onClick={() => setDrawerOpen(true)} aria-label={t('openMenu')}
                 className="lg:hidden h-10 w-10 sm:h-11 sm:w-11 flex items-center justify-center rounded-2xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors shrink-0">
@@ -410,7 +413,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               <AnimatePresence>
                 {searchOpen && (
                   <motion.ul id="pair-search" role="listbox" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.15 }}
-                    className="absolute mt-1.5 w-full rounded-xl border border-line-2 bg-surface-2 shadow-[var(--shadow-float)] p-1 z-50">
+                    className="absolute mt-1.5 w-full rounded-xl border glass-strong p-1 z-50">
                     {matches.length === 0 ? <li className="px-3 py-2 text-xs text-zinc-500">{t('noMatch')}</li> : matches.map((s, i) => (
                       <li key={s} role="option" aria-selected={i === hit}>
                         <button onMouseDown={e => { e.preventDefault(); pick(s); }} onMouseEnter={() => setHit(i)}
@@ -441,7 +444,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <AnimatePresence>
                   {langOpen && (
                     <motion.div role="listbox" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.12 }}
-                      className="absolute end-0 mt-1.5 w-36 rounded-xl border border-line-2 bg-surface-2 shadow-[var(--shadow-float)] p-1 z-50 origin-top">
+                      className="absolute end-0 mt-1.5 w-36 rounded-xl border glass-strong p-1 z-50 origin-top">
                       {([['fr', 'Français'], ['en', 'English'], ['ar', 'العربية']] as const).map(([code, label]) => (
                         <button key={code} role="option" aria-selected={lang === code} onClick={() => { setLang(code as Language); setLangOpen(false); }}
                           className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors ${lang === code ? 'bg-gold-500/15 text-gold-200 font-semibold' : 'text-zinc-300 hover:bg-white/[0.05]'}`}>
@@ -466,7 +469,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 <AnimatePresence>
                   {userOpen && (
                     <motion.div role="menu" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.12 }}
-                      className="absolute end-0 mt-1.5 w-56 rounded-xl border border-line-2 bg-surface-2 shadow-[var(--shadow-float)] p-1.5 z-50 origin-top">
+                      className="absolute end-0 mt-1.5 w-56 rounded-xl border glass-strong p-1.5 z-50 origin-top">
                       <div className="px-3 py-2 mb-1 border-b border-line">
                         <div className="text-sm font-semibold text-white truncate">{currentUser?.username}</div>
                         <div className="text-[11px] text-gold-500">{isAdmin ? t('roleAdmin') : t('roleUser')}</div>
@@ -513,7 +516,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               initial={{ x: isAr ? '110%' : '-110%' }} animate={{ x: 0 }} exit={{ x: isAr ? '110%' : '-110%' }}
               transition={reduce ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 300 }}
               style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)', [isAr ? 'right' : 'left']: 'calc(env(safe-area-inset-left, 0px) + 12px)' }}
-              className={`fixed w-80 max-w-[86vw] z-50 flex flex-col rounded-[28px] border border-white/[0.07] bg-gradient-to-b from-surface-2 to-surface shadow-[var(--shadow-float)] lg:hidden`}>
+              className={`fixed w-80 max-w-[86vw] z-50 flex flex-col rounded-[28px] border glass-strong lg:hidden`}>
               <button onClick={() => setDrawerOpen(false)} aria-label={t('closeMenu')}
                 className="absolute top-5 end-4 h-10 w-10 flex items-center justify-center rounded-2xl border border-line-2 text-gold-400 hover:bg-white/[0.06] cursor-pointer transition-colors z-10">
                 <X className="w-5 h-5" />
@@ -566,7 +569,7 @@ function NotifyButton({ t }: { t: (k: Key) => string }) {
       {help && (
         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] bg-black/70 backdrop-blur-sm" onClick={() => setHelp(false)}>
           <div role="dialog" aria-modal="true" aria-labelledby="ios-help-title" onClick={e => e.stopPropagation()}
-            className="w-full max-w-sm rounded-[28px] border border-white/[0.07] bg-gradient-to-b from-surface-2 to-surface p-6 shadow-[var(--shadow-float)]">
+            className="w-full max-w-sm rounded-[28px] border glass-strong p-6">
             <div className="flex items-center gap-3">
               <span className="icon-tile icon-tile-gold w-10 h-10"><Bell className="w-5 h-5" /></span>
               <h2 id="ios-help-title" className="text-base font-bold text-white">{t('installTitle')}</h2>

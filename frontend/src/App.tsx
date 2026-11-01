@@ -1,16 +1,13 @@
 import React, { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import { MarketAsset, AISignal, NewsItem, SentimentData, Language } from './types';
-import { apiFetch, apiJson, setToken, getToken } from './api';
+import { apiFetch, apiJson, setToken, getToken, sessionExpiry, setSessionExpiry } from './api';
 const SignalPerformanceTracker = lazy(() => import('./components/SignalPerformanceTracker').then(m => ({ default: m.SignalPerformanceTracker })));
 const NewsAISection = lazy(() => import('./components/NewsAISection').then(m => ({ default: m.NewsAISection })));
 const SentimentRadar = lazy(() => import('./components/SentimentRadar').then(m => ({ default: m.SentimentRadar })));
 const TelegramSettingsModal = lazy(() => import('./components/TelegramSettingsModal').then(m => ({ default: m.TelegramSettingsModal })));
-import { ToolsSidebarDrawer } from './components/ToolsSidebarDrawer';
 import { LoginScreen } from './components/LoginScreen';
 import { PendingApproval } from './components/PendingApproval';
 import { MobileBottomNav } from './components/MobileBottomNav';
-const DesignSystemShowcase = lazy(() => import('./components/DesignSystemShowcase').then(m => ({ default: m.DesignSystemShowcase })));
-const MarketsTableView = lazy(() => import('./components/MarketsTableView').then(m => ({ default: m.MarketsTableView })));
 import { AppLayout } from './components/layout/AppLayout';
 import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
 const ExunuTerminalView = lazy(() => import('./components/ExunuTerminalView').then(m => ({ default: m.ExunuTerminalView })));
@@ -64,8 +61,24 @@ export default function App() {
   const handleLogout = async () => {
     try { await apiFetch('/api/auth/logout', { method: 'POST' }); } catch { /* offline: still log out locally */ }
     setToken(null);
+    setSessionExpiry(null);
     setCurrentUser(null);
   };
+
+  // A login lasts one hour: at its end (or when the server refuses the session) the app shows the login page again
+  const [sessionEnded, setSessionEnded] = useState(false);
+  useEffect(() => {
+    const onExpired = () => { setCurrentUser(null); setSessionEnded(true); };
+    window.addEventListener('ld-session-expired', onExpired);
+    return () => window.removeEventListener('ld-session-expired', onExpired);
+  }, []);
+  useEffect(() => {
+    if (!currentUser) return;
+    const end = sessionExpiry();
+    if (!end) return;
+    const id = setTimeout(() => { setToken(null); setSessionExpiry(null); setCurrentUser(null); setSessionEnded(true); }, Math.max(0, end - Date.now()));
+    return () => clearTimeout(id);
+  }, [currentUser?.id]);
 
   const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
 
@@ -84,8 +97,6 @@ export default function App() {
   // Assistant drawer & Telegram Modal & Tools Drawer
   const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(false);
   const [isTelegramOpen, setIsTelegramOpen] = useState<boolean>(false);
-  const [isToolsDrawerOpen, setIsToolsDrawerOpen] = useState<boolean>(false);
-  const [isDesignSystemOpen, setIsDesignSystemOpen] = useState<boolean>(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
 
   const [lastSyncTime, setLastSyncTime] = useState<number>(Date.now());
@@ -130,8 +141,8 @@ export default function App() {
     if (!currentUser || currentUser.status === 'pending') return;  // a pending account only sees its waiting page
     syncAllMarketData();
     const live = (fn: () => Promise<void>) => { let busy = false; return () => { if (busy || document.hidden) return; busy = true; fn().finally(() => { busy = false; }); }; };
-    // The dashboard and the chart refresh themselves every second: in the background these lists can go slower there
-    const every = ['overview', 'chart', 'technical'].includes(activeTab) ? 15000 : 1000;
+    // The dashboard and the chart refresh themselves; these lists (header badge, notifications) only need a slow pace
+    const every = 15000;
     const ids = [setInterval(live(loadPrices), every), setInterval(live(loadSignals), every), setInterval(() => { loadNews(); loadSentiment(); }, 120000),
       // Tab in the background with notifications on: keep checking for new trades (browsers allow about once a minute there)
       setInterval(() => { if (document.hidden && notifyEnabled()) loadSignals(); }, 30000)];
@@ -143,7 +154,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('online', onVisible);
     };
-  }, [currentUser?.id, ['overview', 'chart', 'technical'].includes(activeTab)]);
+  }, [currentUser?.id, currentUser?.status]);
 
   // Admin: how many self sign-ups wait for approval (badge on "Users"), checked every minute
   const [pendingUsers, setPendingUsers] = useState(0);
@@ -186,7 +197,8 @@ export default function App() {
   if (!isAuthChecking && !currentUser) {
     return (
       <LoginScreen
-        onLoginSuccess={(user) => setCurrentUser(user)}
+        onLoginSuccess={(user) => { setSessionEnded(false); setCurrentUser(user); }}
+        sessionEnded={sessionEnded}
         lang={lang}
         setLang={setLang}
         theme={theme}
@@ -242,7 +254,6 @@ export default function App() {
         onForceRefresh={() => syncAllMarketData()}
         onOpenAssistant={() => setIsAssistantOpen(true)}
         onOpenTelegram={() => setIsTelegramOpen(true)}
-        onOpenDesignSystem={() => setIsDesignSystemOpen(true)}
         isMobileDrawerOpen={isMobileDrawerOpen}
         setIsMobileDrawerOpen={setIsMobileDrawerOpen}
         currentUser={currentUser ? { id: String(currentUser.id), username: currentUser.username, role: currentUser.role } : null}
@@ -258,36 +269,6 @@ export default function App() {
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
               <DashboardView lang={lang} onOpenChart={sym => { setSelectedSymbol(sym); setActiveTab('chart'); }} />
-            </motion.div>
-          )}
-
-          {activeTab === 'markets' && (
-            <motion.div
-              key="markets"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
-            >
-              <InternalPageTemplate
-                title={isFr ? 'Marchés & Surveillance d\'Actifs' : isAr ? 'مراقبة أصول الأسواق' : 'Markets & Pair Surveillance'}
-                subtitle={isFr ? 'Analyse multi-marchés des régimes, stratégies dynamiques et scores de confirmation.' : isAr ? 'تحليل هيكل السوق، وتحديد أفضل استراتيجية لكل زوج بشكل مستقل.' : 'Pair-specific market regime detection, dynamic strategy selection, and multi-layer confirmation scores.'}
-                badge={{ label: 'Live Pricing Engine', variant: 'gold' }}
-                breadcrumbs={[
-                  { label: 'Private Desk', onClick: () => setActiveTab('overview') },
-                  { label: isFr ? 'Marchés' : isAr ? 'الأسواق' : 'Markets' }
-                ]}
-              >
-                <MarketsTableView
-                  assets={assets}
-                  signals={signals}
-                  selectedSymbol={selectedAsset?.symbol || 'XAU/USD'}
-                  onSelectAsset={(asset) => {
-                    setSelectedAsset(asset);
-                  }}
-                  onNavigateTab={(tab) => setActiveTab(tab)}
-                  lang={lang}
-                />
-              </InternalPageTemplate>
             </motion.div>
           )}
 
@@ -307,28 +288,6 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'analysis' && (
-            <motion.div
-              key="analysis"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
-            >
-              <InternalPageTemplate
-                title={isFr ? 'Stratégies : or & forex (FXAlexG)' : isAr ? 'الاستراتيجيات: الذهب والفوركس (FXAlexG)' : 'Strategies: gold & forex (FXAlexG)'}
-                subtitle={isFr ? 'Règles déterministes, checklist et score en direct pour chaque instrument.' : isAr ? 'قواعد ثابتة، قائمة شروط ونقاط مباشرة لكل أداة.' : 'Deterministic rules, live checklist and score for each instrument.'}
-                badge={{ label: 'v1.0.0 · 2 strategies', variant: 'gold' }}
-                breadcrumbs={[
-                  { label: 'Private Desk', onClick: () => setActiveTab('overview') },
-                  { label: isFr ? 'Stratégie IA' : isAr ? 'الاستراتيجية' : 'AI Strategy' }
-                ]}
-              >
-                {/* Same shared SMC analysis as the dashboard, agents and Telegram */}
-                <ExunuTerminalView initialSymbol={isInstrument(selectedAsset?.symbol) ? selectedAsset.symbol : 'XAU/USD'} lang={lang} />
-              </InternalPageTemplate>
-            </motion.div>
-          )}
-
           {activeTab === 'performance' && (
             <motion.div
               key="performance"
@@ -336,15 +295,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <InternalPageTemplate
-                title={isFr ? 'Audit & Registre de Performance' : isAr ? 'سجل التدقيق والأداء الموثق' : 'Audit & Performance Ledger'}
-                subtitle={isFr ? 'Transparence totale: taux de réussite réel et facteur de profit des signaux.' : isAr ? 'نسبة النجاح الحقيقية ومعامل الربح ديال الإشارات.' : 'Real win rate and profit factor of the signals.'}
-                badge={{ label: 'Verified Ledger · 99.8%', variant: 'gold' }}
-                breadcrumbs={[
-                  { label: 'Private Desk', onClick: () => setActiveTab('overview') },
-                  { label: isFr ? 'Audit' : isAr ? 'التدقيق' : 'Audit' }
-                ]}
-              >
+              <InternalPageTemplate subtitle={isFr ? 'Chaque signal envoyé, suivi jusqu’au TP ou au SL.' : isAr ? 'كل إشارة تصيفطات، متبوعة حتى TP ولا SL.' : 'Every signal sent, followed to its TP or SL.'}>
                 <SignalPerformanceTracker
                   lang={lang}
                   theme={theme}
@@ -363,15 +314,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <InternalPageTemplate
-                title={isFr ? 'Macro-Économie & Sentiment en Direct' : isAr ? 'الأخبار والماكرو والسيولة الحية' : 'Macro & Market Sentiment'}
-                subtitle={isFr ? 'Impact des annonces économiques majeures et flux institutionnels.' : isAr ? 'تحليل مباشر لبيانات الفائدة، التضخم ومشاعر كبار المتداولين.' : 'Real-time macroeconomic intelligence, geopolitical catalysts, and institutional sentiment.'}
-                badge={{ label: 'Macro Intelligence OTC', variant: 'gold' }}
-                breadcrumbs={[
-                  { label: 'Private Desk', onClick: () => setActiveTab('overview') },
-                  { label: isFr ? 'Actualités' : isAr ? 'الأخبار' : 'Macro & News' }
-                ]}
-              >
+              <InternalPageTemplate subtitle={isFr ? 'Les annonces économiques fortes : aucun signal 30 min autour.' : isAr ? 'الأخبار الاقتصادية القوية: حتى إشارة 30 دقيقة قبل وبعد.' : 'High-impact economic news: no signal 30 min around them.'}>
                 <NewsAISection
                   news={news}
                   lang={lang}
@@ -390,15 +333,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <InternalPageTemplate
-                title={isFr ? 'Administration des utilisateurs' : isAr ? 'إدارة المستخدمين' : 'User administration'}
-                subtitle={isFr ? 'Créez les comptes. Chaque utilisateur indique ses lots et a ses propres statistiques.' : isAr ? 'كتصاوب الحسابات. كل مستخدم كيدخل اللوت ديالو وعندو الإحصائيات ديالو.' : 'Create accounts. Each user enters their own lots and has their own statistics.'}
-                badge={{ label: 'Admin', variant: 'gold' }}
-                breadcrumbs={[
-                  { label: 'Private Desk', onClick: () => setActiveTab('overview') },
-                  { label: 'Admin' }
-                ]}
-              >
+              <InternalPageTemplate subtitle={isFr ? 'Comptes, validations et codes Telegram.' : isAr ? 'الحسابات، الموافقات وكودات تيليغرام.' : 'Accounts, approvals and Telegram codes.'}>
                 <AdminView lang={lang} theme={theme} me={currentUser} />
               </InternalPageTemplate>
             </motion.div>
@@ -411,15 +346,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <InternalPageTemplate
-                title={isFr ? 'Mon compte, trades & historique' : isAr ? 'حسابي، صفقاتي والسجل' : 'My account, trades & history'}
-                subtitle={isFr ? 'Trades pris avec votre lot, historique, taux de réussite et perte journalière max.' : isAr ? 'الصفقات باللوت ديالك، السجل، نسبة النجاح والخسارة اليومية.' : 'Trades taken with your lot, history, win rate and daily loss limit.'}
-                badge={{ label: currentUser.role === 'admin' ? 'Admin' : 'Trader', variant: 'gold' }}
-                breadcrumbs={[
-                  { label: 'Private Desk', onClick: () => setActiveTab('overview') },
-                  { label: isFr ? 'Compte' : isAr ? 'الحساب' : 'Account' }
-                ]}
-              >
+              <InternalPageTemplate subtitle={isFr ? 'Votre risque, vos trades et vos résultats.' : isAr ? 'المخاطرة، الصفقات والنتائج ديالك.' : 'Your risk, your trades and your results.'}>
                 <AccountView lang={lang} theme={theme} user={currentUser} onUserChange={setCurrentUser} signals={signals} assets={assets} />
               </InternalPageTemplate>
             </motion.div>
@@ -432,16 +359,6 @@ export default function App() {
       {/* 4. Tools Sidebar Drawer (Optional quick drawer) */}
       <AgentPanel isOpen={isAssistantOpen} onClose={() => setIsAssistantOpen(false)} lang={lang} />
 
-      <ToolsSidebarDrawer
-        isOpen={isToolsDrawerOpen}
-        onClose={() => setIsToolsDrawerOpen(false)}
-        activeTab={activeTab}
-        onSelectTab={(tabId) => setActiveTab(tabId)}
-        lang={lang}
-        theme={theme}
-        onOpenTelegram={() => setIsTelegramOpen(true)}
-        activeSignalsCount={signals.filter((s) => s.isActionableNow).length}
-      />
 
 
 
@@ -454,13 +371,6 @@ export default function App() {
           theme={theme}
         />}
 
-      {/* 6.5 Vanguard Neo-Precision Design System Inspector */}
-        {isDesignSystemOpen && <DesignSystemShowcase
-          isOpen={isDesignSystemOpen}
-          onClose={() => setIsDesignSystemOpen(false)}
-          lang={lang}
-          theme={theme}
-        />}
       </Suspense>
 
       {/* 7. Mobile Bottom Navigation Bar (Visible exclusively on mobile screens) */}

@@ -81,7 +81,7 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({ isOpen, onClose, lang })
   return (
     <div className="fixed inset-0 z-[60] flex justify-end">
       <button className="absolute inset-0 bg-black/60" aria-label={t('Close the assistant', 'Fermer l’assistant', 'سد المساعد')} onClick={onClose} />
-      <section role="dialog" aria-modal="true" aria-label={t('AI assistant', 'Assistant IA', 'المساعد الذكي')} className="relative w-full sm:w-[460px] h-full flex flex-col bg-surface border-s border-line shadow-[var(--shadow-float)]">
+      <section role="dialog" aria-modal="true" aria-label={t('AI assistant', 'Assistant IA', 'المساعد الذكي')} className="relative w-full sm:w-[460px] h-full flex flex-col glass-strong border-s shadow-[var(--shadow-float)]">
         <header className="flex items-center justify-between gap-2 px-4 h-14 border-b border-line shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-8 h-8 rounded-lg bg-gold-500/15 text-gold-300 flex items-center justify-center"><Bot className="w-4 h-4" aria-hidden="true" /></span>

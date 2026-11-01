@@ -1,6 +1,6 @@
 import { apiFetch } from '../api';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Send, Activity } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { LotCalculator } from './LotCalculator';
@@ -101,17 +101,10 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   }, [symbol, timeframe, loadStrategy, loadCandles]);
 
   const t = (en: string, fr: string, ar: string) => (lang === 'ar' ? ar : lang === 'fr' ? fr : en);
-  const agents = bundle ? [
-    { name: t('Trend', 'Tendance', 'الاتجاه'), summary: bundle.agents.structure_agent.summary, ok: result?.bias.direction !== 'NEUTRAL' },
-    { name: result?.symbol === 'XAUUSD' ? t('Breakout', 'Cassure', 'الاختراق') : result?.strategy === 'RSI2_Connors_H4' ? t('RSI(2) pullback', 'Repli RSI(2)', 'تراجع RSI(2)') : t('Area of interest', 'Zone (AOI)', 'منطقة الاهتمام'),
-      summary: bundle.agents.liquidity_agent.summary, ok: !!result?.checklist.find(c => ['sweep', 'zone', 'breakout', 'retest', 'aoi', 'rsi'].includes(c.key) && c.passed) },
-    { name: t('Risk', 'Risque', 'المخاطرة'), summary: bundle.agents.risk_agent.summary, ok: !!result?.setup && !!result.checklist.find(c => ['rr', 'stop'].includes(c.key) && c.passed) },
-    { name: t('Decision', 'Décision', 'القرار'), summary: bundle.agents.cto_agent.summary, ok: result?.status === 'SIGNAL' },
-  ] : [];
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-4 py-3 bg-surface border border-line rounded-[var(--radius-card)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-4 py-3 glass border rounded-[var(--radius-card)]">
         <div className="flex items-center gap-3 min-w-0">
           <div className="hidden sm:block">
             <div className="text-sm font-semibold tracking-wide text-white">{t('Live chart', 'Graphique en direct', 'الشارت المباشر')}</div>
@@ -152,48 +145,40 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
         </div>
         <div className="lg:col-span-4 min-w-0">
           <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />
-          {(bundle as any)?.tradeDesk && (
-            <div className="mt-4 p-4 rounded-[var(--radius-card)] bg-surface border border-line text-xs">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-slate-200">{t('AI trade desk · last check before sending', 'Desk IA · dernier contrôle avant envoi', 'مكتب الذكاء · آخر فحص قبل الإرسال')}</span>
-                <span className={`font-mono font-semibold ${(bundle as any).tradeDesk.approved ? 'text-emerald-300' : 'text-rose-300'}`}>
-                  {(bundle as any).tradeDesk.approved ? t('Approved', 'Validé', 'مقبول') : t('Blocked', 'Bloqué', 'محبوس')}
-                </span>
-              </div>
-              <ul className="space-y-1.5">
-                {(bundle as any).tradeDesk.checks.map((c: { key: string; label: string; passed: boolean; detail: string }) => (
-                  <li key={c.key} className="flex gap-2">
-                    <span className={`mt-0.5 w-4 h-4 shrink-0 rounded-full flex items-center justify-center text-[10px] ${c.passed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>{c.passed ? '✓' : '✕'}</span>
-                    <span className="min-w-0"><span className="text-slate-200">{({
-                      rules: t('Strategy rules re-checked', 'Règles de la stratégie revérifiées', 'شروط الاستراتيجية متحقق منها'),
-                      data: t('Live, fresh data', 'Données en direct et fraîches', 'معطيات مباشرة وجديدة'),
-                      drift: t('Price still near the entry', 'Prix encore proche de l’entrée', 'الثمن باقي قريب من الدخول'),
-                      liveRr: t('R:R still valid from the live price', 'R:R encore valable au prix actuel', 'العائد/المخاطرة باقي صالح'),
-                      market: t('Market open, no news window', 'Marché ouvert, pas de news', 'السوق مفتوح، بلا أخبار'),
-                      exposure: t('Currency exposure (max 2 the same way)', 'Exposition par devise (max 2 dans le même sens)', 'التعرض للعملة (2 فالاتجاه نفسو كحد أقصى)'),
-                    } as Record<string, string>)[c.key] ?? c.label}</span>
-                      <span className="block text-slate-500 break-words" dir="ltr">{c.detail}</span></span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {(bundle as any)?.tradeDesk && (() => {
+            const desk = (bundle as any).tradeDesk as { approved: boolean; checks: { key: string; label: string; passed: boolean; detail: string }[] };
+            const ok = desk.checks.filter(c => c.passed).length;
+            const names: Record<string, string> = {
+              rules: t('Strategy rules re-checked', 'Règles de la stratégie revérifiées', 'شروط الاستراتيجية متحقق منها'),
+              data: t('Live, fresh data', 'Données en direct et fraîches', 'معطيات مباشرة وجديدة'),
+              drift: t('Price still near the entry', 'Prix encore proche de l’entrée', 'الثمن باقي قريب من الدخول'),
+              liveRr: t('R:R still valid from the live price', 'R:R encore valable au prix actuel', 'العائد/المخاطرة باقي صالح'),
+              market: t('Market open, no news window', 'Marché ouvert, pas de news', 'السوق مفتوح، بلا أخبار'),
+              exposure: t('Currency exposure (max 2 the same way)', 'Exposition par devise (max 2 dans le même sens)', 'التعرض للعملة (2 فالاتجاه نفسو كحد أقصى)'),
+            };
+            return (
+              <details className="group mt-4 rounded-[var(--radius-card)] glass border border-line text-xs">
+                <summary className="flex items-center justify-between gap-2 p-4 cursor-pointer list-none">
+                  <span className="font-semibold text-slate-200">{t('AI trade desk', 'Desk IA', 'مكتب الذكاء')} <span className="font-normal text-slate-500">· {t('last check before sending', 'dernier contrôle avant envoi', 'آخر فحص قبل الإرسال')}</span></span>
+                  <span className={`font-mono font-semibold ${desk.approved ? 'text-emerald-300' : 'text-rose-300'}`}>
+                    {desk.approved ? t('Approved', 'Validé', 'مقبول') : t('Blocked', 'Bloqué', 'محبوس')} · {ok}/{desk.checks.length}
+                  </span>
+                </summary>
+                <ul className="space-y-1.5 px-4 pb-4">
+                  {desk.checks.map(c => (
+                    <li key={c.key} className="flex gap-2">
+                      <span className={`mt-0.5 w-4 h-4 shrink-0 rounded-full flex items-center justify-center text-[10px] ${c.passed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>{c.passed ? '✓' : '✕'}</span>
+                      <span className="min-w-0"><span className="text-slate-200">{names[c.key] ?? c.label}</span>
+                        <span className="block text-slate-500 break-words" dir="ltr">{c.detail}</span></span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            );
+          })()}
         </div>
       </div>
 
-      {agents.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          {agents.map((a, i) => (
-            <div key={a.name} className="p-3 rounded-xl bg-surface border border-line">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5 text-gold-400" aria-hidden="true" />{i + 1}. {a.name}</span>
-                <span className={`text-xs font-medium ${a.ok ? 'text-emerald-300' : 'text-slate-500'}`}>{a.ok ? t('OK', 'Validé', 'محقق') : t('Not met', 'Non validé', 'ما محققش')}</span>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed break-words">{a.summary}</p>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

@@ -99,7 +99,7 @@ export const LotCalculator: React.FC<{ result: StrategyResult | null; lang?: Lan
   const field = 'w-full h-10 px-3 rounded-lg bg-surface-2 border border-line text-sm font-mono text-white focus:outline-none focus:border-gold-500/60 focus:ring-2 focus:ring-gold-500/20 transition';
   return (
     <section ref={boxRef} aria-labelledby="lotcalc-title"
-      className={`mt-4 p-4 rounded-[var(--radius-card)] bg-surface border transition-[border-color,box-shadow] duration-500 ${flash ? 'border-gold-400 shadow-[0_0_0_4px_rgba(212,175,55,0.18)]' : 'border-line'}`}>
+      className={`mt-4 p-4 rounded-[var(--radius-card)] glass border transition-[border-color,box-shadow] duration-500 ${flash ? 'border-gold-400 shadow-[0_0_0_4px_rgba(212,175,55,0.18)]' : 'border-line'}`}>
       <header className="flex items-center justify-between gap-3 mb-3">
         <h3 id="lotcalc-title" className="flex items-center gap-2 text-sm font-semibold text-white">
           <span className="icon-tile w-8 h-8 text-gold-400" aria-hidden="true"><Calculator className="w-4 h-4" /></span>

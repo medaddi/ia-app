@@ -34,7 +34,7 @@ export const PastTrades: React.FC<{ result: StrategyResult | null; lang?: Langua
     { l: t('Max drawdown', 'Drawdown max', 'أكبر تراجع'), v: `−${st.maxDrawdownR.toFixed(2)}R`, tone: 'text-rose-300' },
   ];
   return (
-    <section className="mt-4 rounded-[var(--radius-card)] bg-surface border border-line" aria-labelledby="past-title">
+    <section className="mt-4 rounded-[var(--radius-card)] glass border border-line" aria-labelledby="past-title">
       <header className="px-4 pt-4 pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 id="past-title" className="flex items-center gap-2 text-sm font-semibold text-white">

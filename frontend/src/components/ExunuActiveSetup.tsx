@@ -79,7 +79,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
 
 
   return (
-    <div className="flex flex-col bg-surface border border-line rounded-[var(--radius-card)] overflow-hidden" dir={ar ? 'rtl' : 'ltr'}>
+    <div className="flex flex-col glass border rounded-[var(--radius-card)] overflow-hidden" dir={ar ? 'rtl' : 'ltr'}>
       <div className="p-4 border-b border-line">
         <div className="flex items-center justify-between gap-2 text-xs">
           <span className="text-slate-400 truncate">{result.strategyName}</span>
@@ -149,7 +149,12 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
                 : t('No high-impact news scheduled', 'Aucune news forte prévue', 'ما كاين حتى خبر قوي')} <span className="text-slate-600">({result.news.source})</span>
           </span>
         </div>
-        {explanation && <p className="text-slate-400 leading-relaxed break-words" dir="ltr">{explanation}</p>}
+        {explanation && (
+          <details className="group">
+            <summary className="cursor-pointer list-none text-slate-400 hover:text-gold-300">{t('Why this analysis', 'Pourquoi cette analyse', 'علاش هاد التحليل')} <span className="group-open:hidden">▸</span><span className="hidden group-open:inline">▾</span></summary>
+            <p className="mt-1.5 text-slate-400 leading-relaxed break-words" dir="ltr">{explanation}</p>
+          </details>
+        )}
       </div>
 
       <div className="p-4 flex flex-col gap-2">
@@ -180,11 +185,12 @@ function TargetOptions({ reach, planned, f, t }: { reach: TpReach; planned: numb
   const few = reach.sample < MIN_SAMPLE;
   const steps = reach.steps.filter(st => st.price !== undefined && st.r <= Math.max(planned, 3) + 1e-9);
   return (
-    <div className="p-4 border-b border-line">
-      <div className="flex items-baseline justify-between gap-2 mb-2">
-        <h4 className="text-xs font-semibold text-slate-300">{t('Reachable targets', 'Objectifs atteignables', 'الأهداف لي يقدر يوصل ليها السوق')}</h4>
+    <details className="group p-4 border-b border-line">
+      <summary className="flex items-baseline justify-between gap-2 cursor-pointer list-none">
+        <h4 className="text-xs font-semibold text-slate-300">{t('Reachable targets', 'Objectifs atteignables', 'الأهداف لي يقدر يوصل ليها السوق')} <span className="text-slate-500 group-open:hidden">▸</span><span className="text-slate-500 hidden group-open:inline">▾</span></h4>
         <span className="text-[11px] text-slate-500">{t(`${reach.sample} past trades`, `${reach.sample} trades passés`, `${reach.sample} صفقة فاتت`)}</span>
-      </div>
+      </summary>
+      <div className="mt-2">
       {reach.sample === 0 ? (
         <p className="text-xs text-slate-500">{t('No closed trade on this pair yet: no odds to show.', 'Aucun trade clôturé sur cette paire : pas encore de probabilités.', 'ما كاينة حتى صفقة مسدودة ف هاد الزوج: ما كاينينش احتمالات.')}</p>
       ) : (
@@ -217,7 +223,8 @@ function TargetOptions({ reach, planned, f, t }: { reach: TpReach; planned: numb
         {few && reach.sample > 0 ? t(`Only ${reach.sample} past trades: treat these odds as a rough guide.`, `Seulement ${reach.sample} trades passés : probabilités indicatives.`, `غير ${reach.sample} صفقات فاتت: الاحتمالات تقريبية.`)
           : t('Share of past trades the market carried to each level before the stop. Past odds, not a promise.', 'Part des trades passés que le marché a portés jusqu’à chaque niveau avant le stop. Le passé ne garantit rien.', 'نسبة الصفقات الفايتة لي وصلها السوق لكل مستوى قبل الستوب. الماضي ماشي ضمان.')}
       </p>
-    </div>
+      </div>
+    </details>
   );
 }
 

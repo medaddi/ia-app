@@ -9,7 +9,7 @@ export function Card({ isLight, title, icon, right, children, className = '' }: 
   isLight: boolean; title?: React.ReactNode; icon?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; className?: string;
 }) {
   return (
-    <section className={`rounded-2xl border p-4 sm:p-5 ${isLight ? 'bg-white border-paper-line-2' : 'bg-surface-2 border-line'} ${className}`}>
+    <section className={`rounded-2xl border p-4 sm:p-5 ${isLight ? 'bg-white border-paper-line-2' : 'glass'} ${className}`}>
       {(title || right) && (
         <header className="flex items-center justify-between gap-3 mb-4">
           <h3 className={`flex items-center gap-2 text-sm font-semibold ${isLight ? 'text-ink-strong' : 'text-white'}`}>

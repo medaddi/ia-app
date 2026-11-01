@@ -56,10 +56,11 @@ def login(db: Session, username: str, code: str) -> Optional[dict]:
     now = datetime.now(timezone.utc)
     db.execute(delete(SessionToken).where(SessionToken.expires_at < now))
     token = secrets.token_urlsafe(32)
-    db.add(SessionToken(token=token, user_id=u.id, expires_at=now + timedelta(days=settings.session_days)))
+    expires = now + timedelta(minutes=settings.session_minutes)
+    db.add(SessionToken(token=token, user_id=u.id, expires_at=expires))
     u.last_login_at = now
     db.commit()
-    return {"token": token, "user": user_json(u)}
+    return {"token": token, "expiresAt": expires.isoformat(), "user": user_json(u)}
 
 
 def logout(db: Session, token: str) -> None:

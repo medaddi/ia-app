@@ -109,7 +109,7 @@ function Reveal({ i = 0, className = '', children }: { i?: number; className?: s
 
 function Panel({ title, icon, right, className = '', children }: { title: React.ReactNode; icon: React.ReactNode; right?: React.ReactNode; className?: string; children: React.ReactNode }) {
   return (
-    <section className={`h-full rounded-2xl border border-line bg-surface-2/80 p-4 sm:p-5 ${className}`}>
+    <section className={`h-full rounded-2xl border glass p-4 sm:p-5 ${className}`}>
       <header className="flex items-center justify-between gap-3 mb-4">
         <h3 className="flex items-center gap-2.5 text-sm font-semibold text-white"><span className="icon-tile w-8 h-8 text-gold-400" aria-hidden="true">{icon}</span>{title}</h3>
         {right}
@@ -476,7 +476,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
         </Reveal>
 
         <Reveal i={2} className="lg:col-span-5">
-          <section className="h-full rounded-2xl border border-line bg-surface-2/80 p-5 flex flex-col gap-4">
+          <section className="h-full rounded-2xl border glass p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2.5 text-sm font-semibold text-white"><span className="icon-tile w-8 h-8 text-gold-400" aria-hidden="true"><Clock className="w-4 h-4" /></span>{t('Market clock', 'Horloge du marché', 'ساعة السوق')}</h3>
               <Chip kind={anyOpen ? 'signal' : 'none'}>{anyOpen ? t('Open', 'Ouvert', 'مفتوح') : t('Closed', 'Fermé', 'مغلق')}</Chip>
@@ -495,21 +495,6 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                 <div className="mt-1 font-mono text-sm text-white tabular-nums">{mmss(session.h4)}</div>
               </div>
             </div>
-            <div>
-              <div className="text-xs text-slate-500 mb-1.5">{t('Running signals', 'Signaux en cours', 'إشارات جارية')}</div>
-              {running.length === 0 ? <p className="text-xs text-slate-500">{t('None right now: the strategies are waiting for their setup.', 'Aucun pour l’instant : les stratégies attendent leur setup.', 'والو دابا: الاستراتيجيات كتسنى الإعداد ديالها.')}</p> : (
-                <div className="flex flex-wrap gap-2">
-                  {running.map(m => (
-                    <button key={m.symbol} onClick={() => onOpenChart(m.symbol)}
-                      className="group inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-2.5 py-1.5 text-xs font-mono text-slate-200 cursor-pointer transition-all duration-200 hover:border-gold-500/60 hover:-translate-y-0.5">
-                      <Flame className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
-                      <span className={m.setup!.direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>{m.setup!.direction}</span> {m.symbol}
-                      <span className="text-slate-500">{stateLabel(m.symbol, m.setup!.state)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
           </section>
         </Reveal>
       </div>
@@ -517,7 +502,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
       {/* Open trades first: each one as a live bar (stop, entry, target, price now) */}
       {running.length > 0 && (
         <Reveal i={2}>
-          <section aria-labelledby="open-trades" className="rounded-2xl border border-emerald-500/25 bg-gradient-to-b from-emerald-500/[0.05] to-surface-2/80 p-4 sm:p-5">
+          <section aria-labelledby="open-trades" className="rounded-2xl border glass !border-emerald-500/25 p-4 sm:p-5">
             <header className="flex items-center justify-between gap-3 mb-4">
               <h3 id="open-trades" className="flex items-center gap-2.5 text-sm font-semibold text-white">
                 <span className="icon-tile w-8 h-8 text-emerald-300" aria-hidden="true"><Flame className="w-4 h-4" /></span>
@@ -553,7 +538,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {tiles.map((k, i) => (
           <Reveal key={k.label} i={3 + i}>
-            <div className="h-full rounded-2xl border border-line bg-surface-2/80 p-4 transition-colors duration-200 hover:border-gold-500/30">
+            <div className="h-full rounded-2xl border glass p-4 transition-colors duration-200 hover:border-gold-500/30">
               <div className="text-[11px] uppercase tracking-wider text-slate-500 truncate">{k.label}</div>
               <div className={`mt-1 font-mono text-xl font-semibold tabular-nums ${k.valueTone ?? 'text-white'}`}>{k.value}</div>
               {k.sub && <div className="mt-1 text-xs text-slate-500 truncate font-mono">{k.sub}</div>}

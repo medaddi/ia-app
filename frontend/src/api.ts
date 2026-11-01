@@ -24,12 +24,34 @@ export function apiUrl(path: string): string {
 }
 
 /** fetch() against the backend with the session token. Same signature as fetch. */
+const EXPIRES_KEY = "ld_session_expires";
+
+/** When the current login ends (ISO time from the server); the app returns to the login page then. */
+export function setSessionExpiry(iso: string | null) {
+  try { if (iso) localStorage.setItem(EXPIRES_KEY, iso); else localStorage.removeItem(EXPIRES_KEY); } catch { /* storage blocked */ }
+}
+export function sessionExpiry(): number | null {
+  try { const v = localStorage.getItem(EXPIRES_KEY); return v ? new Date(v).getTime() : null; } catch { return null; }
+}
+
+/** The login has ended (1 hour, or refused by the server): forget it and tell the app. */
+export function expireSession() {
+  if (!getToken()) return;
+  setToken(null);
+  setSessionExpiry(null);
+  window.dispatchEvent(new Event("ld-session-expired"));
+}
+
 export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers || {});
   const token = getToken();
   if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && typeof init.body === "string" && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  return fetch(apiUrl(path), { ...init, headers });
+  return fetch(apiUrl(path), { ...init, headers }).then(res => {
+    // The session ran out on the server: back to the login page (not for the login call itself)
+    if (res.status === 401 && token && !path.includes("/auth/login") && !path.includes("/auth/register")) expireSession();
+    return res;
+  });
 }
 
 /** JSON helper: throws with the backend's error message on a non-2xx answer. */

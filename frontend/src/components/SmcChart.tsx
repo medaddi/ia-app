@@ -87,7 +87,7 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '');
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 const PAL = {
-  dark: { bg: '#0D1016', grid: 'rgba(255,255,255,0.035)', text: '#8D96A6', border: '#1F2430', bull: '#16C784', bear: '#EA3943', ema50: '#4B85B8', ema200: '#C9A04A' },
+  dark: { bg: 'rgba(9, 11, 16, 0.55)', grid: 'rgba(255,255,255,0.035)', text: '#8D96A6', border: '#1F2430', bull: '#16C784', bear: '#EA3943', ema50: '#4B85B8', ema200: '#C9A04A' },
   light: { bg: '#FFFFFF', grid: 'rgba(0,0,0,0.05)', text: '#4D5566', border: '#DDD6C8', bull: '#0E9F6E', bear: '#D92D3A', ema50: '#386A99', ema200: '#A8843A' },
 };
 
@@ -429,7 +429,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     : 'bg-slate-500/10 text-slate-300 ring-slate-500/30';
 
   return (
-    <div ref={frameRef} className={`flex flex-col border border-line bg-surface overflow-hidden ${full ? 'fixed inset-0 z-[60] rounded-none' : 'rounded-[var(--radius-card)]'}`}>
+    <div ref={frameRef} className={`flex flex-col border glass overflow-hidden ${full ? 'fixed inset-0 z-[60] rounded-none' : 'rounded-[var(--radius-card)]'}`}>
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 border-b border-line">
         <div className="flex items-center gap-2 min-w-0">
@@ -453,7 +453,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
             </button>
             {layersOpen && (
               <div role="menu" aria-label={t('Chart layers', 'Calques du graphique', 'طبقات الشارت')}
-                className="absolute end-0 mt-1.5 w-60 rounded-xl border border-line-2 bg-surface-2 shadow-[var(--shadow-float)] p-1.5 z-40">
+                className="absolute end-0 mt-1.5 w-60 rounded-xl border glass-strong p-1.5 z-40">
                 {shownLayers.map(l => (
                   <button key={l.key} role="menuitemcheckbox" aria-checked={layers[l.key]} onClick={() => toggleLayer(l.key)}
                     className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-slate-200 hover:bg-white/[0.05] cursor-pointer text-start">

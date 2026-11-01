@@ -100,8 +100,8 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="tg-title" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} dir={lang === 'ar' ? 'rtl' : 'ltr'}
-        className={`w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl border shadow-2xl ${isLight ? 'bg-paper border-paper-line-2' : 'bg-surface border-line'}`}>
-        <header className={`sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b ${isLight ? 'bg-paper border-paper-line-2' : 'bg-surface border-line'}`}>
+        className={`w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl border shadow-2xl ${isLight ? 'bg-paper border-paper-line-2' : 'glass-strong'}`}>
+        <header className={`sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b ${isLight ? 'bg-paper border-paper-line-2' : 'bg-[rgb(16_19_26/0.92)] border-line'}`}>
           <div className="flex items-center gap-2.5">
             <Bot className="w-5 h-5 text-gold-500" />
             <div>
