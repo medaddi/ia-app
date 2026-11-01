@@ -4,7 +4,7 @@ import React from 'react';
 export const LogoLoader: React.FC<{ small?: boolean; className?: string }> = ({ small = false, className = '' }) => (
   <div className={`ld-logo-loader ${small ? 'is-small' : ''} ${className}`} aria-hidden="true">
     <div className="ld-circle" />
-    <img src="/brand/emblem-192.webp" alt="" />
+    <img src="/brand/emblem-clear-192.webp" alt="" />
   </div>
 );
 
