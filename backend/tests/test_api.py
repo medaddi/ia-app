@@ -171,6 +171,7 @@ def test_telegram_link_code_and_capital_risk(client, admin, monkeypatch):
         sent.append(text)
         return {"success": True}
     monkeypatch.setattr(bot, "send_message", fake_send)
+    monkeypatch.setattr(bot.settings, "public_app_url", "http://localhost:3000")  # the invitation link comes in the text
     say = lambda text: asyncio.run(bot.handle_update("T", {"message": {"text": text, "chat": {"id": 4242}, "from": {"first_name": "L"}}})) or sent[-1]  # noqa: E731
 
     # Not linked: every command asks to connect; typed text (old codes included) gets no answer
@@ -212,6 +213,7 @@ def test_admin_sees_telegram_links_and_access_follows_the_account(client, admin,
         sent.append(text)
         return {"success": True}
     monkeypatch.setattr(bot, "send_message", fake_send)
+    monkeypatch.setattr(bot.settings, "public_app_url", "http://localhost:3000")  # the invitation link comes in the text
     say = lambda text: asyncio.run(bot.handle_update("T", {"message": {"text": text, "chat": {"id": 5151}, "from": {"first_name": "V"}}})) or sent[-1]  # noqa: E731
     token = re.search(r"\?tg=([\w-]+)", say("/start")).group(1)
     client.post("/api/telegram/connect", headers=trader, json={"token": token})
@@ -309,6 +311,7 @@ def test_one_telegram_per_account_and_deleted_account_loses_the_bot(client, admi
         sent.append((chat_id, text))
         return {"success": True}
     monkeypatch.setattr(bot, "send_message", fake_send)
+    monkeypatch.setattr(bot.settings, "public_app_url", "http://localhost:3000")  # the invitation link comes in the text
 
     def invite(chat):
         asyncio.run(bot.handle_update("T", {"message": {"text": "/start", "chat": {"id": chat}, "from": {"first_name": "Tg"}}}))
@@ -334,3 +337,15 @@ def test_one_telegram_per_account_and_deleted_account_loses_the_bot(client, admi
     asyncio.run(bot.handle_update("T", {"message": {"text": "/signal", "chat": {"id": 6001}, "from": {"first_name": "Tg"}}}))
     assert "Connect your app account first" in sent[-1][1]
     assert other  # the other account is untouched
+
+
+def test_invitation_button_opens_the_app_domain(monkeypatch):
+    from app.db import SessionLocal, init_db
+    from app.telegram import bot
+
+    init_db()
+    monkeypatch.setattr(bot.settings, "public_app_url", "https://liquiditydissection.app")
+    with SessionLocal() as db:
+        text, markup = bot.connect_button(db, "7007", "Tg")
+    url = markup["inline_keyboard"][0][0]["url"]
+    assert url.startswith("https://liquiditydissection.app/?tg=") and "?tg=" not in text

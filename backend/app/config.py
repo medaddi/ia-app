@@ -27,6 +27,7 @@ def _bool(name: str, default: bool) -> bool:
 
 # Vercel runs the API as short-lived functions: no background loops, only /tmp is writable
 ON_VERCEL = bool(os.environ.get("VERCEL"))
+APP_DOMAIN = "https://liquiditydissection.app"  # the frontend's address
 
 
 class Settings:
@@ -55,10 +56,10 @@ class Settings:
     cron_secret: str = os.environ.get("CRON_SECRET", "")
     telegram_webhook_secret: str = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
     telegram_webhook_url: str = os.environ.get("TELEGRAM_WEBHOOK_URL", "")
-    # The app's public address (https://liquiditydissection.com): the bot's "Connect" button opens it
-    # (the frontend is its own Vercel project: else the first non-local CORS origin, which is that app)
+    # The app's public address: the bot's "Connect" button opens it (the frontend is its own project: else the first
+    # https:// CORS origin, else the app's domain)
     public_app_url: str = (os.environ.get("PUBLIC_APP_URL") or next(
-        (o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip().startswith("https://")), "")).rstrip("/")
+        (o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip().startswith("https://")), APP_DOMAIN)).rstrip("/")
 
     @property
     def database_missing(self) -> bool:

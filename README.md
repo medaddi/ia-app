@@ -221,8 +221,8 @@ Backend environment variables (`backend/.env` locally, the host's dashboard in p
 | `ADMIN_ACCESS_CODE` | **yes** | First admin's password on an empty database. Use a strong one and change it after the first login |
 | `ADMIN_RESET` | — | `true` for one deploy resets the admin's password to `ADMIN_ACCESS_CODE`; remove it afterwards |
 | `SESSION_MINUTES` | — | Login duration (default `60`) |
-| `CORS_ORIGINS` | yes | The app's address(es), comma separated, e.g. `https://liquiditydissection.com` |
-| `PUBLIC_APP_URL` | recommended | The app's address, opened by the bot's invitation button (default: first `https://` entry of `CORS_ORIGINS`) |
+| `CORS_ORIGINS` | yes | The app's address(es), comma separated, e.g. `https://liquiditydissection.app` (the app's domain and `*.vercel.app` are always allowed) |
+| `PUBLIC_APP_URL` | — | The app's address, opened by the bot's invitation button (default: the first `https://` entry of `CORS_ORIGINS`, else `https://liquiditydissection.app`) |
 | `CRON_SECRET` | serverless | Protects `/api/cron/tick` (long random value) |
 | `SCHEDULER_ENABLED` | — | In-process candle scheduler (`true` on an always-on server, `false` on Vercel) |
 | `TELEGRAM_POLLING` | — | Bot long polling (`true` on an always-on server, `false` on Vercel) |
@@ -235,7 +235,7 @@ Frontend: `VITE_API_URL` — the backend's address when the frontend and the API
 
 ## Deploy
 
-The production setup is **two Vercel projects from this repository** plus a free PostgreSQL database
+The app runs at **https://liquiditydissection.app**. The production setup is **two Vercel projects from this repository** plus a free PostgreSQL database
 (step-by-step: [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)).
 
 1. **Database** — create a Neon (or Supabase) PostgreSQL and use its *pooled* URL as `DATABASE_URL`.
@@ -249,8 +249,8 @@ The production setup is **two Vercel projects from this repository** plus a free
    sends signals, follow-ups and results, and keeps the bot's menu up to date.
 5. **Telegram** — set `TELEGRAM_WEBHOOK_URL` / `TELEGRAM_WEBHOOK_SECRET`, then connect the bot token in the app
    (*Bot Telegram*): the webhook and the command menu are registered automatically.
-6. **Custom domain** — in the frontend project: *Settings → Domains → Add* `liquiditydissection.com` and
-   `www.liquiditydissection.com`, then at the registrar an `A` record `@ → 76.76.21.21` and a `CNAME`
+6. **Custom domain** — in the frontend project: *Settings → Domains → Add* `liquiditydissection.app` and
+   `www.liquiditydissection.app`, then at the registrar an `A` record `@ → 76.76.21.21` and a `CNAME`
    `www → cname.vercel-dns.com` (use the exact values Vercel shows). HTTPS is automatic. Then set
    `CORS_ORIGINS` and `PUBLIC_APP_URL` on the backend to the new address. Users log in again and re-enable
    notifications on the new domain (browser data is per address).

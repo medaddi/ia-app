@@ -5,7 +5,7 @@ This repository deploys as two Vercel projects that share the same Git repositor
 | Project | Vercel root directory | Production URL |
 | --- | --- | --- |
 | Backend | `backend` | `https://ia-app-tawny.vercel.app` |
-| Frontend | `frontend` | `https://ia-app-co94.vercel.app` |
+| Frontend | `frontend` | `https://liquiditydissection.app` (Vercel address: `https://ia-app-co94.vercel.app`) |
 
 ## 1. Create a persistent database
 
@@ -24,7 +24,7 @@ Add these Production environment variables to the backend project:
 | `DATABASE_URL` | Hosted PostgreSQL connection URL |
 | `ADMIN_USERNAME` | `admin` |
 | `ADMIN_ACCESS_CODE` | `admin1234` |
-| `CORS_ORIGINS` | `https://ia-app-co94.vercel.app` |
+| `CORS_ORIGINS` | `https://liquiditydissection.app` |
 | `CRON_SECRET` | A long, random secret used by the scheduler request |
 | `SCHEDULER_ENABLED` | `false` |
 | `TELEGRAM_POLLING` | `false` |
@@ -41,7 +41,7 @@ Create a second Vercel project from the same repository and set its Root Directo
 | --- | --- |
 | `VITE_API_URL` | `https://ia-app-tawny.vercel.app` |
 
-Use `https://ia-app-co94.vercel.app` as the frontend Production Domain, then redeploy so the API URL is included in the frontend build.
+Use `https://liquiditydissection.app` as the frontend Production Domain, then redeploy so the API URL is included in the frontend build.
 
 ## 4. Keep automatic signals running
 

@@ -75,7 +75,7 @@ app = FastAPI(title="LiquidityDissection API", version="2.0.0", lifespan=lifespa
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://(.*\.vercel\.app|(www\.)?liquiditydissection\.app)",  # Vercel previews and the app's domain
     allow_methods=["*"],
     allow_headers=["*"],
 )
