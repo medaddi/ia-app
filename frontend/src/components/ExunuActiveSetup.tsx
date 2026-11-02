@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X } from 'lucide-react';
 import type { StrategyResult, TpReach } from '../strategyTypes';
+import { ReportStrategyCard } from './ReportStrategyCard';
 import { TradeManagement, type ManagerVote } from './TradeManagement';
 import { TradeProgress } from './TradeProgress';
 
@@ -133,6 +134,8 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
       )}
 
       {s && result.tpReach && <TargetOptions reach={result.tpReach} planned={rrTarget} f={f} t={t} />}
+
+      <ReportStrategyCard report={result.reportStrategy} decimals={result.spec.decimals} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
 
       <div className="p-4 flex flex-col gap-2">
         <div className="flex gap-2">

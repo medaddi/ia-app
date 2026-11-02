@@ -100,7 +100,7 @@ lucky parameter. Run together by the app's own code, one trade at a time: **215 
 (reversion 55 trades, 65.5%, +13.7R · breakout 160 trades, 56.9%, +36.2R), both halves positive. Gold rose from
 $2,358 to $4,073 over the period; both engines made money on buys and on sells.
 
-## Strategy 2 — EUR/USD and GBP/USD: "RSI(2) Connors pullback H4"
+## Strategy 2 — EUR/USD: "RSI(2) Connors pullback H4" (GBP/USD moved to Strategy 4)
 
 Larry Connors' short-term mean reversion inside the trend (`backend/app/strategies/rsi2/`), chosen because it was the only
 forex strategy tested that stayed positive on these two pairs over 2 years of H4 data, costs included.
@@ -164,6 +164,75 @@ The next W1 / D1 zone is usually 1:3 to 1:6 away, so it is rarely reached: as wr
 and A+ setups did not win more often than C+ ones. Capping the TP at 3R does not fix it (still negative on 6 of 8).
 Last 60 days with real 30m candles: 42 trades over the 8 pairs, about +5R in total (far too few trades to judge).
 `risk.maxRr` in the config caps the TP (off by default, to follow the rules as written).
+
+## Strategy 4 — GBP/USD: "London breakout H1" (from the strategy report)
+
+From the report *"Anja7 Stratigiyat Trading F Forex"* (the London Breakout Strategy it recommends for GBP/USD: DailyForex /
+KenyaForexFirm, win rate 50–65 %, profit factor > 1.5), as code in `backend/app/strategies/london/`.
+
+1. **Asian range:** the high and low of the H1 candles opening 00:00–06:00 GMT (at least 5). Wider than 3 × ATR(14, H1)
+   → not a range, no trade.
+2. **Breakout:** the first H1 candle opening 07:00–10:00 GMT (closing by 11:00) that **closes beyond the range** with a
+   strong body (≥ half its range) and **in its outer third** (no pin bar, no long wick back inside) → MARKET at that close.
+3. **Stop:** the opposite side of the Asian range. **Target:** 2R. Closed at market after 14 H1 candles (end of the day).
+4. One trade a day; 30 min around high-impact GBP / USD news; spread ≤ 4 pips.
+
+| GBP/USD, 2 years of H1 (Nov 2024 – Nov 2026), spread 1.5 + 0.2 pip | Trades | Winners | Total | PF | Halves | Costs ×2 |
+|---|---|---|---|---|---|---|
+| London breakout (the research harness) | 274 | 48.5 % | **+28.6R** | 1.25 | +19.4 / +9.2 | +14.4R |
+| London breakout (the app's own code and lifecycle) | 257 | 48.4 % | **+25.2R** | 1.24 | — | — |
+| RSI(2) H4 it replaces (same months, the app's code) | 58 | 64.0 % | +3.0R | 1.31 | — | — |
+
+Every neighbouring setting stayed positive (28 of 28: window 07–10 / 07–12, body 0.5 / 0.6, range ≤ 2 / 3 / 4 ATR, 1.5R /
+2R, exit 17:00 / 21:00 GMT), and 7 of 9 quarters were positive. Without the strong-candle filter it fails with double
+costs, so the filter is part of the rules. **Weak point:** the buys carried the result (+29.3R, 55 %) while the sells were
+flat (−0.7R); GBP/USD rose over the period, so expect less if the trend turns.
+
+### The rest of the report, tested the same way
+
+Each candidate ran on 2 years of H1 / H4 of every pair (stop first when a candle touches both, the pair's spread +
+slippage, one trade at a time, TP 1.5R or 2R). A pair only changes strategy when the candidate has ≥ 30 trades, is
+positive in **both halves** and **with double costs**, and beats the strategy it replaces.
+
+| Candidate (report) | Result |
+|---|---|
+| London breakout, SL at the other side of the Asian range | ✅ GBP/USD (above); loses on every other pair (EUR/USD −1.2R, USD/CAD −24R, NZD/USD −22R, EUR/CHF −30R …) |
+| London breakout, SL beyond the breakout candle | ❌ negative or fragile everywhere |
+| Mean reversion Bollinger (20, 2) + Stochastic (14, 3, 3), ADX < 25, London / NY — the report's pick for EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF | ❌ EUR/CHF −10.6R, NZD/CAD −45R, AUD/CAD −9.8R; AUD/CHF +7.7R but −13.2R with double costs |
+| RSI 30/70 + Bollinger + EMA200 bias H1 (EUR/GBP style) | ❌ too few trades (10–25 per pair in 2 years) |
+| New York trend, ADX > 25, pullback to EMA20 (USD/CAD) | ❌ USD/CAD −2.9R / −12.8R; one half negative elsewhere |
+| MACD + RSI H4 (EUR/USD) | ❌ EUR/USD −24R; positive on gold (+27R) but below the gold engines; EUR/CHF +8.3R with a flat first half |
+| Bollinger squeeze H1 (GBP/USD, gold) | ❌ negative on 8 of 9 pairs |
+| Order-flow absorption (HVN, cumulative delta), dairy auctions, oil lead-lag, carry | not testable: needs volume-profile / delta, event or swap data the feed does not have |
+
+Second pass (the per-pair strategies not tried in the first one):
+
+| Pair | Report strategy | Trades | Total | Halves | Costs ×2 | Verdict |
+|---|---|---|---|---|---|---|
+| **AUD/CAD** | **Mean reversion Bollinger (20, 2) + Stochastic (14, 3, 3) H4**, 2R | 67 | **+15.4R** | +5.5 / +9.9 | +10.2R | ✅ live (Strategy 5) |
+| AUD/CHF | Quiet range (ADX < 20) Bollinger + Stochastic H1 | 58 | +3.2R | +4.4 / −1.1 | −8.4R | observation |
+| NZD/CAD | Mean reversion H4 | 82 | −6.0R | | | observation |
+| EUR/CHF | Mean reversion H4 | 57 | +2.0R | +9.0 / −7.0 | −4.0R | observation |
+| NZD/USD | Sydney-open breakout of the late-New-York range H1 | 221 | −19.1R | | | observation |
+| EUR/USD, gold | ICT Silver Bullet (New York 10–11 AM) M5 | — | — | | | not testable (~50 days of M5) |
+
+Every pair carries its report strategy (`backend/app/strategies/report/`): **live** on GBP/USD (Strategy 4) and AUD/CAD
+(Strategy 5); in **observation** on the others: computed next to the live strategy, drawn on the chart (layer
+"Report strategy"), shown with its test in the setup panel, and it never sends a signal. Gold keeps its H1 engines,
+EUR/USD its RSI(2), and USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF their FXAlexG GPA.
+
+## Strategy 5 — AUD/CAD: "Mean reversion Bollinger + Stochastic H4" (from the strategy report)
+
+The report's range trading between the two commodity currencies (`backend/app/strategies/report/`, rule `mean_reversion`).
+
+1. **No trend:** ADX(14, H4) below 25.
+2. **Entry:** an H4 candle closes **outside** the Bollinger band (20, 2σ) with the Stochastic (14, 3, 3) below 20 (buys)
+   / above 80 (sells); the next H4 candle closes **back inside** → MARKET at that close.
+3. **Stop:** beyond the two candles' extreme + 0.3 × ATR(14) (at least 0.5 × ATR). **Target:** 2R. Closed at market after
+   12 H4 candles (2 days).
+
+2 years of H4, the app's own lifecycle: 67 trades, +11.3R (+15.4R in the research harness). **Fragile:** Bollinger 2.2σ
+or 1.8σ and Stochastic 25 / 75 lose; a looser ADX (< 30, none) or a wider stop (+0.5 ATR) stay positive.
 
 ## Risk (all)
 

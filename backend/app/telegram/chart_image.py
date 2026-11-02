@@ -6,6 +6,7 @@ Pictures for Telegram, drawn with Pillow in the app's dark and gold look (no bro
 - trade card: the running trade like the app's card (price now, R, the stop → entry → target bar, what to do now).
 """
 
+import bisect
 import io
 import time
 from typing import Optional
@@ -101,7 +102,18 @@ def render_chart(candles: list[Candle], r: dict, now: Optional[float] = None) ->
     span = hi - lo or 1
     lo, hi = lo - span * 0.07, hi + span * 0.07
     step = (CX1 - CX0) / (len(c) + 4)
-    X = lambda t: CX0 + (t - t0) / M15 * step  # noqa: E731
+    times = [x.time for x in c]
+
+    def X(t: float) -> float:
+        """Candles are spaced by position, not by time: nights and weekends with no candle leave no gap."""
+        k = bisect.bisect_left(times, t)
+        if k < len(times) and times[k] == t:
+            return CX0 + k * step
+        if k == 0:
+            return CX0
+        if k >= len(times):
+            return CX0 + (len(times) - 1 + min(4, (t - times[-1]) / M15)) * step
+        return CX0 + (k - 1 + min(1, (t - times[k - 1]) / M15)) * step
     Y = lambda v: CY1 - (v - lo) / (hi - lo) * (CY1 - CY0)  # noqa: E731
     inside = lambda v: lo <= v <= hi  # noqa: E731
 

@@ -43,7 +43,7 @@ RSI2_BASE = {
 }
 
 # pair → (RSI(2) extreme, stop in ATR, assumed spread in pips)
-PAIRS = {"EUR/USD": (10, 2.5, 1.0), "GBP/USD": (5, 3.0, 1.5)}
+PAIRS = {"EUR/USD": (10, 2.5, 1.0)}  # GBP/USD moved to the London breakout (strategies/london/)
 
 
 def _config(pair: str, rsi_lo: float, sl_atr: float, spread: float) -> dict:

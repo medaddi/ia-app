@@ -4,7 +4,7 @@ Gold and forex signals with a strict, tested rule set, a live chart for every pa
 and delivery to the web app, the phone (Web Push) and Telegram, each with the lot for the trader's own risk.
 
 - **9 instruments:** XAU/USD, EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF
-- **3 strategies**, each kept on the pairs where it tested best (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
+- **5 strategies**, each kept on the pairs where it tested best; every pair also carries its strategy from the strategy report, live where it won its 2-year test and in observation elsewhere (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
 - **One target between 1.5R and 2R** on every trade; stops and targets never move once a trade is placed
 - **Accounts managed by the admin**; Telegram works only for a linked, approved account
 
@@ -70,8 +70,10 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 | Pairs | Strategy | Decides on | Entry | Exit |
 |---|---|---|---|---|
 | XAU/USD | **H1 Trend Breakout + Bollinger Reversion** (two engines, one trade at a time) | H1, confirmed at each M15 close | Breakout: H1 close beyond the 20-hour range with a strong body, in the EMA50/EMA200 trend · Reversion (London / New York): close back inside the 2.2σ band | Breakout 2R · Reversion 1.5R, or after 24 H1 candles |
-| EUR/USD, GBP/USD | **RSI(2) Connors pullback** | H4 | RSI(2) extreme against the H4 trend (EMA50/EMA200) | 1.5R, or earlier at the first H4 close back across EMA5, max 48 H4 candles |
-| USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF | **FXAlexG Set & Forget GPA** | M30 at the London / New York open | W1/D1/H4 trend majority, W1/D1 area of interest with ≥ 3 touches, H4 rejection, M30 engulfing | Next W1/D1 zone, between 1.5R and 2R |
+| EUR/USD | **RSI(2) Connors pullback** | H4 | RSI(2) extreme against the H4 trend (EMA50/EMA200) | 1.5R, or earlier at the first H4 close back across EMA5, max 48 H4 candles |
+| AUD/CAD | **Mean reversion Bollinger + Stochastic** (from the strategy report) | H4 | A close outside the Bollinger band (20, 2) with the Stochastic beyond 20 / 80, then a close back inside, ADX < 25 | 2R, or after 12 H4 candles |
+| GBP/USD | **London breakout** (from the strategy report) | H1 | The first strong H1 close beyond the 00:00–07:00 GMT Asian range, 07:00–11:00 GMT | Stop at the other side of the range · 2R, or at the end of the day |
+| USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF | **FXAlexG Set & Forget GPA** | M30 at the London / New York open | W1/D1/H4 trend majority, W1/D1 area of interest with ≥ 3 touches, H4 rejection, M30 engulfing | Next W1/D1 zone, between 1.5R and 2R |
 
 Every target is kept between **1.5R and 2R** (`TARGET_MIN_R` / `TARGET_MAX_R`). Past trades are replayed with the
 same rules, so the TP / SL / breakeven record and each pair's performance are measured, not estimated.

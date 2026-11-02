@@ -575,7 +575,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                 </div>
               );
               const f = (v: number) => v.toFixed(m.decimals);
-              const trends = m.symbol === 'XAU/USD' ? [['H1', m.trend.h1]] : strategyKind(m.symbol) === 'rsi2' ? [['H4', m.trend.h4]] : [['W1', m.trend.weekly], ['D1', m.trend.daily], ['H4', m.trend.h4]];
+              const trends = m.symbol === 'XAU/USD' || strategyKind(m.symbol) === 'london' ? [['H1', m.trend.h1]] : strategyKind(m.symbol) === 'report' ? [] : strategyKind(m.symbol) === 'rsi2' ? [['H4', m.trend.h4]] : [['W1', m.trend.weekly], ['D1', m.trend.daily], ['H4', m.trend.h4]];
               const live = !!m.setup && RUNNING.includes(m.setup.state);
               return (
                 <motion.button key={m.symbol} onClick={() => onOpenChart(m.symbol)}

@@ -5,6 +5,8 @@ something the strategy rejected.
 """
 
 from ..strategies.alexg.config import ALEXG_CONFIGS
+from ..strategies.london.config import LONDON_CONFIGS
+from ..strategies.report.config import REPORT_CONFIGS
 from ..strategies.rsi2.config import RSI2_CONFIGS
 from ..strategies.shared.jsnum import js_str, to_fixed
 from ..strategies.shared.risk import TARGET_MAX_R, TARGET_MIN_R, rr, score_checklist
@@ -38,11 +40,12 @@ def validate_signal(r: dict) -> dict:
             issues.append("Stop distance is zero")
         if s["entryType"] != "MARKET":
             issues.append("Gold entries are MARKET orders")
-    elif r["strategy"] == "RSI2_Connors_H4":
+    elif r["strategy"] in ("RSI2_Connors_H4", "London_Breakout_H1") or r["strategy"].startswith("Report_"):
+        # Stop at the strategy's own structure (ATR, the range, the band extreme): only its sanity is checked here
         if dist <= 0:
             issues.append("Stop distance is zero")
         if s["entryType"] != "MARKET":
-            issues.append("RSI(2) entries are MARKET orders")
+            issues.append("These entries are MARKET orders")
     else:
         cfg = ALEXG_CONFIGS[r["spec"]["displaySymbol"]]
         R = cfg["risk"]
@@ -56,6 +59,8 @@ def validate_signal(r: dict) -> dict:
         if c["required"] and not c["passed"]:
             issues.append(f"Required rule failed: {c['rule']}")
     thresholds = (XAU_CONFIG if r["symbol"] == "XAUUSD" else RSI2_CONFIGS[r["spec"]["displaySymbol"]] if r["strategy"] == "RSI2_Connors_H4"
+                  else LONDON_CONFIGS[r["spec"]["displaySymbol"]] if r["strategy"] == "London_Breakout_H1"
+                  else REPORT_CONFIGS[r["spec"]["displaySymbol"]] if r["strategy"].startswith("Report_")
                   else ALEXG_CONFIGS[r["spec"]["displaySymbol"]])["scoring"]["thresholds"]
     score = min(r["score"], score_checklist(r["checklist"]))
     if score < thresholds["signal"]:

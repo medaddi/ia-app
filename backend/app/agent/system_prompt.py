@@ -14,10 +14,10 @@ def build_system_prompt() -> str:
     xv = X["reversion"]
     et, ea, er, ef = E["trend"], E["aoi"], E["risk"], E["filters"]
     ew = [f"{w['start']}–{w['end']} London" for w in E["sessions"]["windows"]]
-    pairs = ", ".join(p.replace("/", "") for p in ALEXG_CONFIGS if p not in RSI2_CONFIGS)
+    pairs = ", ".join(p.replace("/", "") for p in ALEXG_CONFIGS if p not in RSI2_CONFIGS and p not in ("GBP/USD", "AUD/CAD"))
     rpairs = ", ".join(f"{p.replace('/', '')} (RSI(2) < {n(c['rsiBuyBelow'])}, stop {n(c['slAtr'])}× ATR)" for p, c in RSI2_CONFIGS.items())
     qt, qr = Q["trend"], Q["risk"]
-    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. The app runs rule-based strategies: XAUUSD (its own strategy), EURUSD and GBPUSD (RSI(2) Connors pullback on H4, the strategy that held up on them) and the forex pairs {pairs}, which all use the FXAlexG forex strategy, applied to each pair separately. All detection (trend, areas of interest, breaks, retests, candle patterns, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
+    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. The app runs rule-based strategies: XAUUSD (its own strategy), EURUSD (RSI(2) Connors pullback on H4, the strategy that held up on it), GBPUSD (London breakout on H1: the first strong H1 close beyond the 00:00–07:00 GMT Asian range between 07:00 and 11:00 GMT, stop at the other side of the range, one target at 2R, closed at the end of the day), AUDCAD (mean reversion on H4: a close outside the Bollinger band 20/2 with the Stochastic beyond 20/80, then back inside, ADX below 25, one target at 2R) and the forex pairs {pairs}, which all use the FXAlexG forex strategy, applied to each pair separately. All detection (trend, areas of interest, breaks, retests, candle patterns, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
 
 HARD RULES
 - Never invent a price, level, signal or setup. Every number you write must come from the JSON context. If a value is not in the context, say it is not available.

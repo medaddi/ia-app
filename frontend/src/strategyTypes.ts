@@ -67,7 +67,7 @@ export interface LifecycleResult {
   outcome: "WIN" | "LOSS" | "BREAKEVEN" | null;
 }
 
-export type DrawingLayer = "sessions" | "levels" | "structure" | "swings" | "liquidity" | "fvg" | "ob" | "fib" | "trade";
+export type DrawingLayer = "sessions" | "levels" | "structure" | "swings" | "liquidity" | "fvg" | "ob" | "fib" | "trade" | "report";
 
 /** Target options: for each R multiple, the share of this pair's past trades the market carried that far before the stop. */
 export interface TpReach {
@@ -163,6 +163,23 @@ export interface StrategyResult {
   day: { trades: number; losses: number };
   drawings: Drawing[];
   facts: Record<string, unknown>;
+  reportStrategy?: ReportStrategy | null;  // the pair's strategy from the strategy report: live, or observed next to the live one
+}
+
+/** The pair's strategy from the report "Anja7 Stratigiyat Trading F Forex", with the 2-year test that decided its status. */
+export interface ReportStrategy {
+  name: string;
+  timeframe: string;
+  live: boolean;
+  recommendation: string;
+  test: { trades: number; winRate: number; totalR: number; verdict: string };
+  note?: string | null;
+  status?: StrategyStatus;
+  headline?: string;
+  historyStats?: HistoryStats | null;
+  setup?: { direction: Side; entry: number; sl: number; tp3: number; signalTime: number; state: string; outcome: string | null; r: number | null } | null;
+  drawings?: Drawing[];
+  checklist?: { rule: string; passed: boolean; detail: string }[];
 }
 
 export interface ExunuSMCResult {

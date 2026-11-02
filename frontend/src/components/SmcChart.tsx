@@ -59,6 +59,7 @@ const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'ema', label: ['EMA', 'EMA', 'EMA'] },
   { key: 'bands', label: ['Bollinger 2.2σ', 'Bollinger 2,2σ', 'بولينجر 2.2σ'] },
   { key: 'trade', label: ['Trade', 'Trade', 'الصفقة'] },
+  { key: 'report', label: ['Report strategy (observation)', 'Stratégie du rapport (observation)', 'استراتيجية التقرير (ملاحظة)'] },
 ];
 const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Record<Layer, boolean>;
 // Candles shown when a pair / timeframe opens (the rest of the history stays one scroll away): close enough to read
@@ -115,6 +116,9 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const [layersOpen, setLayersOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches);
   const kind = strategyKind(symbol);
+  // The pair's own drawings, plus its report strategy when that one only runs in observation (its own layer)
+  const allDrawings = useMemo(() => [...(result?.drawings ?? []), ...((result?.reportStrategy && !result.reportStrategy.live && result.reportStrategy.drawings) || [])],
+    [result?.drawings, result?.reportStrategy]);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const primitiveRef = useRef<DrawingsPrimitive | null>(null);
   const fitKeyRef = useRef('');
@@ -354,7 +358,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     const prim = primitiveRef.current;
     if (!prim) return;
     const { ema: _ema, bands: _bands, ...drawLayers } = layers;
-    prim.update({ drawings: result?.drawings ?? [], barTimes: bars.map(b => b.time), tfSec, chartTf: timeframe, layers: drawLayers as Record<DrawingLayer, boolean>, theme });
+    prim.update({ drawings: allDrawings, barTimes: bars.map(b => b.time), tfSec, chartTf: timeframe, layers: drawLayers as Record<DrawingLayer, boolean>, theme });
     const markers: any[] = [];
     if (setup && layers.trade && signalBarTime !== null) {
       let snap: number | null = null;
@@ -392,6 +396,17 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       // Second engine (reversion): the 2.2σ Bollinger band it waits for a close beyond
       const bands = facts.bands as { upper: number; middle: number; lower: number } | null | undefined;
       if (bands) keyFacts.push({ label: t('Bollinger 2.2σ', 'Bollinger 2,2σ', 'بولينجر 2.2σ'), value: `${fmt(bands.lower)} · ${fmt(bands.middle)} · ${fmt(bands.upper)}` });
+    } else if (kind === 'london') {
+      // London breakout: today's Asian range, the H1 ATR it is measured against, the H1 trend for context
+      if (num(facts.asianLow) !== null && num(facts.asianHigh) !== null)
+        keyFacts.push({ label: t('Asian range', 'Range asiatique', 'نطاق آسيا'), value: `${fmt(num(facts.asianLow)!)} – ${fmt(num(facts.asianHigh)!)}`, tone: 'text-gold-200' });
+      keyFacts.push({ label: t('Window', 'Fenêtre', 'النافذة'), value: '07:00–11:00 GMT' });
+      if (num(facts.atrH1) !== null) keyFacts.push({ label: 'ATR H1', value: `${(num(facts.atrH1)! / pip).toFixed(1)} pips` });
+      keyFacts.push({ label: t('H1 trend', 'Tendance H1', 'اتجاه H1'), value: trendWord(str(facts.trendH1)), tone: trendTone(str(facts.trendH1)) });
+    } else if (kind === 'report') {
+      // Report mean reversion: what it waits for, and the H4 ATR its stop is measured with
+      keyFacts.push({ label: t('Rule', 'Règle', 'القاعدة'), value: t('Bollinger 20/2 + Stochastic 20/80, ADX < 25', 'Bollinger 20/2 + Stochastique 20/80, ADX < 25', 'بولينجر 20/2 + ستوكاستيك 20/80، ADX < 25') });
+      if (num(facts.atr) !== null) keyFacts.push({ label: 'ATR H4', value: `${(num(facts.atr)! / pip).toFixed(1)} pips` });
     } else if (kind === 'rsi2') {
       // RSI(2) Connors: H4 trend, RSI(2) now vs the pair's extreme, EMA5 exit level
       keyFacts.push({ label: t('H4 trend', 'Tendance H4', 'اتجاه H4'), value: trendWord(str(facts.trendH4)), tone: trendTone(str(facts.trendH4)) });
@@ -424,9 +439,9 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     tone: lastTrade.outcome === 'WIN' ? 'text-emerald-300' : lastTrade.outcome === 'LOSS' ? 'text-rose-300' : 'text-gold-200' });
 
   // Only the layers this strategy actually draws (plus its averages and the trade)
-  const present = new Set((result?.drawings ?? []).map(d => d.layer));
+  const present = new Set(allDrawings.map(d => d.layer));
   const shownLayers = LAYERS.filter(l => ALWAYS_SHOWN.includes(l.key) || present.has(l.key as DrawingLayer) || (l.key === 'bands' && kind === 'gold'))
-    .map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${({ 'trend on H1': t('trend on H1', 'tendance H1', 'اتجاه H1'), 'rejection on H4 / 1H': t('rejection on H4 / 1H', 'rejet H4 / 1H', 'رفض H4 / 1H'), 'exit / trend on H4': t('exit / trend on H4', 'sortie / tendance H4', 'خروج / اتجاه H4') } as Record<string, string>)[emaNote] ?? emaNote}` : l.label[li] }));
+    .map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${({ 'trend on H1': t('trend on H1', 'tendance H1', 'اتجاه H1'), 'rejection on H4 / 1H': t('rejection on H4 / 1H', 'rejet H4 / 1H', 'رفض H4 / 1H'), 'exit / trend on H4': t('exit / trend on H4', 'sortie / tendance H4', 'خروج / اتجاه H4'), 'context on H1': t('context on H1', 'contexte H1', 'سياق H1'), 'Bollinger middle': t('Bollinger middle', 'milieu de Bollinger', 'وسط بولينجر') } as Record<string, string>)[emaNote] ?? emaNote}` : l.label[li] }));
   const age = updatedAt ? Math.max(0, Math.round((nowMs - updatedAt) / 1000)) : null;
   const hoverIsSignal = !!(setup && hover.c && signalBarTime !== null && hover.c.time <= signalBarTime && hover.c.time + tfSec > signalBarTime);
   const statusTone = result?.status === 'SIGNAL' ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'

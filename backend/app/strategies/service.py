@@ -1,7 +1,8 @@
 """
 Strategy service: the app's strategies, one per instrument.
   XAUUSD → H1 Trend Breakout (trend, breakout and entry on H1)
-  EUR/USD, GBP/USD → RSI(2) Connors pullback H4 (the strategy that held up on them over 2 years)
+  GBP/USD → London breakout H1 (from the strategy report; +28.6R on 274 trades over 2 years vs +3.0R for RSI(2))
+  EUR/USD → RSI(2) Connors pullback H4 (the strategy that held up on it over 2 years)
   The other forex pairs → FXAlexG Set & Forget GPA (trend W1/D1/H4, AOI W1/D1, entry 30m), same rules
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
@@ -17,6 +18,10 @@ from ..agent.explain import build_explanation
 from ..market.data import canonical, fetch_live_price, fetch_many, market_session_status
 from .alexg.config import ALEXG_CONFIGS
 from .alexg.strategy import evaluate_alexg
+from .london.config import LONDON_CONFIGS
+from .report.config import REPORT_CONFIGS
+from .report.engine import evaluate_report, observation_block
+from .london.strategy import evaluate_london
 from .rsi2.config import RSI2_CONFIGS
 from .rsi2.strategy import evaluate_rsi2, exit_rule as rsi2_exit
 from .replay import ReplayState, StrategyDef, decision_tf, replay, stats_at
@@ -40,6 +45,22 @@ def _fx_def(cfg: dict) -> StrategyDef:
                        limits={tf: 3000, "H1": 12500, "H4": 3200}, canSignalAt=lambda close: active_window(close - TF_SEC[tf], windows) is not None)
 
 
+def _london_def(cfg: dict) -> StrategyDef:
+    # Evaluated at every H1 close; a signal is only possible on a candle that opened in the breakout window (07–10 GMT)
+    S = cfg["session"]
+    return StrategyDef(entryTf="H1", run=partial(evaluate_london, cfg=cfg), tfs=["H1"], limits={"H1": 12500},
+                       canSignalAt=lambda close: S["asiaEndHour"] <= ((close - 3600) // 3600) % 24 < S["breakoutEndHour"])
+
+
+def _report_def(cfg: dict) -> StrategyDef:
+    # A report strategy that won its 2-year test (AUD/CAD): evaluated at every close of its timeframe
+    tf = cfg["timeframes"]["entry"]
+    return StrategyDef(entryTf=tf, run=partial(evaluate_report, cfg=cfg), tfs=[tf], limits={tf: cfg["history"]}, canSignalAt=lambda close: True)
+
+
+LIVE_REPORT = {p: c for p, c in REPORT_CONFIGS.items() if c["live"]}
+
+
 def _rsi2_def(cfg: dict) -> StrategyDef:
     # Evaluated at every H4 close; the exit (close back over EMA5) is part of the lifecycle, live and in backtests
     return StrategyDef(entryTf="H4", run=partial(evaluate_rsi2, cfg=cfg), tfs=["H4"], limits={"H4": 3200},
@@ -55,10 +76,11 @@ STRATEGY_DEFS: dict[str, StrategyDef] = {
         # reversion is taken up to 45 min before the H1 close (60 days: +9.1R on 28 trades vs +7.6R on 18 at the close)
         confirmTf="M15",
     ),
-    # Each pair runs the strategy that held up on it: RSI(2) H4 on EUR/USD and GBP/USD, FXAlexG GPA on the others
-    **{pair: (_rsi2_def(RSI2_CONFIGS[pair]) if pair in RSI2_CONFIGS else _fx_def(cfg)) for pair, cfg in ALEXG_CONFIGS.items()},
+    # Each pair runs the strategy that held up on it: London breakout H1 on GBP/USD, RSI(2) H4 on EUR/USD, FXAlexG GPA on the others
+    **{pair: (_london_def(LONDON_CONFIGS[pair]) if pair in LONDON_CONFIGS else _report_def(LIVE_REPORT[pair]) if pair in LIVE_REPORT
+              else _rsi2_def(RSI2_CONFIGS[pair]) if pair in RSI2_CONFIGS else _fx_def(cfg)) for pair, cfg in ALEXG_CONFIGS.items()},
 }
-CONFIGS = {"XAU/USD": XAU_CONFIG, **ALEXG_CONFIGS, **RSI2_CONFIGS}
+CONFIGS = {"XAU/USD": XAU_CONFIG, **ALEXG_CONFIGS, **RSI2_CONFIGS, **LONDON_CONFIGS, **LIVE_REPORT}
 
 
 def normalize_symbol(s: str) -> str:
@@ -146,6 +168,30 @@ async def _with_live_price(sym: str, bundle: dict) -> dict:
     if price > 0 and price != bundle["result"]["price"]:
         return {**bundle, "result": {**bundle["result"], "price": price}}
     return bundle
+LONDON_REPORT = {"live": True, "recommendation": "London breakout of the Asian range (M5 / M15) + post-news exhaustion",
+                 "test": {"trades": 257, "winRate": 48.4, "totalR": 25.2, "verdict": "Live: +25.2R (RSI(2) H4 it replaced: +3.0R)"},
+                 "note": "Buys carried the result (+29.3R) while the sells were flat"}
+
+
+async def _report_strategy(sym: str, base: dict, now_sec: int, real: bool) -> Optional[dict]:
+    """The pair's strategy from the report: the live one's summary, or the observation plan computed next to it (no signal)."""
+    if sym in LONDON_CONFIGS:
+        return {"name": LONDON_CONFIGS[sym]["name"], "timeframe": "H1", **LONDON_REPORT}
+    cfg = REPORT_CONFIGS.get(sym)
+    if not cfg:
+        return None
+    if cfg["live"]:
+        return {"name": cfg["name"], "timeframe": cfg["timeframes"]["entry"], "live": True, "recommendation": cfg["report"], "test": cfg["test"], "note": cfg.get("note")}
+    if not real:
+        return None
+    try:
+        r = await _cpu_run(evaluate_report, {**base, "nowSec": now_sec, "isMarketOpen": False, "day": {"trades": 0, "losses": 0}}, cfg)
+        return observation_block(r)
+    except Exception as err:  # the observation never breaks the pair's live analysis
+        print(f"[report] {sym}: {err!r}")
+        return None
+
+
 _locks: dict[str, asyncio.Lock] = {}
 # One strategy computation at a time in the worker threads: with all 9 at once (cold start) the threads fight over
 # the GIL and starve the event loop for seconds; one at a time keeps every other request answering in milliseconds
@@ -183,6 +229,7 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
                 result = {**early, "price": result["price"]}
         if result["signal"]:
             result["signal"]["explanation"] = build_explanation(result)
+        result = {**result, "reportStrategy": await _report_strategy(sym, base, now_sec, loaded["isReal"])}
         bundle = {"result": result, "candles": loaded["candles"]}
         if result["dataQuality"]["ok"]:
             _last_good[sym] = (bundle, time.time())
