@@ -312,3 +312,24 @@ def test_a_setup_is_recorded_then_sent_to_telegram_with_retry(monkeypatch):
         db.query(Signal).delete()
         db.commit()
         set_setting(db, "telegram", {"enabled": True, "botToken": "", "chatId": ""})
+
+
+def test_the_notification_carries_the_whole_order():
+    """A new order is placed straight from the notification: side + order type, entry, SL, TP1, TP2, lot, validity."""
+    from app.push import trade_message
+    from app.strategies.exunu import build_exunu_result, to_ai_signal
+    from app.telegram import bot
+
+    c = eur_market()
+    sig = run("EUR/USD", c)["history"][0]["signalTime"]
+    r = run("EUR/USD", c, now=sig + 3, price=1.0999)
+    res = build_exunu_result(r)
+    res["consensus"] = coordinate(r, None)
+    s = r["setup"]
+    signal = to_ai_signal(res)
+    m = trade_message(signal, 0.25)
+    assert m["title"] == "🔴 SELL LIMIT · EUR/USD" and m["urgent"]
+    exp = time.strftime("%H:%M", time.gmtime(s["expiresAt"]))
+    assert m["body"] == f"Entry {s['entry']:.5f} | SL {s['sl']:.5f} | TP1 {s['tp1']:.5f} | TP2 {s['tp3']:.5f} | LOT 0.25 | valid until {exp} UTC"
+    tg = bot.format_signal_message(signal, {"lots": 0.25}).split("\n")
+    assert tg[0] == "🔴 <b>SELL LIMIT | EUR/USD</b>" and tg[2].startswith("🎯 TP1") and tg[3].startswith("🎯 TP2") and tg[-1] == f"⏳ Valid until {exp} UTC"

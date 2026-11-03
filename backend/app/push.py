@@ -68,8 +68,10 @@ def remove_subscription(db: Session, endpoint: str) -> None:
 def _send_one(row: PushSubscription, payload: str, private_pem: str) -> Optional[int]:
     """Sends one push; returns the HTTP status of a failure (None = delivered to the push service)."""
     try:
+        # Urgency high: the push service delivers at once, even to a phone asleep / in battery saving (no batching)
         webpush({"endpoint": row.endpoint, "keys": {"p256dh": row.p256dh, "auth": row.auth}}, payload,
-                vapid_private_key=Vapid01.from_pem(private_pem.encode()), vapid_claims={"sub": SUBJECT}, ttl=TTL, timeout=8)
+                vapid_private_key=Vapid01.from_pem(private_pem.encode()), vapid_claims={"sub": SUBJECT}, ttl=TTL, timeout=8,
+                headers={"Urgency": "high"})
         return None
     except WebPushException as err:
         return err.response.status_code if err.response is not None else 0
@@ -92,21 +94,29 @@ async def send_push(db: Session, rows: list[PushSubscription], message: dict) ->
 
 
 def trade_message(signal: dict, lots: Optional[float] = None) -> dict:
-    """The notification of a new trade, one line: "🟢 XAU/USD (BUY) — Entry: 2745.50 | LOT: 0.07 | TP: 2760.00 | SL: 2738.00".
-    The pair and side are the title, the levels the body; LOT is the lot for the receiver's own risk (left out when unset)."""
+    """The notification of a new trade, everything needed to place it at once:
+    title "🟢 BUY LIMIT · XAU/USD", body "Entry 2005.06 | SL 2008.20 | TP1 2000.35 | TP2 1993.70 | LOT 0.07 | valid until 09:55 UTC".
+    LOT is the lot for the receiver's own risk (left out when unset); the validity only for a pending (LIMIT) order."""
     sym, side = signal["symbol"], signal["signalType"]
-    tp = signal.get("target3") or signal.get("target2")
+    order = (signal.get("entryType") or "MARKET").upper()
+    tp1, tp2 = signal.get("target1"), signal.get("target3") or signal.get("target2")
     try:
         dec = CONFIGS[normalize_symbol(sym)]["spec"]["decimals"]
     except KeyError:
         dec = 5
     fmt = lambda v: f"{float(v):.{dec}f}" if v is not None else "—"
-    parts = [f"Entry: {fmt(signal.get('entryPrice'))}"]
+    parts = [f"Entry {fmt(signal.get('entryPrice'))}", f"SL {fmt(signal.get('stopLoss'))}"]
+    if tp1 is not None and tp2 is not None and abs(float(tp1) - float(tp2)) > 1e-9:
+        parts += [f"TP1 {fmt(tp1)}", f"TP2 {fmt(tp2)}"]
+    else:
+        parts.append(f"TP {fmt(tp2)}")
     if lots:
-        parts.append(f"LOT: {lots:.2f}")
-    parts += [f"TP: {fmt(tp)}", f"SL: {fmt(signal.get('stopLoss'))}"]
-    return {"title": f"{'🟢' if side == 'BUY' else '🔴'} {sym} ({side})", "body": " | ".join(parts),
-            "tag": f"ld-{signal['id']}", "symbol": sym}
+        parts.append(f"LOT {lots:.2f}")
+    exp = (signal.get("signalJson") or {}).get("expires_at") or signal.get("expiresAt")
+    if order == "LIMIT" and exp:
+        parts.append(f"valid until {str(exp)[11:16]} UTC")
+    return {"title": f"{'🟢' if side == 'BUY' else '🔴'} {side} {order} · {sym}", "body": " | ".join(parts),
+            "tag": f"ld-{signal['id']}", "symbol": sym, "urgent": True}
 
 
 def _user_lot(u: User, signal: dict) -> Optional[float]:

@@ -24,6 +24,7 @@ TRADE_MANAGERS = managers(STRATEGY_DEFS)  # one trade-management agent per pair,
 
 GRACE = 1.2
 RETRY = 2.0
+PUBLISH_WAIT = 30  # seconds after a close to wait for the provider's closed bar within one tick
 MAX_RETRIES = 10
 TICK_TIMEOUT = 40.0  # seconds per pair in a serverless tick (the 4 pairs run in parallel; Vercel Pro allows 60 s+)
 
@@ -51,23 +52,32 @@ async def process_bundle(sym: str, bundle: dict) -> str:
     """One pass for a pair: its trade-management agent runs the trades already sent, then a fresh setup of its setup
     agent goes out, to Telegram and to the app (Web Push) independently: one channel failing never stops the other."""
     r = bundle["result"]
+    head = None
+    if r["setup"] and r["status"] == "SIGNAL" and r["setup"]["lifecycle"]["state"] in ("PENDING", "OPEN"):
+        # A new order first, before any other work, so it reaches the traders right at the candle close:
+        # Telegram and the app (Web Push) at the same time, each on its own (one failing never stops the other)
+        async def telegram() -> str:
+            try:
+                out = await dispatch_setup(sym, manual=False)
+                return f"sent to {out.get('recipients')} chat(s)" if out["success"] else f"telegram: {out['error']}"
+            except Exception as err:
+                return f"telegram error: {err!r}"
+
+        async def app_push() -> str:
+            try:
+                return await push_setup(sym)
+            except Exception as err:
+                return f"push error: {err!r}"
+
+        tg, pushed = await asyncio.gather(telegram(), app_push())
+        if "sent to" in tg or "pushed to" in pushed:
+            head = f"{r['setup']['id']}: {tg} · {pushed}"
+    # Then the trade-management agent runs the trades already sent
     manager = await TRADE_MANAGERS[sym].run(bundle, STRATEGY_DEFS[sym].entryTf)
     if manager["errors"]:
         print(f"[trade-manager] {sym}: {'; '.join(manager['errors'])}")
     managed = f"managed: {manager['closed']} closed, {manager['notices']} notice(s)" if (manager["closed"] or manager["notices"]) else ""
-    if r["setup"] and r["status"] == "SIGNAL" and r["setup"]["lifecycle"]["state"] in ("PENDING", "OPEN"):
-        try:
-            out = await dispatch_setup(sym, manual=False)
-            tg = f"sent to {out.get('recipients')} chat(s)" if out["success"] else f"telegram: {out['error']}"
-        except Exception as err:
-            tg = f"telegram error: {err!r}"
-        try:  # app notifications (Web Push), independent of Telegram
-            pushed = await push_setup(sym)
-        except Exception as err:
-            pushed = f"push error: {err!r}"
-        if "sent to" in tg or "pushed to" in pushed:
-            return " · ".join(x for x in (f"{r['setup']['id']}: {tg}", pushed, managed) if x)
-    return " · ".join(x for x in (f"{r['status']} · {r['headline']}", managed) if x)
+    return " · ".join(x for x in (head or f"{r['status']} · {r['headline']}", managed) if x)
 
 
 _decided: dict[str, int] = {}  # last entry-candle close already decided per pair (kept while the instance is warm)
@@ -83,12 +93,16 @@ async def _decide(sym: str) -> dict:
     if _decided.get(sym) == close:
         return await get_strategy_result(sym)
     bundle = None
-    for attempt in range(3):
+    # The cron fires right at the close: keep re-reading for up to PUBLISH_WAIT seconds until the provider has the closed
+    # bar, so the order goes out the moment it exists (not a minute later at the next tick)
+    while True:
         bundle = await get_strategy_result(sym, fresh=True)
         if any(c.time == close - tf_sec for c in bundle["candles"].get(tf) or []):
             _decided[sym] = close
             break
-        await asyncio.sleep(RETRY)  # bar not published yet: the next tick tries again if this one runs out
+        if time.time() - close > PUBLISH_WAIT:
+            break  # still not published: the next tick tries again
+        await asyncio.sleep(RETRY)
     return bundle
 
 

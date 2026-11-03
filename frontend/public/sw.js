@@ -8,6 +8,8 @@ self.addEventListener('push', e => {
   try { m = e.data ? e.data.json() : {}; } catch { m = { body: e.data ? e.data.text() : '' }; }
   e.waitUntil(self.registration.showNotification(m.title || 'LiquidityDissection', {
     body: m.body || '', tag: m.tag || 'ld', renotify: true, requireInteraction: true,
+    // a new order: vibrate so it is seen at once, and stay on screen until it is opened
+    vibrate: m.urgent ? [300, 120, 300, 120, 300] : [200], timestamp: Date.now(),
     icon: '/brand/icon-192.png', badge: '/brand/favicon-64.png', data: { symbol: m.symbol || '' },
   }));
 });

@@ -45,9 +45,9 @@ def test_next_candle_close():
 
 def test_message_prints_exact_levels_only():
     msg = bot.format_signal_message({**EURO, "confirmationCheckPassed": True, "confirmationCloseTime": 1790668800})
-    # one value per line, the single target (TP3) only
-    assert msg.split("\n") == ["🔴 <b>SELL LIMIT | EUR/USD</b>", "📍 Entry: <code>1.13530</code>", "🎯 TP: <code>1.12804</code>",
-                                "🛑 SL: <code>1.13772</code>"]  # no lot line for a group chat
+    # one value per line, ready to place: entry, the agent's TP1 then the final target, the stop
+    assert msg.split("\n") == ["🔴 <b>SELL LIMIT | EUR/USD</b>", "📍 Entry: <code>1.13530</code>", "🎯 TP1: <code>1.13288</code>",
+                                "🎯 TP2: <code>1.12804</code>", "🛑 SL: <code>1.13772</code>"]  # no lot line for a group chat
 
 
 def test_lot_from_the_risk_in_dollars():

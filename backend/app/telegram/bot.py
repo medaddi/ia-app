@@ -162,12 +162,18 @@ def format_signal_message(signal: dict, lot: Optional[dict] = None, ref: Optiona
         return f"⚠️ {normalize_symbol(signal.get('symbol', ''))}: signal levels incomplete, not sent."
     c = lambda v: f"<code>{to_fixed(v, L['decimals'])}</code>"  # noqa: E731
     order = "" if L["orderType"] == "MARKET" else f" {L['orderType']}"
+    tp = L["tp3"] if L["tp3"] is not None else L["tp2"]
     lines = [f"{'🟢' if L['buy'] else '🔴'} <b>{'BUY' if L['buy'] else 'SELL'}{order} | {L['symbol']}</b>",
              f"📍 Entry: {c(L['entry'])}",
-             f"🎯 TP: {c(L['tp3'] if L['tp3'] is not None else L['tp2'])}",
+             f"🎯 TP: {c(tp)}",
              f"🛑 SL: {c(L['sl'])}"]
+    if L["tp1"] and abs(L["tp1"] - tp) > 1e-9:  # the agent's TP1 (partial / break-even) before the final target
+        lines.insert(2, f"🎯 TP1: {c(L['tp1'])}")
+        lines[3] = f"🎯 TP2: {c(tp)}"
     if lot and lot.get("lots"):
         lines.append(f"📦 Lot: <code>{lot['lots']:.2f}</code>")
+    if L["orderType"] == "LIMIT" and L.get("expires"):
+        lines.append(f"⏳ Valid until {str(L['expires'])[11:16]} UTC")
     if ref:
         lines.append(f"<i>Ref {ref}</i>")
     return "\n".join(lines)

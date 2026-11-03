@@ -271,7 +271,7 @@ def test_web_push_subscribe_and_one_push_per_trade(client, admin, monkeypatch):
     assert client.post("/api/push/test", headers=admin).json()["delivered"] == 1
     signal = {"id": "XAUUSD-BO-1", "symbol": "XAU/USD", "signalType": "BUY", "entryPrice": 4000, "stopLoss": 3990, "target3": 4020, "confidence": 80}
     assert asyncio.run(push.notify_trade(signal)) == 1 and asyncio.run(push.notify_trade(signal)) == 0  # pushed once only
-    assert "XAU/USD (BUY)" in sent[-1][1] and "Entry: 4000.00 | TP: 4020.00 | SL: 3990.00" in sent[-1][1]
+    assert "BUY MARKET · XAU/USD" in sent[-1][1] and "Entry 4000.00 | SL 3990.00 | TP 4020.00" in sent[-1][1]
     end = {"id": signal["id"], "symbol": "XAU/USD", "direction": "BUY", "state": "CLOSED", "outcome": "WIN", "rMultiple": 2.0, "rrTarget": 2.0}
     assert asyncio.run(push.push_closed([end])) == 1 and asyncio.run(push.push_closed([end])) == 0  # how it ended, once
     assert "TP HIT · XAU/USD (BUY)" in sent[-1][1] and "Result: +2.00R" in sent[-1][1]
