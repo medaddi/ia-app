@@ -2,8 +2,9 @@
 Runs one pair agent on its closed candles and returns the app's strategy result plus the agent's own chart state
 (`overlay`, the AgentChartOverlayState of frontend/src/agentOverlay.ts).
 
-The agent's setups become orders (MARKET, or LIMIT with its expiry, cut 30 min before red news), replayed with the app's
-lifecycle (fill, TP1 partial + break-even, stop counted first), one trade at a time and at most 2 a day per pair. The
+The agent's setups become orders (MARKET, or LIMIT with its expiry), replayed with the app's lifecycle (fill, TP1 partial + break-even, stop
+counted first), one order at a time per pair. Nothing blocks a setup the agent sees: news, spread and the day's count are
+shown as notes, the trader decides and sets the risk. The
 overlay is the agent's context of the latest candle (its sessions, levels, sweep, MSS), the drawings of the order on
 screen and its live trade projection.
 """
@@ -17,18 +18,11 @@ from ..strategies.shared.jsnum import fmt_time, fmt_utc_minute, js_str, round_to
 from ..strategies.shared.lifecycle import simulate_lifecycle
 from ..strategies.shared.news import news_block
 from ..strategies.shared.risk import classify, lot_table, rr, score_checklist, snap_sl, snap_tp, to_pips
-from ..strategies.shared.sessions import trading_day_key
 from ..strategies.shared.types import TF_SEC, Candle, closed_only
 from .base import PairAgent
 
-NEWS_CANCEL_SEC = 30 * 60  # pending limits are gone 30 min before a red event
 LIVE = ("PENDING", "OPEN", "TP1_HIT", "TP2_HIT")
 ENDED = ("CLOSED", "CANCELLED", "EXPIRED")
-
-
-def _news_cut(t: int, events: list[dict], rule: dict) -> Optional[int]:
-    nxt = [e["time"] for e in events if e.get("impact") == "High" and e.get("currency") in rule["currencies"] and e["time"] > t]
-    return min(nxt) - NEWS_CANCEL_SEC if nxt else None
 
 
 def run_scan(agent: PairAgent, c: list[Candle], peer: Optional[list[Candle]], key: str = "") -> dict:
@@ -44,9 +38,6 @@ def _build(agent: PairAgent, cfg: dict, c: list[Candle], i: int, b: dict, spread
     signal_time = c[i].time + tf_sec
     limit = b["entryType"] == "LIMIT"
     expiry = signal_time + b["expiryBars"] * tf_sec if limit and b.get("expiryBars") else None
-    cut = _news_cut(signal_time, events, cfg["filters"]["news"]) if limit else None
-    if expiry is not None and cut is not None and cut < expiry:
-        expiry = max(signal_time, cut)
     params = {"side": "BUY" if buy else "SELL", "entryType": b["entryType"], "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
               "expiryTime": expiry, "marketFillTime": None if limit else signal_time, "cancelIfTp1BeforeFill": bool(limit and b.get("cancelLevel")),
               "cancelLevel": round_to(b["cancelLevel"], d) if b.get("cancelLevel") else None, "beOffset": b.get("beOffset") or 0,
@@ -115,7 +106,7 @@ def trade_box(s: dict, price: float, pip: float) -> Optional[dict]:
 
 
 def overlay_state(agent: PairAgent, ctx: dict, setup: Optional[dict], price: float, spread: float, atr_v: Optional[float],
-                  now: int, blocked: Optional[str]) -> dict:
+                  now: int) -> dict:
     pip = agent.pip
     zones, lines, markers = list(ctx["zones"]), list(ctx["priceLines"]), list(ctx["markers"])
     state, banner, tag = ctx["state"], ctx["banner"], ctx["tag"]
@@ -136,8 +127,6 @@ def overlay_state(agent: PairAgent, ctx: dict, setup: Optional[dict], price: flo
         elif lc in ("OPEN", "TP1_HIT", "TP2_HIT"):
             state = "IN_TRADE"
             banner = f"{setup['direction']} in trade from {box['entryPrice']} · {box['floatingPips']:+.1f} pips" + (" · TP1 hit, stop at BE" if lc != "OPEN" else "")
-    if blocked and state in ("ARMED", "LIQUIDITY_SWEPT", "IDLE"):
-        state, banner = "COOLDOWN", blocked
     return {"symbol": agent.symbol, "agentId": agent.agent_id, "fsmState": state, "statusBannerText": f"{agent.symbol} · {state} · {banner}",
             "metrics": {"spreadPips": round(spread / pip, 1), "atrPips": round(atr_v / pip, 1) if atr_v else 0.0,
                         "sessionName": agent.session_name(mt(now)[1]), "confluenceTag": tag or "—"},
@@ -192,22 +181,12 @@ def evaluate_agent(inp: dict, agent: PairAgent, cfg: dict) -> dict:
     latest = None
     past: list[dict] = []
     free_from = 0
-    per_day: dict[str, list[dict]] = {}
-    for raw in scan["setups"]:
+    for raw in scan["setups"]:  # every setup the agent sees is an order (one at a time per pair)
         i = index_of.get(raw["time"])
         if i is None or i < free_from:
             continue
-        dk = trading_day_key(c[i].time + tf_sec)
-        today = per_day.setdefault(dk, [])
-        losses = sum(t["lifecycle"]["outcome"] == "LOSS" and (t["lifecycle"]["exitTime"] or 0) <= c[i].time for t in today)
-        if len(today) >= FIL["maxTradesPerDay"] or losses >= FIL["maxLossesPerDay"]:
-            continue
-        if news_block(c[i].time + tf_sec, events, FIL["news"])["blocked"]:
-            continue
         s = _build(agent, cfg, c, i, raw, spread, last, tf_sec, events)
         lc = s["lifecycle"]
-        if lc["state"] not in ("CANCELLED", "EXPIRED"):
-            today.append(s)
         latest = s
         if lc["state"] == "CLOSED":
             past.append(trade_record(s, tf_sec, c, i))
@@ -234,15 +213,15 @@ def evaluate_agent(inp: dict, agent: PairAgent, cfg: dict) -> dict:
         weight = 100 / max(1, len(why))
         checklist = [item(f"r{k}", w, w, True, f"at {fmt_time(setup['signalTime'])}", weight, True) for k, w in enumerate(why)]
         checklist += [
-            item("spread", f"Spread ≤ {js_str(max_sp)} pips", "السبريد", sp_pips <= max_sp + 1e-9, f"{sp_pips:.1f} pips", 0, True),
-            item("news", f"No red {ccys} news ±30 min", "لا أخبار قوية ±30 دقيقة", not nb["blocked"],
-                 f"{nb['event']['currency']} {nb['event']['title']} at {fmt_time(nb['event']['time'])}" if nb["event"] else "Clear", 0, True),
-            item("daily", f"Max {FIL['maxTradesPerDay']} trades per pair per day", "حد الصفقات اليومي",
-                 day["trades"] < FIL["maxTradesPerDay"] and day["losses"] < FIL["maxLossesPerDay"], f"{day['trades']} trade(s), {day['losses']} loss(es) today", 0, True),
+            # notes for the trader, never a block: the trader decides and sets the risk
+            item("spread", f"Spread (usual ≤ {js_str(max_sp)} pips)", "السبريد", sp_pips <= max_sp + 1e-9, f"{sp_pips:.1f} pips", 0, False),
+            item("news", f"Red {ccys} news ±30 min", "أخبار قوية ±30 دقيقة", not nb["blocked"],
+                 f"{nb['event']['currency']} {nb['event']['title']} at {fmt_time(nb['event']['time'])}" if nb["event"] else "Clear", 0, False),
+            item("daily", "Trades on this pair today", "صفقات اليوم", True, f"{day['trades']} trade(s), {day['losses']} loss(es) today", 0, False),
         ]
     else:
         checklist = [item("rule", f"{agent.agent_id}: {ctx['state']}", "حالة الوكيل", False, progress, 100, True),
-                     item("news", f"No red {ccys} news ±30 min", "لا أخبار قوية ±30 دقيقة", not news["blocked"], result["news"]["detail"], 0, True)]
+                     item("news", f"Red {ccys} news ±30 min", "أخبار قوية ±30 دقيقة", not news["blocked"], result["news"]["detail"], 0, False)]
     result["checklist"] = checklist
     result["setup"] = setup
     result["tpReach"] = tp_options(past, setup, d)
@@ -256,10 +235,8 @@ def evaluate_agent(inp: dict, agent: PairAgent, cfg: dict) -> dict:
         result["signal"] = to_signal_json(spec, cfg["strategy"], setup, result["score"], cfg["timeframes"], checklist)
     result["canNotify"] = bool(result["status"] == "SIGNAL" and setup and setup["isFresh"] and setup["lifecycle"]["state"] in ("OPEN", "PENDING")
                                and inp["isMarketOpen"])
-    blocked = (f"News blackout: {result['news']['detail']}" if news["blocked"]
-               else f"Day limit: {day['trades']} trade(s) today" if day["trades"] >= FIL["maxTradesPerDay"] else None)
     shown = setup if setup and setup["lifecycle"]["state"] in LIVE else (setup if setup and setup["signalIndex"] >= last - R["showLastSetupBars"] else None)
-    result["overlay"] = overlay_state(agent, ctx, shown, price, spread, a[-1], now, blocked)
+    result["overlay"] = overlay_state(agent, ctx, shown, price, spread, a[-1], now)
     result["facts"]["lastTrade"] = ({"id": latest["id"], "state": latest["lifecycle"]["state"], "outcome": latest["lifecycle"]["outcome"],
                                      "r": latest["lifecycle"]["rMultiple"]} if latest else None)
     result["bias"] = {"direction": ("BULLISH" if setup["direction"] == "BUY" else "BEARISH") if setup else trend, "detail": progress}

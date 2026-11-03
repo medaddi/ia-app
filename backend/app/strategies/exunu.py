@@ -97,7 +97,7 @@ async def run_exunu(symbol: str = "XAU/USD", price: Optional[float] = None, as_o
     out = build_exunu_result(bundle["result"])
     r = bundle["result"]
     if as_of <= 0:
-        # The pair agent + the Multi-Agent Risk Coordinator: the same decision sends a Telegram / push order
+        # The pair agent's order and its risk notes: a fresh setup is always sent, the trader sets the risk
         from ..core.risk_guard import coordinate
         from ..db import SessionLocal
 
@@ -157,7 +157,6 @@ def to_ai_signal(res: dict, live_price: Optional[float] = None) -> dict:
         "entryType": s["entryType"] if s else None,
         "expiresAt": r["signal"]["expires_at"] if r["signal"] else None,
         "signalJson": r["signal"],
-        "riskScale": ((res.get("consensus") or {}).get("riskPct") or 1.0) / 1.0,  # 0.5 when a correlated USD trade is still at risk
         "explanation": res["explanation"],
         "marketSuitability": {"isSuitable": confirmed, "trend": trend, "reasonAr": r["headlineAr"], "reasonEn": r["headline"],
                               "emaAlignment": r["bias"]["detail"], "structureVerdict": r["bias"]["detail"]},

@@ -33,7 +33,7 @@ a fixed offset (`core/quant_primitives.py`, `TZ_OFFSET_SEC`).
 ## 3. The agents
 
 Each agent is a state machine: `IDLE → ARMED → LIQUIDITY_SWEPT → MSS_CONFIRMED → PENDING_ORDER → IN_TRADE → COOLDOWN`.
-A stop below the agent's minimum is widened to it; above its maximum there is no trade.
+A stop below the agent's minimum is widened to it; above its maximum there is no trade (that is the strategy itself).
 
 ### EURUSD_AsianSweep_FVG_Agent
 1. Asian range 00:00–07:00 (M15): high, low, 50 %. Range outside **12–45 pips** → COOLDOWN.
@@ -81,15 +81,15 @@ of its chart), `metrics` (spread, ATR, session, confluence tag), `zones`, `price
 `tradeExecutionBox`. It is in every strategy result (`overlay`) and at `GET /api/agents/overlay?symbol=`. A chart renders
 only its own agent's state, in the single view and in the 4-chart split screen.
 
-## 5. Multi-Agent Risk Coordinator (`core/risk_guard.py`)
+## 5. Risk notes (`core/risk_guard.py`) — nothing blocks a setup
 
-- Base risk **1 %** of the equity per trade (the lot table of every signal).
-- **Correlated USD exposure** (max 1.5 % unhedged) across EURUSD, GBPUSD and XAUUSD: same-direction USD trades still OPEN
-  (stop not at break-even): **0 → 1 %**, **1 → 0.5 %** (lots halved, also on Telegram), **2 → blocked** until one reaches TP1 / BE.
-- **News blackout**: no entry from 30 min before to 30 min after a red event of the pair's currencies; pending limits
-  expire 30 min before it.
-- Spread guard, live data, limit still valid / market entry not chased, at most 4 open orders.
-- Day guard: 2 trades per pair a day; the desk locks until 00:00 (UTC+1) once the day's closed trades reach −2.5 %.
+Every fresh setup an agent sees is sent. **Each trader controls their own risk**: their $ or % per trade on their
+account (and `/risk` on Telegram) sizes their lot. The lot table of a signal is for 1 % of the balance.
+
+With each order the trader gets notes, never a veto: the agent's rules re-checked and fresh data, the limit still
+valid / a market entry not chased, red news of the pair's currencies within ±30 min, the spread, the other open
+same-direction USD trades not yet at break-even (EURUSD, GBPUSD and XAUUSD share the dollar), the orders open on the desk
+and today's result. A pending limit keeps its own expiry (12 M5 bars, 90 min for GBP/USD), even with news ahead.
 
 ## 6. Testing
 

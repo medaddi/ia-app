@@ -392,8 +392,7 @@ async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
             return {"success": False, "state": state, "error": "Telegram is disabled or has no bot token"}
         if cfg.get("assets") and symbol not in cfg["assets"]:
             return {"success": False, "state": state, "error": f"{symbol} is not in the Telegram asset list"}
-        # Three agents must agree: market analysis (daily trend, volatility, news ahead), strategy (a valid fresh signal
-        # that fits the market), risk & execution (AI trade desk + open book). Each one can only block
+        # The pair agent's fresh setup is sent; the risk notes travel with it, they never block (the trader sets the risk)
         check = res.get("consensus") or {"approved": False, "issues": ["The agents did not vote"]}
         if not check["approved"]:
             log_event("SIGNAL", f"{setup['direction']} {symbol} blocked", "; ".join(check["issues"]), False)
@@ -451,7 +450,6 @@ async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session) -
             personal, offset, ref = personalize_signal(signal, chat_id, cfg.get("personalOffsets", True))
             # Lot for this person's $ risk with the strategy's stop (the offset moves entry and SL together)
             risk = risks.get(chat_id)
-            risk = risk * float(signal.get("riskScale") or 1) if risk else risk  # the coordinator halves it next to a correlated USD trade
             lot = lot_for_risk(str(signal["symbol"]), personal["entryPrice"], personal["stopLoss"], risk) if risk else ({} if chat_id in risks else None)
             out = await send_message(cfg["botToken"], chat_id, format_signal_message(personal, lot, ref), copy_keyboard(personal, lot),
                                      cfg.get("protectContent", True))
@@ -645,12 +643,12 @@ def _rules_text() -> str:
     flags = {"XAU/USD": "🥇", "EUR/USD": "💶", "GBP/USD": "💷", "AUD/CHF": "🇦🇺"}
     lines = ["<b>How the signals work</b>",
              "🤖 4 autonomous agents, one per pair, each with its own strategy and its own chart. Sessions in UTC+1 (Morocco time).",
-             "🛡 Risk coordinator: 1 % per trade; EUR/USD, GBP/USD and gold share the dollar: next to one correlated trade not yet at "
-             "break-even the new one is sized at 0.5 %, a third is blocked. No entry and no pending order 30 min around red news."]
+             "🎛 Every setup an agent sees is sent. You control your risk: set it with /risk (e.g. /risk 50 or /risk 1%), "
+             "every signal comes with your lot. News and correlated USD trades come as notes, never as a block."]
     for pair, c in PAIR_CONFIGS.items():
         steps = "; ".join(html.escape(x) for x in c["steps"])
         lines.append(f"{flags.get(pair, '💱')} <b>{pair} · {c['agent']}</b> ({c['timeframes']['entry']}): {steps}.")
-    lines.append("Only orders with every rule passed are sent, at the candle close. At most 2 trades per pair a day; the desk locks for the day at −2.5 %.")
+    lines.append("Orders are sent at the candle close where the agent's setup completes.")
     return "\n".join(lines)
 
 

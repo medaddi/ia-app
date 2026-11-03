@@ -27,7 +27,7 @@ NEWS_CURRENCIES = {"XAUUSD": ["USD"], "EURUSD": ["EUR", "USD"], "GBPUSD": ["GBP"
 BASE = {
     "version": "4.0.0",
     "risk": {"riskPct": 1, "balances": [500, 1000, 5000, 10000], "marketValidMin": 60, "showLastSetupBars": 6},
-    "filters": {"news": {"currencies": [], "keywords": [], "minutesBefore": 30, "minutesAfter": 30}, "maxTradesPerDay": 2, "maxLossesPerDay": 2},
+    "filters": {"news": {"currencies": [], "keywords": [], "minutesBefore": 30, "minutesAfter": 30}},  # news: a note, never a block
     "scoring": {"thresholds": {"signal": 75, "watch": 60}},
 }
 

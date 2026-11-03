@@ -34,7 +34,7 @@ export function sessionExpiry(): number | null {
   try { const v = localStorage.getItem(EXPIRES_KEY); return v ? new Date(v).getTime() : null; } catch { return null; }
 }
 
-/** The login has ended (1 hour, or refused by the server): forget it and tell the app. */
+/** The server refused the session (logged out, account disabled): forget it and tell the app. */
 export function expireSession() {
   if (!getToken()) return;
   setToken(null);

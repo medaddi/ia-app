@@ -33,8 +33,7 @@ Agent (pair, state) → what it is waiting for or what it saw (sessions, sweep, 
 SHARED RULES
 - Only closed candles are used. The same candles always give the same result.
 - Score 0–100 from the checklist: >= {th['signal']} = SIGNAL, any failed required rule = NO TRADE.
-- Risk coordinator: 1 % per trade; EURUSD, GBPUSD and XAUUSD share the dollar: next to one same-direction USD trade not yet at break-even the new one is sized at 0.5 %, a third is blocked until one reaches TP1 / break-even.
-- No entry and no pending limit from {f['news']['minutesBefore']} min before to {f['news']['minutesAfter']} min after a red event of the pair's currencies; max {f['maxTradesPerDay']} trades per pair per day; the desk locks for the day at −2.5 %.
+- Every fresh setup an agent sees is sent; nothing blocks it. Each trader controls their own risk ($ or % per trade). News within {f['news']['minutesBefore']} min, the spread and other open USD trades (EURUSD, GBPUSD, XAUUSD share the dollar) are notes for the trader: mention them, never call them a veto.
 - The agents trade reversals at liquidity on purpose: do not call a trade "against the trend" as a flaw.
 - Track record: the agent's replay under the current rules is in historyStats. Quote it, never other numbers. Past results do not guarantee future results.
 

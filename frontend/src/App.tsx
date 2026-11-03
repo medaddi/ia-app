@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useState, useEffect, useRef } from 'react';
 import { MarketAsset, AISignal, NewsItem, SentimentData, Language } from './types';
-import { apiFetch, apiJson, setToken, getToken, sessionExpiry, setSessionExpiry } from './api';
+import { apiFetch, apiJson, setToken, getToken, setSessionExpiry } from './api';
 const SignalPerformanceTracker = lazy(() => import('./components/SignalPerformanceTracker').then(m => ({ default: m.SignalPerformanceTracker })));
 const NewsAISection = lazy(() => import('./components/NewsAISection').then(m => ({ default: m.NewsAISection })));
 const SentimentRadar = lazy(() => import('./components/SentimentRadar').then(m => ({ default: m.SentimentRadar })));
@@ -69,7 +69,7 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  // A login lasts one hour: at its end (or when the server refuses the session) the app shows the login page again
+  // A login stays open until logout; only a session the server refuses (logged out elsewhere, account disabled) shows the login page
   const [sessionEnded, setSessionEnded] = useState(false);
 
   // Telegram "Connect": the bot's button opens the app with ?tg=<one-time token>; it waits through the login,
@@ -174,13 +174,6 @@ export default function App() {
     window.addEventListener('ld-session-expired', onExpired);
     return () => window.removeEventListener('ld-session-expired', onExpired);
   }, []);
-  useEffect(() => {
-    if (!currentUser) return;
-    const end = sessionExpiry();
-    if (!end) return;
-    const id = setTimeout(() => { setToken(null); setSessionExpiry(null); setCurrentUser(null); setSessionEnded(true); }, Math.max(0, end - Date.now()));
-    return () => clearTimeout(id);
-  }, [currentUser?.id]);
 
   const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
 

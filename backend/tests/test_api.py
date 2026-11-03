@@ -279,18 +279,13 @@ def test_web_push_subscribe_and_one_push_per_trade(client, admin, monkeypatch):
     assert client.post("/api/push/test", headers=admin).json()["devices"] == 0
 
 
-def test_a_login_lasts_one_hour(client):
-    from app.db import SessionLocal
-    from app.models import SessionToken
-
+def test_a_login_stays_open_until_logout(client):
     r = client.post("/api/auth/login", json={"username": "admin", "accessCode": "admin-test-code"}).json()
     left = datetime.fromisoformat(r["expiresAt"]) - datetime.now(timezone.utc)
-    assert timedelta(minutes=59) < left <= timedelta(minutes=60)
+    assert left > timedelta(days=3000)  # no hourly logout
     me = {"Authorization": f"Bearer {r['token']}"}
     assert client.get("/api/auth/me", headers=me).status_code == 200
-    with SessionLocal() as db:  # one hour later
-        db.get(SessionToken, r["token"]).expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
-        db.commit()
+    client.post("/api/auth/logout", headers=me)
     assert client.get("/api/auth/me", headers=me).status_code == 401
 
 

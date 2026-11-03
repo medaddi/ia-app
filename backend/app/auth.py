@@ -68,7 +68,8 @@ def login(db: Session, username: str, code: str) -> Optional[dict]:
     now = datetime.now(timezone.utc)
     db.execute(delete(SessionToken).where(SessionToken.expires_at < now))
     token = secrets.token_urlsafe(32)
-    expires = now + timedelta(minutes=settings.session_minutes)
+    # No time limit by default: the session lasts until logout (stored as 10 years); SESSION_MINUTES > 0 restores one
+    expires = now + (timedelta(minutes=settings.session_minutes) if settings.session_minutes > 0 else timedelta(days=3650))
     db.add(SessionToken(token=token, user_id=u.id, expires_at=expires))
     u.last_login_at = now
     db.commit()

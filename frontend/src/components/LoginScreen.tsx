@@ -225,7 +225,7 @@ export function LoginScreen({ onLoginSuccess, sessionEnded = false, lang, setLan
           {opened && sessionEnded && mode === 'login' && (
             <motion.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} role="status"
               className="mt-6 flex items-center justify-center gap-2 text-xs text-gold-200">
-              <Clock className="w-4 h-4" aria-hidden="true" />{t('Your session ended after 1 hour: sign in again.', 'Votre session a pris fin après 1 heure : reconnectez-vous.', 'السيشن سالات من بعد ساعة: دخل من جديد.')}
+              <Clock className="w-4 h-4" aria-hidden="true" />{t('Your session ended: sign in again.', 'Votre session a pris fin : reconnectez-vous.', 'السيشن سالات: دخل من جديد.')}
             </motion.p>
           )}
 

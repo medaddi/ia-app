@@ -1,11 +1,11 @@
 import React from 'react';
-import { Bot, Check, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, Bot, Check, ShieldCheck } from 'lucide-react';
 import type { Language } from '../types';
 import type { PairStrategy } from '../strategyTypes';
 import { FSM_TONE, type AgentChartOverlayState } from '../agentOverlay';
 import { tr } from './ui';
 
-/** The pair agent's vote and the Multi-Agent Risk Coordinator's decision (backend core/risk_guard.coordinate). */
+/** The pair agent's order and the risk notes that go with it (backend core/risk_guard.coordinate): notes, never a block. */
 export interface DeskVote {
   key: 'agent' | 'risk';
   name: string;
@@ -16,11 +16,12 @@ export interface DeskVote {
 }
 export interface Consensus { approved: boolean; agreed: number; agents: DeskVote[]; summary: string; riskPct?: number }
 
-/** The pair's agent (its state, its strategy steps) and the risk coordinator over it. */
+/** The pair's agent (its state, its strategy steps) and the risk notes of its order: the trader sets the risk. */
 export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: AgentChartOverlayState | null; plan?: PairStrategy | null; hasSetup: boolean; lang?: Language }> =
   ({ consensus, overlay, plan, hasSetup, lang = 'en' }) => {
     const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
     const risk = consensus?.agents.find(a => a.key === 'risk');
+    const warnings = risk ? risk.checks.filter(c => !c.passed).length : 0;
     return (
       <section className="mt-4 rounded-[var(--radius-card)] glass border p-4" aria-labelledby="agent-desk-title">
         <header className="flex items-center justify-between gap-2 mb-3">
@@ -58,12 +59,12 @@ export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: Agent
             <div className="flex items-center gap-3 p-2.5">
               <span className="icon-tile w-8 h-8 text-slate-300" aria-hidden="true"><ShieldCheck className="w-4 h-4" /></span>
               <span className="min-w-0 flex-1">
-                <span className="block text-xs font-semibold text-white">{t('Risk coordinator', 'Coordinateur de risque', 'منسق المخاطرة')}</span>
+                <span className="block text-xs font-semibold text-white">{t('Risk notes · your own risk', 'Notes de risque · votre risque', 'ملاحظات المخاطرة · المخاطرة ديالك')}</span>
                 <span className="block text-[11px] text-slate-400 truncate">{risk.summary}</span>
               </span>
               {hasSetup && (
-                <span className={`shrink-0 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold ring-1 ring-inset ${risk.agree ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' : 'bg-rose-500/10 text-rose-300 ring-rose-500/25'}`}>
-                  {risk.agree ? `${risk.riskPct ?? 1} %` : t('blocked', 'bloqué', 'محبوس')}
+                <span className={`shrink-0 px-2 py-0.5 rounded-md text-[11px] font-mono font-bold ring-1 ring-inset ${warnings ? 'bg-amber-500/15 text-amber-200 ring-amber-500/30' : 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'}`}>
+                  {warnings ? `${warnings} ${t('note(s)', 'note(s)', 'ملاحظة')}` : t('clear', 'RAS', 'واضح')}
                 </span>
               )}
             </div>
@@ -71,8 +72,8 @@ export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: Agent
               <ul className="px-3 pb-3 space-y-1.5">
                 {risk.checks.map((c, k) => (
                   <li key={k} className="flex gap-2 text-[11px]">
-                    <span className={`mt-0.5 w-3.5 h-3.5 shrink-0 rounded-full flex items-center justify-center ${c.passed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
-                      {c.passed ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
+                    <span className={`mt-0.5 w-3.5 h-3.5 shrink-0 rounded-full flex items-center justify-center ${c.passed ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-200'}`}>
+                      {c.passed ? <Check className="w-2.5 h-2.5" /> : <AlertTriangle className="w-2.5 h-2.5" />}
                     </span>
                     <span className="min-w-0"><span className="text-slate-200">{c.label}</span> <span className="block text-slate-500 break-words" dir="ltr">{c.detail}</span></span>
                   </li>

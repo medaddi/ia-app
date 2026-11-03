@@ -102,14 +102,14 @@ def test_agent1_filters():
     assert not run("EUR/USD", eur_market(sweep=(1.1030, 1.1044)))["history"]  # taken by 25 pips: a real breakout
 
 
-def test_news_blackout_cuts_the_pending_limit_30_min_before():
+def test_news_is_a_note_never_a_block():
     c = eur_market()
     sig = run("EUR/USD", c)["history"][0]["signalTime"]
-    news = [{"time": sig + 50 * 60, "currency": "USD", "title": "CPI m/m", "impact": "High"}]
-    assert run("EUR/USD", c, now=sig + 3, events=news)["setup"]["expiresAt"] == sig + 20 * 60
     news = [{"time": sig + 20 * 60, "currency": "EUR", "title": "ECB rate", "impact": "High"}]
     r = run("EUR/USD", c, now=sig + 3, events=news)
-    assert r["status"] != "SIGNAL"
+    assert r["status"] == "SIGNAL" and r["canNotify"] and r["setup"]["expiresAt"] == sig + 12 * M5  # sent, the expiry untouched
+    note = next(x for x in r["checklist"] if x["key"] == "news")
+    assert not note["passed"] and not note["required"] and "ECB" in note["detail"]
 
 
 # ------------------------------------------------------------------ Agent 2 · GBP/USD
@@ -230,7 +230,7 @@ def test_fast_on_60_days_of_m5():
 
 
 # ------------------------------------------------------------------ the risk coordinator
-def test_usd_correlation_cap_and_coordinator():
+def test_risk_notes_never_block_and_the_trader_keeps_the_risk():
     from app.db import SessionLocal, init_db
     from app.models import Signal
 
@@ -245,29 +245,17 @@ def test_usd_correlation_cap_and_coordinator():
     with SessionLocal() as db:
         db.query(Signal).delete()
         db.commit()
-        assert usd_exposure("GBP/USD", "BUY", db)["riskPct"] == 1.0
-        add("A", "EUR/USD", "BUY")  # short USD, not at break-even
-        e = usd_exposure("GBP/USD", "BUY", db)
-        assert e["riskPct"] == 0.5 and not e["blocked"]
-        assert usd_exposure("GBP/USD", "SELL", db)["riskPct"] == 1.0  # the other dollar direction
-        add("B", "XAU/USD", "BUY")
-        assert usd_exposure("GBP/USD", "BUY", db)["blocked"]  # a third correlated short-USD trade
-        db.query(Signal).filter(Signal.id == "B").update({"state": "TP1_HIT"})  # at break-even: no longer counts
-        db.commit()
-        assert not usd_exposure("GBP/USD", "BUY", db)["blocked"]
-        # the coordinator on a real agent order: approved at 0.5 % with halved lots next to the open EUR/USD trade
+        assert usd_exposure("GBP/USD", "SELL", db)["count"] == 0
+        add("A", "EUR/USD", "SELL")
+        add("B", "XAU/USD", "SELL")  # two long-USD trades not at break-even
+        assert usd_exposure("GBP/USD", "SELL", db)["count"] == 2 and usd_exposure("GBP/USD", "BUY", db)["count"] == 0
         g, eu = judas_market(1.3000, True), judas_market(1.1000, False)
         sig = run("GBP/USD", g, peer=eu)["history"][0]["signalTime"]
         r = run("GBP/USD", g, now=sig + 3, peer=eu, price=1.2995)
-        r["market"]["isOpen"] = True
-        d = coordinate(r, db, now=sig + 3)
-        assert d["riskPct"] == 1.0  # GBP/USD SELL is long USD: EUR/USD BUY is the other way
-        add("C", "EUR/USD", "SELL")
-        d = coordinate(r, db, now=sig + 3)
-        assert d["approved"], d["issues"]
-        assert d["riskPct"] == 0.5 and all(d["lots"][k] <= r["setup"]["lots"][k] / 2 + 1e-9 for k in d["lots"])
-        add("D", "XAU/USD", "SELL")
-        d = coordinate(r, db, now=sig + 3)
-        assert not d["approved"] and any("USD" in i for i in d["issues"])
+        news = {**r["news"], "blocked": True, "detail": "USD CPI at 13:30"}
+        d = coordinate({**r, "news": news}, db, now=sig + 3)
+        # still sent: the correlated USD trades and the news are notes, the lots are the full 1 % table
+        assert d["approved"] and not d["issues"] and d["riskPct"] == 1.0
+        assert any("USD" in n for n in d["notes"]) and any("news" in n.lower() for n in d["notes"])
         db.query(Signal).delete()
         db.commit()
