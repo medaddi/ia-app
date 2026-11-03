@@ -2,7 +2,9 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <!-- An installed app: no page zoom (pinch, double tap, focus), drawn edge to edge under the notch and the home bar -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#07090D" />
@@ -28,7 +30,7 @@
       /* The intro (3.8 s, held at least 4 s while the app gathers its data underneath): a gold circle appears, the app's
          logo shows inside it, then comes out whole as the circle fades, glows, and a sparkle lights the tip of its arrow
          (src/splash.ts fades the whole intro out once the app is ready). */
-      html, body { margin: 0; background: #07090D; }
+      html, body { margin: 0; background: #07090D; height: 100%; overscroll-behavior: none; }
       #splash { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
         background: #0E121A; transition: opacity .8s ease-in-out, visibility .8s; }  /* the logo's own background */
       #splash.fade-out { opacity: 0; visibility: hidden; }

@@ -386,7 +386,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   };
 
   return (
-    <div className="relative h-dvh flex flex-col font-sans bg-canvas text-slate-100 w-full max-w-full overflow-x-hidden selection:bg-gold-500/30 pt-safe px-safe" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="app-screen flex flex-col font-sans bg-canvas text-slate-100 w-full max-w-full overflow-x-hidden selection:bg-gold-500/30 pt-safe px-safe" dir={isAr ? 'rtl' : 'ltr'}>
       {/* The login background behind the whole app: gold on black, drifting slowly */}
       <div aria-hidden="true" className="login-gradient fixed inset-0 -z-0 pointer-events-none" />
       <div aria-hidden="true" className="fixed inset-0 -z-0 pointer-events-none overflow-hidden">
