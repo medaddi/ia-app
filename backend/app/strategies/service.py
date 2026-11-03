@@ -2,7 +2,8 @@
 Strategy service: the app's strategies, one per instrument.
   XAUUSD → H1 Trend Breakout (trend, breakout and entry on H1)
   GBP/USD → London breakout H1 (from the strategy report; +28.6R on 274 trades over 2 years vs +3.0R for RSI(2))
-  EUR/USD → RSI(2) Connors pullback H4 (the strategy that held up on it over 2 years)
+  EUR/USD → liquidity sweep + break of structure H4, USD/CAD → EMA pullback H4 (2nd report: +14.4R / +18.8R over 2 years)
+  AUD/CAD → mean reversion Bollinger + Stochastic H4 (1st report)
   The other forex pairs → FXAlexG Set & Forget GPA (trend W1/D1/H4, AOI W1/D1, entry 30m), same rules
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
@@ -53,7 +54,7 @@ def _london_def(cfg: dict) -> StrategyDef:
 
 
 def _report_def(cfg: dict) -> StrategyDef:
-    # A report strategy that won its 2-year test (AUD/CAD): evaluated at every close of its timeframe
+    # A report strategy that won its 2-year test (EUR/USD, USD/CAD, AUD/CAD): evaluated at every close of its timeframe
     tf = cfg["timeframes"]["entry"]
     return StrategyDef(entryTf=tf, run=partial(evaluate_report, cfg=cfg), tfs=[tf], limits={tf: cfg["history"]}, canSignalAt=lambda close: True)
 
@@ -76,7 +77,7 @@ STRATEGY_DEFS: dict[str, StrategyDef] = {
         # reversion is taken up to 45 min before the H1 close (60 days: +9.1R on 28 trades vs +7.6R on 18 at the close)
         confirmTf="M15",
     ),
-    # Each pair runs the strategy that held up on it: London breakout H1 on GBP/USD, RSI(2) H4 on EUR/USD, FXAlexG GPA on the others
+    # Each pair runs the strategy that held up on it: London breakout H1 on GBP/USD, the live report plans, FXAlexG GPA on the others
     **{pair: (_london_def(LONDON_CONFIGS[pair]) if pair in LONDON_CONFIGS else _report_def(LIVE_REPORT[pair]) if pair in LIVE_REPORT
               else _rsi2_def(RSI2_CONFIGS[pair]) if pair in RSI2_CONFIGS else _fx_def(cfg)) for pair, cfg in ALEXG_CONFIGS.items()},
 }

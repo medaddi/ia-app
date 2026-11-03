@@ -1,6 +1,6 @@
 import { apiFetch } from '../api';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { strategyKind, type InstrumentSymbol } from '../instruments';
+import { REPORT_RULE, strategyKind, type InstrumentSymbol } from '../instruments';
 import {
   createChart,
   CandlestickSeries,
@@ -404,8 +404,9 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       if (num(facts.atrH1) !== null) keyFacts.push({ label: 'ATR H1', value: `${(num(facts.atrH1)! / pip).toFixed(1)} pips` });
       keyFacts.push({ label: t('H1 trend', 'Tendance H1', 'اتجاه H1'), value: trendWord(str(facts.trendH1)), tone: trendTone(str(facts.trendH1)) });
     } else if (kind === 'report') {
-      // Report mean reversion: what it waits for, and the H4 ATR its stop is measured with
-      keyFacts.push({ label: t('Rule', 'Règle', 'القاعدة'), value: t('Bollinger 20/2 + Stochastic 20/80, ADX < 25', 'Bollinger 20/2 + Stochastique 20/80, ADX < 25', 'بولينجر 20/2 + ستوكاستيك 20/80، ADX < 25') });
+      // Live report plan: the rule it runs, and the H4 ATR its stop is measured with
+      const rule = REPORT_RULE[symbol];
+      if (rule) keyFacts.push({ label: t('Rule', 'Règle', 'القاعدة'), value: t(...rule) });
       if (num(facts.atr) !== null) keyFacts.push({ label: 'ATR H4', value: `${(num(facts.atr)! / pip).toFixed(1)} pips` });
     } else if (kind === 'rsi2') {
       // RSI(2) Connors: H4 trend, RSI(2) now vs the pair's extreme, EMA5 exit level

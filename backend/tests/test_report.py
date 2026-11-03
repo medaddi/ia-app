@@ -12,12 +12,12 @@ from app.strategies.shared.types import Candle
 def test_every_pair_has_its_report_plan_and_only_winners_are_live():
     assert set(REPORT_CONFIGS) == {"XAU/USD", "EUR/USD", "USD/CAD", "NZD/USD", "EUR/CHF", "NZD/CAD", "AUD/CAD", "AUD/CHF"}  # GBP/USD: strategies/london
     live = {p for p, c in REPORT_CONFIGS.items() if c["live"]}
-    assert live == {"AUD/CAD"}
+    assert live == {"AUD/CAD", "EUR/USD", "USD/CAD"}  # EUR/USD, USD/CAD: the 2nd report (sweep + BOS, EMA pullback)
     for p, c in REPORT_CONFIGS.items():
         t = c["test"]
-        assert c["report"] and t["verdict"] and (t["totalR"] > 0) == (p == "AUD/CAD" or t["totalR"] > 0)
+        assert c["report"] and t["verdict"] and (not c["live"] or (t["trades"] >= 30 and t["totalR"] > 0))
         assert c["risk"]["capR"] in (1.5, 2.0)  # the app's 1.5R–2R rule
-    assert STRATEGY_DEFS["AUD/CAD"].entryTf == "H4"  # live: the pair's own strategy now
+    assert all(STRATEGY_DEFS[p].entryTf == "H4" and not STRATEGY_DEFS[p].exit_rule for p in live)  # live: the pair's own strategy now
     assert STRATEGY_DEFS["NZD/CAD"].entryTf == "M30"  # observation: GPA stays
 
 
@@ -49,3 +49,34 @@ def test_mean_reversion_rule_and_engine_on_a_range():
     obs = evaluate_report(inp, {**cfg, "live": False, "params": {**cfg["params"], "adxMax": 999}})
     block = observation_block(obs)
     assert not obs["canNotify"] and block["live"] is False and all(d["layer"] == "report" for d in block["drawings"])
+
+
+def test_sweep_and_break_of_structure():
+    """A wick under the 20-candle low that closes back above, then a close over the last swing high: a BUY at that close."""
+    step, c = 14400, []
+    for i in range(300):
+        m = 1.0 + 0.001 * math.sin(i / 3)
+        c.append(Candle(1_790_000_000 + i * step, m, m + 0.0005, m - 0.0005, m + 0.0001, 0))
+    t, low = c[-1].time, min(x.low for x in c[-20:])
+    c.append(Candle(t + step, 1.0, 1.0004, low - 0.002, 1.0002, 0))  # the sweep: wick under, close back inside
+    c.append(Candle(t + 2 * step, 1.0002, 1.0030, 1.0001, 1.0028, 0))  # the break of structure
+    p = REPORT_CONFIGS["EUR/USD"]["params"]
+    rule = RULES["sweep_bos"]
+    ind = rule["prep"](c, p)
+    b = rule["at"](c, len(c) - 1, ind, p)
+    assert b and b["buy"] and b["entry"] == 1.0028 and b["sl"] < low - 0.002 and not rule["at"](c, len(c) - 2, ind, p)
+
+
+def test_ema_pullback_needs_the_trend_and_a_confirmation():
+    step, c = 14400, []
+    for i in range(300):
+        m = 1.0 + 0.0004 * i  # a steady uptrend: EMA50 > EMA200
+        c.append(Candle(1_790_000_000 + i * step, m - 0.0002, m + 0.0006, m - 0.0006, m + 0.0002, 0))
+    p = REPORT_CONFIGS["USD/CAD"]["params"]
+    rule = RULES["ema_pullback"]
+    e20 = rule["prep"](c, p)["touch"][-1]
+    t, top = c[-1].time, c[-1].high
+    c.append(Candle(t + step, top - 0.001, top + 0.001, e20 - 0.0005, top + 0.0008, 0))  # dips to EMA20, closes above the last high
+    ind = rule["prep"](c, p)
+    b = rule["at"](c, len(c) - 1, ind, p)
+    assert b and b["buy"] and b["sl"] < c[-1].low and len(b["why"]) == 3

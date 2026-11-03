@@ -14,12 +14,12 @@ export const isInstrument = (s: string | undefined | null): s is InstrumentSymbo
 // What the chart shows for each strategy: the timeframes it reads and the moving averages its rules use
 export interface ChartSpec { entryTf: string; timeframes: string[]; emas: number[]; emaNote: string }
 export type StrategyKind = 'gold' | 'rsi2' | 'london' | 'report' | 'forex';
-// Each pair runs the strategy that held up on it (keep in sync with the backend configs): RSI(2) Connors H4 (RSI2_CONFIGS),
-// London breakout H1 (LONDON_CONFIGS), FXAlexG GPA on the others
-export const RSI2_PAIRS: readonly InstrumentSymbol[] = ['EUR/USD'];
+// Each pair runs the strategy that held up on it (keep in sync with the backend configs): London breakout H1
+// (LONDON_CONFIGS), the live report plans, FXAlexG GPA on the others. RSI(2) Connors H4 (RSI2_CONFIGS) has no pair now.
+export const RSI2_PAIRS: readonly InstrumentSymbol[] = [];
 export const LONDON_PAIRS: readonly InstrumentSymbol[] = ['GBP/USD'];
 // A report strategy that won its 2-year test and runs live (backend REPORT_CONFIGS with live: true)
-export const REPORT_PAIRS: readonly InstrumentSymbol[] = ['AUD/CAD'];
+export const REPORT_PAIRS: readonly InstrumentSymbol[] = ['EUR/USD', 'USD/CAD', 'AUD/CAD'];
 export const strategyKind = (s: string): StrategyKind => (s === 'XAU/USD' ? 'gold' : (RSI2_PAIRS as readonly string[]).includes(s) ? 'rsi2'
   : (LONDON_PAIRS as readonly string[]).includes(s) ? 'london' : (REPORT_PAIRS as readonly string[]).includes(s) ? 'report' : 'forex');
 export const CHART_SPEC: Record<StrategyKind, ChartSpec> = {
@@ -30,8 +30,19 @@ export const CHART_SPEC: Record<StrategyKind, ChartSpec> = {
   rsi2: { entryTf: 'H4', timeframes: ['M15', 'M30', 'H1', 'H4', 'D1', 'W1'], emas: [5, 200], emaNote: 'exit / trend on H4' },
   // London breakout: the Asian range (00:00–07:00 GMT) and the first strong H1 close beyond it before 11:00 GMT
   london: { entryTf: 'H1', timeframes: ['M15', 'M30', 'H1', 'H4', 'D1'], emas: [50, 200], emaNote: 'context on H1' },
-  // Report mean reversion (AUD/CAD): Bollinger (20, 2) + Stochastic (14, 3, 3) on H4
+  // Report plans on H4 (the default: AUD/CAD mean reversion, Bollinger (20, 2) + Stochastic (14, 3, 3); per pair below)
   report: { entryTf: 'H4', timeframes: ['M15', 'M30', 'H1', 'H4', 'D1'], emas: [20], emaNote: 'Bollinger middle' },
   forex: { entryTf: 'M30', timeframes: ['M15', 'M30', 'H1', 'H4', 'D1', 'W1'], emas: [50], emaNote: 'rejection on H4 / 1H' },
 };
-export const chartSpec = (s: InstrumentSymbol): ChartSpec => CHART_SPEC[strategyKind(s)];
+// The live report plans that read other moving averages than the Bollinger middle
+const REPORT_SPEC: Partial<Record<InstrumentSymbol, Pick<ChartSpec, 'emas' | 'emaNote'>>> = {
+  'EUR/USD': { emas: [50], emaNote: 'context on H4' },  // liquidity sweep + break of structure
+  'USD/CAD': { emas: [20, 200], emaNote: 'pullback / trend on H4' },  // EMA pullback
+};
+// The rule each live report plan runs, as the chart's key fact
+export const REPORT_RULE: Partial<Record<InstrumentSymbol, [string, string, string]>> = {
+  'EUR/USD': ['Sweep of the 20-candle high / low, then a break of structure', 'Balayage du plus haut / bas de 20 bougies, puis cassure de structure', 'كنس أعلى / أدنى 20 شمعة ثم كسر الهيكل'],
+  'USD/CAD': ['Pullback to EMA20 in the EMA50 / EMA200 trend', "Repli sur l'EMA20 dans la tendance EMA50 / EMA200", 'رجوع لـ EMA20 ف اتجاه EMA50 / EMA200'],
+  'AUD/CAD': ['Bollinger 20/2 + Stochastic 20/80, ADX < 25', 'Bollinger 20/2 + Stochastique 20/80, ADX < 25', 'بولينجر 20/2 + ستوكاستيك 20/80، ADX < 25'],
+};
+export const chartSpec = (s: InstrumentSymbol): ChartSpec => ({ ...CHART_SPEC[strategyKind(s)], ...(strategyKind(s) === 'report' ? REPORT_SPEC[s] : {}) });

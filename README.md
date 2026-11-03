@@ -4,7 +4,7 @@ Gold and forex signals with a strict, tested rule set, a live chart for every pa
 and delivery to the web app, the phone (Web Push) and Telegram, each with the lot for the trader's own risk.
 
 - **9 instruments:** XAU/USD, EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF
-- **5 strategies**, each kept on the pairs where it tested best; every pair also carries its strategy from the strategy report, live where it won its 2-year test and in observation elsewhere (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
+- **6 strategies**, each kept on the pairs where it tested best; every pair also carries its strategy from the two strategy reports, live where it won its 2-year test and in observation elsewhere (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
 - **One target between 1.5R and 2R** on every trade; stops and targets never move once a trade is placed
 - **Accounts managed by the admin**; Telegram works only for a linked, approved account
 
@@ -52,9 +52,9 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 ```
 
 1. **Candle close.** Each strategy is evaluated the moment its decision candle closes (gold every M15 close inside
-   the forming H1, RSI(2) at the H4 close, GPA at the M30 close). On Vercel an external pinger calls
+   the forming H1, the H4 strategies at the H4 close, GPA at the M30 close). On Vercel an external pinger calls
    `/api/cron/tick` every minute; on an always-on server an in-process scheduler does the same.
-2. **Signal.** A trade is only considered when every required rule passes (score ≥ 75 for gold and RSI(2), grade
+2. **Signal.** A trade is only considered when every required rule passes (score ≥ 75 for gold and the report strategies, grade
    ≥ C+ for GPA), the market is open and no high-impact news is within 30 minutes.
 3. **Agents.** Market analysis, strategy and risk & execution must all agree (3/3); any one of them can block.
 4. **Delivery.** Each linked account gets the trade with the lot computed from **its own** risk (stop, spread and
@@ -70,10 +70,11 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 | Pairs | Strategy | Decides on | Entry | Exit |
 |---|---|---|---|---|
 | XAU/USD | **H1 Trend Breakout + Bollinger Reversion** (two engines, one trade at a time) | H1, confirmed at each M15 close | Breakout: H1 close beyond the 20-hour range with a strong body, in the EMA50/EMA200 trend · Reversion (London / New York): close back inside the 2.2σ band | Breakout 2R · Reversion 1.5R, or after 24 H1 candles |
-| EUR/USD | **RSI(2) Connors pullback** | H4 | RSI(2) extreme against the H4 trend (EMA50/EMA200) | 1.5R, or earlier at the first H4 close back across EMA5, max 48 H4 candles |
+| EUR/USD | **Liquidity sweep + break of structure** (from the 2nd strategy report) | H4 | A wick takes the 20-candle low / high and closes back inside, then within 6 candles a close breaks the last swing high / low | Stop beyond the sweep · 2R, or after 30 H4 candles |
+| USD/CAD | **EMA pullback in the trend** (from the 2nd strategy report) | H4 | EMA50 / EMA200 trend, a dip to EMA20 and a confirmation candle beyond the previous one | Stop past the 5-candle pullback · 1.5R, or after 30 H4 candles |
 | AUD/CAD | **Mean reversion Bollinger + Stochastic** (from the strategy report) | H4 | A close outside the Bollinger band (20, 2) with the Stochastic beyond 20 / 80, then a close back inside, ADX < 25 | 2R, or after 12 H4 candles |
 | GBP/USD | **London breakout** (from the strategy report) | H1 | The first strong H1 close beyond the 00:00–07:00 GMT Asian range, 07:00–11:00 GMT | Stop at the other side of the range · 2R, or at the end of the day |
-| USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF | **FXAlexG Set & Forget GPA** | M30 at the London / New York open | W1/D1/H4 trend majority, W1/D1 area of interest with ≥ 3 touches, H4 rejection, M30 engulfing | Next W1/D1 zone, between 1.5R and 2R |
+| NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF | **FXAlexG Set & Forget GPA** | M30 at the London / New York open | W1/D1/H4 trend majority, W1/D1 area of interest with ≥ 3 touches, H4 rejection, M30 engulfing | Next W1/D1 zone, between 1.5R and 2R |
 
 Every target is kept between **1.5R and 2R** (`TARGET_MIN_R` / `TARGET_MAX_R`). Past trades are replayed with the
 same rules, so the TP / SL / breakeven record and each pair's performance are measured, not estimated.
@@ -294,7 +295,7 @@ backend/
     push.py              Web Push (VAPID), new trade / follow-up / result notices
     followup.py          Follow-up notices of running trades
     agent/               The four agents, AI trade desk, explanations
-    strategies/          Gold, RSI(2), FXAlexG GPA; replay, lifecycle, shared rules
+    strategies/          Gold, London, report plans, RSI(2), FXAlexG GPA; replay, lifecycle, shared rules
     market/              Prices and candles (spot gold kept in spot terms), news
     telegram/            Bot (commands, delivery), scheduler, chart pictures, leak protection
     api/                 HTTP routes

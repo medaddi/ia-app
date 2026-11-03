@@ -1,7 +1,8 @@
 # LiquidityDissection — the strategies
 
-The app runs **three** rule-based strategies, each pair on the one that held up on it: gold has its own, EUR/USD and
-GBP/USD run RSI(2) Connors on H4, the other six forex pairs run FXAlexG GPA. Nothing else creates
+Each pair runs the rule-based strategy that held up on it: gold its own H1 engines, GBP/USD the London breakout (Strategy 4),
+EUR/USD, USD/CAD and AUD/CAD a strategy from the reports (Strategies 5–7), NZD/USD, EUR/CHF, NZD/CAD and AUD/CHF FXAlexG
+GPA. RSI(2) Connors (Strategy 2) no longer runs on a pair; the table below is the original three. Nothing else creates
 signals or sends Telegram messages. Every rule below is code; every parameter lives in the
 strategy's config file. Same closed candles → same result, every time.
 
@@ -216,10 +217,10 @@ Second pass (the per-pair strategies not tried in the first one):
 | NZD/USD | Sydney-open breakout of the late-New-York range H1 | 221 | −19.1R | | | observation |
 | EUR/USD, gold | ICT Silver Bullet (New York 10–11 AM) M5 | — | — | | | not testable (~50 days of M5) |
 
-Every pair carries its report strategy (`backend/app/strategies/report/`): **live** on GBP/USD (Strategy 4) and AUD/CAD
-(Strategy 5); in **observation** on the others: computed next to the live strategy, drawn on the chart (layer
-"Report strategy"), shown with its test in the setup panel, and it never sends a signal. Gold keeps its H1 engines,
-EUR/USD its RSI(2), and USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF their FXAlexG GPA.
+Every pair carries its report strategy (`backend/app/strategies/report/`): **live** on GBP/USD (Strategy 4), AUD/CAD
+(Strategy 5), EUR/USD and USD/CAD (Strategies 6 and 7, from the second report below); in **observation** on the others:
+computed next to the live strategy, drawn on the chart (layer "Report strategy"), shown with its test in the setup panel,
+and it never sends a signal. Gold keeps its H1 engines, and NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF their FXAlexG GPA.
 
 ## Strategy 5 — AUD/CAD: "Mean reversion Bollinger + Stochastic H4" (from the strategy report)
 
@@ -233,6 +234,49 @@ The report's range trading between the two commodity currencies (`backend/app/st
 
 2 years of H4, the app's own lifecycle: 67 trades, +11.3R (+15.4R in the research harness). **Fragile:** Bollinger 2.2σ
 or 1.8σ and Stochastic 25 / 75 lose; a looser ADX (< 30, none) or a wider stop (+0.5 ATR) stay positive.
+
+## The second report: "Rapport Stratégies Trading Or & Forex" (3 Nov 2026)
+
+The report names no per-pair plan and says itself that no independent source proves any of them wins. Its methods, as
+code, on every pair, same harness and criteria as the first report (2 years of H1 / H4, the pair's spread + slippage,
+stop first, ≥ 30 trades, both halves positive, positive with double costs, better than the pair's strategy):
+
+| Report method | As code | Result |
+|---|---|---|
+| Trend following, EMA 50 / 200 cross (gold, H4 / D1) | Buy (sell) at the cross, stop under the last 10-candle low (high) | ❌ under 30 trades on H4; negative on most pairs on H1 |
+| London range breakout (gold, M15 / H1) | Strategy 4's rules on gold | ❌ weaker than gold's H1 engines |
+| Liquidity sweep + order block (ICT / SMC, M5 – H1) | A wick takes the 20-candle low / high and closes back inside, then a close breaks the last swing before it within 6 candles | ✅ **EUR/USD H4** (Strategy 6); NZD/CAD +6.6R and NZD/USD +2.8R but they lose with neighbouring settings; negative on H1 |
+| Pullback to EMA 20 / 50 in the trend (forex, H4 / D1) | EMA50 vs EMA200 trend, the candle dips to the EMA and closes beyond the previous candle | ✅ **USD/CAD H4** (Strategy 7); gold +20.9R on H4 / +26.8R on H1 but below its H1 engines (+23.5R in 9 months) |
+| Consolidation breakout (forex, H1 / H4) | A 20-candle range ≤ 4 ATR, the first close beyond it, stop inside the range | USD/CAD +20.2R on H4 but the first half ≈ 0 (EMA pullback kept); negative elsewhere |
+| Risk rules (1 % per trade, ≥ 1:2, stop after 2 losses in a row) | Already the app's rules: 1 % lot table, 1.5R–2R targets, daily loss limits | — |
+
+## Strategy 6 — EUR/USD: "Liquidity sweep + break of structure H4" (from the second report)
+
+`backend/app/strategies/report/`, rule `sweep_bos`.
+
+1. **Sweep:** an H4 wick goes under the low (over the high) of the previous 20 candles and the candle closes back inside.
+2. **Break of structure:** within the next 6 H4 candles — before price goes past the sweep — the first close above the
+   highest high (below the lowest low) of the sweep candle and the 3 before it → MARKET at that close.
+3. **Stop:** beyond the sweep + 0.1 × ATR(14). **Target:** 2R. Closed at market after 30 H4 candles.
+
+2 years of H4: 48 trades, 56 % winners, **+15.9R** (app lifecycle: 44 trades, +14.4R), every third positive (+5.4R / +4.7R /
++5.7R), +14.9R with double costs, buys +4.4R and sells +6.2R. It replaced RSI(2) H4 (+6.0R over the same period). Every
+20-candle variant (6 to 10 candles to break, 2 to 5 candles of structure) stays positive (+6R to +21R); a 10-candle sweep
+is mixed.
+
+## Strategy 7 — USD/CAD: "EMA pullback in the trend H4" (from the second report)
+
+`backend/app/strategies/report/`, rule `ema_pullback`.
+
+1. **Trend:** EMA50 above EMA200 and the close above EMA200 for buys (the mirror for sells).
+2. **Entry:** the H4 candle dips to EMA20 and closes back beyond it, in the trend's colour and beyond the previous candle's
+   high (low) → MARKET at that close.
+3. **Stop:** past the 5-candle pullback extreme + 0.1 × ATR(14) (at least 0.3 × ATR). **Target:** 1.5R. Closed at market
+   after 30 H4 candles.
+
+2 years of H4: 77 trades, 54.5 % winners, **+18.1R** (app lifecycle: +18.8R), every third positive (+5.2R / +3.0R / +9.8R),
++15.2R with double costs. Every EMA 20 / 30 variant stays positive in both halves. **Note:** the sells carry it
+(+16.3R vs +1.8R for the buys). It replaced FXAlexG GPA, which takes very few trades on USD/CAD.
 
 ## Risk (all)
 

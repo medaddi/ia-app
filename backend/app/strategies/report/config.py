@@ -1,6 +1,7 @@
 """
-Each pair's strategy from the report "Anja7 Stratigiyat Trading F Forex" (its per-pair table and chapters), as the
-closest rules the app's data allows, with the 2-year test that decided whether it sends signals.
+Each pair's strategy from the reports "Anja7 Stratigiyat Trading F Forex" (its per-pair table and chapters) and "Rapport
+Stratégies Trading Or & Forex" (3 Nov 2026: EMA trend, London range, sweep + order block, EMA pullback, consolidation
+breakout), as the closest rules the app's data allows, with the 2-year test that decided whether it sends signals.
 
 A report strategy goes LIVE (replaces the pair's strategy) only when, on 2 years of the app's own candles with the pair's
 spread + slippage and the stop counted first: ≥ 30 trades, positive in both halves, positive with double costs, and
@@ -35,18 +36,20 @@ PLANS = {
         "note": "ICT Silver Bullet needs M1/M5 history: only ~50 days on the feed, too few trades to test",
     },
     "EUR/USD": {
-        "report": "Order-flow absorption (HVN) + ICT Silver Bullet / Judas Swing; MACD + RSI on H4 with a DXY filter",
-        "rule": "macd_rsi", "tf": "H4", "params": {"macdFast": 12, "macdSlow": 26, "macdSignal": 9, "rsiPeriod": 14, "slAtr": 1.5},
-        "capR": 2.0, "maxBars": 30, "live": False,
-        "test": {"trades": 102, "winRate": 29.4, "totalR": -20.7, "verdict": "Loses (−20.7R): RSI(2) H4 stays"},
-        "note": "Order flow (volume profile, cumulative delta) is not in the feed; ICT needs M1/M5 history",
+        "report": "2nd report: liquidity sweep + order block (ICT / SMC): a high or low taken, a break of structure, a stop beyond the zone, "
+                  "1:2 at least (1st report: order flow + ICT Silver Bullet, MACD + RSI H4)",
+        "rule": "sweep_bos", "tf": "H4", "params": {"sweepLookback": 20, "within": 6, "structureLook": 3, "slAtr": 0.1},
+        "capR": 2.0, "maxBars": 30, "live": True,
+        "test": {"trades": 48, "winRate": 56.2, "totalR": 15.9, "verdict": "Live: +15.9R, every third positive (+5.4R / +4.7R / +5.7R), +14.9R with double costs (RSI(2) H4: +6.0R)"},
+        "note": "Neighbouring settings: every 20-candle sweep variant stays positive (+6R to +21R); a 10-candle sweep is mixed",
     },
     "USD/CAD": {
-        "report": "Crude-oil lead-lag (15–45 min) + New York trend following with ADX > 25",
-        "rule": "ny_adx_trend", "tf": "H1", "params": {"emaFast": 20, "emaSlow": 50, "adxMin": 25, "slAtr": 1.5, "sessionHours": [12, 17]},
-        "capR": 1.5, "maxBars": 24, "live": False,
-        "test": {"trades": 114, "winRate": 42.1, "totalR": -2.9, "verdict": "Loses (−2.9R, first half −7.1R): FXAlexG GPA stays"},
-        "note": "The oil lead-lag needs a crude-oil feed",
+        "report": "2nd report: pullback to the moving average in the trend: EMA 20 or 50, a confirmation candle, the stop under the pullback, "
+                  "1:2 or more (1st report: crude-oil lead-lag + New York ADX trend)",
+        "rule": "ema_pullback", "tf": "H4", "params": {"emaTouch": 20, "swingLook": 5, "slAtr": 0.1, "minRiskAtr": 0.3},
+        "capR": 1.5, "maxBars": 30, "live": True,
+        "test": {"trades": 77, "winRate": 54.5, "totalR": 18.1, "verdict": "Live: +18.1R, every third positive (+5.2R / +3.0R / +9.8R), +15.2R with double costs (GPA: few trades)"},
+        "note": "Every EMA 20 / 30 variant stays positive in both halves; sells carry most of the result (+16.3R vs +1.8R for buys)",
     },
     "NZD/USD": {
         "report": "Global Dairy Trade auctions + structure breaks in the Asian session",
@@ -80,7 +83,7 @@ PLANS = {
     },
 }
 
-NAMES = {"mean_reversion": "Mean reversion Bollinger + Stochastic", "ny_adx_trend": "New York trend · ADX > 25", "macd_rsi": "MACD + RSI",
+NAMES = {"sweep_bos": "Liquidity sweep + break of structure", "ema_pullback": "EMA pullback in the trend", "mean_reversion": "Mean reversion Bollinger + Stochastic", "ny_adx_trend": "New York trend · ADX > 25", "macd_rsi": "MACD + RSI",
          "bb_squeeze": "Bollinger squeeze breakout", "session_breakout": "Sydney-open breakout"}
 
 

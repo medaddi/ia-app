@@ -311,7 +311,94 @@ def sess_now(c, ind, p, last) -> str:
             if r else f"The range builds {p['rangeHours'][0]:02d}:00–{p['rangeHours'][1]:02d}:00 GMT")
 
 
+# ---------------------------------------------------------------- 6. liquidity sweep + break of structure (ICT / SMC, 2nd report)
+def sw_prep(c, p):
+    n = p["sweepLookback"]
+    hi: list[Optional[float]] = [None] * len(c)
+    lo: list[Optional[float]] = [None] * len(c)
+    for i in range(n, len(c)):
+        hi[i], lo[i] = max(x.high for x in c[i - n:i]), min(x.low for x in c[i - n:i])
+    return {"hi": hi, "lo": lo, "atr": atr(c)}
+
+
+def sw_at(c, i, ind, p) -> Optional[dict]:
+    """A wick takes the low (high) of the last `sweepLookback` candles and closes back inside, then within `within` candles
+    — before price goes past the sweep — this candle is the first close beyond the last swing high (low) before the sweep:
+    entry at its close, stop beyond the sweep."""
+    for k in range(max(1, i - p["within"]), i):
+        x, a = c[k], ind["atr"][k]
+        if ind["lo"][k] is None or a is None:
+            continue
+        look = c[max(0, k - p["structureLook"]):k + 1]
+        between = c[k + 1:i]
+        if x.low < ind["lo"][k] and x.close > ind["lo"][k]:
+            level = max(y.high for y in look)
+            if c[i].close > level and all(y.low >= x.low and y.close <= level for y in between) and c[i].low >= x.low:
+                return {"buy": True, "entry": c[i].close, "sl": x.low - p["slAtr"] * a, "why": [
+                    f"Sweep of the {p['sweepLookback']}-candle low {ind['lo'][k]:.5g} and a close back above", f"Break of structure: close above {level:.5g}"]}
+            continue  # one side per sweep candle, as the test
+        if x.high > ind["hi"][k] and x.close < ind["hi"][k]:
+            level = min(y.low for y in look)
+            if c[i].close < level and all(y.high <= x.high and y.close >= level for y in between) and c[i].high <= x.high:
+                return {"buy": False, "entry": c[i].close, "sl": x.high + p["slAtr"] * a, "why": [
+                    f"Sweep of the {p['sweepLookback']}-candle high {ind['hi'][k]:.5g} and a close back below", f"Break of structure: close below {level:.5g}"]}
+    return None
+
+
+def sw_draw(c, ind, p, last):
+    if ind["hi"][last] is None:
+        return []
+    t1 = c[max(0, last - p["sweepLookback"])].time
+    return [{"kind": "hline", "t1": t1, "p1": ind["hi"][last], "text": f"Liquidity: {p['sweepLookback']}-candle high", "color": "liquidity", "style": "dotted"},
+            {"kind": "hline", "t1": t1, "p1": ind["lo"][last], "text": f"Liquidity: {p['sweepLookback']}-candle low", "color": "liquidity", "style": "dotted"}]
+
+
+def sw_now(c, ind, p, last) -> str:
+    return (f"Waiting for a sweep of {ind['lo'][last]:.5g} or {ind['hi'][last]:.5g} (the {p['sweepLookback']}-candle low / high), then a break of structure"
+            if ind["hi"][last] is not None else "Not enough history")
+
+
+# ---------------------------------------------------------------- 7. pullback to the moving average in the trend (2nd report)
+def pb_prep(c, p):
+    cl = [x.close for x in c]
+    return {"touch": ema(cl, p["emaTouch"]), "e50": ema(cl, 50), "e200": ema(cl, 200), "atr": atr(c)}
+
+
+def pb_at(c, i, ind, p) -> Optional[dict]:
+    """EMA 50 above EMA 200 and price above EMA 200 (below for sells); the candle dips to EMA `emaTouch` and closes back
+    beyond it as a confirmation candle (beyond the previous candle's extreme); stop past the pullback's extreme."""
+    t, e50, e200, a = ind["touch"][i], ind["e50"][i], ind["e200"][i], ind["atr"][i]
+    if i < p["swingLook"] or None in (t, e50, e200, a):
+        return None
+    x, prev = c[i], c[i - 1]
+    w = c[i - p["swingLook"] + 1:i + 1]
+    if e50 > e200 and x.close > e200 and x.low <= t < x.close and x.close > x.open and x.close > prev.high:
+        sl = min(y.low for y in w) - p["slAtr"] * a
+        if x.close - sl > p["minRiskAtr"] * a:
+            return {"buy": True, "entry": x.close, "sl": sl, "why": ["Uptrend: EMA50 > EMA200", f"Pullback to EMA{p['emaTouch']}", "Bullish confirmation candle above the previous high"]}
+    if e50 < e200 and x.close < e200 and x.high >= t > x.close and x.close < x.open and x.close < prev.low:
+        sl = max(y.high for y in w) + p["slAtr"] * a
+        if sl - x.close > p["minRiskAtr"] * a:
+            return {"buy": False, "entry": x.close, "sl": sl, "why": ["Downtrend: EMA50 < EMA200", f"Pullback to EMA{p['emaTouch']}", "Bearish confirmation candle below the previous low"]}
+    return None
+
+
+def pb_draw(c, ind, p, last):
+    t1 = c[max(0, last - 30)].time
+    return [{"kind": "hline", "t1": t1, "p1": ind["touch"][last], "text": f"EMA{p['emaTouch']} (pullback)", "color": "entry", "style": "dotted"}] if ind["touch"][last] else []
+
+
+def pb_now(c, ind, p, last) -> str:
+    e50, e200 = ind["e50"][last], ind["e200"][last]
+    if e50 is None or e200 is None:
+        return "Not enough history"
+    side = "uptrend (EMA50 > EMA200): waiting for a dip" if e50 > e200 else "downtrend (EMA50 < EMA200): waiting for a rally"
+    return f"{side} to EMA{p['emaTouch']} {ind['touch'][last]:.5g} and a confirmation candle"
+
+
 RULES = {
+    "sweep_bos": {"prep": sw_prep, "at": sw_at, "draw": sw_draw, "now": sw_now},
+    "ema_pullback": {"prep": pb_prep, "at": pb_at, "draw": pb_draw, "now": pb_now},
     "mean_reversion": {"prep": mr_prep, "at": mr_at, "draw": mr_draw, "now": mr_now},
     "ny_adx_trend": {"prep": ny_prep, "at": ny_at, "draw": ny_draw, "now": ny_now},
     "macd_rsi": {"prep": macd_prep, "at": macd_at, "draw": lambda c, ind, p, last: [], "now": macd_now},

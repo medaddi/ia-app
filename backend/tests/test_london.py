@@ -40,4 +40,4 @@ def test_gbpusd_runs_the_london_breakout():
 
     d = STRATEGY_DEFS["GBP/USD"]
     assert d.entryTf == "H1" and d.canSignalAt(DAY + 8 * 3600) and not d.canSignalAt(DAY + 13 * 3600)
-    assert STRATEGY_DEFS["EUR/USD"].entryTf == "H4"  # EUR/USD keeps RSI(2)
+    assert STRATEGY_DEFS["EUR/USD"].entryTf == "H4"  # EUR/USD: sweep + break of structure H4
