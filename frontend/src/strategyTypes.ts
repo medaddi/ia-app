@@ -1,3 +1,4 @@
+import type { AgentChartOverlayState } from './agentOverlay';
 import type { InstrumentSymbol, StrategySymbol } from './instruments';
 /**
  * Shapes returned by the Python backend for the two strategies (backend/app/strategies).
@@ -67,7 +68,6 @@ export interface LifecycleResult {
   outcome: "WIN" | "LOSS" | "BREAKEVEN" | null;
 }
 
-export type DrawingLayer = "sessions" | "levels" | "structure" | "swings" | "liquidity" | "fvg" | "ob" | "fib" | "trade";
 
 /** Target options: for each R multiple, the share of this pair's past trades the market carried that far before the stop. */
 export interface TpReach {
@@ -90,25 +90,6 @@ export interface HistoryStats {
   profitFactor: number | null; maxDrawdownR: number; avgWinR: number | null; avgLossR: number | null;
   bestR: number | null; worstR: number | null; maxLosingRun: number; since: number | null;
 }
-export type DrawingColor = "bull" | "bear" | "gold" | "muted" | "asia" | "london" | "ny" | "liquidity" | "entry";
-
-export interface Drawing {
-  id: string;
-  layer: DrawingLayer;
-  kind: "box" | "hline" | "label" | "marker" | "session";
-  tf: string;
-  t1: number;
-  t2: number | null; // null = extend to the right edge
-  p1: number;
-  p2?: number;
-  text?: string;
-  color: DrawingColor;
-  style?: "solid" | "dashed" | "dotted";
-  faded?: boolean;
-  position?: "above" | "below";
-  midline?: boolean;
-}
-
 export interface TradeSetup {
   id: string;
   setup: string; // "GOLD" | "A" | "B"
@@ -161,32 +142,27 @@ export interface StrategyResult {
   canNotify: boolean;
   news: { blocked: boolean; detail: string; next: string | null; source: string };
   day: { trades: number; losses: number };
-  drawings: Drawing[];
+  overlay?: AgentChartOverlayState | null;  // what the pair's own agent draws on its chart
   facts: Record<string, unknown>;
-  pairStrategy?: PairStrategy | null;  // the pair's strategy: its analysis, its plan and the test that decided it
+  pairStrategy?: PairStrategy | null;  // the pair's agent: its strategy steps
 }
 
-interface TestPart { trades: number; winRate: number; totalR: number; tp2R: number }
-/** The pair's strategy: designed from its behaviour, tuned on the first 60 % of 2 years, judged on the last 40 % (unseen). */
+/** The pair's own agent and its strategy (backend app/agents/). */
 export interface PairStrategy {
-  name: string;
-  timeframe: string;
-  live: boolean;  // false: nothing held up on the unseen part, no strategy and no signal on this pair
-  rule: 'channel_breakout' | 'channel_fade' | 'asian_sweep_fvg' | 'london_judas_smt' | 'mean_reversion_range' | null;
-  style: 'trend' | 'reversal' | null;
+  name: string;          // the agent id, e.g. "XAUUSD_Sovereign_SMC_Agent"
+  timeframe: string;     // the timeframe it decides on
+  live: boolean;
+  rule: string;
+  style: string;
   why: string;
-  test: { tuned: TestPart; unseen: TestPart; costsX2: number; neighbours: string } | null;
-  note?: string | null;
-  profile: { character: 'trending' | 'reverting' | 'mixed'; follow: number; fade: number; tf: string; vr24: number; activeHours: string };
-  params: { channel?: number; slAtr?: number; hours?: [number, number]; adxMax?: number; [k: string]: unknown };
-  maxBars: number | null;
+  params: Record<string, unknown>;
   targetR: number;
-  // EUR/USD, GBP/USD, AUD/CHF: the pair's own agent and the steps of its strategy
-  agent?: 1 | 2 | 3;
+  targetRange?: [number, number];
+  agent?: string;
   engine?: string;
   steps?: string[];
-  targetRange?: [number, number];
   maxSpreadPips?: number;
+  timeframes?: { bias: string; setup: string; entry: string };
 }
 
 export interface ExunuSMCResult {

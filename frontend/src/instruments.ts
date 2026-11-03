@@ -11,15 +11,14 @@ export const INSTRUMENT_LABELS: Record<InstrumentSymbol, string> = {
 
 export const isInstrument = (s: string | undefined | null): s is InstrumentSymbol => !!s && (INSTRUMENT_SYMBOLS as readonly string[]).includes(s);
 
-// What the chart shows for each pair's strategy (keep in sync with backend strategies/pairs/config.py): the timeframe it
-// decides on, the timeframes offered, and the EMAs on the chart (EMA50 vs EMA200: the trend a breakout needs, context for a fade)
+// Each pair's chart follows its own agent (backend app/agents/): the timeframe it decides on, the timeframes offered and
+// the EMAs shown for context
 export interface ChartSpec { entryTf: string; timeframes: string[]; emas: number[]; emaNote: string }
-const H1_SPEC = { timeframes: ['M15', 'M30', 'H1', 'H4', 'D1'], emas: [50, 200] };
-const H4_SPEC = { timeframes: ['M30', 'H1', 'H4', 'D1', 'W1'], emas: [50, 200] };
+const M5_SPEC = { entryTf: 'M5', timeframes: ['M5', 'M15', 'M30', 'H1', 'H4'], emas: [50, 200], emaNote: 'context on M5' };
 export const CHART_SPEC: Record<InstrumentSymbol, ChartSpec> = {
-  'XAU/USD': { entryTf: 'H1', ...H1_SPEC, emaNote: 'trend on H1' },  // channel breakout in the trend
-  'EUR/USD': { entryTf: 'H1', ...H1_SPEC, emaNote: 'context on H1' },  // Asian-session channel fade
-  'GBP/USD': { entryTf: 'H4', ...H4_SPEC, emaNote: 'context on H4' },  // H4 channel fade
-  'AUD/CHF': { entryTf: 'H1', ...H1_SPEC, emaNote: 'context on H1' },  // Asian-session channel fade
+  'XAU/USD': M5_SPEC,  // XAUUSD_Sovereign_SMC_Agent: M15 liquidity, M5 MSS + FVG ∩ OTE
+  'EUR/USD': M5_SPEC,  // EURUSD_AsianSweep_FVG_Agent: M15 Asian range, M5 execution
+  'GBP/USD': M5_SPEC,  // GBPUSD_LondonJudas_SMT_Agent: D1 / M15 levels, M5 SMT + OB
+  'AUD/CHF': { entryTf: 'H1', timeframes: ['M15', 'H1', 'H4', 'D1'], emas: [50, 200], emaNote: 'context on H1' },  // H4 range, H1 trigger
 };
 export const chartSpec = (s: InstrumentSymbol): ChartSpec => CHART_SPEC[s];

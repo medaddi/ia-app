@@ -1,17 +1,18 @@
 # LiquidityDissection — Private Trading Desk
 
-Gold and forex signals with a strict, tested rule set, a live chart for every pair, four agents that check every trade,
-and delivery to the web app, the phone (Web Push) and Telegram, each with the lot for the trader's own risk.
+Gold and forex signals from **4 autonomous pair agents**, each with its own deterministic strategy and its own chart, a
+Multi-Agent Risk Coordinator over them, and delivery to the web app, the phone (Web Push) and Telegram, each with the
+lot for the trader's own risk.
 
-- **4 instruments:** XAU/USD, EUR/USD, GBP/USD, AUD/CHF (the pairs whose strategy held up in its test; USD/CAD, NZD/USD, EUR/CHF, NZD/CAD and AUD/CAD were removed)
-- **One strategy per pair, designed from the pair's own behaviour**, kept only where it held up on the unseen 40 % of 2 years (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
-- **One target at 2R** on every trade; stops and targets never move once a trade is placed
+- **4 instruments, 4 agents:** XAU/USD, EUR/USD, GBP/USD, AUD/CHF (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
+- **Isolated per-chart rendering:** each agent emits its own `AgentChartOverlayState` (zones, lines, markers, trade projection)
+- **Risk coordinator:** 1 % per trade, correlated USD exposure capped across EUR/USD, GBP/USD and gold, news blackout ±30 min
 - **Accounts managed by the admin**; Telegram works only for a linked, approved account
 
 ```
 frontend/   React 19 · Vite · Tailwind CSS 4 · lightweight-charts · motion       → Vercel project (root: frontend)
 backend/    Python 3.12 · FastAPI · SQLAlchemy · Pillow · pywebpush              → Vercel project (root: backend)
-docs/       STRATEGIES.md — the exact rules of every strategy and how they were tested
+docs/       STRATEGIES.md — the exact rules of the 4 agents and the risk coordinator
 ```
 
 ---
@@ -20,7 +21,7 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 
 1. [How the app works](#how-the-app-works)
 2. [Strategies](#strategies)
-3. [The four agents](#the-four-agents)
+3. [The agents and the risk coordinator](#the-agents-and-the-risk-coordinator)
 4. [Notifications](#notifications)
 5. [Telegram bot](#telegram-bot)
 6. [Accounts and roles](#accounts-and-roles)
@@ -37,7 +38,7 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 ## How the app works
 
 ```
- candle closes ──► strategy runs on fresh candles ──► SIGNAL? ──► 3 agents vote (3/3 needed)
+ candle closes ──► the pair's agent runs on fresh candles ──► SIGNAL? ──► risk coordinator approves (1 % / 0.5 % / block)
                                                                       │
                           ┌───────────────────────────────────────────┼─────────────────────────────┐
                           ▼                                           ▼                             ▼
@@ -45,7 +46,7 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
                  personal lot, protected)                   browsers)                     panel, dashboard)
                           │
                           ▼
-     while the trade runs: agent 4 + follow-up notices (filled · +1R · near SL · news · exit soon)
+     while the trade runs: the agent's trade projection on its chart + follow-up notices (filled · +1R · near SL · news)
                           │
                           ▼
      the trade ends: TP hit · SL hit · breakeven · closed early · cancelled — sent once, with what to do
@@ -66,31 +67,28 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 
 ## Strategies
 
-| Pairs | Strategy | Decides on | Entry | Exit |
+| Pair | Agent | Timeframes (UTC+1) | Setup | Order |
 |---|---|---|---|---|
-| XAU/USD | **Channel breakout in the trend** | H1 | H1 close beyond the 20-candle high / low with EMA50 vs EMA200 in its direction | Stop 2 × ATR · 2R, or after 48 H1 candles |
-| EUR/USD | **Agent 1 · Asian_Sweep_FVG_Engine** | M5, London 08:00–11:00 / NY 13:30–16:00 (London clock) | Sweep of the Asian range (12–45 pips) by ≤ 20 pips, M5 MSS with an FVG > 2.5 pips | LIMIT at the FVG 50 % · SL sweep ± 3 pips (≤ 18) · TP other side of Asia (R:R ≥ 2) · BE at Asia 50 % / 1R |
-| GBP/USD | **Agent 2 · London_Judas_SMT_Engine** | M5, 08:00–10:00 London, reads EUR/USD | PDH/PDL or Asian level taken by 5–30 pips while EUR/USD fails (SMT), MSS with a leg > 1.5 ATR | LIMIT at the order block · SL fakeout ± 4 pips (15–28) · TP 3R · BE at 1.5R |
-| AUD/CHF | **Agent 3 · Mean_Reversion_Range_Engine** | H4 range (ADX < 28), H1 entry | RSI divergence in the 60-H4 zone + H1 engulfing > 0.7 ATR | MARKET · SL 1.2 ATR beyond · TP1 middle (50 % + BE) · TP2 opposite zone (R:R ≥ 1.8) |
+| XAU/USD | **XAUUSD_Sovereign_SMC_Agent** | M15 pools · M5 execution · London 08:00–11:00, NY 13:30–16:30 | Asian / London / PDH-PDL pool swept 8–65 pips and closed back inside within 3 M5 candles, M5 MSS, displacement ≥ 25 pips with FVG ≥ 6 pips or OB | LIMIT at FVG ∩ OTE (61.8–78.6 %) · SL sweep ± $0.50 (25–65 pips) · TP1 1.5R / session 50 % (≥ 1.3R, 50 % + BE+2) · TP2 opposite pool or 3R |
+| EUR/USD | **EURUSD_AsianSweep_FVG_Agent** | M15 Asian range · M5 · London 08:00–11:00, NY 13:30–16:00 | Asian range 12–45 pips swept by 1–20 pips, M5 MSS with FVG ≥ 2.5 pips | LIMIT at the FVG ce_50 (12 bars) · SL sweep ± 3 pips (6–18) · BE at Asia 50 % / 1R · TP2 other side of Asia (≥ 2R) |
+| GBP/USD | **GBPUSD_LondonJudas_SMT_Agent** | D1 / M15 levels · M5 · 08:00–10:30, reads EUR/USD | PDH / PDL / Asian level fakeout 4–30 pips with SMT vs EUR/USD, M5 MSS with a 3-candle displacement ≥ 1.5 ATR | LIMIT at OB_Mean (90 min) · SL ± 4 pips (15–28) · TP 3R · BE at 1.5R |
+| AUD/CHF | **AUDCHF_MeanReversion_Range_Agent** | H4 range (ADX < 28) · H1 trigger | RSI(14) divergence in the 60-bar H4 supply / demand zone + H1 engulfing ≥ 0.7 ATR | MARKET · SL 1.2 ATR beyond (20–35 pips) · TP1 equilibrium (50 % + BE) · TP2 opposite zone |
 
-Every target is **2R** (inside the app's 1.5R–2R rule, `TARGET_MIN_R` / `TARGET_MAX_R`). Past trades are replayed with the
-same rules, so the TP / SL / breakeven record and each pair's performance are measured, not estimated.
-Full rules, filters and test results: [docs/STRATEGIES.md](docs/STRATEGIES.md).
+Past trades are replayed with the same code (`app/agents/engine.py`), so each pair's TP / SL / break-even record is
+measured, not estimated. Full rules: [docs/STRATEGIES.md](docs/STRATEGIES.md).
 
-## The four agents
+## The agents and the risk coordinator
 
-| # | Agent | Reads | Blocks a trade when |
-|---|---|---|---|
-| 1 | **Market analysis** | Daily EMA20/EMA50 trend, ATR regime, high-impact news | A trend trade against the daily trend (a fade is not vetoed: it is built that way), volatility spike (ATR > 2.5× usual), major news < 1 h away |
-| 2 | **Strategy** | The pair's plan (rule, hours, stop in ATR, 2R target, its test) and the strategy's decision | No validated plan, the setup does not match the plan, not fresh, or a trend trade against the market report |
-| 3 | **Risk & execution** | AI trade desk (rules re-checked on live data, price drift, live R:R, currency exposure), open book | Any check fails, or 4 signals are already open |
-| 4 | **Trade management** | The running trade, its candles since the fill, the market report | — (never blocks; runs after the entry) |
+Each pair agent (`backend/app/agents/`) is a state machine — `IDLE → ARMED → LIQUIDITY_SWEPT → MSS_CONFIRMED →
+PENDING_ORDER → IN_TRADE → COOLDOWN` — and owns its chart: it emits its `AgentChartOverlayState`
+(`GET /api/agents/overlay?symbol=`, also in every strategy result as `overlay`) and the chart renders only that
+(`frontend/src/chart-overlays/agentOverlayPrimitive.ts`). The terminal shows one pair or a **4-chart split screen**,
+each pane subscribed to its own agent.
 
-Agent 4 manages a placed trade like a disciplined professional: **the stop and the target never move** (that is the
-tested edge). It tracks R now, best and worst R since the fill, applies the plan's own exits on time (the time
-limit, limit-order expiry) and reads the market around the trade. Its verdict is one of
-`HOLD`, `CAUTION`, `EXIT_SOON`, `WAIT`, `CANCEL`, always with one sentence saying what to do. It appears in the setup
-panel ("Gestion du trade"), in the agents card, on Telegram and in the follow-up card picture.
+The **Multi-Agent Risk Coordinator** (`backend/app/core/risk_guard.py`) approves every order: rules re-checked, live data,
+limit still valid, spread guard, news blackout ±30 min (pending limits cut 30 min before red news), **correlated USD
+exposure** across EUR/USD, GBP/USD and XAU/USD (0 unprotected same-direction trades → 1 %, 1 → 0.5 % with halved lots,
+2 → blocked until one reaches TP1 / break-even), at most 4 open orders, 2 trades per pair a day and a −2.5 % daily lock.
 
 ## Notifications
 
@@ -291,8 +289,10 @@ backend/
     trading.py           Lot sizing, P&L, stats, signal outcomes
     push.py              Web Push (VAPID), new trade / follow-up / result notices
     followup.py          Follow-up notices of running trades
-    agent/               The four agents, AI trade desk, explanations
-    strategies/          pairs/ (each pair's plan, rules, engine); replay, lifecycle, shared rules
+    agents/              The 4 pair agents (state machines + chart overlays), their engine and registry
+    core/                Instrument specs, quant primitives (fractals, FVG, OB, OTE), risk coordinator
+    agent/               AI chat assistant, explanations, rule re-check
+    strategies/          Service, replay, lifecycle, shared helpers
     market/              Prices and candles (spot gold kept in spot terms), news
     telegram/            Bot (commands, delivery), scheduler, chart pictures, leak protection
     api/                 HTTP routes
@@ -302,10 +302,11 @@ frontend/
   src/
     App.tsx              Session, pages, Telegram link flow, notifications
     components/          Dashboard, chart (SmcChart), setup panel, agents, pages, layout
-    chart-overlays/      Strategy drawings on the chart
+    chart-overlays/      The agent overlay renderer (zones, lines, trade projection)
+    agentOverlay.ts      AgentChartOverlayState contract + per-symbol subscription
     notifications.ts     Browser + Web Push notifications
     splash.ts            Intro timing (≥ 4 s, waits for the first data)
-docs/STRATEGIES.md       Strategy rules and test results
+docs/STRATEGIES.md       The 4 agents' rules and the risk coordinator
 ```
 
 ## Troubleshooting

@@ -17,8 +17,9 @@ import {
   Time,
 } from 'lightweight-charts';
 import { Check, ChevronDown, Expand, Layers as LayersIcon, Maximize2, Minimize2, X } from 'lucide-react';
-import type { StrategyResult, DrawingLayer } from '../strategyTypes';
-import { DrawingsPrimitive, OverlayTheme } from '../chart-overlays/drawingsPrimitive';
+import type { StrategyResult } from '../strategyTypes';
+import { AgentOverlayPrimitive, type OverlayLayer, type OverlayTheme } from '../chart-overlays/agentOverlayPrimitive';
+import { FSM_TONE, type AgentChartOverlayState } from '../agentOverlay';
 
 export interface SmcChartCandle {
   time: number;
@@ -43,28 +44,25 @@ interface SmcChartProps {
   isLoading?: boolean;
   onRefresh?: () => void;
   lang?: string;
+  overlay?: AgentChartOverlayState | null;  // what this pair's own agent draws on its chart
+  compact?: boolean;  // a pane of the 4-chart split screen
 }
 
 const TF_SEC: Record<string, number> = { M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800 };
-type Layer = DrawingLayer | 'ema';
+type Layer = OverlayLayer | 'ema';
 const LAYERS: { key: Layer; label: [string, string, string] }[] = [
-  { key: 'sessions', label: ['Sessions', 'Sessions', 'الجلسات'] },
-  { key: 'levels', label: ['Key levels', 'Niveaux clés', 'المستويات'] },
-  { key: 'liquidity', label: ['Liquidity', 'Liquidité', 'السيولة'] },
-  { key: 'structure', label: ['Structure', 'Structure', 'الهيكل'] },
-  { key: 'swings', label: ['Swings', 'Swings', 'القمم والقيعان'] },
-  { key: 'fvg', label: ['FVG', 'FVG', 'FVG'] },
-  { key: 'ob', label: ['OB', 'OB', 'OB'] },
-  { key: 'fib', label: ['Fib', 'Fib', 'فيبو'] },
+  { key: 'sessions', label: ['Sessions & liquidity (Asia, London, PDH/PDL)', 'Sessions & liquidité', 'الجلسات والسيولة'] },
+  { key: 'zones', label: ['Zones (FVG, OB, OTE, supply / demand)', 'Zones (FVG, OB, OTE, offre / demande)', 'المناطق (FVG، OB، OTE)'] },
+  { key: 'structure', label: ['Structure (MSS, 50 %, divergence)', 'Structure (MSS, 50 %, divergence)', 'الهيكل (MSS، 50%، دايفرجنس)'] },
+  { key: 'markers', label: ['Agent markers', 'Marqueurs de l’agent', 'علامات الوكيل'] },
   { key: 'ema', label: ['EMA', 'EMA', 'EMA'] },
-  { key: 'trade', label: ['Trade', 'Trade', 'الصفقة'] },
+  { key: 'trade', label: ['Trade projection', 'Projection du trade', 'إسقاط الصفقة'] },
 ];
 const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Record<Layer, boolean>;
 // Candles shown when a pair / timeframe opens (the rest of the history stays one scroll away): close enough to read
 // each candle, wide enough for the structure. Daily ≈ 3 months, weekly ≈ 1 year.
-const VISIBLE_BARS: Record<string, number> = { M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
-const layerKey = (kind: string) => `ld_chart_layers_${kind}_v2`;
-const ALWAYS_SHOWN: Layer[] = ['ema', 'trade'];
+const VISIBLE_BARS: Record<string, number> = { M5: 160, M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
+const layerKey = (kind: string) => `ld_chart_layers_${kind}_v3`;
 
 const fmtLeft = (sec: number) => {
   const s = Math.max(0, Math.floor(sec));
@@ -91,7 +89,7 @@ function ema(values: number[], period: number): (number | null)[] {
 
 const readTheme = (): OverlayTheme => (typeof document !== 'undefined' && !document.documentElement.classList.contains('dark') ? 'light' : 'dark');
 
-export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, timeframe, timeframes, entryTf, emas, emaNote, updatedAt, onTimeframeChange, isLoading, onRefresh, lang = 'en' }) => {
+export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, timeframe, timeframes, entryTf, emas, emaNote, updatedAt, onTimeframeChange, isLoading, onRefresh, lang = 'en', overlay: overlayProp, compact = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -102,10 +100,10 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const [layersOpen, setLayersOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches);
   const kind = symbol;  // the chart's layer choices are kept per pair
-  // The pair's own drawings, plus its report strategy when that one only runs in observation (its own layer)
-  const allDrawings = useMemo(() => result?.drawings ?? [], [result?.drawings]);
+  // Only what this pair's own agent emits for this chart
+  const overlay = overlayProp ?? result?.overlay ?? null;
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
-  const primitiveRef = useRef<DrawingsPrimitive | null>(null);
+  const primitiveRef = useRef<AgentOverlayPrimitive | null>(null);
   const fitKeyRef = useRef('');
   const [theme, setTheme] = useState<OverlayTheme>(readTheme);
   const [hover, setHover] = useState<{ c: SmcChartCandle | null; x: number; y: number; onSignal: boolean }>({ c: null, x: 0, y: 0, onSignal: false });
@@ -128,7 +126,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const fmt = (v: number) => v.toFixed(decimals);
   const tfSec = TF_SEC[timeframe] || 900;
   const setup = result?.setup ?? null;
-  const signalBarTime = setup ? setup.signalTime - (TF_SEC[result!.timeframes.entry.split('/')[0]] || tfSec) : null;
+  const box = overlay?.tradeExecutionBox ?? null;
 
   // The pair's track record (every closed trade of its strategy), summarised in the status strip; the list is under the chart
   const pastStats = result?.historyStats ?? null;
@@ -195,7 +193,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.88, bottom: 0 } });
     const emaLines = [p.ema50, p.ema200].map(color => chart.addSeries(LineSeries, { color, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }));
-    const prim = new DrawingsPrimitive();
+    const prim = new AgentOverlayPrimitive();
     cs.attachPrimitive(prim);
 
     chart.subscribeCrosshairMove(param => {
@@ -212,14 +210,14 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     // Click a drawing → the agent explains it from the drawing's own data
     chart.subscribeClick(param => {
       if (!param.point) { setExplain(null); return; }
-      const hit = prim.findDrawingAt(param.point.x, param.point.y, el.clientWidth - chart.priceScale('right').width());
+      const hit = prim.findAt(param.point.x, param.point.y, el.clientWidth - chart.priceScale('right').width());
       if (!hit) { setExplain(null); return; }
       const at = { x: param.point.x, y: param.point.y };
-      setExplain({ ...at, title: hit.text || hit.layer, text: '…' });
+      setExplain({ ...at, title: hit.label, text: '…' });
       apiFetch('/api/agent/explain-drawing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol: symbolRef.current, drawingId: hit.id, lang: langRef.current, asOf: Number(new URLSearchParams(window.location.search).get('asOf')) || 0 }) })
         .then(r => r.json())
-        .then(j => setExplain({ ...at, title: hit.text || hit.layer, text: j.success ? j.text : j.error || '—' }))
-        .catch(() => setExplain({ ...at, title: hit.text || hit.layer, text: '⚠' }));
+        .then(j => setExplain({ ...at, title: hit.label, text: j.success ? j.text : j.detail || j.error || '—' }))
+        .catch(() => setExplain({ ...at, title: hit.label, text: '⚠' }));
     });
 
     chartRef.current = chart;
@@ -308,42 +306,43 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     volRef.current?.applyOptions({ visible: hasVolume });
   }, [bars, tfSec, theme, decimals]);
 
-  // The trade's levels on the price axis (entry, stop, targets), so they can be read at any zoom
+  // The trade projection's levels on the price axis (entry, stop, TP1, TP2), readable at any zoom
   useEffect(() => {
     const cs = candleRef.current;
     if (!cs) return;
     const lines: IPriceLine[] = [];
-    if (setup && layers.trade && ['PENDING', 'OPEN', 'TP1_HIT', 'TP2_HIT'].includes(setup.lifecycle.state)) {
+    if (box && layers.trade) {
       const p = PAL[theme];
       const add = (price: number, color: string, title: string, style = LineStyle.Solid) =>
-        lines.push(cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
-      add(setup.entry, p.text, t('Entry', 'Entrée', 'دخول'));
-      add(setup.sl, p.bear, 'SL');
-      const single = setup.params?.breakeven === false;
-      if (single) add(setup.tp3, p.bull, 'TP');
-      else { add(setup.tp1, p.bull, 'TP1', LineStyle.Dashed); add(setup.tp2, p.bull, 'TP2', LineStyle.Dashed); add(setup.tp3, p.bull, 'TP3'); }
+        lines.push(cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title, lineVisible: false }));
+      add(box.entryPrice, '#D4AF37', t('Entry', 'Entrée', 'دخول'));
+      add(box.stopLoss, p.bear, box.status === 'TP1_HIT_BE' ? 'SL · BE' : 'SL');
+      add(box.tp1Price, p.bull, 'TP1', LineStyle.Dashed);
+      add(box.tp2Price, p.bull, 'TP2');
     }
     return () => { lines.forEach(l => { try { cs.removePriceLine(l); } catch { /* chart rebuilt */ } }); };
-  }, [setup?.id, setup?.lifecycle.state, layers.trade, theme, decimals, lang]);
+  }, [box?.entryPrice, box?.stopLoss, box?.tp1Price, box?.tp2Price, box?.status, layers.trade, theme, decimals, lang]);
 
   // A new pair / timeframe: forget the old crosshair and explanation
   useEffect(() => { chartRef.current?.clearCrosshairPosition(); setExplain(null); }, [symbol, timeframe]);
 
-  // Drawings + entry arrow
+  // The agent's overlay: zones, lines and trade projection on the canvas; its markers as the series' own markers
   useEffect(() => {
     const prim = primitiveRef.current;
     if (!prim) return;
     const { ema: _ema, ...drawLayers } = layers;
-    prim.update({ drawings: allDrawings, barTimes: bars.map(b => b.time), tfSec, chartTf: timeframe, layers: drawLayers as Record<DrawingLayer, boolean>, theme });
+    prim.update({ state: overlay, barTimes: bars.map(b => b.time), tfSec, layers: drawLayers as Record<OverlayLayer, boolean>, theme, decimals });
     const markers: any[] = [];
-    if (setup && layers.trade && signalBarTime !== null) {
-      let snap: number | null = null;
-      for (const b of bars) { if (b.time <= signalBarTime) snap = b.time; else break; }
-      const buy = setup.direction === 'BUY';
-      if (snap !== null) markers.push({ time: snap as Time, position: buy ? 'belowBar' : 'aboveBar', color: buy ? PAL[theme].bull : PAL[theme].bear, shape: buy ? 'arrowUp' : 'arrowDown', text: setup.direction, size: 1.2 });
+    if (overlay && layers.markers && bars.length) {
+      for (const m of overlay.markers) {
+        let snap: number | null = null;  // on the bar that contains the marker's time on this timeframe
+        for (const b of bars) { if (b.time <= m.time) snap = b.time; else break; }
+        if (snap !== null) markers.push({ time: snap as Time, position: m.position, color: m.color, shape: m.shape, text: m.text, size: 1.1 });
+      }
+      markers.sort((a, b) => a.time - b.time);
     }
     markersRef.current?.setMarkers(markers);
-  }, [result, bars, layers, tfSec, timeframe, theme, setup, signalBarTime]);
+  }, [overlay, bars, layers, tfSec, timeframe, theme, decimals]);
 
   const last = bars[bars.length - 1];
   const ohlc = hover.c || last;
@@ -360,19 +359,14 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const trendWord = (w: string) => (w === 'bullish' ? t('bullish', 'haussière', 'صاعد') : w === 'bearish' ? t('bearish', 'baissière', 'هابط')
     : w === 'flat' || w === 'none' ? t('none', 'aucune', 'بلا اتجاه') : w || '—');
   const keyFacts: { label: string; value: string; tone?: string }[] = [];
-  if (result?.dataQuality.ok) {
-    // The pair's plan, the trend on its timeframe (EMA50 vs EMA200), its ATR and what the analysis found
-    const plan = result.pairStrategy;
-    const tfName = plan?.timeframe ?? entryTf;
-    keyFacts.push({ label: t('Strategy', 'Stratégie', 'الاستراتيجية'), value: plan?.live ? plan.name : t('none validated · no signals', 'aucune validée · pas de signaux', 'ما كايناش · بلا إشارات'),
-      tone: plan?.live ? 'text-gold-200' : 'text-slate-400' });
-    keyFacts.push({ label: t(`${tfName} trend`, `Tendance ${tfName}`, `اتجاه ${tfName}`), value: trendWord(str(facts.trend)), tone: trendTone(str(facts.trend)) });
-    if (num(facts.ema50) !== null && num(facts.ema200) !== null) keyFacts.push({ label: 'EMA50 / 200', value: `${fmt(num(facts.ema50)!)} / ${fmt(num(facts.ema200)!)}` });
-    if (num(facts.atr) !== null) keyFacts.push({ label: `ATR ${tfName}`, value: symbol === 'XAU/USD' ? `$${num(facts.atr)!.toFixed(2)}` : `${(num(facts.atr)! / pip).toFixed(1)} pips` });
-    if (plan?.live && plan.params.hours) keyFacts.push({ label: t('Window', 'Fenêtre', 'النافذة'), value: `${String(plan.params.hours[0]).padStart(2, '0')}:00–${String(plan.params.hours[1]).padStart(2, '0')}:00 GMT` });
-    if (plan) keyFacts.push({ label: t('Character', 'Caractère', 'الطبع'), value: ({ trending: t('trending', 'tendanciel', 'كيتبع'), reverting: t('reverting', 'revient', 'كيرجع'), mixed: t('mixed', 'mixte', 'مختلط') })[plan.profile.character],
-      tone: plan.profile.character === 'trending' ? 'text-sky-300' : plan.profile.character === 'reverting' ? 'text-violet-300' : 'text-slate-300' });
+  if (overlay) {
+    keyFacts.push({ label: t('Agent', 'Agent', 'الوكيل'), value: overlay.agentId, tone: 'text-gold-200' });
+    keyFacts.push({ label: t('Session', 'Session', 'الجلسة'), value: overlay.metrics.sessionName });
+    keyFacts.push({ label: 'Spread', value: `${overlay.metrics.spreadPips.toFixed(1)} pips` });
+    keyFacts.push({ label: `ATR ${entryTf}`, value: `${overlay.metrics.atrPips.toFixed(1)} pips` });
+    keyFacts.push({ label: t('Confluence', 'Confluence', 'التوافق'), value: overlay.metrics.confluenceTag, tone: 'text-sky-300' });
   }
+  if (result?.dataQuality.ok && num(facts.ema50) !== null && num(facts.ema200) !== null) keyFacts.push({ label: 'EMA50 / 200', value: `${fmt(num(facts.ema50)!)} / ${fmt(num(facts.ema200)!)}` });
   const entrySec = TF_SEC[entryTf] || 3600;
   const nowSec = nowMs / 1000;
   const nextClose = Math.ceil(nowSec / entrySec) * entrySec;
@@ -382,11 +376,9 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   if (lastTrade) keyFacts.push({ label: t('Last trade', 'Dernier trade', 'آخر صفقة'), value: lastTrade.outcome ? `${lastTrade.outcome} ${lastTrade.r !== null ? `${lastTrade.r > 0 ? '+' : ''}${lastTrade.r.toFixed(2)}R` : ''}` : lastTrade.state,
     tone: lastTrade.outcome === 'WIN' ? 'text-emerald-300' : lastTrade.outcome === 'LOSS' ? 'text-rose-300' : 'text-gold-200' });
 
-  // Only the layers this strategy actually draws (plus its averages and the trade)
-  const present = new Set(allDrawings.map(d => d.layer));
-  const shownLayers = LAYERS.filter(l => ALWAYS_SHOWN.includes(l.key) || present.has(l.key as DrawingLayer))
-    .map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${({ 'trend on H1': t('trend on H1', 'tendance H1', 'اتجاه H1'), 'trend on H4': t('trend on H4', 'tendance H4', 'اتجاه H4'), 'context on H1': t('context on H1', 'contexte H1', 'سياق H1'), 'context on H4': t('context on H4', 'contexte H4', 'سياق H4') } as Record<string, string>)[emaNote] ?? emaNote}` : l.label[li] }));
+  const shownLayers = LAYERS.map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${emaNote}` : l.label[li] }));
   const age = updatedAt ? Math.max(0, Math.round((nowMs - updatedAt) / 1000)) : null;
+  const signalBarTime = setup ? setup.signalTime - (TF_SEC[entryTf] || tfSec) : null;
   const hoverIsSignal = !!(setup && hover.c && signalBarTime !== null && hover.c.time <= signalBarTime && hover.c.time + tfSec > signalBarTime);
   const statusTone = result?.status === 'SIGNAL' ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'
     : result?.status === 'WATCH' ? 'bg-gold-500/15 text-gold-200 ring-gold-500/30'
@@ -441,7 +433,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       </div>
 
       {/* Status strip */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 sm:px-4 py-2 border-b border-line bg-surface-2/50 text-xs">
+      <div hidden={compact} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 sm:px-4 py-2 border-b border-line bg-surface-2/50 text-xs">
         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md ring-1 ring-inset font-medium ${statusTone}`}>
           <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
           {result ? (result.status === 'NO_TRADE' ? t('No trade', 'Pas de trade', 'لا صفقة') : `${setup?.direction ?? ''} ${result.status === 'SIGNAL' ? t('Signal', 'Signal', 'إشارة') : result.status === 'WATCH' ? t('Watch', 'À surveiller', 'مراقبة') : t('Ignored', 'Ignoré', 'متجاهل')}`) : t('Loading', 'Chargement', 'تحميل')}
@@ -467,7 +459,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       </div>
 
       {/* Key numbers of the strategy */}
-      {keyFacts.length > 0 && detailsOpen && (
+      {keyFacts.length > 0 && detailsOpen && !compact && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-2 border-b border-line text-xs font-mono" aria-label={t('Strategy key levels', 'Chiffres clés de la stratégie', 'أرقام الاستراتيجية')}>
           {keyFacts.map((k, i) => (
             <span key={i} className="whitespace-nowrap">
@@ -479,10 +471,16 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       )}
 
       {/* Chart */}
-      <div className={`relative ${full ? 'flex-1' : 'h-[58vh] min-h-[380px] max-h-[680px]'}`}>
+      <div className={`relative ${full ? 'flex-1' : compact ? 'h-[36vh] min-h-[260px]' : 'h-[58vh] min-h-[380px] max-h-[680px]'}`}>
         <div ref={containerRef} className="absolute inset-0" />
-        {ohlc && (
-          <div className="absolute z-10 top-2 start-2 pointer-events-none font-mono text-[11px] leading-5 px-2 py-1 rounded-md bg-surface/70 backdrop-blur-sm" aria-hidden="true">
+        {overlay && (
+          <div className="absolute z-10 top-2 start-2 max-w-[calc(100%-90px)] pointer-events-none flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface/80 backdrop-blur-sm text-[11px]" role="status">
+            <span className={`shrink-0 px-1.5 py-0.5 rounded font-mono font-bold ring-1 ring-inset ${FSM_TONE[overlay.fsmState]}`}>{overlay.fsmState.replace('_', ' ')}</span>
+            <span className="text-slate-200 truncate">{overlay.statusBannerText.split(' · ').slice(2).join(' · ')}</span>
+          </div>
+        )}
+        {ohlc && !compact && (
+          <div className="absolute z-10 top-10 start-2 pointer-events-none font-mono text-[11px] leading-5 px-2 py-1 rounded-md bg-surface/70 backdrop-blur-sm" aria-hidden="true">
             <div className="flex flex-wrap gap-x-2">
               <span className="text-slate-200 font-semibold">{symbol} · {timeframe}</span>
               <span className="text-slate-500">O <span className="text-slate-200">{fmt(ohlc.open)}</span></span>

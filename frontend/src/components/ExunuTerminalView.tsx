@@ -3,8 +3,9 @@ import { markDataReady } from '../splash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
-import { AgentsConsensus, type Consensus } from './AgentsConsensus';
-import type { ManagerVote } from './TradeManagement';
+import { AgentDesk, type Consensus } from './AgentDesk';
+import { AgentChartPanel } from './AgentChartPanel';
+import { Columns2, Grid2x2 } from 'lucide-react';
 import { PairFlags } from './PairFlags';
 import { useDragScroll } from '../useDragScroll';
 import type { ExunuSMCResult } from '../strategyTypes';
@@ -47,6 +48,9 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const [bundle, setBundle] = useState<ExunuSMCResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<number>(0);
+  // One chart (the selected pair) or the 4-chart split screen: each chart is bound to its own agent's overlay
+  const [split, setSplitState] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_split') === '1'; } catch { return false; } });
+  const setSplit = (v: boolean) => { setSplitState(v); try { localStorage.setItem('ld_chart_split', v ? '1' : '0'); } catch { /* storage blocked */ } };
 
   const result: StrategyResult | null = bundle?.strategy ?? null;
   const inst = INSTRUMENTS[symbol];
@@ -124,6 +128,12 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
         </div>
         <div className="flex items-center gap-3">
           {REVIEW_AS_OF > 0 && <span className="px-2 py-1 rounded-md bg-gold-500/15 text-gold-200 text-xs font-medium">Review {new Date(REVIEW_AS_OF * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC</span>}
+          <div role="group" aria-label={t('Chart layout', 'Disposition', 'العرض')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5">
+            <button onClick={() => setSplit(false)} aria-pressed={!split} title={t('One chart', 'Un graphique', 'شارت واحد')}
+              className={`h-8 w-9 inline-flex items-center justify-center rounded-md cursor-pointer ${!split ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}><Columns2 className="w-4 h-4" /></button>
+            <button onClick={() => setSplit(true)} aria-pressed={split} title={t('4 charts · one per agent', '4 graphiques · un par agent', '4 شارتات · واحد لكل وكيل')}
+              className={`h-8 w-9 inline-flex items-center justify-center rounded-md cursor-pointer ${split ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}><Grid2x2 className="w-4 h-4" /></button>
+          </div>
           <div className="hidden md:flex items-center gap-2 font-mono text-xs">
             <span className={`w-1.5 h-1.5 rounded-full ${result?.market.isOpen ? 'bg-emerald-400' : 'bg-slate-500'}`} aria-hidden="true" />
             <span className="text-slate-400">{result?.market.isOpen ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
@@ -132,19 +142,24 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 min-w-0">
-          <SmcChart symbol={symbol} candles={candles} result={result} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
-            emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
-            onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
-          {(bundle as any)?.consensus && (
-            <AgentsConsensus consensus={(bundle as any).consensus as Consensus} hasSetup={!!result?.setup} manager={(bundle as any)?.management as ManagerVote | null} lang={lang as Language} />
-          )}
+      {split && REVIEW_AS_OF <= 0 ? (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {INSTRUMENT_SYMBOLS.map(id => <AgentChartPanel key={id} symbol={id} lang={lang} onOpen={s => { setSplit(false); setSymbol(s); }} />)}
         </div>
-        <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
-          <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} manager={(bundle as any)?.management as ManagerVote | null} lang={lang} />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-8 min-w-0">
+            <SmcChart symbol={symbol} candles={candles} result={result} overlay={result?.overlay ?? null} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
+              emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
+              onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
+            <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
+              hasSetup={!!result?.setup} lang={lang as Language} />
+          </div>
+          <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
+            <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />
+          </div>
         </div>
-      </div>
+      )}
 
     </div>
   );
