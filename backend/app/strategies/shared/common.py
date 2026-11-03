@@ -2,32 +2,7 @@ import math
 from typing import Optional
 
 from .jsnum import clamp01, iso, round_to
-from .liquidity import Level
 from .sessions import in_local_window
-from .structure import Swing
-from .types import Candle
-
-
-def is_untaken(level: Level, c: list[Candle], upto_index: int) -> bool:
-    """A level is still liquidity if no closed candle traded beyond it since it became available."""
-    high_side = level.side == "HIGH"
-    price, avail = level.price, level.availableFrom
-    for i in range(min(upto_index + 1, len(c))):
-        x = c[i]
-        if x.time <= avail:
-            continue
-        if (x.high > price) if high_side else (x.low < price):
-            return False
-    return True
-
-
-def nearest_swing_beyond(swings: list[Swing], price: float, buy: bool, upto_index: int) -> Optional[Swing]:
-    """Nearest untaken swing beyond `price` in the trade direction (opposing liquidity on that timeframe)."""
-    kind = "HIGH" if buy else "LOW"
-    pool = [s for s in swings if s.kind == kind and s.confirmedIndex <= upto_index and (s.takenIndex is None or s.takenIndex > upto_index)
-            and (s.price > price if buy else s.price < price)]
-    pool.sort(key=lambda s: s.price if buy else -s.price)
-    return pool[0] if pool else None
 
 
 HISTORY_MAX = 40  # past trades kept for the chart (the most recent; the analysis is polled every second)
@@ -179,5 +154,5 @@ def new_result(spec: dict, cfg: dict, inp: dict, price: float) -> dict:
         "status": "NO_TRADE", "score": 0, "checklist": [], "rejection": None, "headline": "", "headlineAr": "",
         "setup": None, "signal": None, "canNotify": False,
         "news": {"blocked": False, "detail": "", "next": None, "source": inp["news"]["source"]},
-        "day": inp["day"], "drawings": [], "facts": {}, "history": [], "historyStats": None, "tpReach": None,
+        "day": inp["day"], "overlay": None, "facts": {}, "history": [], "historyStats": None, "tpReach": None,
     }

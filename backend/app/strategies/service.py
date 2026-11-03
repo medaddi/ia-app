@@ -1,12 +1,9 @@
 """
-Strategy service: one strategy per instrument, designed from the pair's own behaviour and kept only where it held up on
-the unseen 40 % of 2 years (strategies/pairs/config.py, docs/STRATEGIES.md):
-  XAU/USD → channel breakout in the trend H1
-  EUR/USD → Agent 1 Asian_Sweep_FVG_Engine M5 · GBP/USD → Agent 2 London_Judas_SMT_Engine M5 (+ EUR/USD for SMT)
-  AUD/CHF → Agent 3 Mean_Reversion_Range_Engine H1 (H4 range)
-  (USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD had no strategy that held up: removed from the app)
-Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
-today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
+Strategy service: the 4 autonomous pair agents (app/agents/registry.py), one per chart:
+  XAU/USD → XAUUSD_Sovereign_SMC_Agent M5 · EUR/USD → EURUSD_AsianSweep_FVG_Agent M5
+  GBP/USD → GBPUSD_LondonJudas_SMT_Agent M5 (+ EUR/USD for SMT) · AUD/CHF → AUDCHF_MeanReversion_Range_Agent H1 (H4 range)
+Fetches real candles, computes today's trade/loss count by replaying the agent itself on today's closed candles
+(deterministic, survives restarts), runs the agent now and caches its result and its chart overlay.
 """
 
 import asyncio
@@ -16,11 +13,9 @@ from typing import Optional
 from functools import partial
 
 from ..agent.explain import build_explanation
+from ..agents.engine import can_signal_at, evaluate_agent, make_trigger
+from ..agents.registry import AGENT_CONFIGS, AGENTS
 from ..market.data import canonical, fetch_live_price, fetch_many, market_session_status
-from .pairs.config import PAIR_CONFIGS
-from .pairs.engine import evaluate_pair, make_trigger
-from .engines.engine import can_signal_at, evaluate_agent, make_trigger as make_agent_trigger
-from .pairs.rules import in_hours
 from .replay import ReplayState, StrategyDef, decision_tf, replay, stats_at
 from .shared.jsnum import fmt_utc_minute
 from .shared.news import load_news_calendar
@@ -30,23 +25,16 @@ from .shared.types import TF_SEC, closed_only
 PROVIDER_TF = {"M5": "5M", "M15": "15M", "M30": "30M", "H1": "1H", "H4": "4H", "D1": "1D"}
 
 
-def _pair_def(cfg: dict) -> StrategyDef:
-    # Evaluated at every close of the plan's timeframe; a signal only on a candle that opened inside the plan's hours
-    tf = cfg["timeframes"]["entry"]
-    hours = cfg["params"].get("hours")
-    return StrategyDef(entryTf=tf, run=partial(evaluate_pair, cfg=cfg), tfs=[tf], limits={tf: cfg["history"]},
-                       canSignalAt=lambda close: in_hours(close - TF_SEC[tf], hours), trigger=make_trigger(cfg))
+def _agent_def(pair: str) -> StrategyDef:
+    # The pair's own agent, decided at every close of its timeframe (M5 for XAU/USD, EUR/USD, GBP/USD; H1 for AUD/CHF)
+    ag, cfg = AGENTS[pair], AGENT_CONFIGS[pair]
+    tf = ag.tf
+    return StrategyDef(entryTf=tf, run=partial(evaluate_agent, agent=ag, cfg=cfg), tfs=[tf], limits={tf: ag.history},
+                       canSignalAt=can_signal_at(ag, TF_SEC[tf]), trigger=make_trigger(ag), peer=ag.peer)
 
 
-def _agent_def(cfg: dict) -> StrategyDef:
-    # The pair's own agent (engines/): decided at every close of its timeframe (M5 for EUR/USD and GBP/USD, H1 for AUD/CHF)
-    tf = cfg["timeframes"]["entry"]
-    return StrategyDef(entryTf=tf, run=partial(evaluate_agent, cfg=cfg), tfs=[tf], limits={tf: cfg["history"]},
-                       canSignalAt=can_signal_at(cfg), trigger=make_agent_trigger(cfg), peer=cfg.get("peer"))
-
-
-STRATEGY_DEFS: dict[str, StrategyDef] = {pair: (_agent_def(cfg) if cfg.get("agent") else _pair_def(cfg)) for pair, cfg in PAIR_CONFIGS.items()}
-CONFIGS = PAIR_CONFIGS
+STRATEGY_DEFS: dict[str, StrategyDef] = {pair: _agent_def(pair) for pair in AGENTS}
+CONFIGS = AGENT_CONFIGS
 
 
 def normalize_symbol(s: str) -> str:

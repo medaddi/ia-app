@@ -99,7 +99,8 @@ def simulate_lifecycle(c: list[Candle], p: dict, start_index: int,
             acc["remaining"] -= partials[0]
             stage = 1
             if p.get("breakeven", True):
-                stop = res["fillPrice"]
+                off = p.get("beOffset") or 0  # break-even plus a few pips locked in (gold: entry + 2 pips)
+                stop = res["fillPrice"] + (off if buy else -off)
             res["state"] = "TP1_HIT"
             events.append({"time": x.time, "type": "TP1", "price": p["tp1"]})
             if p.get("breakeven", True):

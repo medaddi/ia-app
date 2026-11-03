@@ -4,7 +4,7 @@ own numbers and the strategy config. It can only LOWER the score or REJECT, neve
 something the strategy rejected.
 """
 
-from ..strategies.pairs.config import PAIR_CONFIGS
+from ..agents.registry import AGENT_CONFIGS as PAIR_CONFIGS
 from ..strategies.shared.jsnum import js_str, to_fixed
 from ..strategies.shared.risk import TARGET_MAX_R, TARGET_MIN_R, rr, score_checklist
 

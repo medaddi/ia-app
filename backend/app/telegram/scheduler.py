@@ -16,7 +16,6 @@ from ..strategies.service import STRATEGY_DEFS, get_strategy_result
 from ..strategies.shared.jsnum import iso
 from ..strategies.shared.types import TF_SEC
 from ..trading import update_signal_outcomes
-from ..agent.agents import manager_agent
 from ..followup import follow_up
 from ..push import push_closed, push_setup
 from ..store import get_setting, set_setting
@@ -60,8 +59,7 @@ async def process_bundle(sym: str, bundle: dict) -> str:
         except Exception as err:  # never blocks the new signal below
             print(f"[result] {sym}: {err!r}")
     try:  # running trades: filled, +1R, near SL, news ahead, and the trade manager's exit / cancel calls
-        manager = manager_agent(r, bundle["candles"].get(STRATEGY_DEFS[sym].entryTf) or [])
-        await follow_up(sym, r.get("price"), manager, (r.get("setup") or {}).get("id"))
+        await follow_up(sym, r.get("price"), None, (r.get("setup") or {}).get("id"))
     except Exception as err:
         print(f"[follow-up] {sym}: {err!r}")
     if r["canNotify"] and r["setup"]:

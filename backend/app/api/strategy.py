@@ -5,7 +5,7 @@ import time
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 
-from ..agent.agent import ask_agent, build_agent_context, detect_lang, explain_drawing
+from ..agent.agent import ask_agent, build_agent_context, detect_lang, explain_overlay_item
 from ..agent.system_prompt import build_system_prompt
 from ..auth import admin_user, current_user
 from ..backtest import run_backtest
@@ -52,17 +52,27 @@ async def agent_ask(body: dict = Body(...)):
     return {"success": True, **(await ask_agent(question, await both_results()))}
 
 
+@router.get("/agents/overlay")
+async def agent_overlay(symbol: str = "XAU/USD", asOf: int = 0):
+    """The AgentChartOverlayState the pair's own agent emits for its chart (zones, price lines, markers, trade box)."""
+    sym = normalize_symbol(symbol)
+    bundle = await (get_strategy_result_as_of(sym, asOf) if asOf > 0 else get_strategy_result(sym))
+    r = bundle["result"]
+    return {"success": True, "symbol": sym, "overlay": r.get("overlay"), "status": r["status"], "price": r["price"],
+            "decimals": r["spec"]["decimals"], "entryTf": r["timeframes"]["entry"], "dataQuality": r["dataQuality"]}
+
+
 @router.post("/agent/explain-drawing")
 async def agent_explain_drawing(body: dict = Body(...)):
+    """Explains one item of the agent's chart overlay (zone, line, marker or "trade")."""
     symbol = str(body.get("symbol") or "XAU/USD")
     as_of = int(body.get("asOf") or 0)
     bundle = await (get_strategy_result_as_of(symbol, as_of) if as_of > 0 else get_strategy_result(symbol))
-    r = bundle["result"]
-    drawing = next((d for d in r["drawings"] if d["id"] == str(body.get("drawingId") or "")), None)
-    if not drawing:
-        raise HTTPException(404, "Drawing not found (the chart may have refreshed)")
     lang = body.get("lang") if body.get("lang") in ("ar", "fr", "en", "darija") else detect_lang(str(body.get("question") or ""))
-    return {"success": True, "text": explain_drawing(r, drawing, lang), "drawing": drawing}
+    text = explain_overlay_item(bundle["result"], str(body.get("drawingId") or ""), lang)
+    if text is None:
+        raise HTTPException(404, "Drawing not found (the chart may have refreshed)")
+    return {"success": True, "text": text}
 
 
 @router.get("/agent/context")

@@ -10,7 +10,6 @@ reference code (protection.py) and protect_content.
 
 import asyncio
 import html
-import re
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
@@ -22,16 +21,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
-from ..market.data import FX_TICKERS, market_session_status
+from ..market.data import market_session_status
 from ..config import settings
 from ..models import Signal, Subscriber, TelegramConnect, User, Watermark
 from ..store import get_setting, set_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
 from ..strategies._pairs import PAIRS
-from ..strategies.pairs.config import PAIR_CONFIGS
+from ..agents.registry import AGENT_CONFIGS as PAIR_CONFIGS
 from ..strategies.shared.news import load_news_calendar
-from ..strategies.shared.jsnum import fmt_time, fmt_utc_minute, js_round, to_fixed
+from ..strategies.shared.jsnum import fmt_utc_minute, to_fixed
 from ..trading import effective_risk, lot_for_risk, signal_json, stats
 from .protection import personalize_signal
 
@@ -452,6 +451,7 @@ async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session) -
             personal, offset, ref = personalize_signal(signal, chat_id, cfg.get("personalOffsets", True))
             # Lot for this person's $ risk with the strategy's stop (the offset moves entry and SL together)
             risk = risks.get(chat_id)
+            risk = risk * float(signal.get("riskScale") or 1) if risk else risk  # the coordinator halves it next to a correlated USD trade
             lot = lot_for_risk(str(signal["symbol"]), personal["entryPrice"], personal["stopLoss"], risk) if risk else ({} if chat_id in risks else None)
             out = await send_message(cfg["botToken"], chat_id, format_signal_message(personal, lot, ref), copy_keyboard(personal, lot),
                                      cfg.get("protectContent", True))
@@ -641,29 +641,16 @@ def _market_text() -> str:
 
 
 def _rules_text() -> str:
-    """/rules: each pair's plan, from its config (the rules the code runs)."""
+    """/rules: each pair's agent and its steps, from its config (the rules the code runs)."""
     flags = {"XAU/USD": "🥇", "EUR/USD": "💶", "GBP/USD": "💷", "AUD/CHF": "🇦🇺"}
     lines = ["<b>How the signals work</b>",
-             "🎯 Gold: <b>one target at 2R</b>, the stop and the target never move. EUR/USD, GBP/USD and AUD/CHF: each pair has its own agent "
-             "(limit orders, break-even, partials as its plan says), 1 % risk per trade, 2 trades per pair a day, locked for the day at −2.5 %.",
-             "📐 Each pair runs the strategy its own behaviour favours, kept only if it held up on the unseen 40 % of 2 years."]
+             "🤖 4 autonomous agents, one per pair, each with its own strategy and its own chart. Sessions in UTC+1 (Morocco time).",
+             "🛡 Risk coordinator: 1 % per trade; EUR/USD, GBP/USD and gold share the dollar: next to one correlated trade not yet at "
+             "break-even the new one is sized at 0.5 %, a third is blocked. No entry and no pending order 30 min around red news."]
     for pair, c in PAIR_CONFIGS.items():
-        if c.get("agent"):  # EUR/USD, GBP/USD, AUD/CHF: the pair's own agent
-            steps = "; ".join(html.escape(x) for x in c["steps"])
-            lines.append(f"{flags.get(pair, '💱')} <b>{pair} · Agent {c['agent']} ({c['engine']} {c['timeframes']['entry']})</b>: {steps}.")
-            continue
-        p, tf, u = c["params"], c["timeframes"]["entry"], c["test"]["unseen"]
-        when = f" between {p['hours'][0]:02d}:00 and {p['hours'][1]:02d}:00 GMT" if p.get("hours") else ""
-        adx = f" with ADX below {p['adxMax']}" if p.get("adxMax") else ""
-        if c["rule"] == "channel_breakout":
-            rule = (f"an {tf} close beyond the {p['channel']}-candle high / low in the EMA50 / EMA200 trend is bought / sold at the close")
-        else:
-            rule = f"an {tf} close beyond the {p['channel']}-candle high / low{when}{adx} is faded at the close"
-        lines.append(f"{flags.get(pair, '💱')} <b>{pair} ({html.escape(c['name'].split('·', 1)[1].strip())})</b>: {rule}. Stop {p['slAtr']:g} × ATR, "
-                     f"TP 2R, closed after {c['risk']['maxBars']} {tf} candles. Unseen test: {u['totalR']:+}R on {u['trades']} trades.")
-    lines.append("⏸ USD/CAD, NZD/USD, EUR/CHF, NZD/CAD and AUD/CAD are not traded: no strategy held up in their test.")
-    lines.append("Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.")
-    lines.append("⚠️ Past results do not guarantee future results: risk only what you can lose.")
+        steps = "; ".join(html.escape(x) for x in c["steps"])
+        lines.append(f"{flags.get(pair, '💱')} <b>{pair} · {c['agent']}</b> ({c['timeframes']['entry']}): {steps}.")
+    lines.append("Only orders with every rule passed are sent, at the candle close. At most 2 trades per pair a day; the desk locks for the day at −2.5 %.")
     return "\n".join(lines)
 
 
