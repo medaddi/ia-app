@@ -18,11 +18,6 @@ ASSETS = {
     "XAU/USD": {"id": "xauusd", "name": "Spot Gold", "arabicName": "الذهب الفوري", "frenchName": "Or au comptant", "category": "commodities", "pipSize": 0.1, "decimalPlaces": 2},
     "EUR/USD": {"id": "eurusd", "name": "Euro / US Dollar", "arabicName": "اليورو / الدولار", "frenchName": "Euro / Dollar US", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
     "GBP/USD": {"id": "gbpusd", "name": "British Pound / US Dollar", "arabicName": "الباوند / الدولار", "frenchName": "Livre sterling / Dollar US", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
-    "USD/CAD": {"id": "usdcad", "name": "US Dollar / Canadian Dollar", "arabicName": "الدولار / الدولار الكندي", "frenchName": "Dollar US / Dollar canadien", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
-    "NZD/USD": {"id": "nzdusd", "name": "New Zealand Dollar / US Dollar", "arabicName": "الدولار النيوزيلندي / الدولار", "frenchName": "Dollar néo-zélandais / Dollar US", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
-    "EUR/CHF": {"id": "eurchf", "name": "Euro / Swiss Franc", "arabicName": "اليورو / الفرنك السويسري", "frenchName": "Euro / Franc suisse", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
-    "NZD/CAD": {"id": "nzdcad", "name": "New Zealand Dollar / Canadian Dollar", "arabicName": "الدولار النيوزيلندي / الدولار الكندي", "frenchName": "Dollar néo-zélandais / Dollar canadien", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
-    "AUD/CAD": {"id": "audcad", "name": "Australian Dollar / Canadian Dollar", "arabicName": "الدولار الأسترالي / الدولار الكندي", "frenchName": "Dollar australien / Dollar canadien", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
     "AUD/CHF": {"id": "audchf", "name": "Australian Dollar / Swiss Franc", "arabicName": "الدولار الأسترالي / الفرنك السويسري", "frenchName": "Dollar australien / Franc suisse", "category": "forex", "pipSize": 0.0001, "decimalPlaces": 5},
 }
 NEWS_CCYS = {"USD", *(c for sym in ASSETS if sym != "XAU/USD" for c in sym.split("/"))}

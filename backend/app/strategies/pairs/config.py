@@ -7,7 +7,7 @@ One strategy per pair, designed from the pair's own behaviour (docs/STRATEGIES.m
 2. Design: the family the behaviour favours (breakout in the trend, or a fade of the stretched close), one target at 2R.
 3. Test: tuned on the first 60 % of the history only, then judged on the last 40 % it never saw, with the pair's spread +
    slippage and the stop counted first. A plan is live only if it is positive on the unseen part, still positive with
-   double costs, and its neighbouring settings agree. A pair where nothing passes gets no strategy: no signal.
+   double costs, and its neighbouring settings agree. A pair where nothing passes is not traded (not in the app).
 """
 
 import copy
@@ -30,16 +30,11 @@ PROFILES = {
     "XAU/USD": {"character": "trending", "follow": 40, "fade": 28, "tf": "H4", "vr24": 1.13, "activeHours": "12:00–16:00 GMT (New York)"},
     "EUR/USD": {"character": "mixed", "follow": 32, "fade": 36, "tf": "H1", "vr24": 0.89, "activeHours": "07:00–08:00 and 12:00–15:00 GMT"},
     "GBP/USD": {"character": "mixed", "follow": 32, "fade": 35, "tf": "H4", "vr24": 0.90, "activeHours": "07:00–08:00 and 12:00–15:00 GMT"},
-    "USD/CAD": {"character": "trending", "follow": 36, "fade": 26, "tf": "H4", "vr24": 0.88, "activeHours": "12:00–17:00 GMT (New York)"},
-    "NZD/USD": {"character": "mixed", "follow": 34, "fade": 33, "tf": "H4", "vr24": 1.04, "activeHours": "01:00, 07:00 and 12:00–15:00 GMT"},
-    "EUR/CHF": {"character": "reverting", "follow": 26, "fade": 39, "tf": "H4", "vr24": 0.76, "activeHours": "07:00–09:00 and 13:00–15:00 GMT"},
-    "NZD/CAD": {"character": "reverting", "follow": 27, "fade": 36, "tf": "H4", "vr24": 1.01, "activeHours": "12:00–15:00 and 21:00–22:00 GMT"},
-    "AUD/CAD": {"character": "reverting", "follow": 20, "fade": 43, "tf": "H4", "vr24": 0.97, "activeHours": "00:00–01:00 and 12:00–15:00 GMT"},
     "AUD/CHF": {"character": "reverting", "follow": 19, "fade": 43, "tf": "H4", "vr24": 0.82, "activeHours": "07:00–08:00 and 13:00–15:00 GMT"},
 }
 
 # pair → plan. `test`: tuned on the first 60 % ("tuned"), judged on the last 40 % ("unseen"); tp2R = % of trades that
-# reached the 2R target. rule None: nothing held up on the unseen part, so no strategy and no signal on that pair.
+# reached the 2R target. USD/CAD, NZD/USD, EUR/CHF, NZD/CAD and AUD/CAD: nothing held up, so they are not in the app.
 PLANS = {
     "XAU/USD": {
         "name": "Channel breakout in the trend", "rule": "channel_breakout", "tf": "H1", "style": "trend",
@@ -80,27 +75,18 @@ PLANS = {
         "note": "Small edge on the unseen part (+6.3R on 36 trades): the weakest of the four",
     },
 }
-NO_EDGE = {
-    "USD/CAD": "Trending on H4, but no breakout or pullback design held up on the unseen 40 % (the best, a previous-day-high break in New York: +4R on 37 trades, with most of its neighbouring settings losing)",
-    "NZD/USD": "No lean either way (34 % follow vs 33 % fade, the 33 % break-even): no design held up on the unseen 40 % (a fade that made +22R in the tuning lost −11R)",
-    "EUR/CHF": "Reverting, but the fades that won in the tuning lost on the unseen 40 % (−5R to −37R); the best sweep made +5R with most neighbours negative",
-    "NZD/CAD": "Reverting, but no fade or sweep held up on the unseen 40 %",
-    "AUD/CAD": "The strongest fade profile (43 %), but every fade lost on the unseen 40 % once costs are counted",
-}
 
 
 def _config(pair: str) -> dict:
     sym = pair.replace("/", "")
     gold = pair == "XAU/USD"
-    plan = PLANS.get(pair)
+    plan = PLANS[pair]
     cfg = copy.deepcopy(BASE)
-    tf = plan["tf"] if plan else "H4"
-    cfg.update(strategy=f"Pair_{plan['rule']}" if plan else "Pair_none", name=f"{sym} · {plan['name']} {tf}" if plan else f"{sym} · no validated strategy",
-               timeframes={"bias": tf, "setup": tf, "entry": tf}, rule=plan["rule"] if plan else None, params=plan["params"] if plan else {},
-               style=plan["style"] if plan else None, live=bool(plan), why=plan["why"] if plan else NO_EDGE[pair], test=plan["test"] if plan else None,
-               note=(plan or {}).get("note"), profile=PROFILES[pair], history=12500 if tf == "H1" else 3200)
-    if plan:
-        cfg["risk"]["maxBars"] = plan["maxBars"]
+    tf = plan["tf"]
+    cfg.update(strategy=f"Pair_{plan['rule']}", name=f"{sym} · {plan['name']} {tf}", timeframes={"bias": tf, "setup": tf, "entry": tf},
+               rule=plan["rule"], params=plan["params"], style=plan["style"], live=True, why=plan["why"], test=plan["test"],
+               note=plan.get("note"), profile=PROFILES[pair], history=12500 if tf == "H1" else 3200)
+    cfg["risk"]["maxBars"] = plan["maxBars"]
     cfg["spec"] = ({"symbol": sym, "displaySymbol": pair, "decimals": 2, "pipSize": 0.1, "contractSize": 100, "minLot": 0.01, "lotStep": 0.01} if gold
                    else {"symbol": sym, "displaySymbol": pair, "decimals": 5, "pipSize": 0.0001, "contractSize": 100000, "minLot": 0.01, "lotStep": 0.01})
     ccys = ["USD"] if gold else [pair[:3], pair[4:]]

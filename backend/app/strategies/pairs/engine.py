@@ -1,7 +1,7 @@
 """
 The engine of the pair strategies: the pair's rule (rules.py) on its timeframe, replayed one trade at a time with the
 app's own lifecycle (so the history, the TP / SL record and the live trade agree with the test), with a checklist, the
-rule's levels and the trade's drawings. A pair without a validated plan gets its analysis and no trade.
+rule's levels and the trade's drawings.
 """
 
 from ..shared.common import HISTORY_MAX, history_stats, item, new_result, target_hit_pct, to_signal_json, tp_options, trade_record
@@ -117,18 +117,6 @@ def evaluate_pair(inp: dict, cfg: dict) -> dict:
     result["facts"].update({"price": price, "spread": spread, "atr": round_to(a[last], d) if a[last] else None, "trend": trend.lower(),
                             "ema50": round_to(e50[last], d) if e50[last] else None, "ema200": round_to(e200[last], d) if e200[last] else None,
                             "character": cfg["profile"]["character"]})
-
-    if not cfg["rule"]:
-        # No validated plan: the pair's analysis, and no trade
-        why = f"No validated strategy on {spec['displaySymbol']}: {cfg['why']}"
-        result["facts"]["progress"] = why
-        result["checklist"] = [item("edge", "A strategy that held up on the unseen 40 % of 2 years", "استراتيجية نجحت ف الاختبار", False, why, 100, True)]
-        result["rejection"] = why
-        result["bias"] = {"direction": trend, "detail": trend_txt}
-        result["headline"], result["headlineAr"] = "No validated strategy · no trade", "ما كايناش استراتيجية مجربة · بلا صفقة"
-        result["history"], result["historyStats"] = [], history_stats([])
-        result["drawings"] = []
-        return result
 
     rule = RULES[cfg["rule"]]
     ind = rule["prep"](c, P)

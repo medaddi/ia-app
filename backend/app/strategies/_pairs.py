@@ -10,18 +10,14 @@ BANKS = {
     "NZD": ["RBNZ", "Official Cash Rate"],
 }
 
-# forex pair → (assumed spread in pips, Yahoo ticker)
+# The traded forex pairs → (assumed spread in pips, Yahoo ticker): only the pairs whose strategy held up in its test
 PAIRS = {
     "EUR/USD": (1.0, "EURUSD=X"),
     "GBP/USD": (1.5, "GBPUSD=X"),
-    "USD/CAD": (1.5, "USDCAD=X"),
-    "NZD/USD": (1.5, "NZDUSD=X"),
-    "EUR/CHF": (1.5, "EURCHF=X"),
-    "NZD/CAD": (2.5, "NZDCAD=X"),
-    "AUD/CAD": (2.0, "AUDCAD=X"),
     "AUD/CHF": (2.0, "AUDCHF=X"),
 }
+# Price feeds only (never traded, never shown): EUR/CHF converts AUD/CHF's profit from francs to dollars
+CONVERSION_FEEDS = {"EUR/CHF": "EURCHF=X"}
 
 NAMES = {"XAU/USD": "Gold / US Dollar", "EUR/USD": "Euro / US Dollar", "GBP/USD": "British Pound / US Dollar",
-         "USD/CAD": "US Dollar / Canadian Dollar", "NZD/USD": "New Zealand Dollar / US Dollar", "EUR/CHF": "Euro / Swiss Franc",
-         "NZD/CAD": "New Zealand Dollar / Canadian Dollar", "AUD/CAD": "Australian Dollar / Canadian Dollar", "AUD/CHF": "Australian Dollar / Swiss Franc"}
+         "AUD/CHF": "Australian Dollar / Swiss Franc"}

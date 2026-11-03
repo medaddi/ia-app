@@ -1,4 +1,4 @@
-"""The pair strategies: one plan per pair where it held up on the unseen part of its test, none elsewhere."""
+"""The pair strategies: one plan per pair, kept only where it held up on the unseen part of its test."""
 import math
 
 from app.agent.validator import validate_signal
@@ -17,16 +17,13 @@ def _inp(c, step):
             "dataSource": "test", "isMarketOpen": True, "day": {"trades": 0, "losses": 0}, "news": {"events": [], "source": "test"}}
 
 
-def test_the_plans_and_the_pairs_without_one():
-    live = {p for p, c in PAIR_CONFIGS.items() if c["rule"]}
-    assert live == {"XAU/USD", "EUR/USD", "GBP/USD", "AUD/CHF"}
-    for p, c in PAIR_CONFIGS.items():
-        assert c["risk"]["capR"] == 2.0 and c["profile"]["character"] in ("trending", "reverting", "mixed")
-        if c["rule"]:
-            u = c["test"]["unseen"]
-            assert u["totalR"] > 0 and u["trades"] >= 30 and c["test"]["costsX2"] > 0  # held up on the part it never saw
-        else:
-            assert c["why"] and not STRATEGY_DEFS[p].canSignalAt(DAY + 3 * H1)  # no plan: never signals
+def test_the_four_plans():
+    # Only the pairs whose strategy held up are in the app
+    assert list(PAIR_CONFIGS) == list(STRATEGY_DEFS) == ["XAU/USD", "EUR/USD", "GBP/USD", "AUD/CHF"]
+    for c in PAIR_CONFIGS.values():
+        assert c["risk"]["capR"] == 2.0 and c["rule"] and c["profile"]["character"] in ("trending", "reverting", "mixed")
+        u = c["test"]["unseen"]
+        assert u["totalR"] > 0 and u["trades"] >= 30 and c["test"]["costsX2"] > 0  # held up on the part it never saw
     assert STRATEGY_DEFS["XAU/USD"].entryTf == "H1" and STRATEGY_DEFS["GBP/USD"].entryTf == "H4"
     # EUR/USD fades in the Asian hours only: a candle opened 02:00 → its close at 03:00 may signal; 09:00 may not
     assert STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 3 * H1) and not STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 10 * H1)
@@ -84,8 +81,17 @@ def test_fade_only_inside_its_hours():
     assert not rule["at"](c, len(c) - 1, ind, cfg["params"])
 
 
-def test_a_pair_without_a_plan_gets_its_analysis_and_no_trade():
-    c = _trend_then_break(step=H4)
-    r = evaluate_pair(_inp(c, H4), PAIR_CONFIGS["USD/CAD"])
-    assert r["status"] == "NO_TRADE" and not r["setup"] and not r["canNotify"]
-    assert r["bias"]["direction"] == "BULLISH" and "No validated strategy" in r["headline"] and r["pairStrategy"]["live"] is False
+def test_engine_heartbeat_and_status():
+    """Every tick leaves a heartbeat: /api/cron/status says whether the engine runs and what each pair decided."""
+    import asyncio
+    import time
+
+    from app.db import init_db
+    from app.main import cron_status
+    from app.telegram.scheduler import record_tick
+
+    init_db()
+    record_tick({"XAU/USD": "NO_TRADE · waiting", "GBP/USD": "GBPUSD-PS-1: sent to 3 chat(s) · push 0"}, time.time())
+    st = asyncio.run(cron_status())
+    assert st["running"] and st["secondsAgo"] <= 5 and st["pairs"]["XAU/USD"].startswith("NO_TRADE")
+    assert "GBP/USD" in st["lastSent"]

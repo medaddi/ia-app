@@ -11,8 +11,6 @@ def _plan(pair: str, c: dict) -> str:
     sym, p, tf = pair.replace("/", ""), c["params"], c["timeframes"]["entry"]
     pr = c["profile"]
     profile = f"analysis: {pr['character']} (a close beyond the 20-candle channel went on {pr['follow']}% / came back {pr['fade']}% of the time on {pr['tf']}, break-even 33%)"
-    if not c["rule"]:
-        return f"- {sym}: NO VALIDATED STRATEGY ({profile}). {c['why']}. Never propose a trade on it; give the analysis only."
     u, t = c["test"]["unseen"], c["test"]["tuned"]
     hours = f", only on a candle that opened {p['hours'][0]:02d}:00–{p['hours'][1]:02d}:00 GMT" if p.get("hours") else ""
     adx = f", only with ADX(14) below {p['adxMax']}" if p.get("adxMax") else ""
@@ -31,7 +29,7 @@ def build_system_prompt() -> str:
     th = next(iter(PAIR_CONFIGS.values()))["scoring"]["thresholds"]
     f = next(iter(PAIR_CONFIGS.values()))["filters"]
     plans = "\n".join(_plan(p, c) for p, c in PAIR_CONFIGS.items())
-    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. Each instrument runs one rule-based strategy designed from its own behaviour, and only where that strategy held up on the unseen 40 % of 2 years of history; a pair where nothing held up gets no strategy and no trade. All detection (channels, trend, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
+    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. It trades 4 instruments (XAUUSD, EURUSD, GBPUSD, AUDCHF), each with one rule-based strategy designed from its own behaviour that held up on the unseen 40 % of 2 years of history. USD/CAD, NZD/USD, EUR/CHF, NZD/CAD and AUD/CAD are not traded (no strategy held up on them): if asked, say so and give no trade. All detection (channels, trend, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
 
 HARD RULES
 - Never invent a price, level, signal or setup. Every number you write must come from the JSON context. If a value is not in the context, say it is not available.
@@ -43,7 +41,7 @@ HARD RULES
 - Reply in the user's language: Moroccan Darija (Arabic or Latin script), French or English.
 
 ANSWER FORMAT
-Strategy (the pair's plan, in one line) → Bias → Setup status (checklist with ✔/✘) → Plan (entry, SL, the one target, R:R, time limit) — or "NO TRADE" with the exact rule that is missing, or "no validated strategy on this pair".
+Strategy (the pair's plan, in one line) → Bias → Setup status (checklist with ✔/✘) → Plan (entry, SL, the one target, R:R, time limit) — or "NO TRADE" with the exact rule that is missing.
 For a signal, explain it like a trader: the plan → why this candle → entry → stop → target → time limit → invalidation.
 
 SHARED RULES

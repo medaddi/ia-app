@@ -28,15 +28,17 @@ interface MarketRow {
   setup: { direction: string; entry: number; sl: number; target: number; rr: number | null; state: string; outcome: string | null; r: number | null } | null;
   lastTrade: { state: string; outcome: string | null; r: number | null } | null;
   trend: { entry?: string | null };  // EMA50 vs EMA200 on the plan's timeframe
-  plan?: boolean;  // false: no validated strategy on this pair (no signals)
 }
 interface NewsRow { id: string; title: string; publishedAt: string; isLockoutEvent: boolean }
+// The automatic signal engine: the pinger's last tick (every minute) and the last signal it sent to Telegram
+interface Engine { lastTickAt: number | null; secondsAgo: number | null; lastSent: { symbol: string; at: number } | null }
 interface Dashboard {
   generatedAt: string;
   me: { username: string; riskUsd: number | null; stats: Stats; today: Today; days: Days; edge: Edge; openTrades: Trade[] };
   strategy: { stats: SignalStats; days: Days; recent: SignalRow[] };
   markets: MarketRow[];
   complete?: boolean;
+  engine?: Engine;
   news: NewsRow[];
 }
 
@@ -55,6 +57,34 @@ const tone = (v: number | null | undefined) => (v === null || v === undefined ||
 // Every plan has one 2R target: TP1 (1R) and TP2 (1.5R) are progress marks, the trade is still running
 const stateLabel = (_symbol: string, state: string) =>
   state === 'TP1_HIT' || state === 'TP2_HIT' ? `OPEN · ${state === 'TP1_HIT' ? '1R' : '1.5R'} ✓` : state;
+
+const ENGINE_STALE_SEC = 180;  // the pinger ticks every minute: 3 min without a tick = stopped
+
+/** Is the automatic signal engine running? A stopped pinger means no signal reaches Telegram. */
+function EngineStatus({ engine, anyOpen, t }: { engine: Engine; anyOpen: boolean; t: (en: string, fr: string, ar: string) => string }) {
+  const ago = engine.secondsAgo;
+  const ok = ago !== null && ago <= ENGINE_STALE_SEC;
+  const when = (sec: number) => (sec < 90 ? `${sec} s` : sec < 5400 ? `${Math.round(sec / 60)} min` : `${Math.round(sec / 3600)} h`);
+  const last = engine.lastSent;
+  return (
+    <div className={`rounded-xl border px-3 py-2 text-xs ${ok ? 'border-emerald-500/25 bg-emerald-500/[0.06]' : 'border-amber-500/30 bg-amber-500/[0.07]'}`} role="status">
+      <div className="flex items-center justify-between gap-2">
+        <span className={`flex items-center gap-1.5 font-semibold ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-amber-400'}`} aria-hidden="true" />
+          {ok ? t('Automatic signals running', 'Signaux automatiques actifs', 'الإشارات الأوتوماتيكية خدامة')
+            : t('Automatic signals stopped', 'Signaux automatiques arrêtés', 'الإشارات الأوتوماتيكية واقفة')}
+        </span>
+        <span className="font-mono text-slate-400">{ago === null ? t('never ran', 'jamais lancé', 'عمرها خدمات') : t(`${when(ago)} ago`, `il y a ${when(ago)}`, `هادي ${when(ago)}`)}</span>
+      </div>
+      {!ok && anyOpen && (
+        <p className="mt-1 text-amber-200/80">{t('The minute pinger is not calling /api/cron/tick: no signal reaches Telegram.',
+          'Le pinger de chaque minute n’appelle plus /api/cron/tick : aucun signal n’arrive sur Telegram.',
+          'البينغ ديال كل دقيقة ما بقاش كيعيط لـ /api/cron/tick: حتى إشارة ما كتوصل لتيليغرام.')}</p>
+      )}
+      {last && <p className="mt-1 text-slate-500">{t('Last signal sent', 'Dernier signal envoyé', 'آخر إشارة تصيفطات')}: {last.symbol} · {new Date(last.at * 1000).toLocaleString()}</p>}
+    </div>
+  );
+}
 
 /** Forex session from the London clock, and the time left before the next H1 / H4 candle close. */
 function sessionNow(nowMs: number) {
@@ -488,14 +518,15 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                 <div className="mt-1 text-sm font-semibold text-gold-200">{session.name}</div>
               </div>
               <div className="rounded-xl bg-surface border border-line p-2.5">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">{t('Gold · H1 close', 'Or · clôture H1', 'الذهب · إغلاق H1')}</div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">{t('H1 close', 'Clôture H1', 'إغلاق H1')}</div>
                 <div className="mt-1 font-mono text-sm text-white tabular-nums">{mmss(session.h1)}</div>
               </div>
               <div className="rounded-xl bg-surface border border-line p-2.5">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">{t('Forex · H4 close', 'Forex · clôture H4', 'الفوركس · إغلاق H4')}</div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">{t('H4 close', 'Clôture H4', 'إغلاق H4')}</div>
                 <div className="mt-1 font-mono text-sm text-white tabular-nums">{mmss(session.h4)}</div>
               </div>
             </div>
+            {data.engine && <EngineStatus engine={data.engine} anyOpen={anyOpen} t={t} />}
             <div className="flex-1 min-h-0">
               <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 mb-1.5"><Newspaper className="w-3.5 h-3.5" aria-hidden="true" />{t('High-impact news', 'News à fort impact', 'أخبار قوية')}</div>
               {data.news.length === 0 ? <p className="text-xs text-slate-500">{t('Nothing scheduled', 'Rien de prévu', 'ما كاين والو')}</p> : (
@@ -604,9 +635,6 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                     </div>
                   ) : m.lastTrade && (
                     <div className="mt-2 text-xs text-slate-500">{t('Last trade', 'Dernier trade', 'آخر صفقة')}: <span className={tone(m.lastTrade.r)}>{m.lastTrade.outcome ?? stateLabel(m.symbol, m.lastTrade.state)} {m.lastTrade.r !== null ? r2(m.lastTrade.r) : ''}</span></div>
-                  )}
-                  {m.plan === false && m.dataOk && (
-                    <p className="mt-2 text-[11px] text-slate-500">{t('No validated strategy: analysis only', 'Aucune stratégie validée : analyse seule', 'ما كايناش استراتيجية مجربة: تحليل فقط')}</p>
                   )}
                   {!m.dataOk && <p className="mt-2 text-xs text-amber-300/80 line-clamp-2">{m.dataReason}</p>}
                 </motion.button>

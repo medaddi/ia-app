@@ -3,7 +3,7 @@ Strategy service: one strategy per instrument, designed from the pair's own beha
 the unseen 40 % of 2 years (strategies/pairs/config.py, docs/STRATEGIES.md):
   XAU/USD → channel breakout in the trend H1 · EUR/USD → Asian-session channel fade H1
   GBP/USD → H4 channel fade · AUD/CHF → Asian-session channel fade H1
-  USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD → no validated strategy: their analysis, no signal
+  (USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD had no strategy that held up: removed from the app)
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
 """
@@ -29,13 +29,11 @@ PROVIDER_TF = {"M5": "5M", "M15": "15M", "M30": "30M", "H1": "1H", "H4": "4H", "
 
 
 def _pair_def(cfg: dict) -> StrategyDef:
-    # Evaluated at every close of the plan's timeframe; a signal only on a candle that opened inside the plan's hours.
-    # A pair without a validated plan never signals.
+    # Evaluated at every close of the plan's timeframe; a signal only on a candle that opened inside the plan's hours
     tf = cfg["timeframes"]["entry"]
     hours = cfg["params"].get("hours")
     return StrategyDef(entryTf=tf, run=partial(evaluate_pair, cfg=cfg), tfs=[tf], limits={tf: cfg["history"]},
-                       canSignalAt=(lambda close: in_hours(close - TF_SEC[tf], hours)) if cfg["rule"] else (lambda close: False),
-                       trigger=make_trigger(cfg) if cfg["rule"] else None)
+                       canSignalAt=lambda close: in_hours(close - TF_SEC[tf], hours), trigger=make_trigger(cfg))
 
 
 STRATEGY_DEFS: dict[str, StrategyDef] = {pair: _pair_def(cfg) for pair, cfg in PAIR_CONFIGS.items()}

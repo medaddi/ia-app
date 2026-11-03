@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from ..strategies._pairs import PAIRS
+from ..strategies._pairs import CONVERSION_FEEDS, PAIRS
 from ..strategies.shared.jsnum import round_to
 from ..strategies.shared.types import Candle
 
@@ -45,8 +45,8 @@ def client() -> httpx.AsyncClient:
     return _client
 
 
-# Forex pairs served from Yahoo; gold has its own spot feed and a futures-to-spot basis
-FX_TICKERS = {pair: ticker for pair, (_, ticker) in PAIRS.items()}
+# Forex pairs served from Yahoo (the traded ones and the conversion feeds); gold has its own spot feed and a futures-to-spot basis
+FX_TICKERS = {**{pair: ticker for pair, (_, ticker) in PAIRS.items()}, **CONVERSION_FEEDS}
 
 
 def canonical(symbol: str) -> str:

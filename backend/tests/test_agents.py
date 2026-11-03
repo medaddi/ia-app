@@ -64,8 +64,10 @@ def test_strategy_agent_and_consensus_need_all_three(monkeypatch):
     # The plan is re-checked: a stop that is not the plan's 2 × ATR is refused
     wide = {**buy, "facts": {"atr": 2}}
     assert not strategy_agent(wide, m)["agree"]
-    # A pair without a validated strategy never gets the strategy agent's vote
-    assert not strategy_agent(result("BUY", c[-1].close, "USD/CAD"), m)["agree"]
+    # A signal outside the plan's hours is refused (EUR/USD fades 00:00–06:00 GMT; this one opened at 10:00)
+    late = {**result("BUY", c[-1].close, "EUR/USD"), "facts": {"atr": 10 / 1.5}}
+    late["setup"] = {**late["setup"], "signalTime": 1_800_000_000 - 1_800_000_000 % 86400 + 11 * 3600}
+    assert not strategy_agent(late, m)["agree"]
 
 
 def test_a_fade_is_not_vetoed_by_the_daily_trend():

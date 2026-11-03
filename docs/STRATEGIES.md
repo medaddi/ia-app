@@ -1,8 +1,8 @@
 # LiquidityDissection — the strategies
 
 Every pair runs **one** rule-based strategy designed from the pair's own behaviour, and only where that strategy held up
-on history it was never tuned on. A pair where nothing held up gets **no strategy and no signal**: its chart, trend and
-analysis only. Nothing else creates signals or sends Telegram messages. Every rule below is code
+on history it was never tuned on. The pairs where nothing held up (USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD) were
+**removed from the app**. Nothing else creates signals or sends Telegram messages. Every rule below is code
 (`backend/app/strategies/pairs/`); every parameter lives in `pairs/config.py`. Same closed candles → same result.
 
 | Pair | Strategy | Timeframe | Unseen 40 % of 2 years | Status |
@@ -11,7 +11,7 @@ analysis only. Nothing else creates signals or sends Telegram messages. Every ru
 | **EUR/USD** | Asian-session channel fade (00:00–06:00 GMT) | H1 | 107 trades · 43 % · **+19.9R** · 42 % reached 2R | 🟢 live |
 | **GBP/USD** | Channel fade, ADX < 35 | H4 | 80 trades · 45 % · **+14.3R** · 38 % reached 2R | 🟢 live (fragile) |
 | **AUD/CHF** | Asian-session channel fade (22:00–05:00 GMT) | H1 | 36 trades · 44 % · **+6.3R** · 44 % reached 2R | 🟢 live (small edge) |
-| USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD | — | H4 chart | nothing held up | ⏸ no signals |
+| USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD | — | — | nothing held up | ✖ removed from the app |
 
 ## How they were built
 
@@ -94,7 +94,7 @@ The most reverting pair of the nine.
 Tuned 70 trades +25.7R · unseen 36 trades +6.3R · double costs +16.4R. Every Asian window is positive on both parts
 with a 40-candle channel. **The weakest of the four:** a small edge on few unseen trades.
 
-## The pairs without a strategy
+## The pairs removed from the app
 
 | Pair | Why no strategy |
 |---|---|
@@ -104,7 +104,7 @@ with a 40-candle channel. **The weakest of the four:** a small edge on few unsee
 | NZD/CAD | Reverting, but no fade or sweep held up on the unseen 40 % |
 | AUD/CAD | The strongest fade profile (43 %), but every fade lost on the unseen 40 % once costs are counted |
 
-They keep the H4 chart, the EMA50 / EMA200 trend and the analysis card; the strategy agent refuses any trade on them.
+They are no longer analysed, charted or sent to Telegram. EUR/CHF is still read as a price feed only, to convert AUD/CHF's profit from francs to dollars.
 
 ## The agents
 

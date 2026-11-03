@@ -25,9 +25,10 @@ from ..db import SessionLocal
 from ..market.data import FX_TICKERS, market_session_status
 from ..config import settings
 from ..models import Signal, Subscriber, TelegramConnect, User, Watermark
-from ..store import get_setting
+from ..store import get_setting, set_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
+from ..strategies._pairs import PAIRS
 from ..strategies.pairs.config import PAIR_CONFIGS
 from ..strategies.shared.news import load_news_calendar
 from ..strategies.shared.jsnum import fmt_time, fmt_utc_minute, js_round, to_fixed
@@ -49,14 +50,29 @@ def client() -> httpx.AsyncClient:
     return _client
 
 
+LOG_MAX = 50
+
+
 def log_event(kind: str, title: str, details: str, ok: bool, error: Optional[str] = None) -> None:
-    _log.insert(0, {"id": f"log-{int(time.time() * 1000)}", "type": kind, "title": title, "details": details,
-                    "sentAt": datetime.now(timezone.utc).strftime("%H:%M:%S"), "status": "SUCCESS" if ok else "FAILED", "error": error})
-    del _log[30:]
+    """The bot's event log, kept in the database: on serverless hosting every call may run on a new instance."""
+    entry = {"id": f"log-{int(time.time() * 1000)}", "type": kind, "title": title, "details": details,
+             "sentAt": datetime.now(timezone.utc).strftime("%m-%d %H:%M:%S"), "status": "SUCCESS" if ok else "FAILED", "error": error}
+    _log.insert(0, entry)
+    del _log[LOG_MAX:]
+    try:
+        with SessionLocal() as db:
+            items = [entry, *get_setting(db, "eventLog").get("items", [])][:LOG_MAX]
+            set_setting(db, "eventLog", {"items": items})
+    except Exception as err:  # the log never breaks a send
+        print(f"[log] {err!r}")
 
 
 def history() -> list[dict]:
-    return list(_log)
+    try:
+        with SessionLocal() as db:
+            return get_setting(db, "eventLog").get("items", []) or list(_log)
+    except Exception:
+        return list(_log)
 
 
 async def call(token: str, method: str, payload: dict) -> dict:
@@ -496,10 +512,10 @@ DESCRIPTION = ("Gold and forex signals: entry, TP, SL and your lot, then every s
                "near SL, news, TP / SL).\n\nPress Start, then Connect with your app account.")
 SHORT_DESCRIPTION = "Gold & forex signals · entry, TP, SL, lot and trade follow-up."
 PAIR_EMOJI = {"XAU/USD": "🥇"}
-CHART_PAIRS = {"gold": "XAU/USD", **{p.replace("/", "").lower(): p for p in ("XAU/USD", *FX_TICKERS)}}  # /chart_gold, /chart_eurusd…
-NEWS_CCYS = {"USD", *(c for pair in FX_TICKERS for c in pair.split("/"))}
+CHART_PAIRS = {"gold": "XAU/USD", **{p.replace("/", "").lower(): p for p in ("XAU/USD", *PAIRS)}}  # /chart_gold, /chart_eurusd…
+NEWS_CCYS = {"USD", *(c for pair in PAIRS for c in pair.split("/"))}
 PAIR_ALIASES = {"/gold": "XAU/USD", "/xau": "XAU/USD", "/euro": "EUR/USD", "/eur": "EUR/USD", "/gbp": "GBP/USD", "/cable": "GBP/USD", "/pound": "GBP/USD",
-                "/loonie": "USD/CAD", "/kiwi": "NZD/USD", **{"/" + pair.replace("/", "").lower(): pair for pair in FX_TICKERS}}
+                **{"/" + pair.replace("/", "").lower(): pair for pair in PAIRS}}
 STATE_TXT = {"PENDING": "⏳ waiting for entry", "OPEN": "🟡 running", "TP1_HIT": "🟡 running", "TP2_HIT": "🟡 running", "CLOSED": "closed",
              "CANCELLED": "⚪ cancelled", "EXPIRED": "⚪ expired"}
 STATUS_ICON = {"SIGNAL": "🟢", "WATCH": "🟡", "NO_TRADE": "⚪"}
@@ -630,11 +646,7 @@ def _rules_text() -> str:
     lines = ["<b>How the signals work</b>",
              "🎯 Every signal has <b>one target at 2R</b>; the stop and the target never move (no partial closes, no breakeven).",
              "📐 Each pair runs the strategy its own behaviour favours, kept only if it held up on the unseen 40 % of 2 years."]
-    off = []
     for pair, c in PAIR_CONFIGS.items():
-        if not c["rule"]:
-            off.append(pair)
-            continue
         p, tf, u = c["params"], c["timeframes"]["entry"], c["test"]["unseen"]
         when = f" between {p['hours'][0]:02d}:00 and {p['hours'][1]:02d}:00 GMT" if p.get("hours") else ""
         adx = f" with ADX below {p['adxMax']}" if p.get("adxMax") else ""
@@ -644,8 +656,7 @@ def _rules_text() -> str:
             rule = f"an {tf} close beyond the {p['channel']}-candle high / low{when}{adx} is faded at the close"
         lines.append(f"{flags.get(pair, '💱')} <b>{pair} ({html.escape(c['name'].split('·', 1)[1].strip())})</b>: {rule}. Stop {p['slAtr']:g} × ATR, "
                      f"TP 2R, closed after {c['risk']['maxBars']} {tf} candles. Unseen test: {u['totalR']:+}R on {u['trades']} trades.")
-    if off:
-        lines.append(f"⏸ <b>{', '.join(off)}</b>: no strategy held up in the test, so no signals (chart and analysis only).")
+    lines.append("⏸ USD/CAD, NZD/USD, EUR/CHF, NZD/CAD and AUD/CAD are not traded: no strategy held up in their test.")
     lines.append("Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.")
     lines.append("⚠️ Past results do not guarantee future results: risk only what you can lose.")
     return "\n".join(lines)

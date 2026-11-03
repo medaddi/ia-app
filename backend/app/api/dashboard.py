@@ -16,6 +16,7 @@ from ..db import get_db
 from ..models import Signal, Trade, User
 from ..strategies.service import CONFIGS, STRATEGY_DEFS, all_results, cached_result
 from ..trading import effective_risk, signal_days, signal_json, stats, today_status, trade_days, trade_json
+from ..store import get_setting
 from .market import news_items
 
 router = APIRouter(prefix="/api")
@@ -96,6 +97,15 @@ async def _news(now: int) -> list[dict]:
     return sorted(news, key=lambda n: n["publishedAt"])
 
 
+def _engine(db: Session) -> dict:
+    """The automatic signal engine: when it last ran (the pinger's tick) and the last signal it sent."""
+    e = get_setting(db, "engine")
+    last = e.get("lastTickAt")
+    sent = sorted(((v["at"], k) for k, v in (e.get("lastSent") or {}).items()), reverse=True)
+    return {"lastTickAt": last, "secondsAgo": int(time.time() - last) if last else None,
+            "lastSent": {"symbol": sent[0][1], "at": sent[0][0]} if sent else None}
+
+
 @router.get("/dashboard")
 async def dashboard(u: User = Depends(current_user), db: Session = Depends(get_db)):
     trades = db.scalars(select(Trade).where(Trade.user_id == u.id).order_by(Trade.opened_at.desc())).all()
@@ -114,5 +124,6 @@ async def dashboard(u: User = Depends(current_user), db: Session = Depends(get_d
             "recent": [signal_json(s) for s in signals[:12]],
         },
         "markets": [_market_row(sym, r) for sym, r in zip(STRATEGY_DEFS, results)],
+        "engine": _engine(db),
         "news": news[:8],
     }

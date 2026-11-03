@@ -3,8 +3,8 @@
 Gold and forex signals with a strict, tested rule set, a live chart for every pair, four agents that check every trade,
 and delivery to the web app, the phone (Web Push) and Telegram, each with the lot for the trader's own risk.
 
-- **9 instruments:** XAU/USD, EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF
-- **One strategy per pair, designed from the pair's own behaviour**, live only where it held up on the unseen 40 % of 2 years (gold, EUR/USD, GBP/USD, AUD/CHF); the other 5 pairs show their analysis with no signals (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
+- **4 instruments:** XAU/USD, EUR/USD, GBP/USD, AUD/CHF (the pairs whose strategy held up in its test; USD/CAD, NZD/USD, EUR/CHF, NZD/CAD and AUD/CAD were removed)
+- **One strategy per pair, designed from the pair's own behaviour**, kept only where it held up on the unseen 40 % of 2 years (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
 - **One target at 2R** on every trade; stops and targets never move once a trade is placed
 - **Accounts managed by the admin**; Telegram works only for a linked, approved account
 
@@ -72,7 +72,6 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 | EUR/USD | **Asian-session channel fade** | H1, 00:00–06:00 GMT | H1 close beyond the 10-candle high / low, faded at the close | Stop 1.5 × ATR · 2R, or after 48 H1 candles |
 | GBP/USD | **Channel fade** | H4 | H4 close beyond the 10-candle high / low with ADX < 35, faded at the close | Stop 1 × ATR · 2R, or after 12 H4 candles |
 | AUD/CHF | **Asian-session channel fade** | H1, 22:00–05:00 GMT | H1 close beyond the 40-candle high / low, faded at the close | Stop 1 × ATR · 2R, or after 48 H1 candles |
-| USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD | **No validated strategy** | H4 chart | — (nothing held up on the unseen part of the test) | No signals: chart, trend and analysis only |
 
 Every target is **2R** (inside the app's 1.5R–2R rule, `TARGET_MIN_R` / `TARGET_MAX_R`). Past trades are replayed with the
 same rules, so the TP / SL / breakeven record and each pair's performance are measured, not estimated.
@@ -266,7 +265,7 @@ All routes are under `/api`. Interactive docs at `/docs`. 🔒 = logged in, 👑
 
 | Area | Routes |
 |---|---|
-| Health & jobs | `GET /health` · `GET/POST /cron/tick` (Bearer `CRON_SECRET`) |
+| Health & jobs | `GET /health` · `GET/POST /cron/tick` (Bearer `CRON_SECRET`) · `GET /cron/status` (is the signal engine running, what each pair decided, the last signal sent) |
 | Auth | `POST /auth/login` · `POST /auth/register` · `GET /auth/password-check` · `GET /auth/me` 🔒 · `POST /auth/logout` 🔒 |
 | My account 🔒 | `GET/PUT /me` · `GET /lot?symbol&entry&sl` · `GET /stats` · `GET/POST /trades` · `PATCH/DELETE /trades/{id}` · `POST /trades/{id}/close` · `POST /trades/{id}/breakeven` |
 | Telegram link 🔒 | `GET /telegram/bot` · `GET /telegram/connect/{token}` · `POST /telegram/connect` · `DELETE /me/telegram-link` |
@@ -313,7 +312,7 @@ docs/STRATEGIES.md       Strategy rules and test results
 
 | Symptom | Check |
 |---|---|
-| No signals on Vercel | The every-minute call to `/api/cron/tick` with `Authorization: Bearer <CRON_SECRET>`; markets closed (Fri 21:00 → Sun 22:00 UTC) |
+| No signals on Vercel | Open `https://<api>/api/cron/status` (or the dashboard's "Automatic signals" line): `running: false` = the every-minute call to `/api/cron/tick` with `Authorization: Bearer <CRON_SECRET>` is not happening (check the cron-job.org job is enabled, every minute, with that header); `pairs` shows each pair's last decision or why a send failed. Markets close Fri 21:00 → Sun 22:00 UTC |
 | `/api/health` says database missing | `DATABASE_URL` is not set on the backend project |
 | Bot does not answer | `TELEGRAM_WEBHOOK_URL` / `TELEGRAM_WEBHOOK_SECRET` set, then the bot re-connected in *Bot Telegram*; only one process may poll a token |
 | The bot's invitation opens the API instead of the app | Set `PUBLIC_APP_URL` (or put the app's address first in `CORS_ORIGINS`) |

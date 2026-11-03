@@ -25,7 +25,10 @@ from .auth import ensure_admin
 from .config import settings
 from .db import SessionLocal, engine, init_db
 from .telegram import scheduler
+from .store import get_setting
 from .telegram.bot import poll_forever
+
+ENGINE_STALE_SEC = 180  # the pinger calls /api/cron/tick every minute: 3 min without a tick = stopped
 
 STARTED = time.time()
 _ready = False
@@ -128,6 +131,17 @@ def health():
         return JSONResponse({"status": "error", "database": "unavailable"}, status_code=503)
     return {"status": "ok", "database": "ok", "uptimeSeconds": int(time.time() - STARTED),
             "scheduler": settings.scheduler_enabled, "telegramPolling": settings.telegram_polling}
+
+
+@app.get("/api/cron/status")
+async def cron_status():
+    """Is the signal engine running? When the pinger last called /api/cron/tick and what each pair decided (no secrets)."""
+    with SessionLocal() as db:
+        e = get_setting(db, "engine")
+    last = e.get("lastTickAt")
+    ago = int(time.time() - last) if last else None
+    return {"running": ago is not None and ago <= ENGINE_STALE_SEC, "lastTickAt": last, "secondsAgo": ago, "durationSec": e.get("durationSec"),
+            "ticks": e.get("ticks", 0), "pairs": e.get("results") or {}, "lastSent": e.get("lastSent") or {}}
 
 
 @app.api_route("/api/cron/tick", methods=["GET", "POST"])

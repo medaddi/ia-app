@@ -19,7 +19,7 @@ from ..trading import update_signal_outcomes
 from ..agent.agents import manager_agent
 from ..followup import follow_up
 from ..push import push_closed, push_setup
-from ..store import get_setting
+from ..store import get_setting, set_setting
 from .bot import dispatch_setup, notify_closed, sync_profile
 
 GRACE = 1.2
@@ -119,7 +119,23 @@ async def tick() -> dict:
     except Exception:
         pass
     syms = list(STRATEGY_DEFS)
-    return dict(zip(syms, await asyncio.gather(*(one(s) for s in syms))))
+    started = time.time()
+    results = dict(zip(syms, await asyncio.gather(*(one(s) for s in syms))))
+    record_tick(results, started)
+    return results
+
+
+def record_tick(results: dict, started: float) -> None:
+    """The engine's heartbeat in the database: when it last ran, how long it took, and each pair's outcome (sent, why not).
+    GET /api/cron/status reads it, so a stopped pinger or a failing send is visible."""
+    try:
+        with SessionLocal() as db:
+            prev = get_setting(db, "engine")
+            sent = {sym: {"at": int(started), "result": out} for sym, out in results.items() if "sent to" in out}
+            set_setting(db, "engine", {"lastTickAt": int(started), "durationSec": round(time.time() - started, 1), "results": results,
+                                       "lastSent": {**(prev.get("lastSent") or {}), **sent}, "ticks": int(prev.get("ticks") or 0) + 1})
+    except Exception as err:  # the heartbeat never breaks a tick
+        print(f"[engine] {err!r}")
 
 
 async def run_symbol(sym: str, stop: asyncio.Event) -> None:
