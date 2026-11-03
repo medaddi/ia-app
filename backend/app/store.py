@@ -5,13 +5,13 @@ import copy
 from sqlalchemy.orm import Session
 
 from .config import settings as env
-from .strategies.alexg.config import ALEXG_CONFIGS
+from .strategies._pairs import PAIRS
 from .models import Setting
 
 DEFAULTS: dict[str, dict] = {
     "app": {"appName": "LiquidityDissection", "defaultLanguage": "fr", "theme": "dark", "requireAuth": True},
     "telegram": {
-        "botToken": "", "chatId": "", "enabled": True, "minConfidence": 75, "assets": ["XAU/USD", *ALEXG_CONFIGS],
+        "botToken": "", "chatId": "", "enabled": True, "minConfidence": 75, "assets": ["XAU/USD", *PAIRS],
         "protectContent": True, "personalOffsets": True,
     },
 }

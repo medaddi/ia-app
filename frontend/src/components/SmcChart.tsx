@@ -1,6 +1,6 @@
 import { apiFetch } from '../api';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { REPORT_RULE, strategyKind, type InstrumentSymbol } from '../instruments';
+import type { InstrumentSymbol } from '../instruments';
 import {
   createChart,
   CandlestickSeries,
@@ -46,7 +46,7 @@ interface SmcChartProps {
 }
 
 const TF_SEC: Record<string, number> = { M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800 };
-type Layer = DrawingLayer | 'ema' | 'bands';
+type Layer = DrawingLayer | 'ema';
 const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'sessions', label: ['Sessions', 'Sessions', 'الجلسات'] },
   { key: 'levels', label: ['Key levels', 'Niveaux clés', 'المستويات'] },
@@ -57,9 +57,7 @@ const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'ob', label: ['OB', 'OB', 'OB'] },
   { key: 'fib', label: ['Fib', 'Fib', 'فيبو'] },
   { key: 'ema', label: ['EMA', 'EMA', 'EMA'] },
-  { key: 'bands', label: ['Bollinger 2.2σ', 'Bollinger 2,2σ', 'بولينجر 2.2σ'] },
   { key: 'trade', label: ['Trade', 'Trade', 'الصفقة'] },
-  { key: 'report', label: ['Report strategy (observation)', 'Stratégie du rapport (observation)', 'استراتيجية التقرير (ملاحظة)'] },
 ];
 const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Record<Layer, boolean>;
 // Candles shown when a pair / timeframe opens (the rest of the history stays one scroll away): close enough to read
@@ -67,17 +65,6 @@ const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Rec
 const VISIBLE_BARS: Record<string, number> = { M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
 const layerKey = (kind: string) => `ld_chart_layers_${kind}_v2`;
 const ALWAYS_SHOWN: Layer[] = ['ema', 'trade'];
-
-function bollinger(values: number[], period: number, k: number): { mid: (number | null)[]; up: (number | null)[]; lo: (number | null)[] } {
-  const mid: (number | null)[] = new Array(values.length).fill(null), up = [...mid], lo = [...mid];
-  for (let i = period - 1; i < values.length; i++) {
-    const w = values.slice(i - period + 1, i + 1);
-    const m = w.reduce((a, b) => a + b, 0) / period;
-    const sd = Math.sqrt(w.reduce((a, b) => a + (b - m) ** 2, 0) / period);
-    mid[i] = m; up[i] = m + k * sd; lo[i] = m - k * sd;
-  }
-  return { mid, up, lo };
-}
 
 const fmtLeft = (sec: number) => {
   const s = Math.max(0, Math.floor(sec));
@@ -110,15 +97,13 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const emaRefs = useRef<ISeriesApi<'Line'>[]>([]);
-  const bandRefs = useRef<ISeriesApi<'Line'>[]>([]);
   const frameRef = useRef<HTMLDivElement>(null);
   const [full, setFull] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches);
-  const kind = strategyKind(symbol);
+  const kind = symbol;  // the chart's layer choices are kept per pair
   // The pair's own drawings, plus its report strategy when that one only runs in observation (its own layer)
-  const allDrawings = useMemo(() => [...(result?.drawings ?? []), ...((result?.reportStrategy && !result.reportStrategy.live && result.reportStrategy.drawings) || [])],
-    [result?.drawings, result?.reportStrategy]);
+  const allDrawings = useMemo(() => result?.drawings ?? [], [result?.drawings]);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const primitiveRef = useRef<DrawingsPrimitive | null>(null);
   const fitKeyRef = useRef('');
@@ -210,10 +195,6 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.88, bottom: 0 } });
     const emaLines = [p.ema50, p.ema200].map(color => chart.addSeries(LineSeries, { color, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }));
-    const bandLines = [0, 1, 2].map(k => chart.addSeries(LineSeries, {
-      color: k === 1 ? 'rgba(160,150,220,0.55)' : 'rgba(160,150,220,0.85)', lineWidth: 1, lineStyle: k === 1 ? LineStyle.Dotted : LineStyle.Solid,
-      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-    }));
     const prim = new DrawingsPrimitive();
     cs.attachPrimitive(prim);
 
@@ -245,7 +226,6 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     candleRef.current = cs;
     volRef.current = vol;
     emaRefs.current = emaLines;
-    bandRefs.current = bandLines;
     markersRef.current = createSeriesMarkers(cs, []);
     primitiveRef.current = prim;
     fitKeyRef.current = '';
@@ -258,7 +238,6 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       candleRef.current = null;
       volRef.current = null;
       emaRefs.current = [];
-      bandRefs.current = [];
       markersRef.current = null;
       primitiveRef.current = null;
       // Removed on the next frame: a repaint already scheduled for this one would otherwise draw a disposed chart
@@ -311,16 +290,13 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       line.setData(layers.ema && period ? toLine(ema(closes, period)) : []);
       line.applyOptions({ color: k === 0 ? p.ema50 : p.ema200, title: period ? `EMA${period}` : '' });
     });
-    // Gold's reversion engine reads the 20-period 2.2σ Bollinger band: drawn only on the gold chart
-    const bb = kind === 'gold' && layers.bands ? bollinger(closes, 20, 2.2) : null;
-    bandRefs.current.forEach((line, k) => line.setData(bb ? toLine([bb.up, bb.mid, bb.lo][k]) : []));
     const key = `${symbol}-${timeframe}-${theme}`;
     if (fitKeyRef.current !== key && bars.length) {
       fitKeyRef.current = key;
       barTimesRef.current = bars.map(b => b.time);
       resetView();
     }
-  }, [bars, symbol, timeframe, theme, layers.ema, layers.bands, emas, kind]);
+  }, [bars, symbol, timeframe, theme, layers.ema, emas, kind]);
 
   // Daily / weekly axis shows dates only; forex has no real volume on the free feed, so its pane is hidden
   useEffect(() => {
@@ -357,7 +333,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   useEffect(() => {
     const prim = primitiveRef.current;
     if (!prim) return;
-    const { ema: _ema, bands: _bands, ...drawLayers } = layers;
+    const { ema: _ema, ...drawLayers } = layers;
     prim.update({ drawings: allDrawings, barTimes: bars.map(b => b.time), tfSec, chartTf: timeframe, layers: drawLayers as Record<DrawingLayer, boolean>, theme });
     const markers: any[] = [];
     if (setup && layers.trade && signalBarTime !== null) {
@@ -374,7 +350,6 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const legendIdx = ohlc ? bars.findIndex(b => b.time === ohlc.time) : -1;
   const closesAll = useMemo(() => bars.map(b => b.close), [bars]);
   const emaVals = useMemo(() => emas.map(period => ema(closesAll, period)), [closesAll, emas]);
-  const bbVals = useMemo(() => (kind === 'gold' ? bollinger(closesAll, 20, 2.2) : null), [closesAll, kind]);
   const prevClose = legendIdx > 0 ? bars[legendIdx - 1].close : null;
   const chg = ohlc && prevClose ? ((ohlc.close - prevClose) / prevClose) * 100 : null;
 
@@ -386,49 +361,17 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     : w === 'flat' || w === 'none' ? t('none', 'aucune', 'بلا اتجاه') : w || '—');
   const keyFacts: { label: string; value: string; tone?: string }[] = [];
   if (result?.dataQuality.ok) {
-    if (symbol === 'XAU/USD') {
-      const rng = facts.range20h as { high?: number; low?: number } | undefined;
-      keyFacts.push({ label: t('H1 trend', 'Tendance H1', 'اتجاه H1'), value: trendWord(str(facts.trend)), tone: trendTone(str(facts.trend)) });
-      if (num(facts.ema50) !== null) keyFacts.push({ label: 'EMA50', value: fmt(num(facts.ema50)!) });
-      if (num(facts.ema200) !== null) keyFacts.push({ label: 'EMA200', value: fmt(num(facts.ema200)!) });
-      if (num(facts.atrH1) !== null) keyFacts.push({ label: 'ATR H1', value: `$${num(facts.atrH1)!.toFixed(2)}` });
-      if (rng?.high && rng?.low) keyFacts.push({ label: t('20h range', 'Range 20 h', 'نطاق 20 ساعة'), value: `${fmt(rng.low)} – ${fmt(rng.high)}` });
-      // Second engine (reversion): the 2.2σ Bollinger band it waits for a close beyond
-      const bands = facts.bands as { upper: number; middle: number; lower: number } | null | undefined;
-      if (bands) keyFacts.push({ label: t('Bollinger 2.2σ', 'Bollinger 2,2σ', 'بولينجر 2.2σ'), value: `${fmt(bands.lower)} · ${fmt(bands.middle)} · ${fmt(bands.upper)}` });
-    } else if (kind === 'london') {
-      // London breakout: today's Asian range, the H1 ATR it is measured against, the H1 trend for context
-      if (num(facts.asianLow) !== null && num(facts.asianHigh) !== null)
-        keyFacts.push({ label: t('Asian range', 'Range asiatique', 'نطاق آسيا'), value: `${fmt(num(facts.asianLow)!)} – ${fmt(num(facts.asianHigh)!)}`, tone: 'text-gold-200' });
-      keyFacts.push({ label: t('Window', 'Fenêtre', 'النافذة'), value: '07:00–11:00 GMT' });
-      if (num(facts.atrH1) !== null) keyFacts.push({ label: 'ATR H1', value: `${(num(facts.atrH1)! / pip).toFixed(1)} pips` });
-      keyFacts.push({ label: t('H1 trend', 'Tendance H1', 'اتجاه H1'), value: trendWord(str(facts.trendH1)), tone: trendTone(str(facts.trendH1)) });
-    } else if (kind === 'report') {
-      // Live report plan: the rule it runs, and the H4 ATR its stop is measured with
-      const rule = REPORT_RULE[symbol];
-      if (rule) keyFacts.push({ label: t('Rule', 'Règle', 'القاعدة'), value: t(...rule) });
-      if (num(facts.atr) !== null) keyFacts.push({ label: 'ATR H4', value: `${(num(facts.atr)! / pip).toFixed(1)} pips` });
-    } else if (kind === 'rsi2') {
-      // RSI(2) Connors: H4 trend, RSI(2) now vs the pair's extreme, EMA5 exit level
-      keyFacts.push({ label: t('H4 trend', 'Tendance H4', 'اتجاه H4'), value: trendWord(str(facts.trendH4)), tone: trendTone(str(facts.trendH4)) });
-      const r2 = num(facts.rsi2);
-      const lvl = num(facts.rsiLevel);
-      if (r2 !== null) keyFacts.push({ label: 'RSI(2)', value: lvl !== null ? `${r2.toFixed(1)} · ${t('buy <', 'achat <', 'شراء <')} ${lvl} / ${t('sell >', 'vente >', 'بيع >')} ${100 - lvl}` : r2.toFixed(1),
-        tone: lvl !== null && (r2 < lvl || r2 > 100 - lvl) ? 'text-gold-300' : 'text-slate-300' });
-      if (num(facts.ema5) !== null) keyFacts.push({ label: t('EMA5 (exit)', 'EMA5 (sortie)', 'EMA5 (خروج)'), value: fmt(num(facts.ema5)!) });
-      if (num(facts.ema200) !== null) keyFacts.push({ label: 'EMA200', value: fmt(num(facts.ema200)!) });
-      if (num(facts.atrH4) !== null) keyFacts.push({ label: 'ATR H4', value: `${(num(facts.atrH4)! / pip).toFixed(1)} pips` });
-    } else {
-      // The 3 sync rule, the GPA grade right now, and the W1 / D1 zones with their touches
-      for (const [k, key] of [['W1', 'trendW1'], ['D1', 'trendD1'], ['H4', 'trendH4']] as const) {
-        keyFacts.push({ label: k, value: trendWord(str(facts[key])), tone: trendTone(str(facts[key])) });
-      }
-      const live = facts.liveGrade as { score: number; grade: string } | undefined;
-      if (live) keyFacts.push({ label: t('Grade now', 'Note actuelle', 'التقييم دابا'), value: `${live.grade} · ${live.score}%`, tone: live.score >= 60 ? 'text-emerald-300' : live.score >= 50 ? 'text-gold-200' : 'text-slate-300' });
-      if (num(facts.atrH4) !== null) keyFacts.push({ label: 'ATR H4', value: `${(num(facts.atrH4)! / pip).toFixed(1)} pips` });
-      const aoi = (facts.areasOfInterest as { kind: string; lo: number; hi: number; touches: number; tfs: string }[] | undefined) ?? [];
-      aoi.slice(0, 3).forEach((a, k) => keyFacts.push({ label: k === 0 ? t('AOI', 'Zone (AOI)', 'منطقة الاهتمام') : '', value: `${a.tfs} ${fmt(a.lo)}–${fmt(a.hi)} ×${a.touches}`, tone: a.kind === 'support' ? 'text-emerald-300' : 'text-rose-300' }));
-    }
+    // The pair's plan, the trend on its timeframe (EMA50 vs EMA200), its ATR and what the analysis found
+    const plan = result.pairStrategy;
+    const tfName = plan?.timeframe ?? entryTf;
+    keyFacts.push({ label: t('Strategy', 'Stratégie', 'الاستراتيجية'), value: plan?.live ? plan.name : t('none validated · no signals', 'aucune validée · pas de signaux', 'ما كايناش · بلا إشارات'),
+      tone: plan?.live ? 'text-gold-200' : 'text-slate-400' });
+    keyFacts.push({ label: t(`${tfName} trend`, `Tendance ${tfName}`, `اتجاه ${tfName}`), value: trendWord(str(facts.trend)), tone: trendTone(str(facts.trend)) });
+    if (num(facts.ema50) !== null && num(facts.ema200) !== null) keyFacts.push({ label: 'EMA50 / 200', value: `${fmt(num(facts.ema50)!)} / ${fmt(num(facts.ema200)!)}` });
+    if (num(facts.atr) !== null) keyFacts.push({ label: `ATR ${tfName}`, value: symbol === 'XAU/USD' ? `$${num(facts.atr)!.toFixed(2)}` : `${(num(facts.atr)! / pip).toFixed(1)} pips` });
+    if (plan?.live && plan.params.hours) keyFacts.push({ label: t('Window', 'Fenêtre', 'النافذة'), value: `${String(plan.params.hours[0]).padStart(2, '0')}:00–${String(plan.params.hours[1]).padStart(2, '0')}:00 GMT` });
+    if (plan) keyFacts.push({ label: t('Character', 'Caractère', 'الطبع'), value: ({ trending: t('trending', 'tendanciel', 'كيتبع'), reverting: t('reverting', 'revient', 'كيرجع'), mixed: t('mixed', 'mixte', 'مختلط') })[plan.profile.character],
+      tone: plan.profile.character === 'trending' ? 'text-sky-300' : plan.profile.character === 'reverting' ? 'text-violet-300' : 'text-slate-300' });
   }
   const entrySec = TF_SEC[entryTf] || 3600;
   const nowSec = nowMs / 1000;
@@ -441,8 +384,8 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
 
   // Only the layers this strategy actually draws (plus its averages and the trade)
   const present = new Set(allDrawings.map(d => d.layer));
-  const shownLayers = LAYERS.filter(l => ALWAYS_SHOWN.includes(l.key) || present.has(l.key as DrawingLayer) || (l.key === 'bands' && kind === 'gold'))
-    .map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${({ 'trend on H1': t('trend on H1', 'tendance H1', 'اتجاه H1'), 'rejection on H4 / 1H': t('rejection on H4 / 1H', 'rejet H4 / 1H', 'رفض H4 / 1H'), 'exit / trend on H4': t('exit / trend on H4', 'sortie / tendance H4', 'خروج / اتجاه H4'), 'context on H1': t('context on H1', 'contexte H1', 'سياق H1'), 'Bollinger middle': t('Bollinger middle', 'milieu de Bollinger', 'وسط بولينجر') } as Record<string, string>)[emaNote] ?? emaNote}` : l.label[li] }));
+  const shownLayers = LAYERS.filter(l => ALWAYS_SHOWN.includes(l.key) || present.has(l.key as DrawingLayer))
+    .map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${({ 'trend on H1': t('trend on H1', 'tendance H1', 'اتجاه H1'), 'trend on H4': t('trend on H4', 'tendance H4', 'اتجاه H4'), 'context on H1': t('context on H1', 'contexte H1', 'سياق H1'), 'context on H4': t('context on H4', 'contexte H4', 'سياق H4') } as Record<string, string>)[emaNote] ?? emaNote}` : l.label[li] }));
   const age = updatedAt ? Math.max(0, Math.round((nowMs - updatedAt) / 1000)) : null;
   const hoverIsSignal = !!(setup && hover.c && signalBarTime !== null && hover.c.time <= signalBarTime && hover.c.time + tfSec > signalBarTime);
   const statusTone = result?.status === 'SIGNAL' ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'
@@ -553,9 +496,6 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
                 {emas.map((period, k) => emaVals[k]?.[legendIdx] != null && (
                   <span key={period} style={{ color: k === 0 ? PAL[theme].ema50 : PAL[theme].ema200 }}>EMA{period} {fmt(emaVals[k][legendIdx] as number)}</span>
                 ))}
-                {kind === 'gold' && layers.bands && bbVals?.up[legendIdx] != null && (
-                  <span className="text-violet-300">BB {fmt(bbVals.lo[legendIdx] as number)} · {fmt(bbVals.up[legendIdx] as number)}</span>
-                )}
               </div>
             )}
           </div>

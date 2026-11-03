@@ -1,10 +1,9 @@
 """
-Strategy service: the app's strategies, one per instrument.
-  XAUUSD → H1 Trend Breakout (trend, breakout and entry on H1)
-  GBP/USD → London breakout H1 (from the strategy report; +28.6R on 274 trades over 2 years vs +3.0R for RSI(2))
-  EUR/USD → liquidity sweep + break of structure H4, USD/CAD → EMA pullback H4 (2nd report: +14.4R / +18.8R over 2 years)
-  AUD/CAD → mean reversion Bollinger + Stochastic H4 (1st report)
-  The other forex pairs → FXAlexG Set & Forget GPA (trend W1/D1/H4, AOI W1/D1, entry 30m), same rules
+Strategy service: one strategy per instrument, designed from the pair's own behaviour and kept only where it held up on
+the unseen 40 % of 2 years (strategies/pairs/config.py, docs/STRATEGIES.md):
+  XAU/USD → channel breakout in the trend H1 · EUR/USD → Asian-session channel fade H1
+  GBP/USD → H4 channel fade · AUD/CHF → Asian-session channel fade H1
+  USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD → no validated strategy: their analysis, no signal
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
 """
@@ -17,71 +16,30 @@ from functools import partial
 
 from ..agent.explain import build_explanation
 from ..market.data import canonical, fetch_live_price, fetch_many, market_session_status
-from .alexg.config import ALEXG_CONFIGS
-from .alexg.strategy import evaluate_alexg
-from .london.config import LONDON_CONFIGS
-from .report.config import REPORT_CONFIGS
-from .report.engine import evaluate_report, observation_block
-from .london.strategy import evaluate_london
-from .rsi2.config import RSI2_CONFIGS
-from .rsi2.strategy import evaluate_rsi2, exit_rule as rsi2_exit
+from .pairs.config import PAIR_CONFIGS
+from .pairs.engine import evaluate_pair, make_trigger
+from .pairs.rules import in_hours
 from .replay import ReplayState, StrategyDef, decision_tf, replay, stats_at
 from .shared.jsnum import fmt_utc_minute
 from .shared.news import load_news_calendar
-from .shared.common import active_window
 from .shared.sessions import trading_day_key
-from .shared.types import TF_SEC, Candle, closed_only
-from .xauusd.config import XAU_CONFIG
-from .xauusd.strategy import evaluate_xauusd
+from .shared.types import TF_SEC, closed_only
 
 PROVIDER_TF = {"M5": "5M", "M15": "15M", "M30": "30M", "H1": "1H", "H4": "4H", "D1": "1D"}
 
 
-def _fx_def(cfg: dict) -> StrategyDef:
-    # Evaluated at every 30m close; a signal is only possible on a candle that opened at the London / New York open.
-    # D1 / W1 are built from H1 inside the strategy (same Yahoo request as H4)
-    tf = cfg["entryTf"]
-    windows = cfg["sessions"]["windows"]
-    return StrategyDef(entryTf=tf, run=partial(evaluate_alexg, cfg=cfg), tfs=[tf, "H1", "H4"],
-                       limits={tf: 3000, "H1": 12500, "H4": 3200}, canSignalAt=lambda close: active_window(close - TF_SEC[tf], windows) is not None)
-
-
-def _london_def(cfg: dict) -> StrategyDef:
-    # Evaluated at every H1 close; a signal is only possible on a candle that opened in the breakout window (07–10 GMT)
-    S = cfg["session"]
-    return StrategyDef(entryTf="H1", run=partial(evaluate_london, cfg=cfg), tfs=["H1"], limits={"H1": 12500},
-                       canSignalAt=lambda close: S["asiaEndHour"] <= ((close - 3600) // 3600) % 24 < S["breakoutEndHour"])
-
-
-def _report_def(cfg: dict) -> StrategyDef:
-    # A report strategy that won its 2-year test (EUR/USD, USD/CAD, AUD/CAD): evaluated at every close of its timeframe
+def _pair_def(cfg: dict) -> StrategyDef:
+    # Evaluated at every close of the plan's timeframe; a signal only on a candle that opened inside the plan's hours.
+    # A pair without a validated plan never signals.
     tf = cfg["timeframes"]["entry"]
-    return StrategyDef(entryTf=tf, run=partial(evaluate_report, cfg=cfg), tfs=[tf], limits={tf: cfg["history"]}, canSignalAt=lambda close: True)
+    hours = cfg["params"].get("hours")
+    return StrategyDef(entryTf=tf, run=partial(evaluate_pair, cfg=cfg), tfs=[tf], limits={tf: cfg["history"]},
+                       canSignalAt=(lambda close: in_hours(close - TF_SEC[tf], hours)) if cfg["rule"] else (lambda close: False),
+                       trigger=make_trigger(cfg) if cfg["rule"] else None)
 
 
-LIVE_REPORT = {p: c for p, c in REPORT_CONFIGS.items() if c["live"]}
-
-
-def _rsi2_def(cfg: dict) -> StrategyDef:
-    # Evaluated at every H4 close; the exit (close back over EMA5) is part of the lifecycle, live and in backtests
-    return StrategyDef(entryTf="H4", run=partial(evaluate_rsi2, cfg=cfg), tfs=["H4"], limits={"H4": 3200},
-                       canSignalAt=lambda close: True, exit_rule=(lambda c, side: rsi2_exit(c, side, cfg["exitEma"])) if cfg.get("exitAtEma", True) else None)
-
-
-STRATEGY_DEFS: dict[str, StrategyDef] = {
-    "XAU/USD": StrategyDef(
-        entryTf="H1", run=evaluate_xauusd, tfs=["H1", "M15"],
-        limits={"H1": 5000, "M15": 200},
-        canSignalAt=lambda close: True,  # every H1 close while the market is open
-        # M15 confirmation: the H1 rules run at every 15-minute close on the H1 candle still forming, so a breakout or a
-        # reversion is taken up to 45 min before the H1 close (60 days: +9.1R on 28 trades vs +7.6R on 18 at the close)
-        confirmTf="M15",
-    ),
-    # Each pair runs the strategy that held up on it: London breakout H1 on GBP/USD, the live report plans, FXAlexG GPA on the others
-    **{pair: (_london_def(LONDON_CONFIGS[pair]) if pair in LONDON_CONFIGS else _report_def(LIVE_REPORT[pair]) if pair in LIVE_REPORT
-              else _rsi2_def(RSI2_CONFIGS[pair]) if pair in RSI2_CONFIGS else _fx_def(cfg)) for pair, cfg in ALEXG_CONFIGS.items()},
-}
-CONFIGS = {"XAU/USD": XAU_CONFIG, **ALEXG_CONFIGS, **RSI2_CONFIGS, **LONDON_CONFIGS, **LIVE_REPORT}
+STRATEGY_DEFS: dict[str, StrategyDef] = {pair: _pair_def(cfg) for pair, cfg in PAIR_CONFIGS.items()}
+CONFIGS = PAIR_CONFIGS
 
 
 def normalize_symbol(s: str) -> str:
@@ -133,64 +91,12 @@ def _reusable(sym: str) -> bool:
     return bool(hit) and hit[1] > time.time() and _slot.get(sym) == int(time.time()) // tf_sec
 
 
-_early: dict[str, tuple[int, dict]] = {}  # symbol → (entry candle start, the first signal its confirmation gave)
-
-
-def _early_signal(sym: str, base: dict, now_sec: int, day: dict) -> Optional[dict]:
-    """M15 confirmation: the strategy's rules on the entry candle still forming, rebuilt from the confirmation candles
-    closed so far. The first signal of an entry candle is kept (its levels never change while that candle forms)."""
-    d = STRATEGY_DEFS[sym]
-    tf, ctf = TF_SEC[d.entryTf], TF_SEC[d.confirmTf]
-    start = now_sec - now_sec % tf
-    held = _early.get(sym)
-    if held and held[0] == start:
-        return held[1]
-    parts = [c for c in base["candles"].get(d.confirmTf) or [] if start <= c.time and c.time + ctf <= now_sec]
-    if not parts or len(parts) * ctf >= tf:  # nothing closed yet in this candle, or the candle is complete (normal close decision)
-        return None
-    forming = Candle(start, parts[0].open, max(c.high for c in parts), min(c.low for c in parts), parts[-1].close, 0)
-    closed = [c for c in base["candles"][d.entryTf] if c.time < start]
-    r = d.run({**base, "candles": {**base["candles"], d.entryTf: closed + [forming]}, "nowSec": start + tf,
-               "isMarketOpen": market_session_status(sym)["isOpen"], "day": day})
-    s = r["setup"]
-    if not (s and s["isFresh"] and r["status"] == "SIGNAL" and r["canNotify"]):
-        return None
-    at = parts[-1].time + ctf
-    r["facts"]["confirmation"] = {"tf": d.confirmTf, "at": at, "candle": d.entryTf}
-    r["headline"] = f"{d.confirmTf} confirmation · {r['headline']}"
-    r["dataQuality"] = {**r["dataQuality"], "source": f"{r['dataQuality'].get('source', '')} · {d.confirmTf} confirmation on the forming {d.entryTf}"}
-    _early[sym] = (start, r)
-    return r
-
-
 async def _with_live_price(sym: str, bundle: dict) -> dict:
     """The cached analysis with the latest price (the rules only read closed candles, so nothing else changes)."""
     price = (await fetch_live_price(sym))["price"]
     if price > 0 and price != bundle["result"]["price"]:
         return {**bundle, "result": {**bundle["result"], "price": price}}
     return bundle
-LONDON_REPORT = {"live": True, "recommendation": "London breakout of the Asian range (M5 / M15) + post-news exhaustion",
-                 "test": {"trades": 257, "winRate": 48.4, "totalR": 25.2, "verdict": "Live: +25.2R (RSI(2) H4 it replaced: +3.0R)"},
-                 "note": "Buys carried the result (+29.3R) while the sells were flat"}
-
-
-async def _report_strategy(sym: str, base: dict, now_sec: int, real: bool) -> Optional[dict]:
-    """The pair's strategy from the report: the live one's summary, or the observation plan computed next to it (no signal)."""
-    if sym in LONDON_CONFIGS:
-        return {"name": LONDON_CONFIGS[sym]["name"], "timeframe": "H1", **LONDON_REPORT}
-    cfg = REPORT_CONFIGS.get(sym)
-    if not cfg:
-        return None
-    if cfg["live"]:
-        return {"name": cfg["name"], "timeframe": cfg["timeframes"]["entry"], "live": True, "recommendation": cfg["report"], "test": cfg["test"], "note": cfg.get("note")}
-    if not real:
-        return None
-    try:
-        r = await _cpu_run(evaluate_report, {**base, "nowSec": now_sec, "isMarketOpen": False, "day": {"trades": 0, "losses": 0}}, cfg)
-        return observation_block(r)
-    except Exception as err:  # the observation never breaks the pair's live analysis
-        print(f"[report] {sym}: {err!r}")
-        return None
 
 
 _locks: dict[str, asyncio.Lock] = {}
@@ -224,13 +130,8 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
         # Replaying today's bars is CPU work: keep it off the event loop
         day = await _cpu_run(_today_stats, sym, base, now_sec) if loaded["isReal"] else {"trades": 0, "losses": 0}
         result = await _cpu_run(d.run, {**base, "nowSec": now_sec, "isMarketOpen": market_session_status(sym)["isOpen"], "day": day})
-        if d.confirmTf and loaded["isReal"] and result["dataQuality"]["ok"] and not (result["setup"] and result["setup"]["isFresh"]):
-            early = await _cpu_run(_early_signal, sym, base, now_sec, day)
-            if early:
-                result = {**early, "price": result["price"]}
         if result["signal"]:
             result["signal"]["explanation"] = build_explanation(result)
-        result = {**result, "reportStrategy": await _report_strategy(sym, base, now_sec, loaded["isReal"])}
         bundle = {"result": result, "candles": loaded["candles"]}
         if result["dataQuality"]["ok"]:
             _last_good[sym] = (bundle, time.time())

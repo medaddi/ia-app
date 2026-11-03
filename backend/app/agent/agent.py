@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 import httpx
 
 from ..config import settings
-from ..strategies.alexg.config import ALEXG_CONFIGS
+from ..strategies._pairs import PAIRS
 from ..strategies.shared.jsnum import finite, fmt_utc_minute, iso, js_str, round_to, to_fixed
 from .explain import build_explanation
 from .system_prompt import build_system_prompt
@@ -41,7 +41,7 @@ def symbols_from_question(text: str) -> list[str]:
     if re.search(r"(xau|gold|dhab|dahab|ذهب|\bor\b)", t):
         wanted.append("XAUUSD")
     # Exact pairs first ("eurchf", "nzd/cad", "aud cad"), then the usual nicknames
-    for pair in ALEXG_CONFIGS:
+    for pair in PAIRS:
         a, b = pair.lower().split("/")
         if re.search(rf"{a}\s*[/ _-]?\s*{b}", t):
             wanted.append(pair.replace("/", ""))
@@ -93,39 +93,16 @@ def build_agent_context(results: list[dict]) -> dict:
     }
 
 
-def _gpa_answer(r: dict, lang: str, head: str, f) -> str:
-    """Forex answer in the 5 parts of the Set & Forget rules: trend sync, AOI, grade, verdict, parameters."""
-    ar = lang == "ar"
-    fa = r["facts"]
-    conf = [c for c in r["checklist"] if c["weight"] == 10]
-    live = r.get("liveGrade") or {}
-    s = r["setup"]
-    score = r["score"] if s else live.get("score", 0)
-    grade = r["grade"] if s else live.get("grade", "NO TRADE")
-    direction = {"BULLISH": "BUY only", "BEARISH": "SELL only"}.get(r["bias"]["direction"], "no majority → no trade")
-    zones = fa.get("areasOfInterest") or []
-    aoi_item = next((c for c in conf if c["key"] == "aoi"), None)
-    if s and r["status"] == "SIGNAL" and s["lifecycle"]["state"] in ("OPEN", "PENDING"):
-        verdict = "TAKE TRADE"
-    elif r["bias"]["direction"] == "NEUTRAL" or score < 50:
-        verdict = "NO TRADE"
-    else:
-        verdict = "WAIT"
-    lines = [
-        head,
-        f"**1. {'تزامن الاتجاه' if ar else 'Trend Sync Check'}:** 1W {fa.get('trendW1', '—')} | 1D {fa.get('trendD1', '—')} | 4H {fa.get('trendH4', '—')} → {direction}",
-        f"**2. {'منطقة الاهتمام' if ar else 'AOI Validation'}:** {aoi_item['detail'] if aoi_item and aoi_item['passed'] else ''}"
-        + ("" if aoi_item and aoi_item["passed"] else ("Price is not at a valid zone. Nearest: " + " · ".join(f"{z['tfs']} {f(z['lo'])}–{f(z['hi'])} ({z['touches']} touches)" for z in zones[:3]) if zones else "No W1 / D1 zone with 3+ touches")),
-        f"**3. {'التقييم' if ar else 'Confluence Checklist & Final Grade'}:** {score}% → {grade}\n"
-        + "\n".join(f"{'✔' if c['passed'] else '✘'} +10% {c['ruleAr'] if ar else c['rule']} — {c['detail']}" for c in conf),
-        f"**4. {'القرار' if ar else 'Final Verdict'}:** {verdict}" + ("" if verdict == "TAKE TRADE" else f" — {fa.get('progress') or r['headline']}"),
-    ]
-    if s and r["status"] == "SIGNAL":
-        lines.append(f"**5. {'معطيات الصفقة' if ar else 'Trade Parameters'}:** {s['direction']} MARKET {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])} pips) · "
-                     f"TP {f(s['tp3'])} ({s['tp3Source']}) · R:R 1:{to_fixed(s['rrTarget'], 2)} · set & forget · {s['lifecycle']['state']}")
-    else:
-        lines.append(f"**5. {'معطيات الصفقة' if ar else 'Trade Parameters'}:** — ({'ما كاين حتى صفقة صالحة' if ar else 'no valid trade'})")
-    return "\n".join(lines)
+def _strategy_line(r: dict) -> str:
+    """The pair's strategy in one line: what it does and why, and how it did on the unseen part of its test."""
+    ps = r.get("pairStrategy") or {}
+    if not ps:
+        return ""
+    if not ps.get("live"):
+        return f"**Strategy:** none validated on this pair: {ps.get('why')}. No trade."
+    u = (ps.get("test") or {}).get("unseen") or {}
+    return (f"**Strategy:** {ps['name']} {ps['timeframe']}: {ps['why']} Unseen test: {u.get('trades')} trades, {u.get('winRate')}% winners, "
+            f"{u.get('totalR'):+}R, {u.get('tp2R')}% reached 2R.")
 
 
 def deterministic_answer(results: list[dict], lang: str) -> str:
@@ -138,9 +115,6 @@ def deterministic_answer(results: list[dict], lang: str) -> str:
         if not r["dataQuality"]["ok"]:
             blocks.append(f"{head}\n{t['data']}: {r['dataQuality']['reason']}")
             continue
-        if r["strategy"] == "FXAlexG_SetForget_GPA":
-            blocks.append(_gpa_answer(r, lang, head, f))
-            continue
         lv = [x for x in (r["facts"].get("levels") or []) if x.get("untaken") is not False and x.get("kind") != "ROUND"]
         lv.sort(key=lambda x: abs(x["price"] - r["price"]))
         levels = " · ".join(f"{x.get('label') or x['kind']} {f(x['price'])}" for x in lv[:5])
@@ -149,8 +123,7 @@ def deterministic_answer(results: list[dict], lang: str) -> str:
         if s and r["status"] == "SIGNAL":
             v = validate_signal(r)
             issues = "" if v["approved"] else f" · ✘ {'; '.join(v['issues'])}"
-            targets = (f"exit at the first H4 close {'above' if s['direction'] == 'BUY' else 'below'} EMA5 · safety TP {f(s['tp3'])}" if s["setup"] == "RSI2"
-                       else f"TP1 {f(s['tp1'])} · TP2 {f(s['tp2'])} (1:{to_fixed(s['rrTp2'], 1)}) · TP3 {f(s['tp3'])}")
+            targets = f"one target TP {f(s['tp3'])} (1:{to_fixed(s['rrTarget'], 1)}), closed after {s['params']['maxBars']} candles at the latest"
             plan = (f"{s['direction']} {s['entryType']} · {t['entry']} {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])} pips) · "
                     f"{targets} · score {js_str(v['score'])}/100{issues}")
         elif s and r["status"] == "WATCH":
@@ -160,6 +133,7 @@ def deterministic_answer(results: list[dict], lang: str) -> str:
         score_txt = f" (score {r['score']})" if s else ""
         lines = [
             head,
+            _strategy_line(r),
             f"**{t['bias']}:** {r['bias']['direction']} — {r['bias']['detail']}",
             f"**{t['levels']}:** {levels or '—'}",
             f"**{t['setup']}:** {r['status']}{score_txt}\n{checklist}",

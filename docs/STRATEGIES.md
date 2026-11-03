@@ -1,315 +1,150 @@
 # LiquidityDissection — the strategies
 
-Each pair runs the rule-based strategy that held up on it: gold its own H1 engines, GBP/USD the London breakout (Strategy 4),
-EUR/USD, USD/CAD and AUD/CAD a strategy from the reports (Strategies 5–7), NZD/USD, EUR/CHF, NZD/CAD and AUD/CHF FXAlexG
-GPA. RSI(2) Connors (Strategy 2) no longer runs on a pair; the table below is the original three. Nothing else creates
-signals or sends Telegram messages. Every rule below is code; every parameter lives in the
-strategy's config file. Same closed candles → same result, every time.
+Every pair runs **one** rule-based strategy designed from the pair's own behaviour, and only where that strategy held up
+on history it was never tuned on. A pair where nothing held up gets **no strategy and no signal**: its chart, trend and
+analysis only. Nothing else creates signals or sends Telegram messages. Every rule below is code
+(`backend/app/strategies/pairs/`); every parameter lives in `pairs/config.py`. Same closed candles → same result.
 
-| | XAUUSD (Gold) | EUR/USD, GBP/USD | USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF |
-|---|---|---|---|
-| Name | H1 Trend Breakout + Bollinger Reversion | RSI(2) Connors pullback H4 | FXAlexG Set & Forget GPA |
-| Code | `backend/app/strategies/xauusd/strategy.py` | `backend/app/strategies/rsi2/strategy.py` | `backend/app/strategies/alexg/strategy.py` |
-| Config | `backend/app/strategies/xauusd/config.py` | `backend/app/strategies/rsi2/config.py` | `backend/app/strategies/alexg/config.py` |
-| Timeframes | Trend, setup and entry on H1 | Trend, entry and exit on H4 | Trend W1 + D1 + H4 · AOI W1 / D1 · Pattern & EMA 1H · Entry 30m |
-| Order | MARKET (close of the signal candle) | MARKET (close of the RSI(2) extreme), exit at the first close back over EMA5 | MARKET (close of the 30m engulfing), one target at the next W1 / D1 zone (≥ 1:2) |
+| Pair | Strategy | Timeframe | Unseen 40 % of 2 years | Status |
+|---|---|---|---|---|
+| **XAU/USD** | Channel breakout in the trend | H1 | 87 trades · 47 % winners · **+31.3R** · 42 % reached 2R | 🟢 live |
+| **EUR/USD** | Asian-session channel fade (00:00–06:00 GMT) | H1 | 107 trades · 43 % · **+19.9R** · 42 % reached 2R | 🟢 live |
+| **GBP/USD** | Channel fade, ADX < 35 | H4 | 80 trades · 45 % · **+14.3R** · 38 % reached 2R | 🟢 live (fragile) |
+| **AUD/CHF** | Asian-session channel fade (22:00–05:00 GMT) | H1 | 36 trades · 44 % · **+6.3R** · 44 % reached 2R | 🟢 live (small edge) |
+| USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD | — | H4 chart | nothing held up | ⏸ no signals |
 
-## Three agents decide every trade
+## How they were built
 
-A signal is sent (Telegram and phone notifications) only when three agents agree (`backend/app/agent/agents.py`):
+**1. Analysis.** For each pair, on 2 years of the app's own H1 and H4 candles: after a close beyond the 20-candle
+channel, how often does price go 2 ATR further (follow) or 2 ATR back (fade) before 1 ATR the other way? At 2:1 the
+break-even is 33 %. Also the variance ratio over a day (VR(24): above 1 trends, below 1 comes back) and the most active
+hours.
 
-1. **Market analysis**: reads the market on its own: daily trend (EMA20 / EMA50 on daily candles), volatility regime
-   (ATR now vs its usual level) and high-impact news of the pair's currencies in the next 6 h. It objects to a trade
-   against the daily trend, in a volatility spike (ATR > 2.5× usual) or with major news less than 1 h away.
-2. **Strategy**: the pair's strategy decision (rules, score, a fresh setup it may send) turned into the plan (entry, stop,
-   target, R:R); it agrees only when the signal fits the market report.
-3. **Risk & execution**: the AI trade desk (rules re-checked, live data, price drift, live R:R, market open, currency
-   exposure) plus the open book (at most 4 signals open at once).
-
-On each pair's past trades, the market agent's trend veto blocked 8 of 111 trades for about the same total (+0.3R):
-it mostly removes counter-trend trades (NZD/USD, EUR/CHF, NZD/CAD losers) but also blocked some USD/CAD and gold winners.
-Each agent can only block; none can create or improve a trade.
-
-## Target rule (every strategy)
-
-Every signal has **one target between 1.5R and 2R**; the stop stays at the structure (no partial closes, no breakeven):
-
-| Strategy | Target |
-|---|---|
-| Gold H1 breakout | 2R (was TP1 1R / TP2 2R / TP3 3R with partials) |
-| Gold Bollinger reversion | 1.5R (was 1R), still closed after 24 H1 candles |
-| RSI(2) Connors H4 (EUR/USD, GBP/USD) | 1.5R (the more reachable end: past trades hit 1.5R 40% / 18% of the time vs 30% / 12% for 2R), or earlier at the first H4 close back over EMA5 (removing the EMA5 exit lost money) |
-| FXAlexG GPA | the next W1 / D1 zone capped at 2R; below 1.5R to the zone, no trade |
-
-Measured on each pair's own history with the app's code before the change (costs included):
-gold 2R + 1.5R gave +8.5R on 11 trades (vs +5.5R), EUR/USD +5.3R and GBP/USD +4.8R on 133 / 70 trades (unchanged within 0.5R),
-USD/CAD +3.8R on 10 trades (vs +5.0R). Small samples on gold and the GPA pairs: treat them as indicative.
-The validator rejects any signal whose target is outside 1:1.5–1:2. Every signal shows how often the pair's past trades reached its TP.
-
-Entries on 15-minute candles were tested on the same 60 days (Yahoo keeps 60 days of 15m) and were worse on every pair
-(gold +8.5R → +6.4R, EUR/USD +1.4R → −3.5R, GBP/USD +0.4R → −2.9R, USD/CAD +3.8R → +0.7R, NZD/USD +0.4R → −0.1R): the
-decision timeframes stay H1 (gold), H4 (RSI(2)) and 30m (GPA).
-
-**Gold M15 confirmation.** A second test kept the H1 rules and ran them at every 15-minute close on the H1 candle still
-forming (same 60 days, same stop / target, followed on 15m candles): gold +9.1R on 28 trades vs +7.6R on 18 at the H1 close,
-EUR/USD +4.3R vs +4.9R, GBP/USD −8.1R vs −1.1R. Only gold uses it: its breakout or reversion is taken at the first 15-minute
-close that confirms it, up to 45 min before the H1 close, and that signal's levels are kept for the rest of the hour.
-EUR/USD and GBP/USD keep deciding at the H4 close. Small sample: watch it. The figures in the sections below were measured with the old targets.
-
-## Shared definitions (`backend/app/strategies/shared/`)
-
-- **Swing high/low**: fractal with 3 candles on each side, strictly higher/lower; confirmed only after the 3 right-side candles close. Labelled HH / LH / HL / LL against the previous swing of the same kind.
-- **BOS**: a candle **close** beyond the last confirmed swing, in the trend direction.
-- **CHoCH / MSS**: the first candle **close** beyond the last confirmed swing **against** the current trend.
-- **Liquidity sweep**: the first candle that trades beyond a key level wicks through it and **closes back inside**. A close beyond it is a break, not a sweep.
-- **Key levels**: PDH/PDL and PWH/PWL (trading day rolls at 17:00 New York), Asian high/low (00:00–06:00 London), previous session high/low, equal highs/lows within 0.1 × ATR ("$$$"), and for gold $10 / $50 round numbers.
-- **FVG**: candle 1 high < candle 3 low (bullish) or candle 1 low > candle 3 high (bearish); ignored below 0.25 × ATR(14); mitigated once 50% is filled.
-- **Order block**: the last opposite-coloured candle before the displacement that caused a BOS/CHoCH; valid only if the displacement body > 1.5 × the 20-candle average body.
-- **Sessions**: defined in Europe/London and America/New_York local time and converted to UTC with the real DST offset of each date (tests cover the March and October clock changes).
-- **Score**: weighted checklist 0–100. **≥ 75 = SIGNAL** (sent to Telegram once), **60–74 = WATCH** (chart only), **< 60 = ignored**. Any failed *required* rule = **NO TRADE**.
-
-## Strategy 1 — XAUUSD: two engines, one trade at a time
-
-Gold runs two engines on H1 (`backend/app/strategies/xauusd/`). At every H1 close the candles are replayed in order:
-the first engine whose **confirmation** prints is traded, and nothing else counts until that trade has closed.
-Both need the same H1 trend: BUY only if EMA 50 > EMA 200 and the close is above EMA 200 (mirror for SELL).
-
-**A. H1 Trend Breakout** — an H1 candle CLOSES beyond the highest high / lowest low of the previous 20 H1 candles with a
-body > 0.5 × ATR(14) → MARKET. Stop beyond the last 4 candles ± 0.2 × ATR (≥ 1 × ATR, no trade above 3 × ATR).
-TP1 1R (close 50%, stop to breakeven), TP2 2R, TP3 3R.
-
-**B. Bollinger Reversion** (high win rate) — London + New York only (07:00–17:00 UTC). The previous H1 candle CLOSED
-beyond the 2.2σ Bollinger band (20) **against** the trend, and this candle closes back inside the band **with** the
-trend (the confirmation) → MARKET. Stop beyond both candles ± 0.3 × ATR. **One target at 1R**, no partials, and the
-trade is closed at market after 24 H1 candles if neither is hit.
-
-Filters (both): 30 min around high-impact USD news, spread ≤ $0.5, max 3 trades / 2 losses per day.
-
-### How the engines were chosen (2 years of H1, Oct 2024 – Oct 2026, spread $0.30 + $0.05 slippage)
-
-| Candidate | Trades | Win rate | Total | Both halves | Costs ×2 |
+| Pair | Follow | Fade | Character | VR(24) H1 | Most active (GMT) |
 |---|---|---|---|---|---|
-| **H1 trend breakout** (kept) | 165 | 56% | +38.9R | ✅ | +37.4R |
-| **Bollinger 2.2σ reversion, London/NY, TP 1R** (kept) | 82 | 69.5% | +17.7R | ✅ | +16.3R |
-| RSI(2) Connors pullback | 530 | 63% | −5.2R | ❌ | −10.8R |
-| EMA 20/50 pullback | 547 | 43% | −87.3R | ❌ | −96.5R |
-| Asian range breakout at London | 100 | 45% | −11.4R | ❌ | −12.8R |
-| Previous-day high/low sweep | 161 | 52% | +2.2R | ❌ | −0.5R |
+| XAU/USD | 40 % (H4) | 28 % | trending | 1.13 | 12:00–16:00 |
+| USD/CAD | 36 % (H4) | 26 % | trending | 0.88 | 12:00–17:00 |
+| EUR/USD | 32 % (H1) | 36 % | mixed | 0.89 | 07:00–08:00, 12:00–15:00 |
+| GBP/USD | 32 % (H4) | 35 % | mixed | 0.90 | 07:00–08:00, 12:00–15:00 |
+| NZD/USD | 34 % (H4) | 33 % | mixed | 1.04 | 01:00, 07:00, 12:00–15:00 |
+| EUR/CHF | 26 % (H4) | 39 % | reverting | 0.76 | 07:00–09:00, 13:00–15:00 |
+| NZD/CAD | 27 % (H4) | 36 % | reverting | 1.01 | 12:00–15:00, 21:00–22:00 |
+| AUD/CAD | 20 % (H4) | 43 % | reverting | 0.97 | 00:00–01:00, 12:00–15:00 |
+| AUD/CHF | 19 % (H4) | 43 % | reverting | 0.82 | 07:00–08:00, 13:00–15:00 |
 
-Neighbouring settings of the reversion engine stay positive (2.0–2.5σ, TP 0.8–1.2R: 62–74% winners), so it is not a
-lucky parameter. Run together by the app's own code, one trade at a time: **215 trades, 59% winners, +49.9R**
-(reversion 55 trades, 65.5%, +13.7R · breakout 160 trades, 56.9%, +36.2R), both halves positive. Gold rose from
-$2,358 to $4,073 over the period; both engines made money on buys and on sells.
+**2. Design.** The family the behaviour favours: a **breakout** in the trend for trending pairs, a **fade** of the
+stretched close for reverting pairs, both for the mixed ones. Round 1: channel fade, liquidity sweep, channel breakout,
+EMA pullback, Asian-range breakout. Round 2 (for the pairs round 1 left without an edge): previous-day high / low sweep
+and break, Asian-session fade, RSI pullback in the higher-timeframe trend. Every target is **2R**.
 
-## Strategy 2 — EUR/USD: "RSI(2) Connors pullback H4" (GBP/USD moved to Strategy 4)
+**3. Test.** Tuned on the **first 60 %** of the 2 years only, then judged on the **last 40 %** it never saw, with the
+pair's spread + slippage, the stop counted first when both levels sit in one candle, one trade at a time. A plan is live
+only if it is positive on the unseen part, still positive with double costs, and its neighbouring settings agree
+(a lone lucky setting is not an edge). The app's own engine replays each plan over the 2 years to the same result
+(gold 230 trades +51.2R, EUR/USD 265 +40.0R, GBP/USD 215 +33.8R, AUD/CHF 107 +31.4R).
 
-Larry Connors' short-term mean reversion inside the trend (`backend/app/strategies/rsi2/`), chosen because it was the only
-forex strategy tested that stayed positive on these two pairs over 2 years of H4 data, costs included.
+The research also showed the previous strategies decaying: GBP/USD's London breakout, positive in the first 60 %, lost
+in the last 40 % in every variant.
 
-1. **Trend (H4):** BUY only if EMA50 > EMA200 and the close is above EMA200; SELL only on the mirror.
-2. **Entry:** an H4 candle closes with RSI(2) below the pair's level (EUR/USD 10, GBP/USD 5) for buys, above 100 minus it
-   for sells. MARKET at that close. One trade at a time per pair.
-3. **Stop:** 2.5 × ATR(14) (EUR/USD) / 3 × ATR(14) (GBP/USD) from the entry.
-4. **Exit:** the first H4 close back above (buys) / below (sells) EMA5, at market (`SIGNAL_EXIT`); a 5R safety target;
-   closed at market after 48 H4 candles (`TIME_EXIT`). No partials, no breakeven.
-5. **Filters:** no trade 30 min around high-impact news of the pair's currencies; spread ≤ 4 pips; max 2 trades and 1 loss per day.
+## XAU/USD — "Channel breakout in the trend" H1
 
-| Pair (2 years H4, the app's own code) | Trades | Winners | Total | Buys / sells |
-|---|---|---|---|---|
-| EUR/USD (RSI(2) < 10, stop 2.5 ATR) | 188 | 66.0% | +9.1R | +5.0R / +4.1R |
-| GBP/USD (RSI(2) < 5, stop 3 ATR) | 99 | 68.7% | +8.7R | +1.7R / +7.0R |
+Gold trends: a close beyond its channel in the trend runs on more often than it comes back.
 
-A small edge: many small wins at EMA5, fewer larger losses at the stop. EUR/USD stays positive with double costs and with
-the neighbouring RSI level; GBP/USD only works with the strict level 5 (level 10 loses), so treat it as fragile.
+1. **Trend:** EMA50 above EMA200 on H1 for buys, below for sells.
+2. **Entry:** an H1 candle closes above the highest high (below the lowest low) of the previous 20 H1 candles → MARKET
+   at that close.
+3. **Stop:** 2 × ATR(14, H1) from the entry (room for the New York noise). **Target:** 2R (4 ATR, covered within two
+   days on gold). Closed at market after 48 H1 candles.
 
-## Strategy 3 — Forex "FXAlexG Set & Forget GPA" (6 pairs, same rules)
+Tuned 142 trades +24.9R · unseen 87 trades +31.3R · double costs +53.7R. Every channel (10 / 20 / 40 / 55) and stop
+(1 / 1.5 / 2 ATR) is positive on the unseen part (+21R to +57R). Max drawdown over the 2 years in the app replay: 16.5R.
 
-The user's written rules of the fxalexg Set and Forget strategy, as code, on USD/CAD, NZD/USD,
-EUR/CHF, NZD/CAD, AUD/CAD and AUD/CHF (EUR/USD and GBP/USD moved to RSI(2), Strategy 2; their GPA rows below show why) (`backend/app/strategies/alexg/`). One config per pair: only the instrument,
-the assumed spread and the news currencies differ.
+## EUR/USD — "Asian-session channel fade" H1
 
-1. **Trend — 3 sync rule** — W1, D1 and H4 by market structure: HH/HL bullish, LL/LH bearish; the trend only shifts on a
-   candle **body close** beyond the last confirmed swing. Trade the majority (≥ 2 of 3), ideally all 3. Below H4 = entries only.
-2. **AOI** — zones from W1 / D1 swing points only (points within 0.3 × ATR(D1) of each other), valid with **≥ 3 touches**.
-   Buys only above the AOI with a bullish majority, sells only below it with a bearish majority.
-3. **GPA — 10 confluences × 10%**: W1 trend · D1 trend · H4 trend · price at a valid AOI · H4 50 EMA rejection ·
-   H4 structure rejection · H4 rejection candle (pin bar / wick / engulfing) · 1H H&S / inverse H&S / double top-bottom ·
-   1H 50 EMA rejection · 30m engulfing at the London (07:00–10:00) or New York (13:00–16:00 London) open.
-   **A+ 80–100% · B 70–79% · C+ 60–69% (minimum)** · below 60% = no trade.
-4. **Entry** — only after the AOI touch, an H4 rejection and the 30m engulfing at the open: MARKET at its close.
-5. **SL** beyond the pattern's head (conservative), otherwise beyond the last 12 H1 candles (10–90 pips).
-   **TP** at the next W1 / D1 zone (≥ 3 touches), 2 pips before it, pulled in front of a round level (every 50 pips).
-   **Minimum 1:2**, else no trade. Set & forget: one target, no partials, no breakeven. One trade per pair at a time.
-6. **Filters** — 30 min around high-impact news of the pair's currencies, spread ≤ 4 pips, 2 trades / 1 loss per day.
+No clear lean over the whole day, but in the quiet Asian hours a stretched close has no news or volume behind it.
 
-The live read (chart, dashboard, agent) grades the last 30m candle even without a trade ("Grade now"), and the agent
-answers forex questions in the 5 parts of the rules: trend sync · AOI · grade · verdict · parameters.
+1. **Window:** the H1 candle opened between 00:00 and 06:00 GMT.
+2. **Entry:** it closes above the highest high (below the lowest low) of the previous 10 H1 candles → SELL (BUY) MARKET
+   at that close.
+3. **Stop:** 1.5 × ATR(14, H1) beyond the entry. **Target:** 2R, back across the channel. Closed after 48 H1 candles.
 
-### Backtest
+Tuned 160 trades +26.3R · unseen 107 trades +19.9R · double costs +26.3R. Every Asian window (21–06, 22–05, 00–06)
+is positive on both parts (+13R to +26R). Tighter stops (0.6 / 1 ATR) lose.
 
-Yahoo serves only 60 days of 30m, so the 2-year test uses **1H candles for the entry** (rule 4 allows 30m or 1H).
-Costs: assumed spread + 0.2 pip slippage; "costs ×2" doubles both.
+## GBP/USD — "Channel fade" H4
 
-| Pair | Trades | Win rate | Total (TP at the next zone) | Costs ×2 |
-|---|---|---|---|---|
-| AUD/CAD | 5 | 40% | +1.5R | +1.2R |
-| USD/CAD | 33 | 18% | −5.6R | −11.0R |
-| NZD/USD | 21 | 24% | −5.7R | −8.0R |
-| EUR/USD | 13 | 8% | −6.9R | −7.5R |
-| AUD/CHF | 20 | 20% | −8.0R | −9.8R |
-| NZD/CAD | 8 | 0% | −8.7R | −9.3R |
-| EUR/CHF | 25 | 16% | −10.7R | −12.1R |
-| GBP/USD | 22 | 5% | −19.4R | −20.4R |
+GBP/USD's H4 closes beyond the 10-candle channel come back more often than they run, unless a strong trend is under way.
 
-The next W1 / D1 zone is usually 1:3 to 1:6 away, so it is rarely reached: as written, the rules lose on 7 of 8 pairs,
-and A+ setups did not win more often than C+ ones. Capping the TP at 3R does not fix it (still negative on 6 of 8).
-Last 60 days with real 30m candles: 42 trades over the 8 pairs, about +5R in total (far too few trades to judge).
-`risk.maxRr` in the config caps the TP (off by default, to follow the rules as written).
+1. **No strong trend:** ADX(14, H4) below 35.
+2. **Entry:** an H4 candle closes above the highest high (below the lowest low) of the previous 10 H4 candles → SELL
+   (BUY) MARKET at that close.
+3. **Stop:** 1 × ATR(14, H4) beyond the entry. **Target:** 2R. Closed after 12 H4 candles (2 days).
 
-## Strategy 4 — GBP/USD: "London breakout H1" (from the strategy report)
+Tuned 144 trades +27.4R · unseen 80 trades +14.3R · double costs +29.3R. Positive on both parts with ADX < 25, < 35 or
+none. **Fragile:** a 0.6 ATR stop or a 20-candle channel lose; only the 10-candle channel with a 1 ATR stop holds.
 
-From the report *"Anja7 Stratigiyat Trading F Forex"* (the London Breakout Strategy it recommends for GBP/USD: DailyForex /
-KenyaForexFirm, win rate 50–65 %, profit factor > 1.5), as code in `backend/app/strategies/london/`.
+## AUD/CHF — "Asian-session channel fade" H1
 
-1. **Asian range:** the high and low of the H1 candles opening 00:00–06:00 GMT (at least 5). Wider than 3 × ATR(14, H1)
-   → not a range, no trade.
-2. **Breakout:** the first H1 candle opening 07:00–10:00 GMT (closing by 11:00) that **closes beyond the range** with a
-   strong body (≥ half its range) and **in its outer third** (no pin bar, no long wick back inside) → MARKET at that close.
-3. **Stop:** the opposite side of the Asian range. **Target:** 2R. Closed at market after 14 H1 candles (end of the day).
-4. One trade a day; 30 min around high-impact GBP / USD news; spread ≤ 4 pips.
+The most reverting pair of the nine.
 
-| GBP/USD, 2 years of H1 (Nov 2024 – Nov 2026), spread 1.5 + 0.2 pip | Trades | Winners | Total | PF | Halves | Costs ×2 |
-|---|---|---|---|---|---|---|
-| London breakout (the research harness) | 274 | 48.5 % | **+28.6R** | 1.25 | +19.4 / +9.2 | +14.4R |
-| London breakout (the app's own code and lifecycle) | 257 | 48.4 % | **+25.2R** | 1.24 | — | — |
-| RSI(2) H4 it replaces (same months, the app's code) | 58 | 64.0 % | +3.0R | 1.31 | — | — |
+1. **Window:** the H1 candle opened between 22:00 and 05:00 GMT.
+2. **Entry:** it closes beyond the previous 40 H1 candles' high / low → faded at that close.
+3. **Stop:** 1 × ATR(14, H1). **Target:** 2R. Closed after 48 H1 candles.
 
-Every neighbouring setting stayed positive (28 of 28: window 07–10 / 07–12, body 0.5 / 0.6, range ≤ 2 / 3 / 4 ATR, 1.5R /
-2R, exit 17:00 / 21:00 GMT), and 7 of 9 quarters were positive. Without the strong-candle filter it fails with double
-costs, so the filter is part of the rules. **Weak point:** the buys carried the result (+29.3R, 55 %) while the sells were
-flat (−0.7R); GBP/USD rose over the period, so expect less if the trend turns.
+Tuned 70 trades +25.7R · unseen 36 trades +6.3R · double costs +16.4R. Every Asian window is positive on both parts
+with a 40-candle channel. **The weakest of the four:** a small edge on few unseen trades.
 
-### The rest of the report, tested the same way
+## The pairs without a strategy
 
-Each candidate ran on 2 years of H1 / H4 of every pair (stop first when a candle touches both, the pair's spread +
-slippage, one trade at a time, TP 1.5R or 2R). A pair only changes strategy when the candidate has ≥ 30 trades, is
-positive in **both halves** and **with double costs**, and beats the strategy it replaces.
-
-| Candidate (report) | Result |
+| Pair | Why no strategy |
 |---|---|
-| London breakout, SL at the other side of the Asian range | ✅ GBP/USD (above); loses on every other pair (EUR/USD −1.2R, USD/CAD −24R, NZD/USD −22R, EUR/CHF −30R …) |
-| London breakout, SL beyond the breakout candle | ❌ negative or fragile everywhere |
-| Mean reversion Bollinger (20, 2) + Stochastic (14, 3, 3), ADX < 25, London / NY — the report's pick for EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF | ❌ EUR/CHF −10.6R, NZD/CAD −45R, AUD/CAD −9.8R; AUD/CHF +7.7R but −13.2R with double costs |
-| RSI 30/70 + Bollinger + EMA200 bias H1 (EUR/GBP style) | ❌ too few trades (10–25 per pair in 2 years) |
-| New York trend, ADX > 25, pullback to EMA20 (USD/CAD) | ❌ USD/CAD −2.9R / −12.8R; one half negative elsewhere |
-| MACD + RSI H4 (EUR/USD) | ❌ EUR/USD −24R; positive on gold (+27R) but below the gold engines; EUR/CHF +8.3R with a flat first half |
-| Bollinger squeeze H1 (GBP/USD, gold) | ❌ negative on 8 of 9 pairs |
-| Order-flow absorption (HVN, cumulative delta), dairy auctions, oil lead-lag, carry | not testable: needs volume-profile / delta, event or swap data the feed does not have |
+| USD/CAD | Trending on H4, but no breakout or pullback held up on the unseen 40 % (the best, a previous-day-high break in New York, +4R on 37 trades with most neighbours losing) |
+| NZD/USD | No lean either way (34 % follow vs 33 % fade): no design held up (a fade that made +22R in the tuning lost −11R) |
+| EUR/CHF | Reverting, but the fades that won in the tuning lost on the unseen 40 % (−5R to −37R) |
+| NZD/CAD | Reverting, but no fade or sweep held up on the unseen 40 % |
+| AUD/CAD | The strongest fade profile (43 %), but every fade lost on the unseen 40 % once costs are counted |
 
-Second pass (the per-pair strategies not tried in the first one):
+They keep the H4 chart, the EMA50 / EMA200 trend and the analysis card; the strategy agent refuses any trade on them.
 
-| Pair | Report strategy | Trades | Total | Halves | Costs ×2 | Verdict |
-|---|---|---|---|---|---|---|
-| **AUD/CAD** | **Mean reversion Bollinger (20, 2) + Stochastic (14, 3, 3) H4**, 2R | 67 | **+15.4R** | +5.5 / +9.9 | +10.2R | ✅ live (Strategy 5) |
-| AUD/CHF | Quiet range (ADX < 20) Bollinger + Stochastic H1 | 58 | +3.2R | +4.4 / −1.1 | −8.4R | observation |
-| NZD/CAD | Mean reversion H4 | 82 | −6.0R | | | observation |
-| EUR/CHF | Mean reversion H4 | 57 | +2.0R | +9.0 / −7.0 | −4.0R | observation |
-| NZD/USD | Sydney-open breakout of the late-New-York range H1 | 221 | −19.1R | | | observation |
-| EUR/USD, gold | ICT Silver Bullet (New York 10–11 AM) M5 | — | — | | | not testable (~50 days of M5) |
+## The agents
 
-Every pair carries its report strategy (`backend/app/strategies/report/`): **live** on GBP/USD (Strategy 4), AUD/CAD
-(Strategy 5), EUR/USD and USD/CAD (Strategies 6 and 7, from the second report below); in **observation** on the others:
-computed next to the live strategy, drawn on the chart (layer "Report strategy"), shown with its test in the setup panel,
-and it never sends a signal. Gold keeps its H1 engines, and NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF their FXAlexG GPA.
+- **Market analysis:** daily trend, volatility regime, high-impact news. It objects to a *trend* trade against the daily
+  trend; a *fade* trades against the move by design (that is how it was tested), so the daily trend only informs it.
+- **Strategy:** knows each pair's plan and re-checks the setup against it: a validated plan, the stop at the plan's ATR
+  multiple, the one 2R target, the plan's hours.
+- **Risk & execution:** the trade desk (live price drift, live R:R, market open, currency exposure, open book).
+- **Trade management** (after the entry): the stop and the target never move; it follows R, news, the time limit.
 
-## Strategy 5 — AUD/CAD: "Mean reversion Bollinger + Stochastic H4" (from the strategy report)
-
-The report's range trading between the two commodity currencies (`backend/app/strategies/report/`, rule `mean_reversion`).
-
-1. **No trend:** ADX(14, H4) below 25.
-2. **Entry:** an H4 candle closes **outside** the Bollinger band (20, 2σ) with the Stochastic (14, 3, 3) below 20 (buys)
-   / above 80 (sells); the next H4 candle closes **back inside** → MARKET at that close.
-3. **Stop:** beyond the two candles' extreme + 0.3 × ATR(14) (at least 0.5 × ATR). **Target:** 2R. Closed at market after
-   12 H4 candles (2 days).
-
-2 years of H4, the app's own lifecycle: 67 trades, +11.3R (+15.4R in the research harness). **Fragile:** Bollinger 2.2σ
-or 1.8σ and Stochastic 25 / 75 lose; a looser ADX (< 30, none) or a wider stop (+0.5 ATR) stay positive.
-
-## The second report: "Rapport Stratégies Trading Or & Forex" (3 Nov 2026)
-
-The report names no per-pair plan and says itself that no independent source proves any of them wins. Its methods, as
-code, on every pair, same harness and criteria as the first report (2 years of H1 / H4, the pair's spread + slippage,
-stop first, ≥ 30 trades, both halves positive, positive with double costs, better than the pair's strategy):
-
-| Report method | As code | Result |
-|---|---|---|
-| Trend following, EMA 50 / 200 cross (gold, H4 / D1) | Buy (sell) at the cross, stop under the last 10-candle low (high) | ❌ under 30 trades on H4; negative on most pairs on H1 |
-| London range breakout (gold, M15 / H1) | Strategy 4's rules on gold | ❌ weaker than gold's H1 engines |
-| Liquidity sweep + order block (ICT / SMC, M5 – H1) | A wick takes the 20-candle low / high and closes back inside, then a close breaks the last swing before it within 6 candles | ✅ **EUR/USD H4** (Strategy 6); NZD/CAD +6.6R and NZD/USD +2.8R but they lose with neighbouring settings; negative on H1 |
-| Pullback to EMA 20 / 50 in the trend (forex, H4 / D1) | EMA50 vs EMA200 trend, the candle dips to the EMA and closes beyond the previous candle | ✅ **USD/CAD H4** (Strategy 7); gold +20.9R on H4 / +26.8R on H1 but below its H1 engines (+23.5R in 9 months) |
-| Consolidation breakout (forex, H1 / H4) | A 20-candle range ≤ 4 ATR, the first close beyond it, stop inside the range | USD/CAD +20.2R on H4 but the first half ≈ 0 (EMA pullback kept); negative elsewhere |
-| Risk rules (1 % per trade, ≥ 1:2, stop after 2 losses in a row) | Already the app's rules: 1 % lot table, 1.5R–2R targets, daily loss limits | — |
-
-## Strategy 6 — EUR/USD: "Liquidity sweep + break of structure H4" (from the second report)
-
-`backend/app/strategies/report/`, rule `sweep_bos`.
-
-1. **Sweep:** an H4 wick goes under the low (over the high) of the previous 20 candles and the candle closes back inside.
-2. **Break of structure:** within the next 6 H4 candles — before price goes past the sweep — the first close above the
-   highest high (below the lowest low) of the sweep candle and the 3 before it → MARKET at that close.
-3. **Stop:** beyond the sweep + 0.1 × ATR(14). **Target:** 2R. Closed at market after 30 H4 candles.
-
-2 years of H4: 48 trades, 56 % winners, **+15.9R** (app lifecycle: 44 trades, +14.4R), every third positive (+5.4R / +4.7R /
-+5.7R), +14.9R with double costs, buys +4.4R and sells +6.2R. It replaced RSI(2) H4 (+6.0R over the same period). Every
-20-candle variant (6 to 10 candles to break, 2 to 5 candles of structure) stays positive (+6R to +21R); a 10-candle sweep
-is mixed.
-
-## Strategy 7 — USD/CAD: "EMA pullback in the trend H4" (from the second report)
-
-`backend/app/strategies/report/`, rule `ema_pullback`.
-
-1. **Trend:** EMA50 above EMA200 and the close above EMA200 for buys (the mirror for sells).
-2. **Entry:** the H4 candle dips to EMA20 and closes back beyond it, in the trend's colour and beyond the previous candle's
-   high (low) → MARKET at that close.
-3. **Stop:** past the 5-candle pullback extreme + 0.1 × ATR(14) (at least 0.3 × ATR). **Target:** 1.5R. Closed at market
-   after 30 H4 candles.
-
-2 years of H4: 77 trades, 54.5 % winners, **+18.1R** (app lifecycle: +18.8R), every third positive (+5.2R / +3.0R / +9.8R),
-+15.2R with double costs. Every EMA 20 / 30 variant stays positive in both halves. **Note:** the sells carry it
-(+16.3R vs +1.8R for the buys). It replaced FXAlexG GPA, which takes very few trades on USD/CAD.
+The plans were tested without the agents' vetoes (news ±30 min aside): the vetoes are safety, not the edge.
 
 ## Risk (all)
 
-Each user chooses the lot they took on a signal in the app; P&L = price move × lots × contract size (gold 100 oz,
-forex 100,000 units), converted to USD for CAD- and CHF-quoted pairs with the latest USD/CAD, EUR/USD and EUR/CHF prices.
-Each user's daily loss limit blocks new trades for the rest of the trading day.
+One target at 2R, no partial closes, no breakeven. Risk 1 % per trade (the lot table). Max 2 trades per day per pair,
+stop after 2 losses in a day, no trade ±30 min around high-impact news of the pair's currencies. Each user chooses the
+lot they took on a signal in the app; P&L = price move × lots × contract size (gold 100 oz, forex 100,000 units),
+converted to USD for CAD- and CHF-quoted pairs. Each user's daily loss limit blocks new trades for the rest of the day.
+
+**Limits of the test:** 2 years of Yahoo / COMEX candles (not broker data), a fixed spread, no past news filter, and a
+40 % unseen part of 8–10 months. A positive test is evidence, not a guarantee: past results do not guarantee future
+results.
 
 ## On the chart (`frontend/src/chart-overlays/drawingsPrimitive.ts`)
 
-Drawn on the chart canvas (a Lightweight Charts series primitive), toggleable by layer:
-session shading (Asia / London / NY), Asian range box, PDH/PDL/PWH/PWL dashed lines, BOS
-(solid) and CHoCH (dashed) from the broken swing to the breaking candle, HH/HL/LH/LL labels,
-liquidity lines and "$$$" equal highs/lows, ✕ Sweep markers, FVG boxes with a dotted 50% line
-(faded once mitigated), demand/supply OBs (faded once mitigated), Fib 0.5 / 0.618 with the
-shaded zone (EURUSD), the gold 20-hour high/low and breakout line, EMA 50 / 200, and the TradingView-style position box (red SL zone,
-green TP zone, Entry / TP1 / TP3 lines, R:R and lot size). The entry candle has an arrow;
-hovering it shows the score and checklist. Clicking any drawing asks the agent to explain it.
-Higher-timeframe objects stay visible on lower timeframes and are labelled ("H1 OB").
-Overlapping zones keep only the newest, max 5 per type.
+The pair's channel high / low (the levels the plan waits for), EMA 50 / 200, the signal marker ("Breakout" or "Fade")
+and the TradingView-style position box (red SL zone, green TP zone, R:R and lot size). The side panel shows the
+"Pair strategy" card: the analysis, the plan and its tuned vs unseen test. Clicking any drawing asks the agent to explain it.
 
 ## The agent (`backend/app/agent/`)
 
-- `system_prompt.py`: both strategies' rules, generated from the config files.
-- `agent.py`: builds the JSON the agent reads (detector output only) and answers in Darija / French / English with Bias → Key levels → Setup checklist → Plan (or NO TRADE + the missing rule) → Risk. With `GEMINI_API_KEY`, Gemini writes the answer and any reply quoting a price not in the data is discarded.
+- `system_prompt.py`: every pair's plan, analysis and test, generated from `pairs/config.py`.
+- `agent.py`: builds the JSON the agent reads and answers in Darija / French / English: Strategy → Bias → Setup checklist → Plan (or NO TRADE + the missing rule) → Risk.
 - `validator.py`: re-checks every signal before Telegram; it can only lower the score or reject.
 
 ## Backtest
 
-`backend/app/backtest.py` replays the same strategy code bar by bar (`backend/app/strategies/replay.py`)
-with the config's spread and slippage: `python -m app.backtest XAUUSD`. Yahoo provides ~2 years of
-H1 (gold) and ~60 days of M15 (EURUSD) history; past news is not in the free calendar.
+`backend/app/backtest.py` replays the same strategy code bar by bar (`backend/app/strategies/replay.py`) with the
+config's spread and slippage: `python -m app.backtest XAUUSD`.
 
 ## Review mode
 
 Open the app with `?asOf=<unix seconds>` to see any past moment exactly as the strategy saw it.
-Example: the EURUSD sell signal of 2026-09-29 08:00 UTC → `/?asOf=1790668920`.

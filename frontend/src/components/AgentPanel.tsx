@@ -16,9 +16,9 @@ interface Msg {
 }
 
 const QUICK: Record<string, string[]> = {
-  fr: ['Analyse XAUUSD maintenant', 'Pourquoi pas de trade sur GBPUSD ?', 'Quelle est la note GPA de EURCHF ?'],
-  en: ['Analyse XAUUSD now', 'Why no trade on GBPUSD?', 'What is the GPA grade of EURCHF?'],
-  ar: ['حلل الذهب دابا', 'علاش ما كاينش صفقة ف GBPUSD؟', 'شحال التقييم GPA ديال EURCHF؟'],
+  fr: ['Analyse XAUUSD maintenant', 'Pourquoi pas de trade sur GBPUSD ?', 'Quelle est la stratégie de EURUSD ?'],
+  en: ['Analyse XAUUSD now', 'Why no trade on GBPUSD?', 'What is the EURUSD strategy?'],
+  ar: ['حلل الذهب دابا', 'علاش ما كاينش صفقة ف GBPUSD؟', 'شنو هي الاستراتيجية ديال EURUSD؟'],
 };
 
 /** Minimal formatting: **bold** and line breaks. Text is rendered as React nodes (no HTML injection). */

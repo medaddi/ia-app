@@ -6,7 +6,6 @@ import { apiJson } from '../api';
 import { Language } from '../types';
 import { fmtMoney, fmtR, tr } from './ui';
 import type { Stats, Today, Trade } from './AccountView';
-import { strategyKind } from '../instruments';
 import { TradeProgress } from './TradeProgress';
 
 // ---------------------------------------------------------------- API shape (/api/dashboard)
@@ -28,8 +27,8 @@ interface MarketRow {
   headline: string; isOpen: boolean; dataOk: boolean; dataReason: string; newsBlocked: boolean;
   setup: { direction: string; entry: number; sl: number; target: number; rr: number | null; state: string; outcome: string | null; r: number | null } | null;
   lastTrade: { state: string; outcome: string | null; r: number | null } | null;
-  trend: { weekly?: string | null; daily?: string | null; h4?: string | null; h1?: string | null };
-  liveGrade?: { score: number; grade: string } | null;
+  trend: { entry?: string | null };  // EMA50 vs EMA200 on the plan's timeframe
+  plan?: boolean;  // false: no validated strategy on this pair (no signals)
 }
 interface NewsRow { id: string; title: string; publishedAt: string; isLockoutEvent: boolean }
 interface Dashboard {
@@ -53,9 +52,9 @@ const round2 = (v: number) => Math.round(v * 100) / 100;
 const signed = (v: number, mode: Mode) => (mode === 'me' ? `${v > 0 ? '+' : ''}${fmtMoney(round2(v))}` : fmtR(round2(v)));
 const r2 = (v: number | null | undefined) => fmtR(v === null || v === undefined ? v : round2(v));
 const tone = (v: number | null | undefined) => (v === null || v === undefined || v === 0 ? 'text-slate-300' : v > 0 ? 'text-emerald-400' : 'text-rose-400');
-// Forex trades are set & forget (one 3R target): TP1 / TP2 are progress marks, the trade is still running
-const stateLabel = (symbol: string, state: string) =>
-  symbol !== 'XAU/USD' && (state === 'TP1_HIT' || state === 'TP2_HIT') ? `OPEN · ${state === 'TP1_HIT' ? '1R' : '2R'} ✓` : state;
+// Every plan has one 2R target: TP1 (1R) and TP2 (1.5R) are progress marks, the trade is still running
+const stateLabel = (_symbol: string, state: string) =>
+  state === 'TP1_HIT' || state === 'TP2_HIT' ? `OPEN · ${state === 'TP1_HIT' ? '1R' : '1.5R'} ✓` : state;
 
 /** Forex session from the London clock, and the time left before the next H1 / H4 candle close. */
 function sessionNow(nowMs: number) {
@@ -575,7 +574,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                 </div>
               );
               const f = (v: number) => v.toFixed(m.decimals);
-              const trends = m.symbol === 'XAU/USD' || strategyKind(m.symbol) === 'london' ? [['H1', m.trend.h1]] : strategyKind(m.symbol) === 'report' ? [] : strategyKind(m.symbol) === 'rsi2' ? [['H4', m.trend.h4]] : [['W1', m.trend.weekly], ['D1', m.trend.daily], ['H4', m.trend.h4]];
+              const trends = [[m.entryTf, m.trend.entry]];
               const live = !!m.setup && RUNNING.includes(m.setup.state);
               return (
                 <motion.button key={m.symbol} onClick={() => onOpenChart(m.symbol)}
@@ -606,15 +605,8 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                   ) : m.lastTrade && (
                     <div className="mt-2 text-xs text-slate-500">{t('Last trade', 'Dernier trade', 'آخر صفقة')}: <span className={tone(m.lastTrade.r)}>{m.lastTrade.outcome ?? stateLabel(m.symbol, m.lastTrade.state)} {m.lastTrade.r !== null ? r2(m.lastTrade.r) : ''}</span></div>
                   )}
-                  {m.liveGrade && m.dataOk && (
-                    <div className="mt-2 flex items-center gap-2 text-[11px]">
-                      <span className="text-slate-500">{t('Grade now', 'Note actuelle', 'التقييم دابا')}</span>
-                      <div className="flex-1 h-1.5 rounded-full bg-surface-3/70 overflow-hidden" aria-hidden="true">
-                        <motion.div className={`h-full rounded-full ${m.liveGrade.score >= 60 ? 'bg-emerald-500' : m.liveGrade.score >= 50 ? 'bg-gold-400' : 'bg-slate-500'}`}
-                          initial={{ width: 0 }} animate={{ width: `${m.liveGrade.score}%` }} transition={{ duration: 0.6, ease: EASE }} />
-                      </div>
-                      <span className={`font-mono ${m.liveGrade.score >= 60 ? 'text-emerald-300' : 'text-slate-300'}`}>{m.liveGrade.grade} · {m.liveGrade.score}%</span>
-                    </div>
+                  {m.plan === false && m.dataOk && (
+                    <p className="mt-2 text-[11px] text-slate-500">{t('No validated strategy: analysis only', 'Aucune stratégie validée : analyse seule', 'ما كايناش استراتيجية مجربة: تحليل فقط')}</p>
                   )}
                   {!m.dataOk && <p className="mt-2 text-xs text-amber-300/80 line-clamp-2">{m.dataReason}</p>}
                 </motion.button>

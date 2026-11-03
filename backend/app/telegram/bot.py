@@ -28,6 +28,7 @@ from ..models import Signal, Subscriber, TelegramConnect, User, Watermark
 from ..store import get_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
+from ..strategies.pairs.config import PAIR_CONFIGS
 from ..strategies.shared.news import load_news_calendar
 from ..strategies.shared.jsnum import fmt_time, fmt_utc_minute, js_round, to_fixed
 from ..trading import effective_risk, lot_for_risk, signal_json, stats
@@ -132,7 +133,7 @@ def _levels(signal: dict) -> Optional[dict]:
     symbol = normalize_symbol(signal.get("symbol", ""))
     gold = symbol == "XAU/USD"
     return {"symbol": symbol, "buy": signal.get("signalType") == "BUY", "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
-            "single": sj.get("setup") in ("GPA", "BREAK_RETEST", "REVERSION", "BREAKOUT", "RSI2", "LONDON", "REPORT") and tp3 is not None,  # one target between 1.5R and 2R
+            "single": sj.get("setup") in ("PAIR", "GPA", "BREAK_RETEST", "REVERSION", "BREAKOUT", "RSI2", "LONDON", "REPORT") and tp3 is not None,  # one target between 1.5R and 2R
             "orderType": sj.get("entry_type") or signal.get("entryType") or "LIMIT", "expires": sj.get("expires_at"),
             "decimals": 2 if gold else 5, "pip": 0.1 if gold else 0.0001, "setup": sj.get("setup"), "hit": signal.get("targetHitPct")}
 
@@ -623,17 +624,31 @@ def _market_text() -> str:
             "<i>Gold and forex: Sunday 22:00 → Friday 21:00 UTC.</i>")
 
 
-RULES = """<b>How the signals work</b>
-🎯 Every signal has <b>one target between 1.5R and 2R</b>; the stop stays at the structure (no partial closes, no breakeven).
-🥇 <b>Gold: two engines, one trade at a time</b>, confirmed at every 15-minute close (no wait for the H1 close). Trend by EMA50 vs EMA200. <b>Breakout</b>: an H1 candle closes beyond the 20-hour high/low with a strong body → one target at 2R. <b>Bollinger reversion</b> (London / New York): a close beyond the 2.2σ band against the trend, then a candle back inside with the trend → one target at 1.5R, closed after 24 H1 candles.
-💶 <b>EUR/USD (liquidity sweep + break of structure H4)</b>: a wick takes the 20-candle low (high) and closes back inside, then within 6 H4 candles a close breaks the last swing high (low) before it. Entry at that close, stop beyond the sweep, one target at 2R, closed after 30 H4 candles.
-🇨🇦 <b>USD/CAD (EMA pullback H4)</b>: H4 trend by EMA50 / EMA200. Entry when a candle dips to EMA20 and closes back in the trend beyond the previous candle. Stop past the 5-candle pullback, one target at 1.5R, closed after 30 H4 candles.
-💷 <b>GBP/USD (London breakout H1)</b>: the Asian range is the high and low of 00:00–07:00 GMT. Between 07:00 and 11:00 GMT, the first strong H1 candle (body at least half its range, close in its outer third) that closes beyond it is taken at market. Stop at the other side of the range, one target at 2R, closed at the end of the day if neither is hit. One trade a day.
-🇦🇺 <b>AUD/CAD (mean reversion H4)</b>: with ADX(14) below 25 (no trend), an H4 close outside the Bollinger band (20, 2σ) with the Stochastic beyond 20 / 80, then a close back inside, is taken at market. Stop beyond the two candles + 0.3 ATR, one target at 2R, closed after 12 H4 candles.
-💱 <b>Forex: NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF (FXAlexG Set &amp; Forget GPA)</b>: trend on W1, D1 and H4 by structure (body close only), trade the majority. Areas of interest only on W1 / D1 with 3+ touches. Entry after the AOI touch, an H4 rejection and a 30m engulfing at the London or New York open. SL beyond the pattern head, TP at the next W1 / D1 zone before a round level, between 1:1.5 and 1:2. Set &amp; forget.
-🎓 Grade: 10 confluences × 10% → A+ 80%+, B 70%+, C+ 60%+ (minimum). Below 60%: no signal.
-Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.
-⚠️ Past results do not guarantee future results: risk only what you can lose."""
+def _rules_text() -> str:
+    """/rules: each pair's plan, from its config (the rules the code runs)."""
+    flags = {"XAU/USD": "🥇", "EUR/USD": "💶", "GBP/USD": "💷", "AUD/CHF": "🇦🇺"}
+    lines = ["<b>How the signals work</b>",
+             "🎯 Every signal has <b>one target at 2R</b>; the stop and the target never move (no partial closes, no breakeven).",
+             "📐 Each pair runs the strategy its own behaviour favours, kept only if it held up on the unseen 40 % of 2 years."]
+    off = []
+    for pair, c in PAIR_CONFIGS.items():
+        if not c["rule"]:
+            off.append(pair)
+            continue
+        p, tf, u = c["params"], c["timeframes"]["entry"], c["test"]["unseen"]
+        when = f" between {p['hours'][0]:02d}:00 and {p['hours'][1]:02d}:00 GMT" if p.get("hours") else ""
+        adx = f" with ADX below {p['adxMax']}" if p.get("adxMax") else ""
+        if c["rule"] == "channel_breakout":
+            rule = (f"an {tf} close beyond the {p['channel']}-candle high / low in the EMA50 / EMA200 trend is bought / sold at the close")
+        else:
+            rule = f"an {tf} close beyond the {p['channel']}-candle high / low{when}{adx} is faded at the close"
+        lines.append(f"{flags.get(pair, '💱')} <b>{pair} ({html.escape(c['name'].split('·', 1)[1].strip())})</b>: {rule}. Stop {p['slAtr']:g} × ATR, "
+                     f"TP 2R, closed after {c['risk']['maxBars']} {tf} candles. Unseen test: {u['totalR']:+}R on {u['trades']} trades.")
+    if off:
+        lines.append(f"⏸ <b>{', '.join(off)}</b>: no strategy held up in the test, so no signals (chart and analysis only).")
+    lines.append("Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.")
+    lines.append("⚠️ Past results do not guarantee future results: risk only what you can lose.")
+    return "\n".join(lines)
 
 
 def _linked_users(db: Session, chat_id: str) -> list[User]:
@@ -756,7 +771,7 @@ async def handle_update(token: str, upd: dict) -> None:
         elif cmd in ("/market", "/time", "/session"):
             reply = _market_text()
         elif cmd == "/rules":
-            reply = RULES
+            reply = _rules_text()
         elif cmd == "/news":
             reply = await _news_text()
         elif cmd == "/levels":

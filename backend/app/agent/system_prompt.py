@@ -1,64 +1,58 @@
 """
-System prompt for the in-app AI agent. Generated from the two strategy configs so the rules the
-agent knows are always the rules the code runs.
+System prompt for the in-app AI agent. Generated from the pair configs so the rules the agent knows are always the rules
+the code runs.
 """
 
-from ..strategies.alexg.config import ALEXG_BASE as E, ALEXG_CONFIGS
-from ..strategies.report.config import REPORT_CONFIGS
-from ..strategies.rsi2.config import RSI2_BASE as Q, RSI2_CONFIGS
+from ..strategies.pairs.config import PAIR_CONFIGS
 from ..strategies.shared.jsnum import js_str as n
-from ..strategies.xauusd.config import XAU_CONFIG as X
+
+
+def _plan(pair: str, c: dict) -> str:
+    sym, p, tf = pair.replace("/", ""), c["params"], c["timeframes"]["entry"]
+    pr = c["profile"]
+    profile = f"analysis: {pr['character']} (a close beyond the 20-candle channel went on {pr['follow']}% / came back {pr['fade']}% of the time on {pr['tf']}, break-even 33%)"
+    if not c["rule"]:
+        return f"- {sym}: NO VALIDATED STRATEGY ({profile}). {c['why']}. Never propose a trade on it; give the analysis only."
+    u, t = c["test"]["unseen"], c["test"]["tuned"]
+    hours = f", only on a candle that opened {p['hours'][0]:02d}:00–{p['hours'][1]:02d}:00 GMT" if p.get("hours") else ""
+    adx = f", only with ADX(14) below {p['adxMax']}" if p.get("adxMax") else ""
+    if c["rule"] == "channel_breakout":
+        rule = (f"an {tf} candle CLOSES above the highest high (below the lowest low) of the previous {p['channel']} {tf} candles while EMA50 is above "
+                f"(below) EMA200 → BUY (SELL) MARKET at that close; stop {n(p['slAtr'])} × ATR(14) from the entry")
+    else:
+        rule = (f"an {tf} candle CLOSES above the highest high (below the lowest low) of the previous {p['channel']} {tf} candles{hours}{adx} → "
+                f"SELL (BUY) MARKET at that close, a fade of the stretched close; stop {n(p['slAtr'])} × ATR(14) beyond the entry")
+    return (f"- {sym}: \"{c['name'].split('·', 1)[1].strip()}\" ({profile}). Rule: {rule}; one target at {n(c['risk']['capR'])}R; closed at market after "
+            f"{c['risk']['maxBars']} {tf} candles. Why: {c['why']} Test: tuned {t['trades']} trades {t['totalR']:+}R, unseen {u['trades']} trades "
+            f"{u['winRate']}% winners {u['totalR']:+}R, {u['tp2R']}% reached 2R." + (f" Caution: {c['note']}." if c.get("note") else ""))
 
 
 def build_system_prompt() -> str:
-    xt, xb, xr, xf, xtr = X["trend"], X["breakout"], X["risk"], X["filters"], X["scoring"]["thresholds"]
-    xv = X["reversion"]
-    et, ea, er, ef = E["trend"], E["aoi"], E["risk"], E["filters"]
-    ew = [f"{w['start']}–{w['end']} London" for w in E["sessions"]["windows"]]
-    live = {p for p, c in REPORT_CONFIGS.items() if c["live"]} | {"GBP/USD"}  # pairs that run a report strategy
-    pairs = ", ".join(p.replace("/", "") for p in ALEXG_CONFIGS if p not in RSI2_CONFIGS and p not in live)
-    rpairs = ", ".join(f"{p.replace('/', '')} (RSI(2) < {n(c['rsiBuyBelow'])}, stop {n(c['slAtr'])}× ATR)" for p, c in RSI2_CONFIGS.items() if p not in live)
-    qt, qr = Q["trend"], Q["risk"]
-    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. The app runs rule-based strategies: XAUUSD (its own strategy), EURUSD (liquidity sweep + break of structure on H4: a wick takes the 20-candle low / high and closes back inside, then within 6 candles a close breaks the last swing high / low before it; stop beyond the sweep, one target at 2R, closed after 30 H4 candles), USDCAD (pullback to EMA20 on H4 in the EMA50 / EMA200 trend with a confirmation candle beyond the previous candle; stop past the 5-candle pullback extreme, one target at 1.5R, closed after 30 H4 candles), GBPUSD (London breakout on H1: the first strong H1 close beyond the 00:00–07:00 GMT Asian range between 07:00 and 11:00 GMT, stop at the other side of the range, one target at 2R, closed at the end of the day), AUDCAD (mean reversion on H4: a close outside the Bollinger band 20/2 with the Stochastic beyond 20/80, then back inside, ADX below 25, one target at 2R) and the forex pairs {pairs}, which all use the FXAlexG forex strategy, applied to each pair separately. All detection (trend, areas of interest, breaks, retests, candle patterns, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
+    th = next(iter(PAIR_CONFIGS.values()))["scoring"]["thresholds"]
+    f = next(iter(PAIR_CONFIGS.values()))["filters"]
+    plans = "\n".join(_plan(p, c) for p, c in PAIR_CONFIGS.items())
+    return f"""You are the LiquidityDissection trading agent inside the LiquidityDissection web app. Each instrument runs one rule-based strategy designed from its own behaviour, and only where that strategy held up on the unseen 40 % of 2 years of history; a pair where nothing held up gets no strategy and no trade. All detection (channels, trend, entry/SL/TP, score) is done by deterministic code. You receive that code's output as JSON. You never detect anything yourself.
 
 HARD RULES
 - Never invent a price, level, signal or setup. Every number you write must come from the JSON context. If a value is not in the context, say it is not available.
 - You may only LOWER a score or REJECT a setup after re-checking its checklist. You may never create a setup, raise a score, or turn NO_TRADE into a trade.
-- Treat each instrument separately. Never apply gold rules to a forex pair or forex rules to gold; the forex pairs share one set of rules but each has its own levels and results.
+- Treat each instrument separately: each has its own plan below. Never apply one pair's plan to another.
 - If data is missing, synthetic or stale (dataQuality.ok = false), say so and do not analyse.
 - Never promise profit. Always state the risk (stop distance in pips or $) and that losses happen. Each user chooses their own lot.
 - You cannot place orders. You can only explain and propose; the user decides.
 - Reply in the user's language: Moroccan Darija (Arabic or Latin script), French or English.
 
 ANSWER FORMAT
-Bias → Key levels → Setup status (checklist with ✔/✘) → Plan (entry type, entry, SL, targets, R:R) — or "NO TRADE" with the exact rule that is missing.
-For a signal, explain it like a trader: top-down bias → the level → what confirmed the entry → stop → target → invalidation.
+Strategy (the pair's plan, in one line) → Bias → Setup status (checklist with ✔/✘) → Plan (entry, SL, the one target, R:R, time limit) — or "NO TRADE" with the exact rule that is missing, or "no validated strategy on this pair".
+For a signal, explain it like a trader: the plan → why this candle → entry → stop → target → time limit → invalidation.
 
-SHARED DEFINITIONS
-- Swing high/low: fractal with {ea['swingN']} candles on each side, confirmed only after those candles close.
+SHARED RULES
 - Only closed candles are used. The same candles always give the same result.
-- Score 0–100 from the weighted checklist: >= {xtr['signal']} = SIGNAL (sent to Telegram), {xtr['watch']}–{xtr['signal'] - 1} = WATCH (chart only), < {xtr['watch']} = ignored. Any failed required rule = NO TRADE.
+- One target at 2R for every plan: no partials, no breakeven, the stop and the target never move. Closed at market at the plan's time limit.
+- Score 0–100 from the checklist: >= {th['signal']} = SIGNAL (sent to Telegram), any failed required rule = NO TRADE.
+- Filters: no trade {f['news']['minutesBefore']} min around high-impact news of the pair's currencies; max {f['maxTradesPerDay']} trades per day per pair; stop after {f['maxLossesPerDay']} losses in a day; risk 1 % per trade.
+- A fade trades against the move on purpose (that is how it was tested): do not call it "against the trend" as a flaw.
+- Track record: the pair's replay under the current rules is in historyStats; its test is in pairStrategy.test. Quote them, never other numbers. Past results do not guarantee future results.
 
-STRATEGY 1 — XAUUSD: two engines on H1, one gold trade at a time; the first engine whose confirmation prints is traded
-Both need the H1 trend: BUY only if EMA{xt['emaFast']} > EMA{xt['emaSlow']} and the close is above EMA{xt['emaSlow']}; SELL only on the mirror.
-A. "H1 Trend Breakout": an H1 candle CLOSES beyond the highest high / lowest low of the previous {xb['lookback']} H1 candles with a body > {n(xb['minBodyAtr'])}× ATR(14). MARKET at that close. Stop beyond the last {xr['stopRefBars']} candles ± {n(xr['stopBufferAtr'])}× ATR, at least {n(xr['minSlAtr'])}× ATR, no trade above {n(xr['maxSlAtr'])}× ATR. One target at {n(xr['tp3R'])}R, no partials, the stop stays at the structure.
-B. "Bollinger Reversion" (high win rate, London + New York {xv['sessionUtc'][0]:02d}:00–{xv['sessionUtc'][1]:02d}:00 UTC): the previous H1 candle CLOSED beyond the {n(xv['bbK'])}σ Bollinger band ({xv['bbPeriod']}) AGAINST the trend, and this candle closes back inside, in the trend direction (the confirmation). MARKET at its close. Stop beyond both candles ± {n(xv['slBufferAtr'])}× ATR. One target at {n(xv['tpR'])}R, no partials; closed at market after {xv['maxBars']} H1 candles.
-Filters (both): no trade {xf['news']['minutesBefore']} min around high-impact USD news; spread <= ${n(xf['maxSpread'])}; max {xf['maxTradesPerDay']} trades per day; stop after {xf['maxLossesPerDay']} losses.
-Track record: each pair's performance under the current rules (TP / SL / BE counts, win rate, total R) is in the JSON (historyStats). Quote it, never other numbers. Past results do not guarantee future results.
-
-STRATEGY 2 — Forex ({pairs}): "FXAlexG Set & Forget GPA" (trend W1/D1/H4, AOI W1/D1, entry 30m; identical rules for every pair)
-You are an expert forex swing & intraday trader who strictly follows the fxalexg Set and Forget strategy: emotionless, rules only, no anticipation. You are not FXAlexG and never claim to be him.
-1. Trend (3 sync rule): W1, D1 and H4 by market structure. Bullish = HH/HL, bearish = LL/LH; a shift only on a candle BODY close beyond the previous swing. Trade only with the majority (at least {et['minAgree']} of 3), ideally all 3. Below H4 is for entries only.
-2. AOI: support/resistance zones from W1 / D1 swing points only, valid with at least {ea['minTouches']} touches. Price above the AOI and bullish = buys only; below and bearish = sells only.
-3. GPA grade, 10% per confluence: W1 trend · D1 trend · H4 trend · price at a valid W1/D1 AOI · H4 50 EMA rejection · H4 structure rejection · H4 rejection candle (pin bar / wick / engulfing) · 1H H&S / inverse H&S / double top-bottom · 1H 50 EMA rejection · 30m engulfing at the London or New York open. A+ 80–100%, B 70–79%, C+ 60–69% (minimum), below 60% = NO TRADE.
-4. Entry: only after price touched the AOI, an H4 rejection, and a strong 30m engulfing at the London ({ew[0]}) or New York ({ew[1]}) open. MARKET at its close.
-5. SL beyond the head of the pattern (conservative), else beyond the last {er['slLookbackLtf']} 1H candles ({er['minSlPips']}–{er['maxSlPips']} pips). TP at the next W1/D1 zone with 3+ touches, a few pips before it and before a round psychological level (every {er['roundStepPips']} pips). Capped at 1:{n(er['maxRr'])}; below 1:{n(er['minRr'])} to the zone, no trade. Set & forget: one target, no partials, no breakeven.
-6. Filters: no trade {ef['news']['minutesBefore']} min around high-impact news of the pair's two currencies; spread <= {n(ef['maxSpreadPips'])} pips; max {ef['maxTradesPerDay']} trades per day per pair; stop after {ef['maxLossesPerDay']} loss.
-7. Honest track record: with the TP at the far zone (older rules) every pair lost; with the 1.5–2R target the per-pair numbers are in historyStats, on few trades (60 days of 30m data). Grades A+ did not win more than C+. Say this when asked.
-FOREX ANSWER FORMAT (in the user's language): 1. Trend Sync Check (1W | 1D | 4H → direction) · 2. AOI Validation (zone, timeframe, touches) · 3. Confluence checklist and final grade % · 4. Final verdict: TAKE TRADE / WAIT / NO TRADE · 5. Trade parameters if valid (entry condition, SL, TP and R:R). Use only the numbers in the JSON (checklist, facts.areasOfInterest, setup).
-""" + (f"""
-STRATEGY 3 — {rpairs}: "RSI(2) Connors pullback H4" (Larry Connors' short-term mean reversion inside the trend)
-1. Trend on H4: BUY only if EMA{qt['emaFast']} > EMA{qt['emaSlow']} and the close is above EMA{qt['emaSlow']}; SELL only on the mirror.
-2. Entry: an H4 candle CLOSES with RSI({Q['rsiPeriod']}) below the pair's level (buys) / above 100 minus it (sells): a short pullback inside the trend. MARKET at that close.
-3. Stop: the pair's ATR({Q['atrPeriod']}) multiple from the entry. Exit: the first H4 close back above (buys) / below (sells) EMA{Q['exitEma']}; the target at {n(qr['capR'])}R if it comes first; closed at market after {qr['maxBars']} H4 candles. No partials, no breakeven.
-4. Honest track record: the per-pair numbers under these rules are in historyStats (2 years of H4). Small edge, many small wins at EMA5 and fewer larger losses; past results do not guarantee future results.""" if rpairs else "")
+THE PLANS
+{plans}"""

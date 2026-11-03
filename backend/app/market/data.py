@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from ..strategies.alexg.config import PAIRS
+from ..strategies._pairs import PAIRS
 from ..strategies.shared.jsnum import round_to
 from ..strategies.shared.types import Candle
 

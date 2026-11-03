@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import type { InstrumentSymbol } from '../instruments';
 import { ArrowUpRight, ArrowDownRight, Send, Copy, Check, X } from 'lucide-react';
 import type { StrategyResult, TpReach } from '../strategyTypes';
-import { ReportStrategyCard } from './ReportStrategyCard';
+import { PairStrategyCard } from './PairStrategyCard';
 import { TradeManagement, type ManagerVote } from './TradeManagement';
 import { TradeProgress } from './TradeProgress';
 
@@ -35,14 +35,11 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
   const d = result.spec.decimals;
   const f = (v: number) => v.toFixed(d);
   const buy = s?.direction === 'BUY';
-  const gold = result.symbol === 'XAUUSD';
-  const single = !!s && s.params?.breakeven === false; // forex set & forget: one target
-  const scored = gold || result.strategy === 'RSI2_Connors_H4';  // score ≥ 75 (gold, RSI(2)) rather than the GPA grade
-  const signalMin = scored ? 75 : 60;
-  const grade = (result as any).grade as string | undefined;
+  const single = !!s && s.params?.breakeven === false; // one target, no breakeven
+  const signalMin = 75;  // every plan: score ≥ 75 with every required rule passed
   const statusLabel = {
-    SIGNAL: scored ? t('Signal', 'Signal', 'إشارة') : t(`Signal · ${grade ?? ''}`, `Signal · ${grade ?? ''}`, `إشارة · ${grade ?? ''}`),
-    WATCH: scored ? t('Watch · score 60–74, no signal', 'À surveiller · 60–74, pas de signal', 'مراقبة · 60–74، بلا إشارة') : t('Watch · below C+ (60%), no signal', 'À surveiller · sous C+ (60 %), pas de signal', 'مراقبة · تحت C+ (60%)، بلا إشارة'),
+    SIGNAL: t('Signal', 'Signal', 'إشارة'),
+    WATCH: t('Watch · score 60–74, no signal', 'À surveiller · 60–74, pas de signal', 'مراقبة · 60–74، بلا إشارة'),
     IGNORE: t(`Ignored · score < ${signalMin - 15}`, `Ignoré · score < ${signalMin - 15}`, `متجاهل · النقطة < ${signalMin - 15}`),
     NO_TRADE: t('No trade', 'Pas de trade', 'لا صفقة'),
   }[result.status] ?? result.status;
@@ -59,7 +56,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
   const copy = () => {
     if (!s) return;
     const text = single
-      ? `${result.symbol} ${s.direction} ${s.entryType} ${f(s.entry)}\nSL ${f(s.sl)} (${s.slPips} pips)\nTP ${f(s.tp3)} (1:${rrTarget.toFixed(1)})${grade ? `\nGrade ${grade} ${result.score}%` : ''}`
+      ? `${result.symbol} ${s.direction} ${s.entryType} ${f(s.entry)}\nSL ${f(s.sl)} (${s.slPips} pips)\nTP ${f(s.tp3)} (1:${rrTarget.toFixed(1)})\nScore ${result.score}/100`
       : `${result.symbol} ${s.direction} ${s.entryType} ${f(s.entry)}\nSL ${f(s.sl)} (${s.slPips} pips)\nTP1 ${f(s.tp1)}\nTP2 ${f(s.tp2)} (1:${s.rrTp2.toFixed(1)})\nTP3 ${f(s.tp3)}\nScore ${result.score}/100`;
     navigator.clipboard?.writeText(text).catch(() => {});
     setCopied(true);
@@ -85,9 +82,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
       <div className="p-4 border-b border-line">
         <div className="flex items-center justify-between gap-2 text-xs">
           <span className="text-slate-400 truncate">{result.strategyName}</span>
-          {s && (gold
-            ? <span className="font-mono text-slate-400 shrink-0">Score <span className={result.score >= 75 ? 'text-emerald-300' : 'text-gold-300'}>{result.score}</span>/100</span>
-            : <span className="font-mono text-slate-400 shrink-0">{t('Grade', 'Note', 'التقييم')} <span className={result.score >= 60 ? 'text-emerald-300' : 'text-gold-300'}>{grade} {result.score}%</span></span>)}
+          {s && <span className="font-mono text-slate-400 shrink-0">Score <span className={result.score >= 75 ? 'text-emerald-300' : 'text-gold-300'}>{result.score}</span>/100</span>}
         </div>
         <div className="mt-3 flex items-center gap-3">
           {s && (
@@ -135,7 +130,7 @@ export const ExunuActiveSetup: React.FC<ExunuActiveSetupProps> = ({ symbol, resu
 
       {s && result.tpReach && <TargetOptions reach={result.tpReach} planned={rrTarget} f={f} t={t} />}
 
-      <ReportStrategyCard report={result.reportStrategy} decimals={result.spec.decimals} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
+      <PairStrategyCard plan={result.pairStrategy} lang={(ar ? 'ar' : lang === 'fr' ? 'fr' : 'en')} />
 
       <div className="p-4 flex flex-col gap-2">
         <div className="flex gap-2">

@@ -4,8 +4,8 @@ Gold and forex signals with a strict, tested rule set, a live chart for every pa
 and delivery to the web app, the phone (Web Push) and Telegram, each with the lot for the trader's own risk.
 
 - **9 instruments:** XAU/USD, EUR/USD, GBP/USD, USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD, AUD/CHF
-- **6 strategies**, each kept on the pairs where it tested best; every pair also carries its strategy from the two strategy reports, live where it won its 2-year test and in observation elsewhere (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
-- **One target between 1.5R and 2R** on every trade; stops and targets never move once a trade is placed
+- **One strategy per pair, designed from the pair's own behaviour**, live only where it held up on the unseen 40 % of 2 years (gold, EUR/USD, GBP/USD, AUD/CHF); the other 5 pairs show their analysis with no signals (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
+- **One target at 2R** on every trade; stops and targets never move once a trade is placed
 - **Accounts managed by the admin**; Telegram works only for a linked, approved account
 
 ```
@@ -51,11 +51,10 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
      the trade ends: TP hit · SL hit · breakeven · closed early · cancelled — sent once, with what to do
 ```
 
-1. **Candle close.** Each strategy is evaluated the moment its decision candle closes (gold every M15 close inside
-   the forming H1, the H4 strategies at the H4 close, GPA at the M30 close). On Vercel an external pinger calls
+1. **Candle close.** Each strategy is evaluated the moment its decision candle closes (H1 plans at the H1 close, inside
+   their hours when they have some; GBP/USD at the H4 close). On Vercel an external pinger calls
    `/api/cron/tick` every minute; on an always-on server an in-process scheduler does the same.
-2. **Signal.** A trade is only considered when every required rule passes (score ≥ 75 for gold and the report strategies, grade
-   ≥ C+ for GPA), the market is open and no high-impact news is within 30 minutes.
+2. **Signal.** A trade is only considered when every required rule passes (score ≥ 75), the market is open and no high-impact news is within 30 minutes.
 3. **Agents.** Market analysis, strategy and risk & execution must all agree (3/3); any one of them can block.
 4. **Delivery.** Each linked account gets the trade with the lot computed from **its own** risk (stop, spread and
    slippage included, rounded down to 0.01). Telegram messages are protected (no forwarding) and carry a personal
@@ -69,14 +68,13 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 
 | Pairs | Strategy | Decides on | Entry | Exit |
 |---|---|---|---|---|
-| XAU/USD | **H1 Trend Breakout + Bollinger Reversion** (two engines, one trade at a time) | H1, confirmed at each M15 close | Breakout: H1 close beyond the 20-hour range with a strong body, in the EMA50/EMA200 trend · Reversion (London / New York): close back inside the 2.2σ band | Breakout 2R · Reversion 1.5R, or after 24 H1 candles |
-| EUR/USD | **Liquidity sweep + break of structure** (from the 2nd strategy report) | H4 | A wick takes the 20-candle low / high and closes back inside, then within 6 candles a close breaks the last swing high / low | Stop beyond the sweep · 2R, or after 30 H4 candles |
-| USD/CAD | **EMA pullback in the trend** (from the 2nd strategy report) | H4 | EMA50 / EMA200 trend, a dip to EMA20 and a confirmation candle beyond the previous one | Stop past the 5-candle pullback · 1.5R, or after 30 H4 candles |
-| AUD/CAD | **Mean reversion Bollinger + Stochastic** (from the strategy report) | H4 | A close outside the Bollinger band (20, 2) with the Stochastic beyond 20 / 80, then a close back inside, ADX < 25 | 2R, or after 12 H4 candles |
-| GBP/USD | **London breakout** (from the strategy report) | H1 | The first strong H1 close beyond the 00:00–07:00 GMT Asian range, 07:00–11:00 GMT | Stop at the other side of the range · 2R, or at the end of the day |
-| NZD/USD, EUR/CHF, NZD/CAD, AUD/CHF | **FXAlexG Set & Forget GPA** | M30 at the London / New York open | W1/D1/H4 trend majority, W1/D1 area of interest with ≥ 3 touches, H4 rejection, M30 engulfing | Next W1/D1 zone, between 1.5R and 2R |
+| XAU/USD | **Channel breakout in the trend** | H1 | H1 close beyond the 20-candle high / low with EMA50 vs EMA200 in its direction | Stop 2 × ATR · 2R, or after 48 H1 candles |
+| EUR/USD | **Asian-session channel fade** | H1, 00:00–06:00 GMT | H1 close beyond the 10-candle high / low, faded at the close | Stop 1.5 × ATR · 2R, or after 48 H1 candles |
+| GBP/USD | **Channel fade** | H4 | H4 close beyond the 10-candle high / low with ADX < 35, faded at the close | Stop 1 × ATR · 2R, or after 12 H4 candles |
+| AUD/CHF | **Asian-session channel fade** | H1, 22:00–05:00 GMT | H1 close beyond the 40-candle high / low, faded at the close | Stop 1 × ATR · 2R, or after 48 H1 candles |
+| USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD | **No validated strategy** | H4 chart | — (nothing held up on the unseen part of the test) | No signals: chart, trend and analysis only |
 
-Every target is kept between **1.5R and 2R** (`TARGET_MIN_R` / `TARGET_MAX_R`). Past trades are replayed with the
+Every target is **2R** (inside the app's 1.5R–2R rule, `TARGET_MIN_R` / `TARGET_MAX_R`). Past trades are replayed with the
 same rules, so the TP / SL / breakeven record and each pair's performance are measured, not estimated.
 Full rules, filters and test results: [docs/STRATEGIES.md](docs/STRATEGIES.md).
 
@@ -84,14 +82,14 @@ Full rules, filters and test results: [docs/STRATEGIES.md](docs/STRATEGIES.md).
 
 | # | Agent | Reads | Blocks a trade when |
 |---|---|---|---|
-| 1 | **Market analysis** | Daily EMA20/EMA50 trend, ATR regime, high-impact news | Against the daily trend, volatility spike (ATR > 2.5× usual), major news < 1 h away |
-| 2 | **Strategy** | The strategy's decision and the market report | The signal is not valid, not fresh, or does not fit the market report |
+| 1 | **Market analysis** | Daily EMA20/EMA50 trend, ATR regime, high-impact news | A trend trade against the daily trend (a fade is not vetoed: it is built that way), volatility spike (ATR > 2.5× usual), major news < 1 h away |
+| 2 | **Strategy** | The pair's plan (rule, hours, stop in ATR, 2R target, its test) and the strategy's decision | No validated plan, the setup does not match the plan, not fresh, or a trend trade against the market report |
 | 3 | **Risk & execution** | AI trade desk (rules re-checked on live data, price drift, live R:R, currency exposure), open book | Any check fails, or 4 signals are already open |
 | 4 | **Trade management** | The running trade, its candles since the fill, the market report | — (never blocks; runs after the entry) |
 
 Agent 4 manages a placed trade like a disciplined professional: **the stop and the target never move** (that is the
-tested edge). It tracks R now, best and worst R since the fill, applies the strategy's own exits on time (RSI(2) EMA5
-close, time limits, limit-order expiry) and reads the market around the trade. Its verdict is one of
+tested edge). It tracks R now, best and worst R since the fill, applies the plan's own exits on time (the time
+limit, limit-order expiry) and reads the market around the trade. Its verdict is one of
 `HOLD`, `CAUTION`, `EXIT_SOON`, `WAIT`, `CANCEL`, always with one sentence saying what to do. It appears in the setup
 panel ("Gestion du trade"), in the agents card, on Telegram and in the follow-up card picture.
 
@@ -295,7 +293,7 @@ backend/
     push.py              Web Push (VAPID), new trade / follow-up / result notices
     followup.py          Follow-up notices of running trades
     agent/               The four agents, AI trade desk, explanations
-    strategies/          Gold, London, report plans, RSI(2), FXAlexG GPA; replay, lifecycle, shared rules
+    strategies/          pairs/ (each pair's plan, rules, engine); replay, lifecycle, shared rules
     market/              Prices and candles (spot gold kept in spot terms), news
     telegram/            Bot (commands, delivery), scheduler, chart pictures, leak protection
     api/                 HTTP routes

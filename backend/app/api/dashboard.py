@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api")
 
 def _market_row(sym: str, r: Optional[dict]) -> dict:
     if r is None:  # first analysis still running (cold start): the card shows a placeholder until the next refresh
-        return {"symbol": sym, "loading": True, "strategy": CONFIGS[sym]["name"], "entryTf": STRATEGY_DEFS[sym].entryTf}
+        return {"symbol": sym, "loading": True, "strategy": CONFIGS[sym]["name"], "entryTf": STRATEGY_DEFS[sym].entryTf, "plan": bool(CONFIGS[sym]["rule"])}
     s = r["setup"]
     single = bool(s) and s["params"].get("breakeven", True) is False  # set & forget: one target (TP3)
     target = (s["tp3"] if single else s["tp2"]) if s else None
@@ -38,8 +38,8 @@ def _market_row(sym: str, r: Optional[dict]) -> dict:
                   "state": s["lifecycle"]["state"], "outcome": s["lifecycle"]["outcome"], "r": s["lifecycle"]["rMultiple"],
                   "isFresh": s["isFresh"], "signalTime": s["signalTime"]} if s else None,
         "lastTrade": facts.get("lastTrade"),
-        "trend": {"weekly": facts.get("weeklyTrend"), "daily": facts.get("dailyTrend"), "h4": facts.get("trendH4"), "h1": facts.get("trend")},
-        "grade": r.get("grade"), "liveGrade": r.get("liveGrade"),
+        "trend": {"entry": facts.get("trend")},  # EMA50 vs EMA200 on the plan's timeframe
+        "plan": (r.get("pairStrategy") or {}).get("live", False),
     }
 
 

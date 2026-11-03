@@ -67,7 +67,7 @@ export interface LifecycleResult {
   outcome: "WIN" | "LOSS" | "BREAKEVEN" | null;
 }
 
-export type DrawingLayer = "sessions" | "levels" | "structure" | "swings" | "liquidity" | "fvg" | "ob" | "fib" | "trade" | "report";
+export type DrawingLayer = "sessions" | "levels" | "structure" | "swings" | "liquidity" | "fvg" | "ob" | "fib" | "trade";
 
 /** Target options: for each R multiple, the share of this pair's past trades the market carried that far before the stop. */
 export interface TpReach {
@@ -163,23 +163,24 @@ export interface StrategyResult {
   day: { trades: number; losses: number };
   drawings: Drawing[];
   facts: Record<string, unknown>;
-  reportStrategy?: ReportStrategy | null;  // the pair's strategy from the strategy report: live, or observed next to the live one
+  pairStrategy?: PairStrategy | null;  // the pair's strategy: its analysis, its plan and the test that decided it
 }
 
-/** The pair's strategy from the report "Anja7 Stratigiyat Trading F Forex", with the 2-year test that decided its status. */
-export interface ReportStrategy {
+interface TestPart { trades: number; winRate: number; totalR: number; tp2R: number }
+/** The pair's strategy: designed from its behaviour, tuned on the first 60 % of 2 years, judged on the last 40 % (unseen). */
+export interface PairStrategy {
   name: string;
   timeframe: string;
-  live: boolean;
-  recommendation: string;
-  test: { trades: number; winRate: number; totalR: number; verdict: string };
+  live: boolean;  // false: nothing held up on the unseen part, no strategy and no signal on this pair
+  rule: 'channel_breakout' | 'channel_fade' | null;
+  style: 'trend' | 'reversal' | null;
+  why: string;
+  test: { tuned: TestPart; unseen: TestPart; costsX2: number; neighbours: string } | null;
   note?: string | null;
-  status?: StrategyStatus;
-  headline?: string;
-  historyStats?: HistoryStats | null;
-  setup?: { direction: Side; entry: number; sl: number; tp3: number; signalTime: number; state: string; outcome: string | null; r: number | null } | null;
-  drawings?: Drawing[];
-  checklist?: { rule: string; passed: boolean; detail: string }[];
+  profile: { character: 'trending' | 'reverting' | 'mixed'; follow: number; fade: number; tf: string; vr24: number; activeHours: string };
+  params: { channel?: number; slAtr?: number; hours?: [number, number]; adxMax?: number };
+  maxBars: number;
+  targetR: number;
 }
 
 export interface ExunuSMCResult {

@@ -3,19 +3,22 @@ Three agents, one trade: a signal goes out only when all three agree.
 
 1. Market Analysis agent: reads the market on its own (not the strategy's rules): the daily trend (EMA20 / EMA50 on daily
    candles), the volatility regime (ATR now vs its usual level) and the high-impact news ahead. It writes a trend report
-   and objects to a trade against the daily trend, in a volatility spike, or with major news less than an hour away.
-2. Strategy agent: takes the strategy's own decision (rules, score, a fresh setup it may notify) and the market report,
-   and builds the plan (entry, stop, target, R:R). It agrees only with a valid signal that fits the report.
+   and objects to a trend trade against the daily trend (not to a fade, which is built that way), in a volatility spike,
+   or with major news less than an hour away.
+2. Strategy agent: knows each pair's plan (its rule, timeframe, hours, stop in ATR, 2R target and the test behind it),
+   takes the strategy's decision and re-checks the setup against that plan (a validated plan, the stop size, the target,
+   the hours), then builds the plan (entry, stop, target, R:R). A trend plan must fit the market report; a fade trades
+   against the move by design, as in its test. It agrees only with a valid signal that matches its plan.
 3. Risk & Execution agent: the AI trade desk (rules re-checked, live data, price drift, live R:R, market open, currency
    exposure) plus the book: at most MAX_OPEN signals open at once. It approves the final order.
 
 4. Trade management agent (after the entry, never before): runs the open trade like a disciplined professional. The plan
    is the edge, so the stop and the target never move; it tracks the progress (R now, best and worst since the fill), the
-   strategy's own exits (RSI(2): an H4 close back across EMA5; time exits) and the market around the trade (news, a
+   strategy's own exits (the time limit of the plan) and the market around the trade (news, a
    volatility spike, a daily trend turning against it), and says one thing to do: HOLD, CAUTION, EXIT SOON, WAIT or CANCEL.
 
-Measured on each pair's past trades, the market agent's trend veto blocked 8 of 111 trades for about the same total result
-(+0.3R): it mostly removes counter-trend trades, it is not a profit engine. Each agent can only block, never create a trade.
+The plans were tested without the agents' vetoes (news ±30 min aside): the vetoes are safety, not the edge. Each agent can
+only block, never create a trade.
 """
 
 import time
@@ -94,7 +97,10 @@ def market_agent(r: dict, candles: list[Candle], news_events: list[dict], now: O
               _check("Volatility regime", regime != "spike", f"{regime}: ATR {ratio:.2f}× its usual level"),
               _check("No major news within 1 h", not soon, f"{soon[0]['currency']} {soon[0]['title']} in {int((soon[0]['time'] - now) // 60)} min" if soon else
                      (f"next: {ahead[0]['currency']} {ahead[0]['title']} in {int((ahead[0]['time'] - now) // 60)} min" if ahead else "none in the next 6 h"))]
-    if s:
+    if s and (r.get("pairStrategy") or {}).get("style") == "reversal":
+        # A fade trades against the move on purpose: its test counted those trades, so the daily trend only informs here
+        checks.insert(1, _check("Daily trend (a fade: not a veto)", True, f"{s['direction']} fade with a {word} daily trend"))
+    elif s:
         side = 1 if s["direction"] == "BUY" else -1
         checks.insert(1, _check("Trade with the daily trend (or a neutral one)", trend != -side,
                                 f"{s['direction']} vs a {word} daily trend"))
@@ -102,6 +108,27 @@ def market_agent(r: dict, candles: list[Candle], news_events: list[dict], now: O
     summary = (f"Daily trend {word}, volatility {regime}" + (f", {len(ahead)} major news in 6 h" if ahead else ", no major news ahead")
                + ("" if not s else " · agrees with the trade" if agree else " · objects: " + "; ".join(c["label"] for c in checks if not c["passed"])))
     return _vote("market", "Market analysis", agree, summary, checks, {"report": report, "bias": word})
+
+
+def plan_checks(r: dict, s: dict, rr: float) -> list[dict]:
+    """The pair's own plan, re-checked from the setup: a validated plan, its stop (its ATR multiple), its 2R target, its hours."""
+    ps = r.get("pairStrategy") or {}
+    if not ps.get("live"):
+        return [_check("A validated strategy on this pair", False, ps.get("why") or "none")]
+    p, tf_sec = ps.get("params") or {}, TF_SEC.get(ps.get("timeframe") or "", 3600)
+    u = (ps.get("test") or {}).get("unseen") or {}
+    out = [_check(f"Plan: {ps['name']} {ps['timeframe']}", True, f"unseen test {u.get('trades')} trades, {u.get('totalR', 0):+}R, {u.get('tp2R')}% reached 2R")]
+    a = (r.get("facts") or {}).get("atr")
+    if isinstance(a, (int, float)) and a > 0 and p.get("slAtr"):
+        k = abs(s["entry"] - s["sl"]) / a
+        out.append(_check(f"Stop {p['slAtr']:g} × ATR", abs(k - p["slAtr"]) <= 0.35 * p["slAtr"], f"{k:.2f} × ATR"))
+    out.append(_check(f"One target at {ps.get('targetR', 2):g}R", abs(rr - ps.get("targetR", 2)) <= 0.05, f"1:{rr:.2f}"))
+    if p.get("hours"):
+        h = ((s["signalTime"] - tf_sec) // 3600) % 24
+        a0, b0 = p["hours"]
+        ok = a0 <= h < b0 if a0 < b0 else (h >= a0 or h < b0)
+        out.append(_check(f"Inside {a0:02d}:00–{b0:02d}:00 GMT", ok, f"signal candle opened {h:02d}:00 GMT"))
+    return out
 
 
 def strategy_agent(r: dict, market: dict) -> dict:
@@ -113,12 +140,17 @@ def strategy_agent(r: dict, market: dict) -> dict:
     rr = abs(s["tp3"] - s["entry"]) / risk if risk else 0
     d = r["spec"]["decimals"]
     plan = {"direction": s["direction"], "entryType": s["entryType"], "entry": s["entry"], "sl": s["sl"], "tp": s["tp3"], "rr": round(rr, 2)}
+    ps = r.get("pairStrategy") or {}
     checks = [
         _check("Strategy rules: signal", r["status"] == "SIGNAL", f"{r['status']} · score {r['score']}"),
         _check("Fresh setup the strategy may send", bool(r.get("canNotify")) and s["lifecycle"]["state"] in ("PENDING", "OPEN"), s["lifecycle"]["state"]),
-        _check("Fits the market report", market["bias"] == "neutral" or (market["bias"] == "bullish") == (s["direction"] == "BUY"),
-               f"{s['direction']} with a {market['bias']} daily trend"),
+        *plan_checks(r, s, rr),
     ]
+    if ps.get("style") == "reversal":
+        checks.append(_check("A fade: against the move by design", True, f"{s['direction']} with a {market['bias']} daily trend, as in its test"))
+    else:
+        checks.append(_check("Fits the market report", market["bias"] == "neutral" or (market["bias"] == "bullish") == (s["direction"] == "BUY"),
+                             f"{s['direction']} with a {market['bias']} daily trend"))
     agree = all(c["passed"] for c in checks)
     summary = f"{s['direction']} {s['entryType']} {s['entry']:.{d}f} · SL {s['sl']:.{d}f} · TP {s['tp3']:.{d}f} (1:{rr:.1f})"
     return _vote("strategy", "Strategy", agree, summary, checks, {"plan": plan})
@@ -231,18 +263,6 @@ def manager_agent(r: dict, candles: list[Candle], market: Optional[dict] = None,
                                  f"Sortie au temps : fermez le trade à {_hhmm(end)} UTC ({_left(end - now)}).",
                                  f"خروج بالوقت: سد الصفقة ف {_hhmm(end)} UTC ({_left(end - now)}).")
                 extra["exitAt"] = end
-        ema5 = (r.get("facts") or {}).get("ema5")
-        if s.get("setup") == "RSI2" and isinstance(ema5, (int, float)):
-            close = (now // 14400 + 1) * 14400
-            across = price > ema5 if buy else price < ema5
-            where = "above" if buy else "below"
-            checks.append(_check("EMA5 exit not triggered", not across,
-                                 f"price {f(price)} {where if across else ('below' if buy else 'above')} EMA5 {f(ema5)} · H4 closes at {_hhmm(close)} UTC"))
-            if across:
-                exit_soon = _say(f"Exit forming: if the H4 candle closes {where} EMA5 ({f(ema5)}) at {_hhmm(close)} UTC, close the trade at that close.",
-                                 f"Sortie en formation : si la bougie H4 clôture {'au-dessus' if buy else 'en dessous'} de l’EMA5 ({f(ema5)}) à {_hhmm(close)} UTC, fermez le trade à cette clôture.",
-                                 f"الخروج كيتكون: إلا سدات شمعة H4 {'فوق' if buy else 'تحت'} EMA5 ({f(ema5)}) ف {_hhmm(close)} UTC، سد الصفقة.")
-                extra["exitAt"] = close
 
         # The market around the trade: be careful, never improvise (the stop already caps the loss)
         cautions: list[str] = []
@@ -293,6 +313,6 @@ def manager_agent(r: dict, candles: list[Candle], market: Optional[dict] = None,
 
 
 def market_candles(bundle: dict) -> list[Candle]:
-    """The candles the market agent reads: hourly where the strategy has them (gold, GPA), else H4 (RSI(2))."""
+    """The candles the market agent reads: hourly where the strategy has them, else H4."""
     c = bundle.get("candles") or {}
     return c.get("H1") or c.get("H4") or next(iter(c.values()), [])

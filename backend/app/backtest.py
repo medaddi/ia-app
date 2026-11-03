@@ -15,7 +15,7 @@ from .strategies.shared.common import active_window
 from .strategies.shared.jsnum import fmt_utc_minute, iso, round_to
 from .strategies.shared.news import load_news_calendar
 from .strategies.shared.types import TF_SEC
-from .strategies.xauusd.config import XAU_CONFIG
+from .strategies.pairs.config import PAIR_CONFIGS
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -83,7 +83,7 @@ def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
     warnings.append("Spread is a fixed config value (feed has no live spread); real spreads widen around news and rollover.")
     if len(closed) >= 10 and total_r <= 0:
         warnings.append("Net result is negative or flat over this sample.")
-    costs = ({"spread": f"${XAU_CONFIG['filters']['assumedSpread']}", "slippage": f"${XAU_CONFIG['filters']['slippage']}"} if sym == "XAU/USD"
+    costs = ({"spread": f"${PAIR_CONFIGS['XAU/USD']['filters']['assumedSpread']}", "slippage": f"${PAIR_CONFIGS['XAU/USD']['filters']['slippage']}"} if sym == "XAU/USD"
              else {"spread": f"{_cfg(sym)['filters']['assumedSpreadPips']} pips", "slippage": f"{_cfg(sym)['filters']['slippagePips']} pips"})
     return {
         "symbol": sym, "strategy": _cfg(sym)["name"],

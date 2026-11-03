@@ -23,6 +23,8 @@ class StrategyDef:
     exit_rule: Optional[Callable[[list[Candle], str], Callable[[int], bool]]] = None  # strategy exit at a close
     # Decide earlier: at every close of this smaller timeframe, run the rules on the entry candle still forming
     confirmTf: Optional[str] = None
+    # Cheap check on the entry candles up to index i: could the rule fire on that candle? (replay runs the strategy only then)
+    trigger: Optional[Callable[[list[Candle], int], bool]] = None
 
 
 def decision_tf(d: StrategyDef) -> str:
@@ -47,7 +49,7 @@ def replay(d: StrategyDef, base: dict, from_sec: int, to_sec: int, state: Option
         if close <= state.lastClose or close > to_sec:
             continue
         state.lastClose = close
-        if not d.canSignalAt(close):
+        if not d.canSignalAt(close) or (d.trigger and not d.trigger(entry, index_of[c.time])):
             continue
         day = stats_at(d, entry, index_of, state.emitted, close)
         r = d.run({**base, "nowSec": close, "isMarketOpen": True, "day": day})

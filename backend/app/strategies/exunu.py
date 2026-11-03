@@ -10,7 +10,7 @@ import time
 from typing import Optional
 
 from ..agent.explain import build_explanation
-from .alexg.config import NAMES as ASSET_NAMES
+from ._pairs import NAMES as ASSET_NAMES
 from .service import get_strategy_result, get_strategy_result_as_of, normalize_symbol
 from .shared.jsnum import iso, js_str, to_fixed
 
@@ -43,46 +43,10 @@ def build_exunu_result(r: dict) -> dict:
     now_ms = int(time.time() * 1000)
 
     structure_summary = f"Bias {r['bias']['direction']}: {r['bias']['detail']}"
-    if a.get("sweep"):
-        sw = a["sweep"]
-        poi = f" · POI {a['poi']['kind']} {f(a['poi']['bottom'])}–{f(a['poi']['top'])}" if a.get("poi") else ""
-        liquidity_summary = f"{sw['level']['label']} {f(sw['level']['price'])} swept (wick {f(sw['extreme'])}){poi}"
-    elif a.get("reversion"):
-        rv = a["reversion"]
-        liquidity_summary = (f"{rv['session']}: close {f(rv['excursion'])} beyond the Bollinger band {f(rv['band'])} against the trend, "
-                             f"then back inside at {f(rv['close'])} (middle {f(rv['mid'])})")
-    elif a.get("breakout"):
-        bo = a["breakout"]
-        liquidity_summary = (f"H1 close {f(bo['close'])} {'above' if bo['direction'] == 'BUY' else 'below'} the {bo['lookback']}h "
-                             f"{'high' if bo['direction'] == 'BUY' else 'low'} {f(bo['level'])} (range {f(bo['rangeLow'])}–{f(bo['rangeHigh'])})")
-    elif a.get("rsi2"):
-        q = a["rsi2"]
-        liquidity_summary = f"RSI(2) {q['rsi']} {'below' if q['direction'] == 'BUY' else 'above'} {q['level']} inside the H4 trend · exit at EMA5 {f(q['ema5'])}"
-    elif facts.get("rsi2") is not None:
-        lo = facts.get("rsiLevel", 10)
-        liquidity_summary = f"RSI(2) now {facts['rsi2']} (buy < {lo} / sell > {100 - lo}) · EMA5 {f(facts['ema5'])}"
-    elif a.get("gpa"):
-        g = a["gpa"]
-        z = g["aoi"]
-        liquidity_summary = (f"{z['tfs']} AOI {f(z['lo'])}–{f(z['hi'])} ({z['touches']} touches)"
-                             + (f" · {g['pattern']['type']}" if g["pattern"] else "") + f" · {g['session']} engulfing · grade {g['grade']} {g['score']}%")
-    elif facts.get("areasOfInterest") and facts["areasOfInterest"][0].get("lo") is not None:
-        liquidity_summary = "AOI: " + " · ".join(f"{x['tfs']} {f(x['lo'])}–{f(x['hi'])} ({x['touches']})" for x in facts["areasOfInterest"][:3])
-    elif a.get("breakRetest"):
-        br = a["breakRetest"]
-        liquidity_summary = (f"Area of interest {f(br['level'])} ({br['touches']} touches) broken, moved to {f(br['extreme'])}, "
-                             f"retested with {'an' if br['pattern'] == 'engulfing' else 'a'} {br['pattern']}")
-    elif a.get("leg"):
-        leg, ob = a["leg"], a.get("ob")
-        liquidity_summary = f"Pullback into Fib 50–61.8% {f(min(leg['fib50'], leg['fib618']))}–{f(max(leg['fib50'], leg['fib618']))}"
-        if ob:
-            liquidity_summary += f" + H1 OB {f(ob['bottom'])}–{f(ob['top'])}"
-    elif facts.get("areasOfInterest"):
-        liquidity_summary = "Areas of interest: " + " · ".join(f"{x['kind']} {f(x['price'])}" for x in facts["areasOfInterest"])
-    elif facts.get("asianRange"):
-        liquidity_summary = f"Asian range {f(facts['asianRange']['low'])}–{f(facts['asianRange']['high'])}"
+    if a.get("pair"):
+        liquidity_summary = " · ".join(a["pair"]["why"])
     else:
-        liquidity_summary = "No liquidity event in the setup window"
+        liquidity_summary = facts.get("progress") or "No setup"
     if s and s["params"].get("breakeven", True) is False:  # set & forget: one target
         risk_summary = (f"{s['entryType']} {s['direction']} {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])}p) · "
                         f"TP {f(s['tp3'])} 1:{to_fixed(abs(s['tp3'] - s['entry']) / abs(s['entry'] - s['sl']), 1)} · no partials, no breakeven")
@@ -181,7 +145,7 @@ def to_ai_signal(res: dict, live_price: Optional[float] = None) -> dict:
         "target2": s["tp2"] if s else 0,
         "target3": s["tp3"] if s else 0,
         "confidence": score,
-        "grade": r.get("grade") if s and s.get("setup") == "GPA" else None,  # forex GPA grade (A+ / B / C+)
+        "grade": None,
         "reasons": [f"{'✓' if c['passed'] else '✕'} {c['rule']}: {c['detail']}" for c in r["checklist"]],
         "riskReward": f"1:{to_fixed(s['rrTp2'], 1)}" if s else "—",
         "timeframe": r["timeframes"]["entry"],

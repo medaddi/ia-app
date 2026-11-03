@@ -37,7 +37,7 @@ export class DrawingsPrimitive implements ISeriesPrimitive<Time> {
   private barTimes: number[] = [];
   private tfSec = 900;
   private chartTf = 'M15';
-  private layers: Record<DrawingLayer, boolean> = { sessions: true, levels: true, structure: true, swings: true, liquidity: true, fvg: true, ob: true, fib: true, trade: true, report: true };
+  private layers: Record<DrawingLayer, boolean> = { sessions: true, levels: true, structure: true, swings: true, liquidity: true, fvg: true, ob: true, fib: true, trade: true };
   private theme: OverlayTheme = 'dark';
   private readonly bgView: IPrimitivePaneView;
   private readonly fgView: IPrimitivePaneView;

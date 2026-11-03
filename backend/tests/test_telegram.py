@@ -129,7 +129,7 @@ def test_bot_commands(monkeypatch):
     assert "resumed" in say("/resume").lower()
     assert "XAU/USD" in say("/history") and "+1.75R" in sent[-1]
     assert "All time" in say("/stats") and "Win rate" in sent[-1]
-    assert "Bollinger reversion" in say("/rules") and "Breakout" in sent[-1]
+    assert "Channel breakout in the trend" in say("/rules") and "no signals" in sent[-1]
     assert "/pairs" in say("/help") and "/news" in sent[-1]
     assert "/gold · XAU/USD" in say("/pairs") and "/eurusd · EUR/USD" in sent[-1]  # the pair commands, tappable
     assert "No trade running" in say("/open")
@@ -139,7 +139,7 @@ def test_close_messages():
     base = {"id": "x", "symbol": "XAU/USD", "direction": "BUY", "state": "CLOSED", "rrTarget": 2.0}
     assert bot.format_close_message({**base, "outcome": "WIN", "rMultiple": 2.0}) == \
         "<b>✅ TP HIT | XAU/USD (BUY)</b>\nResult: +2.00R\n👉 Profit taken. Nothing to do."
-    assert bot.close_message({**base, "outcome": "WIN", "rMultiple": 0.8})[0] == "✅ CLOSED IN PROFIT"  # RSI(2) EMA5 exit
+    assert bot.close_message({**base, "outcome": "WIN", "rMultiple": 0.8})[0] == "✅ CLOSED IN PROFIT"  # a time exit in profit
     assert bot.close_message({**base, "outcome": "LOSS", "rMultiple": -1.03})[0] == "❌ SL HIT"
     assert bot.close_message({**base, "outcome": "BREAKEVEN", "rMultiple": 0.0})[0] == "➖ BREAKEVEN"
     assert bot.close_message({**base, "state": "EXPIRED", "outcome": None, "rMultiple": None}) == \

@@ -4,6 +4,8 @@ news; the strategy agent needs a valid fresh signal that fits the market; a trad
 import time
 
 from app.agent.agents import consensus, market_agent, strategy_agent
+from app.strategies.pairs.config import PAIR_CONFIGS
+from app.strategies.pairs.engine import pair_block
 from app.strategies.shared.types import Candle
 
 H = 3600
@@ -20,12 +22,14 @@ def trend(direction: int, days: int = 90):
     return c
 
 
-def result(direction: str, entry: float):
+def result(direction: str, entry: float, pair: str = "XAU/USD"):
+    """A gold breakout signal (its plan: stop 2 × ATR, one target at 2R): ATR 5 → stop 10, target 20."""
     sl = entry - 10 if direction == "BUY" else entry + 10
     tp = entry + 20 if direction == "BUY" else entry - 20
-    return {"spec": {"decimals": 2, "displaySymbol": "XAU/USD"}, "status": "SIGNAL", "score": 90, "canNotify": True, "headline": "",
-            "setup": {"id": "XAUUSD-BO-1", "direction": direction, "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": entry, "tp2": entry, "tp3": tp,
-                      "lifecycle": {"state": "OPEN"}}}
+    return {"spec": {"decimals": 2, "displaySymbol": pair}, "status": "SIGNAL", "score": 90, "canNotify": True, "headline": "",
+            "facts": {"atr": 5}, "pairStrategy": pair_block(PAIR_CONFIGS[pair]),
+            "setup": {"id": "XAUUSD-PS-1", "direction": direction, "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": entry, "tp2": entry, "tp3": tp,
+                      "signalTime": 1_800_000_000, "lifecycle": {"state": "OPEN"}}}
 
 
 def test_market_agent_follows_the_daily_trend():
@@ -57,6 +61,22 @@ def test_strategy_agent_and_consensus_need_all_three(monkeypatch):
     assert not out["approved"] and out["agreed"] < 3 and any("Market analysis" in i for i in out["issues"])
     ok = consensus(buy, c, [], None)
     assert ok["approved"] and ok["agreed"] == 3 and ok["summary"].startswith("3/3")
+    # The plan is re-checked: a stop that is not the plan's 2 × ATR is refused
+    wide = {**buy, "facts": {"atr": 2}}
+    assert not strategy_agent(wide, m)["agree"]
+    # A pair without a validated strategy never gets the strategy agent's vote
+    assert not strategy_agent(result("BUY", c[-1].close, "USD/CAD"), m)["agree"]
+
+
+def test_a_fade_is_not_vetoed_by_the_daily_trend():
+    """GBP/USD fades a stretched close: a SELL in a daily uptrend is the plan itself (its test counted those trades)."""
+    c = trend(+1)
+    now = c[-1].time + H
+    r = result("SELL", c[-1].close, "GBP/USD")
+    r["facts"] = {"atr": 10}  # GBP/USD plan: stop 1 × ATR
+    m = market_agent(r, c, [], now)
+    assert m["agree"] and m["bias"] == "bullish"
+    assert strategy_agent(r, m)["agree"]
 
 
 def test_trade_manager_agent():
@@ -66,7 +86,7 @@ def test_trade_manager_agent():
     now = 1_800_000_000
     base = {"spec": {"decimals": 5}, "timeframes": {"entry": "H4"}, "facts": {}, "price": 1.1010}
     setup = {"direction": "BUY", "entryType": "MARKET", "entry": 1.1000, "sl": 1.0980, "tp3": 1.1040, "signalTime": now - 4 * 14400,
-             "setup": "GPA", "params": {}, "expiresAt": None, "lifecycle": {"state": "OPEN", "fillTime": now - 4 * 14400}}
+             "setup": "PAIR", "params": {}, "expiresAt": None, "lifecycle": {"state": "OPEN", "fillTime": now - 4 * 14400}}
     candles = [Candle(time=now - 4 * 14400, open=1.1, high=1.1025, low=1.0995, close=1.102, volume=0)]
     m = manager_agent({**base, "setup": setup}, candles, None, now)
     assert m["verdict"] == "HOLD" and m["rNow"] == 0.5 and m["bestR"] == 1.25 and "Hold" in m["action"]["en"]
@@ -77,10 +97,6 @@ def test_trade_manager_agent():
     market = {"report": {"newsAhead": [{"currency": "USD", "title": "CPI", "inMin": 20}], "volatility": "normal", "dailyTrend": "bullish"}}
     m = manager_agent({**base, "setup": setup}, candles, market, now)
     assert m["verdict"] == "CAUTION" and "USD news in 20 min" in m["action"]["en"]
-    # RSI(2): price back above EMA5 → exit forming at the H4 close
-    rsi = {**setup, "setup": "RSI2", "params": {"maxBars": 48}}
-    m = manager_agent({**base, "facts": {"ema5": 1.1005}, "setup": rsi}, candles, None, now)
-    assert m["verdict"] == "EXIT_SOON" and "close the trade" in m["action"]["en"] and m["exitAt"] % 14400 == 0
     # time exit within one candle
     old = {**setup, "params": {"maxBars": 5}}
     assert manager_agent({**base, "setup": old}, candles, None, now)["verdict"] == "EXIT_SOON"
