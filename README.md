@@ -85,6 +85,11 @@ PENDING_ORDER → IN_TRADE → COOLDOWN` — and owns its chart: it emits its `A
 (`frontend/src/chart-overlays/agentOverlayPrimitive.ts`). The terminal shows one pair or a **4-chart split screen**,
 each pane subscribed to its own agent.
 
+**Every setup becomes an order**, even while an earlier trade of the pair still runs; next to each setup agent a
+**trade-management agent** (`backend/app/agents/trade_manager.py`) follows every sent trade (fill, TP1 → close 50 % /
+break-even, SL / TP, expiry) on Telegram and in the app. A new setup is recorded first, then sent to Telegram and to
+the app independently, with retries. On Vercel Pro the cron in `backend/vercel.json` calls `/api/cron/tick` every minute.
+
 **Nothing blocks a setup**: every fresh setup an agent sees is sent to the app, the phones and Telegram, and each
 trader controls their own risk ($ or % per trade on their account, `/risk` on Telegram). The risk notes
 (`backend/app/core/risk_guard.py`) travel with each order: rules re-checked, limit still valid, red news ±30 min, the

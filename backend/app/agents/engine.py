@@ -2,10 +2,10 @@
 Runs one pair agent on its closed candles and returns the app's strategy result plus the agent's own chart state
 (`overlay`, the AgentChartOverlayState of frontend/src/agentOverlay.ts).
 
-The agent's setups become orders (MARKET, or LIMIT with its expiry), replayed with the app's lifecycle (fill, TP1 partial + break-even, stop
-counted first), one order at a time per pair. Nothing blocks a setup the agent sees: news, spread and the day's count are
-shown as notes, the trader decides and sets the risk. The
-overlay is the agent's context of the latest candle (its sessions, levels, sweep, MSS), the drawings of the order on
+Every setup the agent sees becomes an order (MARKET, or LIMIT with its expiry), even while an earlier one still runs:
+the pair agent only looks for setups, the trade-management agent (agents/trade_manager.py) runs the trades. Each order is
+replayed with the app's lifecycle (fill, TP1 partial + break-even, stop counted first). Nothing blocks a setup: news,
+spread and the day's count are notes, the trader decides and sets the risk. The overlay is the agent's context of the latest candle (its sessions, levels, sweep, MSS), the drawings of the order on
 screen and its live trade projection.
 """
 
@@ -180,21 +180,18 @@ def evaluate_agent(inp: dict, agent: PairAgent, cfg: dict) -> dict:
     events = inp["news"]["events"]
     latest = None
     past: list[dict] = []
-    free_from = 0
-    for raw in scan["setups"]:  # every setup the agent sees is an order (one at a time per pair)
+    running: list[dict] = []
+    for raw in scan["setups"]:  # every setup the agent sees is an order, also while an earlier one still runs
         i = index_of.get(raw["time"])
-        if i is None or i < free_from:
+        if i is None:
             continue
         s = _build(agent, cfg, c, i, raw, spread, last, tf_sec, events)
         lc = s["lifecycle"]
         latest = s
         if lc["state"] == "CLOSED":
             past.append(trade_record(s, tf_sec, c, i))
-        if lc["state"] in ENDED:
-            end_t = lc["exitTime"] or (lc["events"][-1]["time"] if lc["events"] else c[i].time)
-            free_from = index_of.get(end_t, i) + 1
-            continue
-        break  # pending or open now: the live order
+        elif lc["state"] in LIVE:
+            running.append(s)
 
     result["history"] = past[-HISTORY_MAX:]
     result["historyStats"] = history_stats(past)
@@ -235,7 +232,10 @@ def evaluate_agent(inp: dict, agent: PairAgent, cfg: dict) -> dict:
         result["signal"] = to_signal_json(spec, cfg["strategy"], setup, result["score"], cfg["timeframes"], checklist)
     result["canNotify"] = bool(result["status"] == "SIGNAL" and setup and setup["isFresh"] and setup["lifecycle"]["state"] in ("OPEN", "PENDING")
                                and inp["isMarketOpen"])
-    shown = setup if setup and setup["lifecycle"]["state"] in LIVE else (setup if setup and setup["signalIndex"] >= last - R["showLastSetupBars"] else None)
+    # the chart's trade projection: the newest order still running, else the newest order just finished
+    shown = setup if setup and setup["lifecycle"]["state"] in LIVE else (running[-1] if running else setup)
+    result["running"] = [{"id": x["id"], "direction": x["direction"], "entryType": x["entryType"], "entry": x["entry"], "sl": x["sl"], "tp1": x["tp1"],
+                          "tp2": x["tp3"], "state": x["lifecycle"]["state"], "signalTime": x["signalTime"]} for x in running]
     result["overlay"] = overlay_state(agent, ctx, shown, price, spread, a[-1], now)
     result["facts"]["lastTrade"] = ({"id": latest["id"], "state": latest["lifecycle"]["state"], "outcome": latest["lifecycle"]["outcome"],
                                      "r": latest["lifecycle"]["rMultiple"]} if latest else None)

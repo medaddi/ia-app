@@ -153,7 +153,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
               emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
               onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
             <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
-              hasSetup={!!result?.setup} lang={lang as Language} />
+              hasSetup={!!result?.setup} lang={lang as Language} running={result?.running ?? []} decimals={result?.spec.decimals ?? 5} />
           </div>
           <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
             <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />

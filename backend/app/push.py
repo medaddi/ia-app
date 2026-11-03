@@ -133,8 +133,14 @@ async def notify_trade(signal: dict) -> int:
         for r in rows:
             by_user.setdefault(r.user_id, []).append(r)
         sent = 0
-        for uid, subs in by_user.items():  # each account gets the lot for its own risk
-            sent += await send_push(db, subs, trade_message(signal, _user_lot(db.get(User, uid), signal)))
+        try:
+            for uid, subs in by_user.items():  # each account gets the lot for its own risk
+                sent += await send_push(db, subs, trade_message(signal, _user_lot(db.get(User, uid), signal)))
+        except Exception:
+            if not sent:  # nothing went out: release the claim so the next tick tries again
+                db.query(PushSent).filter(PushSent.id == str(signal["id"])).delete()
+                db.commit()
+            raise
         return sent
 
 
@@ -169,7 +175,7 @@ async def push_update(sig: dict, head: str, body: str, tag: str) -> int:
 
 
 async def push_setup(symbol: str) -> str:
-    """At a candle close: pushes the fresh signal of `symbol` when the three agents agree (the same vote as Telegram)."""
+    """At a candle close: pushes the fresh setup of `symbol` to every approved account (the same decision as Telegram)."""
     from .strategies.exunu import run_exunu, to_ai_signal
 
     res = await run_exunu(symbol)
@@ -177,6 +183,6 @@ async def push_setup(symbol: str) -> str:
     if not (r["market"]["isOpen"] and r["status"] == "SIGNAL" and r["canNotify"] and r["setup"]):
         return "no signal to push"
     if not (res.get("consensus") or {}).get("approved"):
-        return "agents did not agree"
+        return "agent: no fresh setup"
     n = await notify_trade(to_ai_signal(res))
     return f"pushed to {n} device(s)"

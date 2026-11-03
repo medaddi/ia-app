@@ -91,7 +91,22 @@ valid / a market entry not chased, red news of the pair's currencies within ±30
 same-direction USD trades not yet at break-even (EURUSD, GBPUSD and XAUUSD share the dollar), the orders open on the desk
 and today's result. A pending limit keeps its own expiry (12 M5 bars, 90 min for GBP/USD), even with news ahead.
 
-## 6. Testing
+## 6. Trade-management agents (`agents/trade_manager.py`) and delivery
+
+The setup agents only look for setups and keep scanning while their earlier trades run: **every setup becomes an
+order**, several can run at once on a pair. Next to each setup agent a **trade-management agent** runs every trade
+that was sent: at each tick it replays the trade on the latest candles and tells the traders, once per step, on Telegram
+and on the app (Web Push): 🟡 order filled · 🎯 TP1 hit (close 50 % / move the SL to break-even, +2 pips on gold) ·
+📈 +1R · ⚠️ near SL · 📰 news in N min · ⌛ order expires soon · and how the trade ended (TP / SL / BE / cancelled).
+
+Delivery of a new setup, at the candle close where it completes:
+1. the trade is **recorded first** (the trade-management agent and the app follow it from there, Telegram on or off);
+2. Telegram and the app's Web Push are sent **independently** (one failing never stops the other);
+3. a Telegram attempt that reached nobody is **retried at each tick** for 15 minutes; a push that failed is retried too.
+
+On Vercel the tick is the cron `/api/cron/tick` every minute (`backend/vercel.json`, Vercel Pro).
+
+## 7. Testing
 
 `backend/tests/test_four_agents.py` builds each agent's setup by hand and checks the order, the lifecycle and the chart
 overlay; the replay (`strategies/replay.py`) runs the same code bar by bar. `GET /api/backtest?symbol=` replays the

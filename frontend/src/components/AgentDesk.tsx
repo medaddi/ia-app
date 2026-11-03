@@ -1,7 +1,7 @@
 import React from 'react';
-import { AlertTriangle, Bot, Check, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Bot, Check, ClipboardList, ShieldCheck } from 'lucide-react';
 import type { Language } from '../types';
-import type { PairStrategy } from '../strategyTypes';
+import type { PairStrategy, StrategyResult } from '../strategyTypes';
 import { FSM_TONE, type AgentChartOverlayState } from '../agentOverlay';
 import { tr } from './ui';
 
@@ -17,8 +17,9 @@ export interface DeskVote {
 export interface Consensus { approved: boolean; agreed: number; agents: DeskVote[]; summary: string; riskPct?: number }
 
 /** The pair's agent (its state, its strategy steps) and the risk notes of its order: the trader sets the risk. */
-export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: AgentChartOverlayState | null; plan?: PairStrategy | null; hasSetup: boolean; lang?: Language }> =
-  ({ consensus, overlay, plan, hasSetup, lang = 'en' }) => {
+export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: AgentChartOverlayState | null; plan?: PairStrategy | null; hasSetup: boolean; lang?: Language;
+  running?: StrategyResult['running']; decimals?: number }> =
+  ({ consensus, overlay, plan, hasSetup, lang = 'en', running = [], decimals = 5 }) => {
     const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
     const risk = consensus?.agents.find(a => a.key === 'risk');
     const warnings = risk ? risk.checks.filter(c => !c.passed).length : 0;
@@ -53,6 +54,28 @@ export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: Agent
             <p className="mt-1.5 text-[11px] text-slate-500 leading-relaxed">{plan.why}</p>
           </details>
         )}
+
+        {/* The trade-management agent: every order of this pair still running, followed to its end */}
+        <div className="mt-3 rounded-xl border border-line bg-surface-2/60 p-2.5">
+          <div className="flex items-center gap-3">
+            <span className="icon-tile w-8 h-8 text-slate-300" aria-hidden="true"><ClipboardList className="w-4 h-4" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-white">{t('Trade manager', 'Gestionnaire de trades', 'مسير الصفقات')}</span>
+              <span className="block text-[11px] text-slate-400">{running.length ? t(`${running.length} trade(s) followed: fill, TP1 (partial + BE), SL / TP`, `${running.length} trade(s) suivi(s) : exécution, TP1 (partiel + BE), SL / TP`, `${running.length} صفقة متبوعة: الدخول، TP1 (جزء + BE)، SL / TP`) : t('No trade running', 'Aucun trade en cours', 'حتى صفقة ما خدامة')}</span>
+            </span>
+          </div>
+          {running.length > 0 && (
+            <ul className="mt-2 space-y-1 text-[11px] font-mono">
+              {running.map(x => (
+                <li key={x.id} className="flex flex-wrap gap-x-2 text-slate-300">
+                  <span className={x.direction === 'BUY' ? 'text-emerald-300' : 'text-rose-300'}>{x.direction} {x.entryType}</span>
+                  <span>{x.entry.toFixed(decimals)}</span><span className="text-slate-500">SL {x.sl.toFixed(decimals)} · TP1 {x.tp1.toFixed(decimals)} · TP2 {x.tp2.toFixed(decimals)}</span>
+                  <span className="text-gold-200">{x.state.replace('_', ' ')}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {risk && (
           <div className="mt-3 rounded-xl border border-line bg-surface-2/60">

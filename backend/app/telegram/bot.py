@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -367,6 +367,9 @@ def unlink_chat(db: Session, chat_id: Optional[str]) -> None:
 
 # ---------------------------------------------------------------- dispatch
 
+RETRY_SEC = 15 * 60  # a signal Telegram did not deliver is retried this long after its candle closed
+
+
 async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
     symbol = normalize_symbol(raw_symbol)
     res = await run_exunu(symbol)
@@ -377,53 +380,77 @@ async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
         return {"success": False, "state": state, "error": f"Market closed for {symbol}: no signals are sent while it is closed."}
     if not setup or r["status"] != "SIGNAL":
         return {"success": False, "state": state, "error": f"{r['headlineAr']} ({r['headline']})"}
-    # Manual sends are allowed while the order is still valid; automatic sends only on the signal candle
+    # Manual sends are allowed while the order is still valid; automatic sends on the signal candle, and retried for
+    # RETRY_SEC after it when the first Telegram attempt reached nobody (the trade is already recorded then)
     if not manual and not r["canNotify"]:
-        return {"success": False, "state": state, "error": r["headline"]}
+        with SessionLocal() as db:
+            row = db.get(Signal, setup["id"])
+            retry = (row is not None and (row.recipients or 0) == 0 and setup["lifecycle"]["state"] in ("PENDING", "OPEN")
+                     and time.time() - setup["signalTime"] <= RETRY_SEC)
+        if not retry:
+            return {"success": False, "state": state, "error": r["headline"]}
     if manual and setup["lifecycle"]["state"] not in ("PENDING", "OPEN"):
         return {"success": False, "state": state, "error": f"Order is {setup['lifecycle']['state']}: too late to send"}
     if setup["id"] in _in_flight:
         return {"success": False, "state": state, "error": "Already being sent"}
     with SessionLocal() as db:
-        if db.get(Signal, setup["id"]):
+        # The pair agent's fresh setup is sent; the risk notes travel with it, they never block (the trader sets the risk)
+        check = res.get("consensus") or {"approved": False, "issues": ["The agent did not decide"]}
+        if not check["approved"]:
+            log_event("SIGNAL", f"{setup['direction']} {symbol} not sent", "; ".join(check["issues"]), False)
+            return {"success": False, "state": state, "error": f"Agent: {'; '.join(check['issues'])}", "check": check}
+        signal = to_ai_signal(res)
+        # 1. Record the trade first, whatever happens to Telegram: the trade-management agent and the app notifications
+        #    follow it from here. The id is the primary key, so two concurrent ticks can never both create it
+        row = db.get(Signal, setup["id"])
+        if row is None:
+            row = Signal(id=setup["id"], symbol=symbol, setup=setup["setup"], direction=setup["direction"], entry_type=setup["entryType"],
+                         entry=setup["entry"], sl=setup["sl"], tp1=setup["tp1"], tp2=setup["tp2"], tp3=setup["tp3"], rr_tp2=setup["rrTp2"],
+                         score=r["score"], signal_time=setup["signalTime"], recipients=0, state=setup["lifecycle"]["state"],
+                         params=setup["params"], payload=signal)
+            db.add(row)
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                row = db.get(Signal, setup["id"])
+        if row is not None and (row.recipients or 0) != 0:
             return {"success": False, "state": state, "error": "This setup was already sent."}
         cfg = get_setting(db, "telegram")
         if not cfg["enabled"] or not cfg["botToken"]:
-            return {"success": False, "state": state, "error": "Telegram is disabled or has no bot token"}
+            return {"success": False, "state": state, "recorded": True, "error": "Telegram is disabled or has no bot token (the trade is recorded)"}
         if cfg.get("assets") and symbol not in cfg["assets"]:
-            return {"success": False, "state": state, "error": f"{symbol} is not in the Telegram asset list"}
-        # The pair agent's fresh setup is sent; the risk notes travel with it, they never block (the trader sets the risk)
-        check = res.get("consensus") or {"approved": False, "issues": ["The agents did not vote"]}
-        if not check["approved"]:
-            log_event("SIGNAL", f"{setup['direction']} {symbol} blocked", "; ".join(check["issues"]), False)
-            return {"success": False, "state": state, "error": f"Agents: {'; '.join(check['issues'])}", "check": check}
+            return {"success": False, "state": state, "recorded": True, "error": f"{symbol} is not in the Telegram asset list"}
         recipients = {s.chat_id: s for s in active_subscribers(db) if not s.muted}
         if cfg["chatId"]:
             recipients.setdefault(str(cfg["chatId"]), None)
         if not recipients:
-            return {"success": False, "state": state, "error": "No active subscribers"}
-        signal = to_ai_signal(res)
-        # Claim the setup in the database first: its id is the primary key, so two concurrent ticks
-        # (serverless functions, several workers) can never both send it
-        row = Signal(id=setup["id"], symbol=symbol, setup=setup["setup"], direction=setup["direction"], entry_type=setup["entryType"],
-                     entry=setup["entry"], sl=setup["sl"], tp1=setup["tp1"], tp2=setup["tp2"], tp3=setup["tp3"], rr_tp2=setup["rrTp2"],
-                     score=r["score"], signal_time=setup["signalTime"], recipients=0, state=setup["lifecycle"]["state"],
-                     params=setup["params"], payload=signal)
-        db.add(row)
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            return {"success": False, "state": state, "error": "This setup was already sent."}
+            return {"success": False, "state": state, "recorded": True, "error": "No active subscribers"}
+        # 2. Claim this Telegram attempt (recipients 0 → −1): only one tick sends; a failed attempt goes back to 0 and the
+        #    next tick retries while the order is still valid
+        claimed = db.execute(update(Signal).where(Signal.id == setup["id"], Signal.recipients == 0).values(recipients=-1)).rowcount
+        db.commit()
+        if not claimed:
+            return {"success": False, "state": state, "error": "Already being sent"}
         _in_flight.add(setup["id"])
+        progress = {"sent": 0}
         try:
-            sent, first_ack, last_error = await _send_to_all(cfg, signal, recipients, db)
+            sent, first_ack, last_error = await _send_to_all(cfg, signal, recipients, db, progress)
+        except Exception as err:
+            sent, first_ack, last_error = progress["sent"], None, repr(err)
+        except BaseException:
+            # the tick ran out of time mid-send: keep what went out (no double message), or free the retry if nothing did
+            with SessionLocal() as db2:
+                db2.execute(update(Signal).where(Signal.id == setup["id"]).values(recipients=progress["sent"]))
+                db2.commit()
+            raise
         finally:
             _in_flight.discard(setup["id"])
+        row = db.get(Signal, setup["id"])
         if not sent:
-            db.delete(row)  # nobody received it: release the claim so it can be retried
+            row.recipients = 0  # nobody received it: the next tick tries again
             db.commit()
-            log_event("SIGNAL", f"{signal['signalType']} {symbol}", "No chat received it", False, last_error)
+            log_event("SIGNAL", f"{signal['signalType']} {symbol}", "No chat received it (retried at the next tick)", False, last_error)
             return {"success": False, "state": state, "error": last_error or "Send failed", "signal": signal}
         latency = int(first_ack - setup["signalTime"] * 1000) if first_ack else None
         row.recipients, row.latency_ms = sent, latency
@@ -435,7 +462,7 @@ async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
         return {"success": True, "state": state, "signal": signal, "recipients": sent, "latencyMs": latency}
 
 
-async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session) -> tuple[int, Optional[float], Optional[str]]:
+async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session, progress: Optional[dict] = None) -> tuple[int, Optional[float], Optional[str]]:
     """Parallel delivery in batches under Telegram's ~30 messages/second limit."""
     ids = list(recipients)
     sent = 0
@@ -458,6 +485,8 @@ async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session) -
         for chat_id, out, offset, ref in await asyncio.gather(*(one(c) for c in batch)):
             if out["success"]:
                 sent += 1
+                if progress is not None:
+                    progress["sent"] = sent
                 first_ack = first_ack or time.time() * 1000
                 marks.append(Watermark(ref=ref, chat_id=chat_id, signal_id=str(signal["id"]), symbol=str(signal["symbol"]), offset=offset))
             else:

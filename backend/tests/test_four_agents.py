@@ -259,3 +259,56 @@ def test_risk_notes_never_block_and_the_trader_keeps_the_risk():
         assert any("USD" in n for n in d["notes"]) and any("news" in n.lower() for n in d["notes"])
         db.query(Signal).delete()
         db.commit()
+
+
+# ------------------------------------------------------------------ delivery: recorded first, Telegram and the app independent
+def test_a_setup_is_recorded_then_sent_to_telegram_with_retry(monkeypatch):
+    import asyncio
+
+    from app.db import SessionLocal, init_db
+    from app.models import Signal
+    from app.store import set_setting
+    from app.strategies.exunu import build_exunu_result
+    from app.telegram import bot
+
+    init_db()
+    c = eur_market()
+    sig = run("EUR/USD", c)["history"][0]["signalTime"]
+    r = run("EUR/USD", c, now=sig + 3, price=1.0999)
+    res = build_exunu_result(r)
+    res["consensus"] = coordinate(r, None)
+
+    async def fake_run(symbol, *a, **k):
+        return res
+
+    calls = {"n": 0, "fail": True}
+
+    async def fake_send(token, chat_id, text, markup=None, protect=True):
+        calls["n"] += 1
+        return {"success": False, "error": "network"} if calls["fail"] else {"success": True, "message_id": 1}
+
+    monkeypatch.setattr(bot, "run_exunu", fake_run)
+    monkeypatch.setattr(bot, "send_message", fake_send)
+    with SessionLocal() as db:
+        db.query(Signal).delete()
+        db.commit()
+        set_setting(db, "telegram", {"enabled": False})
+    # Telegram off: the trade is still recorded (the trade-management agent and the app follow it)
+    out = asyncio.run(bot.dispatch_setup("EUR/USD", manual=False))
+    assert not out["success"] and out.get("recorded")
+    with SessionLocal() as db:
+        assert db.get(Signal, r["setup"]["id"]).recipients == 0
+        set_setting(db, "telegram", {"enabled": True, "botToken": "x", "chatId": "123"})
+    # Telegram on but failing: nothing lost, the claim is released and the next tick retries
+    out = asyncio.run(bot.dispatch_setup("EUR/USD", manual=False))
+    assert not out["success"] and calls["n"] == 1
+    with SessionLocal() as db:
+        assert db.get(Signal, r["setup"]["id"]).recipients == 0
+    calls["fail"] = False
+    out = asyncio.run(bot.dispatch_setup("EUR/USD", manual=False))
+    assert out["success"] and out["recipients"] == 1
+    assert asyncio.run(bot.dispatch_setup("EUR/USD", manual=False))["error"] == "This setup was already sent."
+    with SessionLocal() as db:
+        db.query(Signal).delete()
+        db.commit()
+        set_setting(db, "telegram", {"enabled": True, "botToken": "", "chatId": ""})

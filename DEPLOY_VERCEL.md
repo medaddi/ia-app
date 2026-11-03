@@ -43,16 +43,33 @@ Create a second Vercel project from the same repository and set its Root Directo
 
 Use `https://liquiditydissection.app` as the frontend Production Domain, then redeploy so the API URL is included in the frontend build.
 
-## 4. Keep automatic signals running
+## 4. Keep automatic signals running (Vercel Cron, Pro plan)
 
-Vercel functions do not keep the in-process candle scheduler alive. The backend exposes a protected one-pass endpoint for an external scheduler:
+Vercel functions only run when called: nothing in the backend runs on its own between requests. Something must call the
+one-pass endpoint **every minute**: at each call every pair's setup agent decides on the candle that just closed, its
+trade-management agent follows the trades already sent, and a fresh setup goes to Telegram and to the app.
 
 ```text
 GET https://ia-app-tawny.vercel.app/api/cron/tick
 Authorization: Bearer <the CRON_SECRET value>
 ```
 
-Set an external scheduler to call it every minute, with the `Authorization` header above. Vercel Hobby Cron currently permits only one run per day, which is too slow for the app's M5/M15 signal checks. Calls without the correct secret are rejected.
+On **Vercel Pro** this is built in: `backend/vercel.json` declares the cron
+
+```json
+"crons": [{ "path": "/api/cron/tick", "schedule": "* * * * *" }]
+```
+
+1. In the **backend** project, set the Production variable `CRON_SECRET` (a long random string). Vercel sends it as
+   `Authorization: Bearer <CRON_SECRET>` on every cron call; calls without it are rejected.
+2. Redeploy the backend to Production (crons run on the production deployment only).
+3. Check it: Project → Settings → Cron Jobs shows `/api/cron/tick` every minute, and `GET /api/cron/status` (or the
+   dashboard's engine card) shows the last tick less than 3 minutes ago.
+4. Function duration: a tick gives each pair up to 40 s (`TICK_TIMEOUT`); keep the function's max duration at 60 s or more
+   (the Pro default with Fluid compute is enough).
+
+A signal goes out within about a minute of the M5 candle close (the cron runs once a minute). On Hobby, Vercel Cron runs
+once a day only: use an external scheduler there instead (any service that calls the URL above every minute with the header).
 
 ## 5. Optional Telegram bot commands
 
@@ -63,7 +80,7 @@ To make Telegram commands work on Vercel, also add these backend Production vari
 | `TELEGRAM_WEBHOOK_URL` | `https://ia-app-tawny.vercel.app/api/telegram/webhook` |
 | `TELEGRAM_WEBHOOK_SECRET` | A random Telegram webhook secret using letters, numbers, `_` or `-` |
 
-When an admin connects a bot in the app, the backend registers this webhook with Telegram. Automatic signal delivery still requires the external scheduler in step 4. Keep `TELEGRAM_POLLING=false` on Vercel.
+When an admin connects a bot in the app, the backend registers this webhook with Telegram. Automatic signal delivery still requires the cron in step 4. Keep `TELEGRAM_POLLING=false` on Vercel.
 
 ## Login
 

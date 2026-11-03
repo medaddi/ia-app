@@ -143,6 +143,8 @@ export interface StrategyResult {
   news: { blocked: boolean; detail: string; next: string | null; source: string };
   day: { trades: number; losses: number };
   overlay?: AgentChartOverlayState | null;  // what the pair's own agent draws on its chart
+  // every order of the pair still running (its trade-management agent follows each one)
+  running?: { id: string; direction: Side; entryType: "LIMIT" | "MARKET"; entry: number; sl: number; tp1: number; tp2: number; state: string; signalTime: number }[];
   facts: Record<string, unknown>;
   pairStrategy?: PairStrategy | null;  // the pair's agent: its strategy steps
 }
