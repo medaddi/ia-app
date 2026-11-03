@@ -52,11 +52,23 @@ export const PairStrategyCard: React.FC<{ plan?: PairStrategy | null; lang: Lang
         <div className="mt-1 text-slate-500">{t('Most active', 'Plus actif', 'أنشط وقت')}: {pr.activeHours}</div>
       </div>
 
+      {plan.live && plan.agent && plan.steps && (
+        <div className="mt-2 text-[11px] leading-snug">
+          <div className="text-gold-200 font-semibold">{t(`Agent ${plan.agent}`, `Agent ${plan.agent}`, `Agent ${plan.agent}`)} · {plan.engine} · {plan.timeframe}</div>
+          <ol className="mt-1 space-y-0.5 list-decimal list-inside text-slate-300">
+            {plan.steps.map((st, k) => <li key={k}>{st}</li>)}
+          </ol>
+          <div className="mt-1 font-mono text-slate-500">
+            {t('Risk 1 % · spread', 'Risque 1 % · spread', 'المخاطرة 1% · السبريد')} ≤ {plan.maxSpreadPips} pips · {t('2 trades a day · locked at −2.5 %', '2 trades / jour · bloqué à −2,5 %', 'جوج صفقات ف النهار · قفل ف −2.5%')}
+          </div>
+        </div>
+      )}
+
       {plan.live && rule && (
         <div className="mt-2 text-[11px] leading-snug">
           <div className="text-slate-200">{rule}</div>
           <div className="mt-1 font-mono text-slate-400">
-            {plan.timeframe}{filters ? ` · ${filters}` : ''} · SL {p.slAtr} × ATR · TP {plan.targetR}R · {t(`max ${plan.maxBars} candles`, `${plan.maxBars} bougies max`, `${plan.maxBars} شمعة ماكس`)}
+            {plan.timeframe}{filters ? ` · ${filters}` : ''} · SL {String(p.slAtr)} × ATR · TP {plan.targetR}R · {t(`max ${plan.maxBars} candles`, `${plan.maxBars} bougies max`, `${plan.maxBars} شمعة ماكس`)}
           </div>
         </div>
       )}

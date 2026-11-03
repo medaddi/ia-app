@@ -18,6 +18,8 @@ def build_explanation(r: dict, lang: str = "en") -> str:
         return f"NO TRADE on {r['displaySymbol']}. Bias: {r['bias']['direction']} ({r['bias']['detail']}). Reason: {reason}."
     a = (s.get("anchors") or {}).get("pair") or {}
     why = a.get("why") or []
+    if ps.get("agent"):
+        return _agent_explanation(r, s, ps, why, f, lang)
     fade = a.get("style") == "reversal"
     bars = s["params"].get("maxBars")
     tf = ps.get("timeframe") or r["timeframes"]["entry"]
@@ -39,3 +41,24 @@ def build_explanation(r: dict, lang: str = "en") -> str:
         parts.append(f"On the unseen part of its test this plan made {u.get('totalR', 0):+}R on {u.get('trades')} trades ({u.get('tp2R')}% reached 2R).")
     parts.append(f"Score {r['score']}/100. Losses happen; this is not a guaranteed outcome.")
     return " ".join(parts)
+
+
+def _agent_explanation(r: dict, s: dict, ps: dict, why: list[str], f, lang: str) -> str:
+    """EUR/USD, GBP/USD, AUD/CHF: the pair's own agent and its order (a limit with its expiry, or a market order)."""
+    limit = s["entryType"] == "LIMIT"
+    tf = ps.get("timeframe") or r["timeframes"]["entry"]
+    be = s["params"].get("breakeven")
+    part = (s["params"].get("partials") or [0])[0]
+    if lang == "ar":
+        parts = [f"Agent {ps['agent']}: {ps.get('engine', '')} {tf}.", "السبب: " + "، ".join(why) + ".",
+                 (f"أمر معلق LIMIT ف {f(s['entry'])}" if limit else f"دخول بالسوق ف {f(s['entry'])}") +
+                 f"، الستوب {f(s['sl'])} ({js_str(s['slPips'])} نقطة)، الهدف {f(s['tp3'])} (1:{to_fixed(s['rrTarget'], 1)}).",
+                 (f"إغلاق 50% ف {f(s['tp1'])} ونقل الستوب للدخول." if part else f"الستوب للدخول (BE) ملي يوصل الثمن {f(s['tp1'])}.") if be else "",
+                 f"الإلغاء: {s['invalidation']}.", "الخسارة ممكنة دائماً. لا يوجد ربح مضمون."]
+        return " ".join(x for x in parts if x)
+    parts = [f"Agent {ps['agent']}: {ps.get('engine', '')} {tf}.", "Why: " + "; ".join(why) + ".",
+             (f"LIMIT order at {f(s['entry'])}" if limit else f"Market entry at the close {f(s['entry'])}") +
+             f". Stop {f(s['sl'])} ({js_str(s['slPips'])} pips), target {f(s['tp3'])} (1:{to_fixed(s['rrTarget'], 1)}).",
+             (f"Close 50 % at {f(s['tp1'])} and move the stop to the entry." if part else f"Stop to break-even once the price reaches {f(s['tp1'])}.") if be else "",
+             f"Invalidation: {s['invalidation']}.", f"Score {r['score']}/100. Losses happen; this is not a guaranteed outcome."]
+    return " ".join(x for x in parts if x)

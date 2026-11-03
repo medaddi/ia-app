@@ -5,6 +5,7 @@ import time
 
 from app.agent.agents import consensus, market_agent, strategy_agent
 from app.strategies.pairs.config import PAIR_CONFIGS
+from app.strategies.engines.engine import pair_block as agent_block
 from app.strategies.pairs.engine import pair_block
 from app.strategies.shared.types import Candle
 
@@ -27,7 +28,7 @@ def result(direction: str, entry: float, pair: str = "XAU/USD"):
     sl = entry - 10 if direction == "BUY" else entry + 10
     tp = entry + 20 if direction == "BUY" else entry - 20
     return {"spec": {"decimals": 2, "displaySymbol": pair}, "status": "SIGNAL", "score": 90, "canNotify": True, "headline": "",
-            "facts": {"atr": 5}, "pairStrategy": pair_block(PAIR_CONFIGS[pair]),
+            "facts": {"atr": 5}, "pairStrategy": (agent_block if PAIR_CONFIGS[pair].get("agent") else pair_block)(PAIR_CONFIGS[pair]),
             "setup": {"id": "XAUUSD-PS-1", "direction": direction, "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": entry, "tp2": entry, "tp3": tp,
                       "signalTime": 1_800_000_000, "lifecycle": {"state": "OPEN"}}}
 
@@ -64,18 +65,15 @@ def test_strategy_agent_and_consensus_need_all_three(monkeypatch):
     # The plan is re-checked: a stop that is not the plan's 2 × ATR is refused
     wide = {**buy, "facts": {"atr": 2}}
     assert not strategy_agent(wide, m)["agree"]
-    # A signal outside the plan's hours is refused (EUR/USD fades 00:00–06:00 GMT; this one opened at 10:00)
-    late = {**result("BUY", c[-1].close, "EUR/USD"), "facts": {"atr": 10 / 1.5}}
-    late["setup"] = {**late["setup"], "signalTime": 1_800_000_000 - 1_800_000_000 % 86400 + 11 * 3600}
-    assert not strategy_agent(late, m)["agree"]
+    # An agent's target outside its plan is refused (GBP/USD: TP at exactly 3R; this one is 2R)
+    assert not strategy_agent(result("SELL", c[-1].close, "GBP/USD"), m)["agree"]
 
 
 def test_a_fade_is_not_vetoed_by_the_daily_trend():
-    """GBP/USD fades a stretched close: a SELL in a daily uptrend is the plan itself (its test counted those trades)."""
+    """AUD/CHF's agent sells at the top of its range: a SELL in a daily uptrend is the plan itself (a reversal)."""
     c = trend(+1)
     now = c[-1].time + H
-    r = result("SELL", c[-1].close, "GBP/USD")
-    r["facts"] = {"atr": 10}  # GBP/USD plan: stop 1 × ATR
+    r = result("SELL", c[-1].close, "AUD/CHF")  # target 2R: inside its ≥ 1.8 R:R plan
     m = market_agent(r, c, [], now)
     assert m["agree"] and m["bias"] == "bullish"
     assert strategy_agent(r, m)["agree"]

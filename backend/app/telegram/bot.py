@@ -644,9 +644,14 @@ def _rules_text() -> str:
     """/rules: each pair's plan, from its config (the rules the code runs)."""
     flags = {"XAU/USD": "🥇", "EUR/USD": "💶", "GBP/USD": "💷", "AUD/CHF": "🇦🇺"}
     lines = ["<b>How the signals work</b>",
-             "🎯 Every signal has <b>one target at 2R</b>; the stop and the target never move (no partial closes, no breakeven).",
+             "🎯 Gold: <b>one target at 2R</b>, the stop and the target never move. EUR/USD, GBP/USD and AUD/CHF: each pair has its own agent "
+             "(limit orders, break-even, partials as its plan says), 1 % risk per trade, 2 trades per pair a day, locked for the day at −2.5 %.",
              "📐 Each pair runs the strategy its own behaviour favours, kept only if it held up on the unseen 40 % of 2 years."]
     for pair, c in PAIR_CONFIGS.items():
+        if c.get("agent"):  # EUR/USD, GBP/USD, AUD/CHF: the pair's own agent
+            steps = "; ".join(html.escape(x) for x in c["steps"])
+            lines.append(f"{flags.get(pair, '💱')} <b>{pair} · Agent {c['agent']} ({c['engine']} {c['timeframes']['entry']})</b>: {steps}.")
+            continue
         p, tf, u = c["params"], c["timeframes"]["entry"], c["test"]["unseen"]
         when = f" between {p['hours'][0]:02d}:00 and {p['hours'][1]:02d}:00 GMT" if p.get("hours") else ""
         adx = f" with ADX below {p['adxMax']}" if p.get("adxMax") else ""

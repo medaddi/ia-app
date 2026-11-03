@@ -69,9 +69,9 @@ docs/       STRATEGIES.md — the exact rules of every strategy and how they wer
 | Pairs | Strategy | Decides on | Entry | Exit |
 |---|---|---|---|---|
 | XAU/USD | **Channel breakout in the trend** | H1 | H1 close beyond the 20-candle high / low with EMA50 vs EMA200 in its direction | Stop 2 × ATR · 2R, or after 48 H1 candles |
-| EUR/USD | **Asian-session channel fade** | H1, 00:00–06:00 GMT | H1 close beyond the 10-candle high / low, faded at the close | Stop 1.5 × ATR · 2R, or after 48 H1 candles |
-| GBP/USD | **Channel fade** | H4 | H4 close beyond the 10-candle high / low with ADX < 35, faded at the close | Stop 1 × ATR · 2R, or after 12 H4 candles |
-| AUD/CHF | **Asian-session channel fade** | H1, 22:00–05:00 GMT | H1 close beyond the 40-candle high / low, faded at the close | Stop 1 × ATR · 2R, or after 48 H1 candles |
+| EUR/USD | **Agent 1 · Asian_Sweep_FVG_Engine** | M5, London 08:00–11:00 / NY 13:30–16:00 (London clock) | Sweep of the Asian range (12–45 pips) by ≤ 20 pips, M5 MSS with an FVG > 2.5 pips | LIMIT at the FVG 50 % · SL sweep ± 3 pips (≤ 18) · TP other side of Asia (R:R ≥ 2) · BE at Asia 50 % / 1R |
+| GBP/USD | **Agent 2 · London_Judas_SMT_Engine** | M5, 08:00–10:00 London, reads EUR/USD | PDH/PDL or Asian level taken by 5–30 pips while EUR/USD fails (SMT), MSS with a leg > 1.5 ATR | LIMIT at the order block · SL fakeout ± 4 pips (15–28) · TP 3R · BE at 1.5R |
+| AUD/CHF | **Agent 3 · Mean_Reversion_Range_Engine** | H4 range (ADX < 28), H1 entry | RSI divergence in the 60-H4 zone + H1 engulfing > 0.7 ATR | MARKET · SL 1.2 ATR beyond · TP1 middle (50 % + BE) · TP2 opposite zone (R:R ≥ 1.8) |
 
 Every target is **2R** (inside the app's 1.5R–2R rule, `TARGET_MIN_R` / `TARGET_MAX_R`). Past trades are replayed with the
 same rules, so the TP / SL / breakeven record and each pair's performance are measured, not estimated.

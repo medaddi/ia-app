@@ -1,8 +1,9 @@
 """
 Strategy service: one strategy per instrument, designed from the pair's own behaviour and kept only where it held up on
 the unseen 40 % of 2 years (strategies/pairs/config.py, docs/STRATEGIES.md):
-  XAU/USD → channel breakout in the trend H1 · EUR/USD → Asian-session channel fade H1
-  GBP/USD → H4 channel fade · AUD/CHF → Asian-session channel fade H1
+  XAU/USD → channel breakout in the trend H1
+  EUR/USD → Agent 1 Asian_Sweep_FVG_Engine M5 · GBP/USD → Agent 2 London_Judas_SMT_Engine M5 (+ EUR/USD for SMT)
+  AUD/CHF → Agent 3 Mean_Reversion_Range_Engine H1 (H4 range)
   (USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD had no strategy that held up: removed from the app)
 Fetches real candles, computes today's trade/loss count by replaying the strategy itself on
 today's closed candles (deterministic, survives restarts), runs the strategy now and caches it.
@@ -18,6 +19,7 @@ from ..agent.explain import build_explanation
 from ..market.data import canonical, fetch_live_price, fetch_many, market_session_status
 from .pairs.config import PAIR_CONFIGS
 from .pairs.engine import evaluate_pair, make_trigger
+from .engines.engine import can_signal_at, evaluate_agent, make_trigger as make_agent_trigger
 from .pairs.rules import in_hours
 from .replay import ReplayState, StrategyDef, decision_tf, replay, stats_at
 from .shared.jsnum import fmt_utc_minute
@@ -36,7 +38,14 @@ def _pair_def(cfg: dict) -> StrategyDef:
                        canSignalAt=lambda close: in_hours(close - TF_SEC[tf], hours), trigger=make_trigger(cfg))
 
 
-STRATEGY_DEFS: dict[str, StrategyDef] = {pair: _pair_def(cfg) for pair, cfg in PAIR_CONFIGS.items()}
+def _agent_def(cfg: dict) -> StrategyDef:
+    # The pair's own agent (engines/): decided at every close of its timeframe (M5 for EUR/USD and GBP/USD, H1 for AUD/CHF)
+    tf = cfg["timeframes"]["entry"]
+    return StrategyDef(entryTf=tf, run=partial(evaluate_agent, cfg=cfg), tfs=[tf], limits={tf: cfg["history"]},
+                       canSignalAt=can_signal_at(cfg), trigger=make_agent_trigger(cfg), peer=cfg.get("peer"))
+
+
+STRATEGY_DEFS: dict[str, StrategyDef] = {pair: (_agent_def(cfg) if cfg.get("agent") else _pair_def(cfg)) for pair, cfg in PAIR_CONFIGS.items()}
 CONFIGS = PAIR_CONFIGS
 
 
@@ -48,8 +57,17 @@ async def load_strategy_candles(sym: str, live_price: Optional[float] = None, fr
     d = STRATEGY_DEFS[sym]
     # `fresh` re-downloads the entry timeframe (candle-close dispatch); higher timeframes use the cache
     limits = {PROVIDER_TF[tf]: n for tf, n in d.limits.items()}
-    series = await fetch_many(sym, [PROVIDER_TF[tf] for tf in d.tfs], limits, live_price, PROVIDER_TF[d.entryTf] if fresh else None)
-    return {"candles": {tf: s["candles"] for tf, s in zip(d.tfs, series)}, "isReal": all(not s["isSynthetic"] for s in series), "source": series[0]["source"]}
+    fresh_tf = PROVIDER_TF[d.entryTf] if fresh else None
+    jobs = [fetch_many(sym, [PROVIDER_TF[tf] for tf in d.tfs], limits, live_price, fresh_tf)]
+    if d.peer:  # GBP/USD's agent reads EUR/USD at the same moment (SMT): both feeds in parallel
+        jobs.append(fetch_many(d.peer, [PROVIDER_TF[tf] for tf in d.tfs], limits, None, fresh_tf))
+    got = await asyncio.gather(*jobs)
+    series = got[0]
+    out = {"candles": {tf: s["candles"] for tf, s in zip(d.tfs, series)}, "isReal": all(not s["isSynthetic"] for s in series), "source": series[0]["source"]}
+    if d.peer:
+        out["peer"] = {tf: s["candles"] for tf, s in zip(d.tfs, got[1])}
+        out["isReal"] = out["isReal"] and all(not s["isSynthetic"] for s in got[1])
+    return out
 
 
 # Today's replay state per symbol, continued incrementally as new candles close
@@ -123,7 +141,8 @@ async def get_strategy_result(raw_symbol: str, force: bool = False, fresh: bool 
         new_candle = _slot.get(sym) != int(time.time()) // TF_SEC[decision_tf(STRATEGY_DEFS[sym])]
         loaded, news = await asyncio.gather(load_strategy_candles(sym, price, fresh or new_candle), load_news_calendar())
         now_sec = int(time.time())
-        base = {"candles": loaded["candles"], "livePrice": price, "spread": None, "isRealData": loaded["isReal"], "dataSource": loaded["source"], "news": news}
+        base = {"candles": loaded["candles"], "livePrice": price, "spread": None, "isRealData": loaded["isReal"], "dataSource": loaded["source"], "news": news,
+                "peer": loaded.get("peer")}
         d = STRATEGY_DEFS[sym]
         # Replaying today's bars is CPU work: keep it off the event loop
         day = await _cpu_run(_today_stats, sym, base, now_sec) if loaded["isReal"] else {"trades": 0, "losses": 0}
@@ -157,7 +176,8 @@ async def get_strategy_result_as_of(raw_symbol: str, as_of: int) -> dict:
     cut = {tf: closed_only(c, TF_SEC[tf], as_of) for tf, c in loaded["candles"].items()}
     d = STRATEGY_DEFS[sym]
     entry = cut.get(d.entryTf) or []
-    base = {"candles": cut, "livePrice": entry[-1].close if entry else 0, "spread": None, "isRealData": loaded["isReal"], "news": news,
+    peer = {tf: closed_only(c, TF_SEC[tf], as_of) for tf, c in (loaded.get("peer") or {}).items()} or None
+    base = {"candles": cut, "livePrice": entry[-1].close if entry else 0, "spread": None, "isRealData": loaded["isReal"], "news": news, "peer": peer,
             "dataSource": f"{loaded['source']} · review as of {fmt_utc_minute(as_of)} UTC"}
 
     def run():

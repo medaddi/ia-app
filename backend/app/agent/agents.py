@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Signal
 from ..strategies.shared.types import TF_SEC, Candle
+from .risk_manager import global_risk_checks
 from .trade_desk import OPEN_STATES, review
 
 MAX_OPEN = 4  # signals open at the same time across every pair
@@ -117,12 +118,20 @@ def plan_checks(r: dict, s: dict, rr: float) -> list[dict]:
         return [_check("A validated strategy on this pair", False, ps.get("why") or "none")]
     p, tf_sec = ps.get("params") or {}, TF_SEC.get(ps.get("timeframe") or "", 3600)
     u = (ps.get("test") or {}).get("unseen") or {}
-    out = [_check(f"Plan: {ps['name']} {ps['timeframe']}", True, f"unseen test {u.get('trades')} trades, {u.get('totalR', 0):+}R, {u.get('tp2R')}% reached 2R")]
+    if ps.get("agent"):  # EUR/USD, GBP/USD, AUD/CHF: the pair's own agent and its strategy
+        out = [_check(f"Agent {ps['agent']}: {ps.get('engine')} {ps['timeframe']}", True, "the pair's own strategy, every step passed")]
+    else:
+        out = [_check(f"Plan: {ps['name']} {ps['timeframe']}", True, f"unseen test {u.get('trades')} trades, {u.get('totalR', 0):+}R, {u.get('tp2R')}% reached 2R")]
     a = (r.get("facts") or {}).get("atr")
-    if isinstance(a, (int, float)) and a > 0 and p.get("slAtr"):
+    if isinstance(a, (int, float)) and a > 0 and p.get("slAtr") and not ps.get("agent"):  # an agent's stop sits beyond a structure
         k = abs(s["entry"] - s["sl"]) / a
         out.append(_check(f"Stop {p['slAtr']:g} × ATR", abs(k - p["slAtr"]) <= 0.35 * p["slAtr"], f"{k:.2f} × ATR"))
-    out.append(_check(f"One target at {ps.get('targetR', 2):g}R", abs(rr - ps.get("targetR", 2)) <= 0.05, f"1:{rr:.2f}"))
+    if ps.get("targetRange"):
+        lo, hi = ps["targetRange"]
+        label = f"Target at {lo:g}R" if lo == hi else f"Target R:R ≥ {lo:g}"
+        out.append(_check(label, lo - 0.05 <= rr <= hi + 0.05, f"1:{rr:.2f}"))
+    else:
+        out.append(_check(f"One target at {ps.get('targetR', 2):g}R", abs(rr - ps.get("targetR", 2)) <= 0.05, f"1:{rr:.2f}"))
     if p.get("hours"):
         h = ((s["signalTime"] - tf_sec) // 3600) % 24
         a0, b0 = p["hours"]
@@ -165,6 +174,7 @@ def risk_agent(r: dict, db: Optional[Session]) -> dict:
     if db is not None:
         n = len(db.scalars(select(Signal.id).where(Signal.state.in_(OPEN_STATES), Signal.id != r["setup"]["id"])).all())
         checks.append(_check(f"At most {MAX_OPEN} signals open across every pair", n < MAX_OPEN, f"{n} open now"))
+        checks += global_risk_checks(r, db)
     agree = all(c["passed"] for c in checks)
     summary = "Order approved" if agree else "Blocked: " + "; ".join(c["label"] for c in checks if not c["passed"])
     return _vote("risk", "Risk & execution", agree, summary, checks, {"score": desk["score"]})

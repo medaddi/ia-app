@@ -13,6 +13,7 @@ One strategy per pair, designed from the pair's own behaviour (docs/STRATEGIES.m
 import copy
 
 from .._pairs import BANKS, PAIRS
+from ..engines.config import AGENTS
 
 BASE = {
     "version": "1.0.0",
@@ -34,7 +35,7 @@ PROFILES = {
 }
 
 # pair → plan. `test`: tuned on the first 60 % ("tuned"), judged on the last 40 % ("unseen"); tp2R = % of trades that
-# reached the 2R target. USD/CAD, NZD/USD, EUR/CHF, NZD/CAD and AUD/CAD: nothing held up, so they are not in the app.
+# reached the 2R target. EUR/USD, GBP/USD and AUD/CHF are run by their own agents (engines/config.py).
 PLANS = {
     "XAU/USD": {
         "name": "Channel breakout in the trend", "rule": "channel_breakout", "tf": "H1", "style": "trend",
@@ -44,35 +45,6 @@ PLANS = {
         "test": {"tuned": {"trades": 142, "winRate": 44.4, "totalR": 24.9, "tp2R": 33.8},
                  "unseen": {"trades": 87, "winRate": 47.1, "totalR": 31.3, "tp2R": 42.5}, "costsX2": 53.7,
                  "neighbours": "every channel (10 / 20 / 40 / 55) and stop (1 / 1.5 / 2 ATR) positive on the unseen part (+21R to +57R)"},
-    },
-    "EUR/USD": {
-        "name": "Asian-session channel fade", "rule": "channel_fade", "tf": "H1", "style": "reversal",
-        "params": {"channel": 10, "slAtr": 1.5, "hours": [0, 6]}, "maxBars": 48,
-        "why": "EUR/USD has no clear lean over the whole day, but in the quiet Asian hours a close beyond its 10-hour channel has no news "
-               "or volume behind it and comes back. The stop at 1.5 ATR survives the late spike; the 2R target is back across the channel.",
-        "test": {"tuned": {"trades": 160, "winRate": 41.2, "totalR": 26.3, "tp2R": 40.0},
-                 "unseen": {"trades": 107, "winRate": 43.0, "totalR": 19.9, "tp2R": 42.1}, "costsX2": 26.3,
-                 "neighbours": "every Asian window (21–06, 22–05, 00–06 GMT) positive on both parts (+13R to +26R); tighter stops lose"},
-    },
-    "GBP/USD": {
-        "name": "Channel fade", "rule": "channel_fade", "tf": "H4", "style": "reversal",
-        "params": {"channel": 10, "slAtr": 1.0, "adxMax": 35}, "maxBars": 12,
-        "why": "GBP/USD's H4 closes beyond the 10-candle channel come back more often than they run (35 % vs 32 %), unless a strong trend "
-               "is under way (ADX ≥ 35). The stop at 1 ATR, the 2R target back inside the channel, two days at most.",
-        "test": {"tuned": {"trades": 144, "winRate": 43.1, "totalR": 27.4, "tp2R": 38.2},
-                 "unseen": {"trades": 80, "winRate": 45.0, "totalR": 14.3, "tp2R": 37.5}, "costsX2": 29.3,
-                 "neighbours": "positive on both parts with ADX < 25, < 35 or none (+12R to +27R); a 0.6 ATR stop or a 20-candle channel lose"},
-        "note": "Fragile to the stop size and the channel length: only the 10-candle channel with a 1 ATR stop holds",
-    },
-    "AUD/CHF": {
-        "name": "Asian-session channel fade", "rule": "channel_fade", "tf": "H1", "style": "reversal",
-        "params": {"channel": 40, "slAtr": 1.0, "hours": [22, 5]}, "maxBars": 48,
-        "why": "AUD/CHF reverts the most of the nine (a close beyond the channel comes back 43 % of the time vs 19 % on): a close beyond "
-               "its 40-hour channel in the Asian hours is faded, stop 1 ATR, the 2R target back toward the middle.",
-        "test": {"tuned": {"trades": 70, "winRate": 50.0, "totalR": 25.7, "tp2R": 50.0},
-                 "unseen": {"trades": 36, "winRate": 44.4, "totalR": 6.3, "tp2R": 44.4}, "costsX2": 16.4,
-                 "neighbours": "every Asian window positive on both parts with a 40-candle channel (+3R to +7R unseen)"},
-        "note": "Small edge on the unseen part (+6.3R on 36 trades): the weakest of the four",
     },
 }
 
@@ -98,4 +70,22 @@ def _config(pair: str) -> dict:
     return cfg
 
 
-PAIR_CONFIGS: dict[str, dict] = {pair: _config(pair) for pair in ("XAU/USD", *PAIRS)}
+def _agent_config(pair: str) -> dict:
+    """EUR/USD, GBP/USD, AUD/CHF: each run by its own agent and strategy (engines/)."""
+    a = AGENTS[pair]
+    sym = pair.replace("/", "")
+    cfg = copy.deepcopy(BASE)
+    tf = a["tf"]
+    cfg.update(strategy=f"Agent{a['agent']}_{a['name']}", name=f"{sym} · Agent {a['agent']} · {a['name']} {tf}", engine=a["name"], agent=a["agent"],
+               timeframes={"bias": "H4" if tf == "H1" else "M15", "setup": tf, "entry": tf}, rule=a["rule"], params=copy.deepcopy(a["params"]),
+               style="reversal", live=True, why=a["why"], steps=a["steps"], test=None, note=None, profile=PROFILES[pair], history=a["history"],
+               minBars=a["minBars"], peer=a.get("peer"), agentWindows=a.get("sessions"), targetRange=a["targetRange"], entryTypes=a["entryTypes"])
+    cfg["risk"].update(tp1R=None, tp2R=None, capR=None, partials=None, breakeven=True, maxBars=None)
+    cfg["spec"] = {"symbol": sym, "displaySymbol": pair, "decimals": 5, "pipSize": 0.0001, "contractSize": 100000, "minLot": 0.01, "lotStep": 0.01}
+    ccys = [pair[:3], pair[4:]]
+    cfg["filters"]["news"].update(currencies=ccys, keywords=[])  # every red (high-impact) event of the two currencies
+    cfg["filters"].update(assumedSpreadPips=PAIRS[pair][0], maxSpreadPips=a["maxSpreadPips"])
+    return cfg
+
+
+PAIR_CONFIGS: dict[str, dict] = {"XAU/USD": _config("XAU/USD"), **{pair: _agent_config(pair) for pair in PAIRS}}

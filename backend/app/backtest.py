@@ -24,13 +24,13 @@ def _cfg(sym: str) -> dict:
     return CONFIGS[sym]
 
 
-def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
+def backtest_on(sym: str, candles: dict, source: str, news: dict, peer: dict | None = None) -> dict:
     d = STRATEGY_DEFS[sym]
     entry = candles.get(d.entryTf) or []
     tf_sec = TF_SEC[d.entryTf]
     warmup = min(len(entry) - 1, 700)
     frm, to = entry[warmup].time, entry[-1].time + tf_sec
-    base = {"candles": candles, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": source, "news": news}
+    base = {"candles": candles, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": source, "news": news, "peer": peer}
     state = replay(d, base, frm, to)
     index_of = {c.time: i for i, c in enumerate(entry)}
     windows = (_cfg(sym).get("sessions") or {}).get("windows", [])  # RSI(2) trades every H4 close: no session windows
@@ -108,7 +108,7 @@ async def run_backtest(raw_symbol: str) -> dict:
     loaded, news = await asyncio.gather(load_strategy_candles(sym), load_news_calendar())
     if not loaded["isReal"]:
         raise RuntimeError(f"Live feed unavailable for {sym}: cannot backtest on synthetic candles")
-    return await asyncio.to_thread(backtest_on, sym, loaded["candles"], loaded["source"], news)
+    return await asyncio.to_thread(backtest_on, sym, loaded["candles"], loaded["source"], news, loaded.get("peer"))
 
 
 if __name__ == "__main__":

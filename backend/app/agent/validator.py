@@ -26,18 +26,20 @@ def validate_signal(r: dict) -> dict:
         issues.append("Levels are not in order (SL / entry / TP1 / TP2 / TP3)")
 
     dist = abs(s["entry"] - s["sl"])
-    # App rule, every strategy: one target between 1.5R and 2R (a tick of rounding allowed)
-    rr_target = rr(s["entry"], s["sl"], s["tp3"])
-    if not (TARGET_MIN_R - 0.02 <= rr_target <= TARGET_MAX_R + 0.01):
-        issues.append(f"Target at 1:{to_fixed(rr_target, 2)}, outside 1:{TARGET_MIN_R}–1:{TARGET_MAX_R}")
     cfg = PAIR_CONFIGS[r["spec"]["displaySymbol"]]
+    # The target's R:R: the agent's own range (EUR/USD ≥ 2, GBP/USD 3, AUD/CHF ≥ 1.8), else the app rule 1.5R–2R
+    lo, hi = cfg.get("targetRange") or (TARGET_MIN_R, TARGET_MAX_R)
+    rr_target = rr(s["entry"], s["sl"], s["tp3"])
+    if not (lo - 0.02 <= rr_target <= hi + 0.02):
+        issues.append(f"Target at 1:{to_fixed(rr_target, 2)}, outside 1:{js_str(lo)}–1:{js_str(hi)}")
     if not cfg["rule"]:
         issues.append("No validated strategy on this pair")
     # The stop is the plan's own ATR multiple: only its sanity is checked here
     if dist <= 0:
         issues.append("Stop distance is zero")
-    if s["entryType"] != "MARKET":
-        issues.append("Entries are MARKET orders (the close of the signal candle)")
+    allowed = cfg.get("entryTypes") or ["MARKET"]
+    if s["entryType"] not in allowed:
+        issues.append(f"This plan enters with {' / '.join(allowed)} orders, not {s['entryType']}")
     for c in r["checklist"]:
         if c["required"] and not c["passed"]:
             issues.append(f"Required rule failed: {c['rule']}")

@@ -8,9 +8,9 @@ on history it was never tuned on. The pairs where nothing held up (USD/CAD, NZD/
 | Pair | Strategy | Timeframe | Unseen 40 % of 2 years | Status |
 |---|---|---|---|---|
 | **XAU/USD** | Channel breakout in the trend | H1 | 87 trades · 47 % winners · **+31.3R** · 42 % reached 2R | 🟢 live |
-| **EUR/USD** | Asian-session channel fade (00:00–06:00 GMT) | H1 | 107 trades · 43 % · **+19.9R** · 42 % reached 2R | 🟢 live |
-| **GBP/USD** | Channel fade, ADX < 35 | H4 | 80 trades · 45 % · **+14.3R** · 38 % reached 2R | 🟢 live (fragile) |
-| **AUD/CHF** | Asian-session channel fade (22:00–05:00 GMT) | H1 | 36 trades · 44 % · **+6.3R** · 44 % reached 2R | 🟢 live (small edge) |
+| **EUR/USD** | Agent 1 · Asian_Sweep_FVG_Engine | M5 | new: replayed on the feed's 60 days of M5 | 🟢 live |
+| **GBP/USD** | Agent 2 · London_Judas_SMT_Engine (+ EUR/USD SMT) | M5 | new: replayed on the feed's 60 days of M5 | 🟢 live |
+| **AUD/CHF** | Agent 3 · Mean_Reversion_Range_Engine | H4 → H1 | new: replayed on 2 years of H1 | 🟢 live |
 | USD/CAD, NZD/USD, EUR/CHF, NZD/CAD, AUD/CAD | — | — | nothing held up | ✖ removed from the app |
 
 ## How they were built
@@ -59,40 +59,64 @@ Gold trends: a close beyond its channel in the trend runs on more often than it 
 Tuned 142 trades +24.9R · unseen 87 trades +31.3R · double costs +53.7R. Every channel (10 / 20 / 40 / 55) and stop
 (1 / 1.5 / 2 ATR) is positive on the unseen part (+21R to +57R). Max drawdown over the 2 years in the app replay: 16.5R.
 
-## EUR/USD — "Asian-session channel fade" H1
+## The three pair agents (EUR/USD, GBP/USD, AUD/CHF)
 
-No clear lean over the whole day, but in the quiet Asian hours a stretched close has no news or volume behind it.
+Each of these pairs is run by **its own agent** that reads **its own strategy** (`backend/app/strategies/engines/`,
+plans in `engines/config.py`). Each strategy is a state machine on closed candles; the sessions follow **London's clock**
+(DST included): that is Morocco's clock (UTC+1) in summer, and one hour behind Morocco in winter, when London opens at
+09:00 Morocco time. The building blocks (`engines/primitives.py`):
 
-1. **Window:** the H1 candle opened between 00:00 and 06:00 GMT.
-2. **Entry:** it closes above the highest high (below the lowest low) of the previous 10 H1 candles → SELL (BUY) MARKET
-   at that close.
-3. **Stop:** 1.5 × ATR(14, H1) beyond the entry. **Target:** 2R, back across the channel. Closed after 48 H1 candles.
+| Term | Rule in the code |
+|---|---|
+| Swing high / low (fractal 5) | `High[k]` above the 2 candles on each side (low: below); known at `k + 2` |
+| Sweep | price trades beyond the level, the strategy waits for the close back inside |
+| MSS | a candle **close** beyond the last swing formed before the sweep |
+| FVG | bullish `Low[k] > High[k-2]`, bearish `High[k] < Low[k-2]`; 50 % = middle of the gap |
 
-Tuned 160 trades +26.3R · unseen 107 trades +19.9R · double costs +26.3R. Every Asian window (21–06, 22–05, 00–06)
-is positive on both parts (+13R to +26R). Tighter stops (0.6 / 1 ATR) lose.
+### Agent 1 · EUR/USD — `Asian_Sweep_FVG_Engine` (M5)
 
-## GBP/USD — "Channel fade" H4
+1. **07:00** Asian_High / Asian_Low of 00:00–07:00 (M5 extremes = M15 extremes). Range outside **12–45 pips** → no trade today.
+2. **08:00–11:00** (London) and **13:30–16:00** (New York): the Asian high (low) taken by **at most 20 pips** (more = a real breakout, that side is dead for the session).
+3. **MSS on M5**: a close below (above) the last swing low (high) formed before the sweep, with an FVG **> 2.5 pips** in the leg (the last one is used).
+4. **LIMIT at the FVG's 50 %**; deleted after **12 M5 candles**, if the target is reached first, or 15 min before red news.
+   SL = sweep extreme ± **3 pips** (max **18 pips**). TP = the other side of the Asian range, **R:R ≥ 2**. Stop to
+   break-even at the Asian 50 % or 1R, whichever comes first. One setup per session window.
 
-GBP/USD's H4 closes beyond the 10-candle channel come back more often than they run, unless a strong trend is under way.
+### Agent 2 · GBP/USD — `London_Judas_SMT_Engine` (M5, + EUR/USD M5)
 
-1. **No strong trend:** ADX(14, H4) below 35.
-2. **Entry:** an H4 candle closes above the highest high (below the lowest low) of the previous 10 H4 candles → SELL
-   (BUY) MARKET at that close.
-3. **Stop:** 1 × ATR(14, H4) beyond the entry. **Target:** 2R. Closed after 12 H4 candles (2 days).
+1. Before 08:00: **PDH / PDL** and the **Asian high / low (00:00–07:30)** of GBP/USD **and** EUR/USD.
+2. **08:00–10:00**: GBP/USD takes a level by **5–30 pips** while **EUR/USD does not take its matching level** (SMT
+   divergence). The opposite divergence (EUR/USD breaks, GBP/USD does not) gives no GBP/USD fakeout and is not traded.
+3. **MSS on M5**: a close back inside the level and beyond the last swing; the leg longer than **1.5 × ATR(14) M5**.
+4. **Order block** = the last up (down) candle before the leg; **LIMIT at its open** (`obEntry: "mid"` = 50 % of the body).
+   SL = fakeout extreme ± **4 pips**, **15–28 pips** (a tighter stop is widened to 15; wider than 28: no trade).
+   TP **3R**, stop to break-even at **1.5R**; deleted after 12 M5 candles or if 3R comes first.
 
-Tuned 144 trades +27.4R · unseen 80 trades +14.3R · double costs +29.3R. Positive on both parts with ADX < 25, < 35 or
-none. **Fragile:** a 0.6 ATR stop or a 20-candle channel lose; only the 10-candle channel with a 1 ATR stop holds.
+### Agent 3 · AUD/CHF — `Mean_Reversion_Range_Engine` (H4 → H1)
 
-## AUD/CHF — "Asian-session channel fade" H1
+1. **H4** (built from H1): **ADX(14) < 28**. Zones on the last 60 H4: resistance `Highest − 0.8 × ATR_H4` → `Highest`,
+   support `Lowest` → `Lowest + 0.8 × ATR_H4`.
+2. **RSI divergence on H1**: the current swing low in the support zone, a previous swing low 5–30 H1 candles before:
+   `Low_now ≤ Low_prev`, `RSI_now > RSI_prev + 3`, `RSI_prev < 35` (mirror at resistance with `RSI_prev > 65`).
+3. **Engulfing H1** after the divergence is confirmed (within 8 candles, the swing not broken): body covers the previous
+   body, range **> 0.7 × ATR_H1(14)**.
+4. **MARKET** at the engulfing close. SL = extreme ∓ **1.2 × ATR_H1**. **TP1** the range's middle (close 50 %, stop to
+   break-even), **TP2** the start of the opposite zone, blended **R:R ≥ 1.8**.
 
-The most reverting pair of the nine.
+### Global Risk & Execution Manager (`backend/app/agent/risk_manager.py`)
 
-1. **Window:** the H1 candle opened between 22:00 and 05:00 GMT.
-2. **Entry:** it closes beyond the previous 40 H1 candles' high / low → faded at that close.
-3. **Stop:** 1 × ATR(14, H1). **Target:** 2R. Closed after 48 H1 candles.
+Checked by the risk agent before any order leaves the app:
 
-Tuned 70 trades +25.7R · unseen 36 trades +6.3R · double costs +16.4R. Every Asian window is positive on both parts
-with a 40-candle channel. **The weakest of the four:** a small edge on few unseen trades.
+- **Lot** sized for **1 %** of the account on every order (never a fixed lot).
+- **Spread guard**: no entry above **1.5** pips (EUR/USD), **2.2** (GBP/USD), **3.0** (AUD/CHF).
+- **USD correlation**: while EUR/USD or GBP/USD has an order not yet at break-even (PENDING / OPEN), a new order on the
+  other one in the same dollar direction is refused (USD exposure ≤ 1 %).
+- **News**: no new trade **30 min before / after** a red event of the pair's currencies; pending limits deleted **15 min before**.
+- **Circuit breaker**: **2 trades per pair a day**; once the day's closed trades reach **−2.5 %**, every agent is locked
+  until **00:00 London**.
+
+These agents are new: they have no 2-year test yet (the M5 history of the feed is 60 days). The app shows their own
+replayed record on that history (the same code as live), not a tuned/unseen split.
 
 ## The pairs removed from the app
 

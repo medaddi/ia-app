@@ -172,15 +172,21 @@ export interface PairStrategy {
   name: string;
   timeframe: string;
   live: boolean;  // false: nothing held up on the unseen part, no strategy and no signal on this pair
-  rule: 'channel_breakout' | 'channel_fade' | null;
+  rule: 'channel_breakout' | 'channel_fade' | 'asian_sweep_fvg' | 'london_judas_smt' | 'mean_reversion_range' | null;
   style: 'trend' | 'reversal' | null;
   why: string;
   test: { tuned: TestPart; unseen: TestPart; costsX2: number; neighbours: string } | null;
   note?: string | null;
   profile: { character: 'trending' | 'reverting' | 'mixed'; follow: number; fade: number; tf: string; vr24: number; activeHours: string };
-  params: { channel?: number; slAtr?: number; hours?: [number, number]; adxMax?: number };
-  maxBars: number;
+  params: { channel?: number; slAtr?: number; hours?: [number, number]; adxMax?: number; [k: string]: unknown };
+  maxBars: number | null;
   targetR: number;
+  // EUR/USD, GBP/USD, AUD/CHF: the pair's own agent and the steps of its strategy
+  agent?: 1 | 2 | 3;
+  engine?: string;
+  steps?: string[];
+  targetRange?: [number, number];
+  maxSpreadPips?: number;
 }
 
 export interface ExunuSMCResult {

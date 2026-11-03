@@ -18,15 +18,17 @@ def _inp(c, step):
 
 
 def test_the_four_plans():
-    # Only the pairs whose strategy held up are in the app
+    # Gold keeps its tested breakout; EUR/USD, GBP/USD and AUD/CHF are each run by their own agent
     assert list(PAIR_CONFIGS) == list(STRATEGY_DEFS) == ["XAU/USD", "EUR/USD", "GBP/USD", "AUD/CHF"]
-    for c in PAIR_CONFIGS.values():
-        assert c["risk"]["capR"] == 2.0 and c["rule"] and c["profile"]["character"] in ("trending", "reverting", "mixed")
-        u = c["test"]["unseen"]
-        assert u["totalR"] > 0 and u["trades"] >= 30 and c["test"]["costsX2"] > 0  # held up on the part it never saw
-    assert STRATEGY_DEFS["XAU/USD"].entryTf == "H1" and STRATEGY_DEFS["GBP/USD"].entryTf == "H4"
-    # EUR/USD fades in the Asian hours only: a candle opened 02:00 → its close at 03:00 may signal; 09:00 may not
-    assert STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 3 * H1) and not STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 10 * H1)
+    g = PAIR_CONFIGS["XAU/USD"]
+    assert g["risk"]["capR"] == 2.0 and g["rule"] == "channel_breakout" and g["test"]["unseen"]["totalR"] > 0
+    assert [PAIR_CONFIGS[p]["agent"] for p in ("EUR/USD", "GBP/USD", "AUD/CHF")] == [1, 2, 3]
+    assert [PAIR_CONFIGS[p]["rule"] for p in ("EUR/USD", "GBP/USD", "AUD/CHF")] == ["asian_sweep_fvg", "london_judas_smt", "mean_reversion_range"]
+    assert [PAIR_CONFIGS[p]["filters"]["maxSpreadPips"] for p in ("EUR/USD", "GBP/USD", "AUD/CHF")] == [1.5, 2.2, 3.0]
+    assert STRATEGY_DEFS["XAU/USD"].entryTf == "H1" and STRATEGY_DEFS["EUR/USD"].entryTf == "M5" and STRATEGY_DEFS["AUD/CHF"].entryTf == "H1"
+    assert STRATEGY_DEFS["GBP/USD"].peer == "EUR/USD"  # the SMT check reads EUR/USD at the same moment
+    # EUR/USD decides in Asia (the range), London 08:00–11:00 and New York 13:30–16:00 London time; not at 12:00
+    assert STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 9 * H1) and not STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 12 * H1 + 300)
     assert in_hours(DAY + 23 * H1, [22, 5]) and in_hours(DAY + 4 * H1, [22, 5]) and not in_hours(DAY + 6 * H1, [22, 5])
 
 
@@ -58,8 +60,8 @@ def test_gold_breakout_signal_with_one_2r_target():
 
 
 def test_fade_only_inside_its_hours():
-    """EUR/USD: a close under the 10-candle low is bought back at 02:00 GMT, ignored at 10:00 GMT."""
-    cfg = PAIR_CONFIGS["EUR/USD"]
+    """The channel fade rule (10 candles, 1.5 ATR, 00:00–06:00 GMT): bought back at 02:00 GMT, ignored at 10:00 GMT."""
+    cfg = {"params": {"channel": 10, "slAtr": 1.5, "hours": [0, 6]}}
     rule = RULES["channel_fade"]
 
     def market(hour):

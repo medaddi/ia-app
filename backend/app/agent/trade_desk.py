@@ -53,18 +53,25 @@ def review(r: dict, db: Optional[Session] = None) -> dict:
     price = r["price"] or s["entry"]
     risk = abs(s["entry"] - s["sl"])
     buy = s["direction"] == "BUY"
-    drift = (price - s["entry"]) / risk if risk else 0
-    drift = drift if buy else -drift  # > 0 = moved in the trade's favour (late entry), < 0 = moved toward the stop
-    checks.append(_check("drift", f"Price within {MAX_DRIFT_R}R of the entry", abs(drift) <= MAX_DRIFT_R,
-                         f"Live {f(price)} vs entry {f(s['entry'])} ({drift:+.2f}R)"))
-
-    target = s["tp3"]  # every strategy: one target between 1.5R and 2R
+    target = s["tp3"]
     planned = abs(target - s["entry"]) / risk if risk else 0
-    live_risk = abs(price - s["sl"])
-    live_rr = (abs(target - price) / live_risk) if live_risk and ((target > price) if buy else (target < price)) else 0
     beyond_sl = (price <= s["sl"]) if buy else (price >= s["sl"])
-    checks.append(_check("liveRr", "R:R still valid from the live price", not beyond_sl and live_rr >= MIN_LIVE_RR * planned,
-                         f"1:{live_rr:.2f} now vs 1:{planned:.2f} planned"))
+    if s["entryType"] == "LIMIT":
+        # A limit waits for the price to come back: it is valid while the price sits between the stop and the target
+        # (the order is deleted if the target comes first) and the order has not expired
+        at_target = (price >= target) if buy else (price <= target)
+        expired = bool(s.get("expiresAt")) and s["expiresAt"] <= int(r.get("nowSec") or 0)
+        checks.append(_check("limit", "Limit order still valid", not beyond_sl and not at_target and not expired and s["lifecycle"]["state"] in ("PENDING", "OPEN"),
+                             f"Live {f(price)} · limit {f(s['entry'])} · SL {f(s['sl'])} · TP {f(target)} (1:{planned:.2f})"))
+    else:
+        drift = (price - s["entry"]) / risk if risk else 0
+        drift = drift if buy else -drift  # > 0 = moved in the trade's favour (late entry), < 0 = moved toward the stop
+        checks.append(_check("drift", f"Price within {MAX_DRIFT_R}R of the entry", abs(drift) <= MAX_DRIFT_R,
+                             f"Live {f(price)} vs entry {f(s['entry'])} ({drift:+.2f}R)"))
+        live_risk = abs(price - s["sl"])
+        live_rr = (abs(target - price) / live_risk) if live_risk and ((target > price) if buy else (target < price)) else 0
+        checks.append(_check("liveRr", "R:R still valid from the live price", not beyond_sl and live_rr >= MIN_LIVE_RR * planned,
+                             f"1:{live_rr:.2f} now vs 1:{planned:.2f} planned"))
 
     checks.append(_check("market", "Market open, no news window", r["market"]["isOpen"] and not r["news"]["blocked"],
                          r["news"]["detail"] if r["news"]["blocked"] else ("Open" if r["market"]["isOpen"] else "Market closed")))
