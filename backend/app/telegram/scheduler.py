@@ -45,7 +45,9 @@ async def _on_close(sym: str, close: int) -> None:
         if any(c.time == close - tf_sec for c in entry):
             break
         await asyncio.sleep(RETRY)
-    print(f"[candle-close] {sym} at {iso(close)[11:19]}: {await process_bundle(sym, bundle)}")
+    out = await process_bundle(sym, bundle)
+    record_tick({sym: out}, time.time())
+    print(f"[candle-close] {sym} at {iso(close)[11:19]}: {out}")
 
 
 async def process_bundle(sym: str, bundle: dict) -> str:
@@ -142,7 +144,9 @@ def record_tick(results: dict, started: float) -> None:
         with SessionLocal() as db:
             prev = get_setting(db, "engine")
             sent = {sym: {"at": int(started), "result": out} for sym, out in results.items() if "sent to" in out}
-            set_setting(db, "engine", {"lastTickAt": int(started), "durationSec": round(time.time() - started, 1), "results": results,
+            # merged: the in-process scheduler reports one pair at a time
+            set_setting(db, "engine", {"lastTickAt": int(started), "durationSec": round(time.time() - started, 1),
+                                       "results": {**(prev.get("results") or {}), **results},
                                        "lastSent": {**(prev.get("lastSent") or {}), **sent}, "ticks": int(prev.get("ticks") or 0) + 1})
     except Exception as err:  # the heartbeat never breaks a tick
         print(f"[engine] {err!r}")
@@ -167,5 +171,16 @@ async def run_symbol(sym: str, stop: asyncio.Event) -> None:
             print(f"[candle-close] {sym} evaluation failed: {err!r}")
 
 
+async def heartbeat(stop: asyncio.Event) -> None:
+    """Always-on server: the pairs decide only at their candle closes (5 min to 1 h apart), so the engine says it is
+    alive every minute (GET /api/cron/status, the dashboard's engine line)."""
+    while not stop.is_set():
+        record_tick({}, time.time())
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=60)
+        except asyncio.TimeoutError:
+            pass
+
+
 def start(stop: asyncio.Event) -> list[asyncio.Task]:
-    return [asyncio.create_task(run_symbol(sym, stop)) for sym in STRATEGY_DEFS]
+    return [asyncio.create_task(run_symbol(sym, stop)) for sym in STRATEGY_DEFS] + [asyncio.create_task(heartbeat(stop))]

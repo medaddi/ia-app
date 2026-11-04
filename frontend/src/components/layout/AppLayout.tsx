@@ -56,7 +56,7 @@ const T = {
   marketClosed: ['Market closed', 'Marché fermé', 'السوق مغلق'],
   session: ['Session', 'Session', 'الجلسة'],
   engines: ['Strategies', 'Stratégies', 'الاستراتيجيات'],
-  engineText: ['Gold · breakout H1  ·  EUR, AUDCHF · Asian fade H1  ·  GBP · fade H4', 'Or · cassure H1  ·  EUR, AUDCHF · retour Asie H1  ·  GBP · retour H4', 'الذهب · اختراق H1  ·  EUR، AUDCHF · عكس آسيا H1  ·  GBP · عكس H4'],
+  engineText: ['Gold · SMC M5  ·  EUR · Asian sweep M5  ·  GBP · London Judas M5  ·  AUDCHF · range H1', 'Or · SMC M5  ·  EUR · sweep Asie M5  ·  GBP · Judas Londres M5  ·  AUDCHF · range H1', 'الذهب · SMC M5  ·  EUR · كنس آسيا M5  ·  GBP · جوداس لندن M5  ·  AUDCHF · رينج H1'],
   search: ['Search a pair… (XAU/USD, AUD/CHF)', 'Chercher une paire… (XAU/USD, AUD/CHF)', 'قلب على زوج… (XAU/USD، AUD/CHF)'],
   noMatch: ['No pair found', 'Aucune paire trouvée', 'ما كاين حتى زوج'],
   refresh: ['Refresh the data', 'Actualiser les données', 'تحديث المعطيات'],

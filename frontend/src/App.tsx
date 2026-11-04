@@ -419,7 +419,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <InternalPageTemplate subtitle={isFr ? 'Les annonces économiques fortes : aucun signal 30 min autour.' : isAr ? 'الأخبار الاقتصادية القوية: حتى إشارة 30 دقيقة قبل وبعد.' : 'High-impact economic news: no signal 30 min around them.'}>
+              <InternalPageTemplate subtitle={isFr ? 'Les annonces économiques fortes : un trade à 30 min près arrive avec un avertissement.' : isAr ? 'الأخبار الاقتصادية القوية: الصفقة اللي قريبة منها ب 30 دقيقة كتجي مع تنبيه.' : 'High-impact economic news: a trade within 30 min of one comes with a warning.'}>
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
                   <div className="xl:col-span-8 min-w-0">
                     <NewsAISection news={news} lang={lang} theme={theme} onRefreshNews={loadNews} />
@@ -439,7 +439,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <InternalPageTemplate subtitle={isFr ? 'Comptes, validations et codes Telegram.' : isAr ? 'الحسابات، الموافقات وكودات تيليغرام.' : 'Accounts, approvals and Telegram codes.'}>
+              <InternalPageTemplate subtitle={isFr ? 'Comptes, validations et liens Telegram.' : isAr ? 'الحسابات، الموافقات وربط تيليغرام.' : 'Accounts, approvals and Telegram links.'}>
                 <AdminView lang={lang} theme={theme} me={currentUser} />
               </InternalPageTemplate>
             </motion.div>

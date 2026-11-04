@@ -82,7 +82,7 @@ export const PastTrades: React.FC<{ result: StrategyResult | null; lang?: Langua
                   <td className="px-4 py-2 text-slate-400 whitespace-nowrap">{when(h.signalTime)}</td>
                   <td className={`px-2 py-2 font-semibold ${h.direction === 'BUY' ? 'text-emerald-300' : 'text-rose-300'}`}>{h.direction}</td>
                   <td className="px-2 py-2 text-end text-slate-200">{h.entry.toFixed(d)}</td>
-                  <td className="px-2 py-2 text-end text-slate-300 whitespace-nowrap">{h.exitPrice !== null ? h.exitPrice.toFixed(d) : '—'} <span className="text-slate-500 font-sans">{exitName(h.exitType)}</span></td>
+                  <td className="px-2 py-2 text-end text-slate-300 whitespace-nowrap">{h.exitPrice !== null ? h.exitPrice.toFixed(d) : '—'} <span className="text-slate-500 font-sans">{h.exitType === 'BE_EXIT' && c === 'TP' ? `TP1 → ${exitName(h.exitType)}` : exitName(h.exitType)}</span></td>
                   <td className="px-2 py-2 text-end text-slate-400">{h.reachR != null ? `${h.reachR.toFixed(1)}R` : '—'}</td>
                   <td className="px-4 py-2 text-end whitespace-nowrap">
                     <span className={`inline-block min-w-[2.25rem] text-center px-1.5 py-0.5 rounded-md ring-1 ring-inset font-bold text-[10px] ${TONE[c]}`}>{c}</span>
