@@ -165,7 +165,12 @@ export interface PairStrategy {
   steps?: string[];
   maxSpreadPips?: number;
   timeframes?: { bias: string; setup: string; entry: string };
+  // the 2-year test: tuned on the first 60 %, judged on the last 40 % it never saw (tp2R = % of trades that reached 2R)
+  test?: { tuned: PlanTest; unseen: PlanTest; costsX2: number; neighbours: string } | null;
+  note?: string | null;
+  maxBars?: number | null;
 }
+interface PlanTest { trades: number; winRate: number; totalR: number; tp2R: number }
 
 export interface ExunuSMCResult {
   terminal: string;

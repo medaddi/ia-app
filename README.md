@@ -67,12 +67,15 @@ docs/       STRATEGIES.md — the exact rules of the 4 agents and the risk notes
 
 ## Strategies
 
-| Pair | Agent | Timeframes (UTC+1) | Setup | Order |
-|---|---|---|---|---|
-| XAU/USD | **XAUUSD_Sovereign_SMC_Agent** | M15 pools · M5 execution · London 08:00–11:00, NY 13:30–16:30 | Asian / London / PDH-PDL pool swept 8–65 pips and closed back inside within 3 M5 candles, M5 MSS, displacement ≥ 25 pips with FVG ≥ 6 pips or OB | LIMIT at FVG ∩ OTE (61.8–78.6 %) · SL sweep ± $0.50 (25–65 pips) · TP1 1.5R / session 50 % (≥ 1.3R, 50 % + BE+2) · TP2 opposite pool or 3R |
-| EUR/USD | **EURUSD_AsianSweep_FVG_Agent** | M15 Asian range · M5 · London 08:00–11:00, NY 13:30–16:00 | Asian range 12–45 pips swept by 1–20 pips, M5 MSS with FVG ≥ 2.5 pips | LIMIT at the FVG ce_50 (12 bars) · SL sweep ± 3 pips (6–18) · BE at Asia 50 % / 1R · TP2 other side of Asia (≥ 2R) |
-| GBP/USD | **GBPUSD_LondonJudas_SMT_Agent** | D1 / M15 levels · M5 · 08:00–10:30, reads EUR/USD | PDH / PDL / Asian level fakeout 4–30 pips with SMT vs EUR/USD, M5 MSS with a 3-candle displacement ≥ 1.5 ATR | LIMIT at OB_Mean (90 min) · SL ± 4 pips (15–28) · TP 3R · BE at 1.5R |
-| AUD/CHF | **AUDCHF_MeanReversion_Range_Agent** | H4 range (ADX < 28) · H1 trigger | RSI(14) divergence in the 60-bar H4 supply / demand zone + H1 engulfing ≥ 0.7 ATR | MARKET · SL 1.2 ATR beyond (20–35 pips) · TP1 equilibrium (50 % + BE) · TP2 opposite zone |
+Each agent runs the plan proven on 2 years of H1 / H4 (tuned on the first 60 %, judged on the last 40 % it never saw),
+one trade at a time, one target at **2R**, closed at market at its time limit.
+
+| Pair | Agent | Decides on | Entry | Exit | 2-year replay |
+|---|---|---|---|---|---|
+| XAU/USD | **XAUUSD_TrendBreakout_Agent** | H1 | Close beyond the 20-candle high / low in the EMA50 / EMA200 trend | SL 2 ATR · 2R · 48 candles | 223 trades · 44.8 % · +50.1R |
+| EUR/USD | **EURUSD_AsianFade_Agent** | H1, 00–06 GMT | Close beyond the 10-candle high / low, faded | SL 1.5 ATR · 2R · 48 candles | 254 trades · 40.6 % · +38.6R |
+| GBP/USD | **GBPUSD_ChannelFade_Agent** | H4, ADX < 35 | Close beyond the 10-candle high / low, faded | SL 1 ATR · 2R · 12 candles | 171 trades · 40.8 % · +20.6R |
+| AUD/CHF | **AUDCHF_AsianFade_Agent** | H1, 22–05 GMT | Close beyond the 40-candle high / low, faded | SL 1 ATR · 2R · 48 candles | 100 trades · 47.0 % · +35.3R |
 
 Past trades are replayed with the same code (`app/agents/engine.py`), so each pair's TP / SL / break-even record is
 measured, not estimated. Full rules: [docs/STRATEGIES.md](docs/STRATEGIES.md).

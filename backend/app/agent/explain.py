@@ -28,6 +28,7 @@ def build_explanation(r: dict, lang: str = "en") -> str:
                  "السبب: " + "، ".join(why) + ".",
                  f"الدخول بسعر السوق عند {f(s['entry'])}، الوقف {f(s['sl'])} ({js_str(s['slPips'])} نقطة)، هدف واحد {f(s['tp3'])} (2R).",
                  f"كتسد الصفقة بالسوق من بعد {bars} شمعة {tf} إلا ما وصلاتش للهدف ولا للوقف.",
+                 (f"كتسد بالسوق من بعد {s['params']['maxBars']} شمعة {tf} إلا ما وصلاتش للهدف ولا للستوب." if s["params"].get("maxBars") else ""),
                  f"الإلغاء: {s['invalidation']}.", "الخسارة ممكنة دائماً. لا يوجد ربح مضمون."]
         return " ".join(parts)
     u = (ps.get("test") or {}).get("unseen") or {}
@@ -54,11 +55,13 @@ def _agent_explanation(r: dict, s: dict, ps: dict, why: list[str], f, lang: str)
                  (f"أمر معلق LIMIT ف {f(s['entry'])}" if limit else f"دخول بالسوق ف {f(s['entry'])}") +
                  f"، الستوب {f(s['sl'])} ({js_str(s['slPips'])} نقطة)، الهدف {f(s['tp3'])} (1:{to_fixed(s['rrTarget'], 1)}).",
                  (f"إغلاق 50% ف {f(s['tp1'])} ونقل الستوب للدخول." if part else f"الستوب للدخول (BE) ملي يوصل الثمن {f(s['tp1'])}.") if be else "",
+                 (f"كتسد بالسوق من بعد {s['params']['maxBars']} شمعة {tf} إلا ما وصلاتش للهدف ولا للستوب." if s["params"].get("maxBars") else ""),
                  f"الإلغاء: {s['invalidation']}.", "الخسارة ممكنة دائماً. لا يوجد ربح مضمون."]
         return " ".join(x for x in parts if x)
     parts = [f"Agent {ps['agent']}: {ps.get('engine', '')} {tf}.", "Why: " + "; ".join(why) + ".",
              (f"LIMIT order at {f(s['entry'])}" if limit else f"Market entry at the close {f(s['entry'])}") +
              f". Stop {f(s['sl'])} ({js_str(s['slPips'])} pips), target {f(s['tp3'])} (1:{to_fixed(s['rrTarget'], 1)}).",
              (f"Close 50 % at {f(s['tp1'])} and move the stop to the entry." if part else f"Stop to break-even once the price reaches {f(s['tp1'])}.") if be else "",
+             (f"Closed at market after {s['params']['maxBars']} {tf} candles if neither the stop nor the target is reached." if s["params"].get("maxBars") else ""),
              f"Invalidation: {s['invalidation']}.", f"Score {r['score']}/100. Losses happen; this is not a guaranteed outcome."]
     return " ".join(x for x in parts if x)

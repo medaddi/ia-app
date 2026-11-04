@@ -4,12 +4,19 @@ Each instrument is run by **its own agent** (`backend/app/agents/`) with **its o
 chart**. Nothing else creates signals. Same closed candles → same result. Every session time is **UTC+1 (Morocco time)**,
 a fixed offset (`core/quant_primitives.py`, `TZ_OFFSET_SEC`).
 
-| Pair | Agent | Decides on |
-|---|---|---|
-| XAU/USD | `XAUUSD_Sovereign_SMC_Agent` | M5 (M15 session liquidity) |
-| EUR/USD | `EURUSD_AsianSweep_FVG_Agent` | M5 (M15 Asian range) |
-| GBP/USD | `GBPUSD_LondonJudas_SMT_Agent` | M5 (D1 / M15 levels, EUR/USD read at the same time) |
-| AUD/CHF | `AUDCHF_MeanReversion_Range_Agent` | H1 (H4 ADX and channel) |
+Each agent runs the plan its pair's behaviour favours, kept because it held up on the **last 40 % of 2 years of H1 / H4
+it was never tuned on** (with the pair's spread + slippage, the stop counted first, one trade at a time). The M5 SMC
+agents that ran before could only be tested on the ~60 days of M5 the free feed keeps, and placed no filled trade there.
+
+| Pair | Agent | Decides on | App replay, ~2 years | Unseen 40 % |
+|---|---|---|---|---|
+| XAU/USD | `XAUUSD_TrendBreakout_Agent` | H1 | 223 trades · 44.8 % · **+50.1R** · PF 1.41 · max DD 16.5R | 87 trades · **+31.3R** |
+| EUR/USD | `EURUSD_AsianFade_Agent` | H1, 00–06 GMT | 254 trades · 40.6 % · **+38.6R** · PF 1.24 · max DD 13.9R | 107 trades · **+19.9R** |
+| GBP/USD | `GBPUSD_ChannelFade_Agent` | H4 | 171 trades · 40.8 % · **+20.6R** · PF 1.20 · max DD 10.7R | 80 trades · **+14.3R** |
+| AUD/CHF | `AUDCHF_AsianFade_Agent` | H1, 22–05 GMT | 100 trades · 47.0 % · **+35.3R** · PF 1.63 · max DD 7.6R | 36 trades · **+6.3R** |
+
+Every target is **2R**: a 41–47 % win rate is profitable at 2:1 (break-even 33 %). Past results do not guarantee future
+results.
 
 ## 1. Instrument normalisation (`core/instrument_specs.py`)
 
@@ -30,49 +37,44 @@ a fixed offset (`core/quant_primitives.py`, `TZ_OFFSET_SEC`).
 - **OTE** of a displacement leg: 0.618, 0.705 (sweet spot), 0.786 retracements.
 - Wilder RSI / ATR / ADX (14).
 
-## 3. The agents
+## 3. The agents (`agents/channel.py`, `agents/plans.py`)
 
-Each agent is a state machine: `IDLE → ARMED → LIQUIDITY_SWEPT → MSS_CONFIRMED → PENDING_ORDER → IN_TRADE → COOLDOWN`.
-A stop below the agent's minimum is widened to it; above its maximum there is no trade (that is the strategy itself).
+Each agent works like a disciplined trader: it **reads the market** first (the trend by EMA50 vs EMA200, the volatility
+against its usual level, the session, the channel it watches and how far price is from it), **acts only on its edge**,
+takes **one trade at a time** (while a trade runs it manages it and takes no other), and **plans the exit first**: stop at
+an ATR multiple, one target at 2R, closed at market at the plan's time limit. No partials, no break-even.
+States: `IDLE` (outside its hours) · `ARMED` (watching the channel) · `COOLDOWN` (a strong trend for a fade) · `IN_TRADE`.
 
-### EURUSD_AsianSweep_FVG_Agent
-1. Asian range 00:00–07:00 (M15): high, low, 50 %. Range outside **12–45 pips** → COOLDOWN.
-2. Killzones **08:00–11:00** and **13:30–16:00**: the Asian high (short) / low (long) taken by **1–20 pips** (more = a real breakout).
-3. M5 close beyond the last confirmed M5 swing formed before the sweep (MSS) with an M5 FVG **≥ 2.5 pips** in the leg.
-4. **LIMIT at the FVG ce_50**, cancelled after **12 M5 bars** (or once the target trades first). SL **3 pips** beyond the
-   sweep wick (**6–18 pips**). TP1: stop to break-even at the Asian 50 % or +1R, whichever first. TP2: the opposite side
-   of Asia, at least **2R**.
-- Draws: `ASIAN_BOX` + ASIAN HIGH / LOW / EQUILIBRIUM 50% lines, `ASIAN HIGH SWEPT` marker, `MSS_BREAK`, FVG box with its `50% CE ENTRY` line, trade box.
+### XAUUSD_TrendBreakout_Agent (H1)
+Gold trends: a close beyond its channel runs on 40 % of the time against 28 % that comes back.
+1. Trend: EMA50 above EMA200 (H1) for buys, below for sells.
+2. Entry: an H1 close beyond the **20-candle** high (buy) / low (sell) → MARKET at that close.
+3. Stop **2 × ATR(14, H1)** · TP **2R** · closed after **48 H1 candles**.
+- Tuned 142 trades +24.9R · unseen 87 trades +31.3R · every channel (10–55) and stop (1–2 ATR) positive on the unseen part.
 
-### GBPUSD_LondonJudas_SMT_Agent
-1. 07:45: PDH / PDL and Asian high / low (00:00–07:30) of GBPUSD **and** EURUSD.
-2. **08:00–10:30**, at PDH / Asian high (short) or PDL / Asian low (long): A) GBPUSD takes its level by **4–30 pips** while
-   EURUSD does not take its own, or B) EURUSD takes its level while GBPUSD fails within **5 pips** of its own.
-3. GBPUSD closes back inside and beyond the last M5 swing, with a **3-candle displacement** (open of `[-3]` → close of `[-1]`) **≥ 1.5 × ATR_M5(14)**.
-4. **LIMIT at OB_Mean**, cancelled after **90 min**. SL **4 pips** beyond the Judas extreme (**15–28 pips**). TP **3R**, break-even at **+1.5R**.
-- Draws: PDH / PDL solid, Asian SESSION_HIGH / LOW dashed, `JUDAS TRAP + SMT vs EURUSD` badge, OB box with `OB 50% ENTRY`, `MSS_BREAK`, trade box.
+### EURUSD_AsianFade_Agent (H1)
+No lean over the day, but a stretch in the quiet Asian hours has no volume behind it and comes back.
+1. Window: the H1 candle opened **00:00–06:00 GMT** (01:00–07:00 Morocco).
+2. Entry: it closes beyond the **10-candle** high (sell) / low (buy) → MARKET at that close.
+3. Stop **1.5 × ATR(14, H1)** · TP **2R** · closed after **48 H1 candles**.
+- Tuned 160 trades +26.3R · unseen 107 trades +19.9R · every Asian window positive on both parts.
 
-### AUDCHF_MeanReversion_Range_Agent
-1. H4: **ADX(14) ≥ 28 → COOLDOWN**. Else the 60-bar H4 range: supply `max(High) → − 0.8 × ATR_H4`, demand `min(Low) → + 0.8 × ATR_H4`, equilibrium the middle.
-2. H1 in a zone, RSI(14) divergence between two swings **5–30 bars** apart: demand `Low_2 ≤ Low_1 + 2 pips`, `RSI_2 ≥ RSI_1 + 3`, `RSI_1 < 35`; supply the mirror with `RSI_1 > 65`.
-3. A closed H1 **engulfing** in the reversal direction, range **≥ 0.7 × ATR_H1(14)** → **MARKET** at its close.
-4. SL **1.2 × ATR_H1** beyond the divergence extreme (**20–35 pips**). TP1 equilibrium (**close 50 %** + break-even), TP2 the opposite zone boundary.
-- Draws: `SUPPLY_BAND`, `DEMAND_BAND`, EQUILIBRIUM line, sloped `H1 RSI DIVERGENCE` line, `ENGULFING TRIGGER`, trade box.
+### GBPUSD_ChannelFade_Agent (H4)
+H4 closes beyond the channel come back more often than they run, unless a strong trend is under way.
+1. No strong trend: **ADX(14, H4) < 35** (else COOLDOWN).
+2. Entry: an H4 close beyond the **10-candle** high (sell) / low (buy) → MARKET at that close.
+3. Stop **1 × ATR(14, H4)** · TP **2R** · closed after **12 H4 candles** (2 days).
+- Tuned 144 trades +27.4R · unseen 80 trades +14.3R. **Fragile:** only the 10-candle channel with a 1 ATR stop holds.
 
-### XAUUSD_Sovereign_SMC_Agent
-1. 07:30: Asian high / low (00:00–07:30) + PDH / PDL. Asia **> 180 pips ($18)** → London is skipped, New York only.
-   13:15: London high / low (08:00–13:15) join the New York pools.
-2. Killzones **08:00–11:00** and **13:30–16:30**: a pool swept by **8–65 pips ($0.80–$6.50)** and an M5 close back inside
-   within **1–3 candles**; the peak / trough and the protected M5 swing before the sweep are locked.
-3. M5 close beyond the protected swing (MSS); displacement **≥ 25 pips ($2.50)** with a bearish (bullish) FVG **≥ 6 pips**
-   or an order block. OTE of the leg. Entry: `max(fvg.bottom, ote_618)` when the FVG overlaps the OTE zone (short;
-   long: `min(fvg.top, ote_618)`), else `fvg.ce_50` in the premium / discount, else the 0.705 sweet spot when the OB
-   overlaps the OTE, else no order.
-4. **LIMIT**, cancelled after **12 M5 candles** or once price reaches 50 % of the way to TP2. SL sweep extreme **± $0.50**
-   (**25–65 pips**, above 65: skipped). TP1: +1.5R or the swept session's midpoint, whichever first, at least 1.3R —
-   **close 50 %**, stop to **entry + 2 pips**. TP2: the opposite session pool beyond TP1, else **3R**.
-- Draws: `ASIAN_BOX` (gold `rgba(212,175,55,0.10)`), `LONDON_BOX` (cyan `rgba(56,189,248,0.08)`), PDH / PDL / Asian / London lines,
-  `XAU LIQUIDITY SWEEP + REJECTION` badge, `OTE_GOLD_ZONE` (61.8–78.6 %, dotted 70.5 %), FVG / OB boxes, `MSS_BREAK`, trade box.
+### AUDCHF_AsianFade_Agent (H1)
+The most reverting pair: a close beyond its channel comes back 43 % of the time against 19 % that runs on.
+1. Window: the H1 candle opened **22:00–05:00 GMT** (23:00–06:00 Morocco).
+2. Entry: it closes beyond the **40-candle** high (sell) / low (buy) → MARKET at that close.
+3. Stop **1 × ATR(14, H1)** · TP **2R** · closed after **48 H1 candles**.
+- Tuned 70 trades +25.7R · unseen 36 trades +6.3R. **The weakest edge of the four.**
+
+Draws (every agent): the channel high / low it watches, the broken level and the `BREAKOUT` / `FADE` marker at the
+signal, and the trade box.
 
 ## 4. The chart contract
 

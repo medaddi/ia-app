@@ -41,7 +41,7 @@ def _build(agent: PairAgent, cfg: dict, c: list[Candle], i: int, b: dict, spread
     params = {"side": "BUY" if buy else "SELL", "entryType": b["entryType"], "entry": entry, "sl": sl, "tp1": tp1, "tp2": tp2, "tp3": tp3,
               "expiryTime": expiry, "marketFillTime": None if limit else signal_time, "cancelIfTp1BeforeFill": bool(limit and b.get("cancelLevel")),
               "cancelLevel": round_to(b["cancelLevel"], d) if b.get("cancelLevel") else None, "beOffset": b.get("beOffset") or 0,
-              "partials": b["partials"], "breakeven": b["breakeven"], "maxBars": None, "spread": spread,
+              "partials": b["partials"], "breakeven": b["breakeven"], "maxBars": b.get("maxBars"), "spread": spread,
               "slippage": cfg["filters"]["slippagePips"] * spec["pipSize"]}
     R = cfg["risk"]
     unit = abs(entry - sl)
@@ -51,9 +51,10 @@ def _build(agent: PairAgent, cfg: dict, c: list[Candle], i: int, b: dict, spread
         "rrTp2": rr(entry, sl, tp3), "rrTarget": rr(entry, sl, tp3), "slDistance": round_to(unit, d), "slPips": to_pips(spec, unit),
         "lots": lot_table(spec, entry, sl, R["riskPct"], R["balances"]),
         "signalTime": signal_time, "signalIndex": i, "expiresAt": expiry if expiry is not None else signal_time + R["marketValidMin"] * 60,
-        "invalidation": f"SL {to_fixed(sl, d)}" + (f"; the limit is cancelled at {fmt_utc_minute(expiry)} UTC if not filled" if expiry else ""),
+        "invalidation": f"SL {to_fixed(sl, d)}" + (f"; the limit is cancelled at {fmt_utc_minute(expiry)} UTC if not filled" if expiry else "")
+                        + (f"; closed at market after {b['maxBars']} {agent.tf} candles" if b.get("maxBars") else ""),
         "isFresh": i == last, "lifecycle": simulate_lifecycle(c, params, i + 1, None, None, None), "params": params,
-        "anchors": {"pair": {"direction": "BUY" if buy else "SELL", "time": c[i].time, "why": b["why"], "rule": cfg["rule"], "style": "reversal",
+        "anchors": {"pair": {"direction": "BUY" if buy else "SELL", "time": c[i].time, "why": b["why"], "rule": cfg["rule"], "style": cfg["style"],
                              "agent": agent.agent_id, "session": b.get("session"), "tag": b.get("tag")}},
         "draw": b.get("draw") or {},
     }
@@ -84,8 +85,9 @@ def can_signal_at(agent: PairAgent, tf_sec: int):
 
 
 def pair_block(agent: PairAgent, cfg: dict) -> dict:
-    return {"name": f"{agent.agent_id}", "timeframe": agent.tf, "live": True, "rule": cfg["rule"], "style": "reversal", "why": agent.why,
-            "test": None, "note": None, "profile": None, "params": agent.params, "maxBars": None, "targetR": agent.target_range[0],
+    return {"name": f"{agent.agent_id}", "timeframe": agent.tf, "live": True, "rule": cfg["rule"], "style": cfg["style"], "why": agent.why,
+            "test": getattr(agent, "test", None) or None, "note": getattr(agent, "note", None), "profile": getattr(agent, "profile", None),
+            "params": agent.params, "maxBars": getattr(agent, "max_bars", None), "targetR": agent.target_range[0],
             "targetRange": list(agent.target_range), "agent": agent.agent_id, "engine": agent.name, "steps": agent.steps,
             "maxSpreadPips": INSTRUMENT_CONFIG[agent.symbol]["max_spread_pips"], "timeframes": agent.timeframes}
 
@@ -97,7 +99,7 @@ def trade_box(s: dict, price: float, pip: float) -> Optional[dict]:
     buy = s["direction"] == "BUY"
     filled = lc["state"] != "PENDING"
     be = lc["state"] in ("TP1_HIT", "TP2_HIT")
-    fill = lc.get("fillPrice") or s["entry"]
+    fill = round(lc.get("fillPrice") or s["entry"], 5 if pip < 0.01 else 2)  # the fill includes the spread: shown at the pair's precision
     stop = (fill + (s["params"].get("beOffset") or 0) * (1 if buy else -1)) if be else s["sl"]
     return {"direction": "LONG" if buy else "SHORT", "orderType": s["entryType"], "status": "TP1_HIT_BE" if be else "OPEN" if filled else "PENDING",
             "entryTime": int(lc.get("fillTime") or s["signalTime"]), "entryPrice": fill if filled else s["entry"], "stopLoss": stop,

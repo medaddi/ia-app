@@ -55,13 +55,32 @@ export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: Agent
           </details>
         )}
 
+        {plan?.test && (
+          <div className="mt-3" aria-label={t('The 2-year test', 'Le test sur 2 ans', 'الاختبار على 2 سنين')}>
+            <div className="text-[11px] text-slate-400">{t('Tested on 2 years', 'Testé sur 2 ans', 'مجرب على 2 سنين')}</div>
+            <div className="mt-1 grid grid-cols-2 gap-1.5 text-[11px]">
+              {([['tuned', t('Tuned (60 %)', 'Réglage (60 %)', 'الضبط (60%)')], ['unseen', t('Never seen (40 %)', 'Jamais vu (40 %)', 'ما شافوش (40%)')]] as const).map(([k, label]) => {
+                const x = plan.test![k];
+                return (
+                  <div key={k} className={`rounded-lg border px-2 py-1.5 ${k === 'unseen' ? 'border-gold-500/30 bg-gold-500/[0.05]' : 'border-line bg-white/[0.02]'}`}>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+                    <div className={`font-mono font-semibold ${x.totalR >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{x.totalR >= 0 ? '+' : ''}{x.totalR}R</div>
+                    <div className="font-mono text-slate-400">{x.trades} · {x.winRate}% · 2R {x.tp2R}%</div>
+                  </div>
+                );
+              })}
+            </div>
+            {plan.note && <p className="mt-1.5 text-[11px] leading-snug text-gold-300/90">{plan.note}</p>}
+          </div>
+        )}
+
         {/* The trade-management agent: every order of this pair still running, followed to its end */}
         <div className="mt-3 rounded-xl border border-line bg-surface-2/60 p-2.5">
           <div className="flex items-center gap-3">
             <span className="icon-tile w-8 h-8 text-slate-300" aria-hidden="true"><ClipboardList className="w-4 h-4" /></span>
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-semibold text-white">{t('Trade manager', 'Gestionnaire de trades', 'مسير الصفقات')}</span>
-              <span className="block text-[11px] text-slate-400">{running.length ? t(`${running.length} trade(s) followed: fill, TP1 (partial + BE), SL / TP`, `${running.length} trade(s) suivi(s) : exécution, TP1 (partiel + BE), SL / TP`, `${running.length} صفقة متبوعة: الدخول، TP1 (جزء + BE)، SL / TP`) : t('No trade running', 'Aucun trade en cours', 'حتى صفقة ما خدامة')}</span>
+              <span className="block text-[11px] text-slate-400">{running.length ? t(`${running.length} trade(s) followed to the 2R target, the stop or the time limit`, `${running.length} trade(s) suivi(s) jusqu’à l’objectif 2R, le stop ou la limite de durée`, `${running.length} صفقة متبوعة حتى الهدف 2R، الستوب ولا نهاية المدة`) : t('No trade running', 'Aucun trade en cours', 'حتى صفقة ما خدامة')}</span>
             </span>
           </div>
           {running.length > 0 && (

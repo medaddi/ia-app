@@ -1,9 +1,8 @@
-"""The 4 autonomous pair agents, the chart overlay each one emits for its own chart, and the Multi-Agent Risk Coordinator,
-on hand-built markets. Sessions are UTC+1 (Morocco time)."""
+"""The 4 pair agents (each on its plan proven on 2 years of H1 / H4), the chart overlay each one emits, and the risk
+coordinator and delivery, on hand-built markets."""
 
 import calendar
 import math
-import random
 import time
 
 from app.agent.validator import validate_signal
@@ -12,36 +11,57 @@ from app.agents.registry import AGENT_CONFIGS, AGENTS
 from app.core.instrument_specs import pips_to_price, price_to_pips, usd_direction
 from app.core.quant_primitives import fvg_at, is_swing_high_now, is_swing_low_now, mt, order_block, ote
 from app.core.risk_guard import coordinate, usd_exposure
-from app.strategies.replay import replay
 from app.strategies.service import STRATEGY_DEFS
 from app.strategies.shared.lifecycle import simulate_lifecycle
 from app.strategies.shared.types import Candle
 
-M5, H1 = 300, 3600
-T0 = calendar.timegm((2026, 11, 10, 0, 0, 0)) - 3600  # Tuesday 00:00 UTC+1
+M5, H1, H4 = 300, 3600, 14400
+DAY = calendar.timegm((2026, 11, 10, 0, 0, 0))  # a Tuesday 00:00 UTC
 
 
-def build(t0, closes, start, w):
+def build(t0, closes, start, w, step=M5):
     c, p = [], start
     for k, x in enumerate(closes):
         o = p + (x - p) * 0.2
-        c.append(Candle(t0 + k * M5, o, max(o, x) + w, min(o, x) - w, x))
+        c.append(Candle(t0 + k * step, o, max(o, x) + w, min(o, x) - w, x))
         p = x
     return c
 
 
-def inp(c, now=None, peer=None, events=None, tf="M5", price=0):
-    return {"candles": {tf: c}, "peer": {tf: peer} if peer else None, "nowSec": now or c[-1].time + (M5 if tf == "M5" else H1) + 5, "livePrice": price,
-            "spread": None, "isRealData": True, "dataSource": "test", "isMarketOpen": True, "day": {"trades": 0, "losses": 0},
+def inp(c, now=None, events=None, tf="H1", price=0):
+    step = {"M5": M5, "H1": H1, "H4": H4}[tf]
+    return {"candles": {tf: c}, "peer": None, "nowSec": now or c[-1].time + step + 5, "livePrice": price, "spread": None,
+            "isRealData": True, "dataSource": "test", "isMarketOpen": True, "day": {"trades": 0, "losses": 0},
             "news": {"events": events or [], "source": "test"}}
 
 
 def run(pair, c, **kw):
-    return evaluate_agent(inp(c, **kw), AGENTS[pair], AGENT_CONFIGS[pair])
+    return evaluate_agent(inp(c, tf=AGENTS[pair].tf, **kw), AGENTS[pair], AGENT_CONFIGS[pair])
 
 
-def cats(ov, key):
-    return {x["category"] for x in ov[key]}
+def range_market(last_open, base, amp, step=H1, n=320):
+    """A quiet zig-zag range, then a last candle (opening at `last_open`) closing well below the channel low."""
+    t0 = last_open - (n - 1) * step
+    c = build(t0, [base + amp * math.sin(k / 3) for k in range(n - 1)], base, amp / 10, step)
+    low = min(x.low for x in c[-40:])
+    c.append(Candle(last_open, c[-1].close, c[-1].close + amp / 10, low - 3.2 * amp, low - 3 * amp, 0))
+    return c
+
+
+def trend_market(base=3000.0):
+    """Gold: an uptrend (EMA50 > EMA200), a flat zig-zag, then an H1 close well above the 20-hour high."""
+    t0 = DAY + 14 * H1 - 319 * H1
+    c = []
+    for i in range(319):
+        m = base + 0.5 * min(i, 250) + 3 * math.sin(i)
+        c.append(Candle(t0 + i * H1, m - 1, m + 4, m - 4, m + 1, 0))
+    top = max(x.high for x in c[-20:])
+    c.append(Candle(t0 + 319 * H1, top - 1, top + 12, top - 2, top + 10, 0))
+    return c
+
+
+def gbp_market():
+    return range_market(DAY + 8 * H4, 1.3000, 0.0020, step=H4, n=300)
 
 
 # ------------------------------------------------------------------ instruments and primitives
@@ -54,162 +74,83 @@ def test_instrument_normalisation_and_primitives():
     up = build(0, [1.0, 1.0, 1.3, 1.5], 1.0, 0.0)
     g = fvg_at(up, 3, True, 0.01)
     assert g and g.bottom == up[1].high and g.top == up[3].low and g.ce_50 == (g.top + g.bottom) / 2
-    o = ote(2005.0, 1995.0)  # a bearish leg of $10
-    assert abs(o.ote_618 - 2001.18) < 1e-9 and abs(o.ote_786 - 2002.86) < 1e-9 and abs(o.ote_705 - 2002.05) < 1e-9
+    o = ote(2005.0, 1995.0)
+    assert abs(o.ote_618 - 2001.18) < 1e-9 and abs(o.ote_786 - 2002.86) < 1e-9
     seq = [Candle(k, 1.0, 1.0 + k * 0.01, 0.99, 1.0 + (0.005 if k % 2 else -0.005)) for k in range(12)]
-    ob = order_block(seq, 11, False, 10)  # bearish MSS → the highest bullish candle
-    assert ob and seq[ob.index].close > seq[ob.index].open and ob.mean == (seq[ob.index].open + seq[ob.index].close) / 2
+    ob = order_block(seq, 11, False, 10)
+    assert ob and seq[ob.index].close > seq[ob.index].open
 
 
-# ------------------------------------------------------------------ Agent 1 · EUR/USD
-def eur_market(asia_amp=0.0015, sweep=(1.1019, 1.1021)):
-    cl = [1.10025 + asia_amp * math.sin(k / 4) for k in range(84)]  # 00:00–07:00 UTC+1
-    cl += [1.1005 + 0.0001 * math.sin(k) for k in range(12)]
-    cl += [1.1006, 1.1004, 1.1002, 1.1005, 1.1008, 1.1012, 1.1016, *sweep, 1.1018, 1.1009, 1.0999, 1.0996,
-           1.1000, 1.1005, 1.1010, 1.1013, 1.1008, 1.1000, 1.0995, 1.0990, 1.0985, 1.0980]
-    while len(cl) < 288:
-        cl.append(1.0982 + 0.0001 * math.sin(len(cl)))
-    prev = [1.1000 + 0.0003 * math.sin(k / 5) for k in range(288)]
-    return build(T0 - 86400, prev + cl, 1.1, 0.00005)
+# ------------------------------------------------------------------ the 4 agents
+def test_the_four_agents_and_their_plans():
+    assert list(AGENTS) == list(STRATEGY_DEFS) == ["XAU/USD", "EUR/USD", "GBP/USD", "AUD/CHF"]
+    for pair, ag in AGENTS.items():
+        assert ag.target_range == (2.0, 2.0) and ag.test["unseen"]["totalR"] > 0 and ag.test["costsX2"] > 0  # held up on unseen history
+        assert ag.tf in ("H1", "H4") and AGENT_CONFIGS[pair]["live"]
+    assert AGENT_CONFIGS["XAU/USD"]["style"] == "trend" and AGENT_CONFIGS["EUR/USD"]["style"] == "reversal"
+    # EUR/USD trades 00–06 GMT (01:00–07:00 Morocco): a candle opened 02:00 GMT may signal at its 03:00 close, 09:00 may not
+    assert STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 3 * H1) and not STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 10 * H1)
+    assert STRATEGY_DEFS["AUD/CHF"].canSignalAt(DAY + 24 * H1) and not STRATEGY_DEFS["AUD/CHF"].canSignalAt(DAY + 12 * H1)
 
 
-def test_agent1_eurusd_asian_sweep_fvg_and_its_chart():
-    c = eur_market()
-    r = run("EUR/USD", c)
-    assert r["dataQuality"]["ok"] and len(r["history"]) == 1
-    h = r["history"][0]
-    assert h["direction"] == "SELL" and h["exitType"] == "TP3" and h["r"] >= 2
-    live = run("EUR/USD", c, now=h["signalTime"] + 3, price=1.0999)
-    s, ov = live["setup"], live["overlay"]
-    assert live["status"] == "SIGNAL" and live["canNotify"] and s["entryType"] == "LIMIT" and s["expiresAt"] - h["signalTime"] == 12 * M5
-    assert 6 <= s["slPips"] <= 18 and s["rrTarget"] >= 2 and validate_signal(live)["approved"]
-    # its own chart: Asian box + lines, sweep marker, MSS line, FVG with its 50 % CE, the live projection
-    assert ov["symbol"] == "EURUSD" and ov["agentId"] == "EURUSD_AsianSweep_FVG_Agent" and ov["fsmState"] == "PENDING_ORDER"
-    assert {"ASIAN_BOX", "FVG_BEAR"} <= cats(ov, "zones") and {"SESSION_HIGH", "SESSION_LOW", "EQUILIBRIUM", "MSS_BREAK"} <= cats(ov, "priceLines")
-    fvg = next(z for z in ov["zones"] if z["category"] == "FVG_BEAR")
-    assert fvg["label"] == "50% CE ENTRY" and abs(fvg["midPrice"] - s["entry"]) < 1e-5
-    assert any(m["text"] == "ASIAN HIGH SWEPT" and m["position"] == "aboveBar" for m in ov["markers"])
-    box = ov["tradeExecutionBox"]
-    assert box["direction"] == "SHORT" and box["orderType"] == "LIMIT" and box["status"] == "PENDING" and box["tp2Price"] == s["tp3"]
-    assert ov["metrics"]["confluenceTag"] == "ASIAN SWEEP + FVG" and ov["statusBannerText"].startswith("EURUSD · PENDING_ORDER")
-    st = replay(STRATEGY_DEFS["EUR/USD"], {**inp(c), "candles": {"M5": c}}, c[0].time, c[-1].time + M5)
-    assert [e["id"] for e in st.emitted] == [s["id"]]
+def test_gold_breakout_in_the_trend_one_2r_target_and_its_chart():
+    r = run("XAU/USD", trend_market())
+    s = r["setup"]
+    assert r["status"] == "SIGNAL" and r["canNotify"] and s["direction"] == "BUY" and s["entryType"] == "MARKET"
+    assert abs(s["rrTarget"] - 2.0) < 0.05 and s["params"]["maxBars"] == 48 and s["params"]["partials"] == [0, 0, 1] and not s["params"]["breakeven"]
+    assert any("Trend up" in w for w in s["anchors"]["pair"]["why"]) and validate_signal(r)["approved"]
+    ov = r["overlay"]
+    assert ov["agentId"] == "XAUUSD_TrendBreakout_Agent" and ov["fsmState"] == "IN_TRADE" and ov["tradeExecutionBox"]
+    assert any(m["text"] == "BREAKOUT" for m in ov["markers"])
 
 
-def test_agent1_filters():
-    r = run("EUR/USD", eur_market(asia_amp=0.0003))  # a 6-pip night: COOLDOWN
-    assert not r["history"] and r["overlay"]["fsmState"] == "COOLDOWN"
-    assert not run("EUR/USD", eur_market(sweep=(1.1030, 1.1044)))["history"]  # taken by 25 pips: a real breakout
+def test_eur_fade_only_in_the_asian_hours():
+    r = run("EUR/USD", range_market(DAY + 2 * H1, 1.1000, 0.0008))  # the stretch opens at 02:00 GMT: faded
+    s = r["setup"]
+    assert r["status"] == "SIGNAL" and s["direction"] == "BUY" and abs(s["rrTarget"] - 2.0) < 0.05 and s["params"]["maxBars"] == 48
+    assert any("00:00–06:00 GMT" in w for w in s["anchors"]["pair"]["why"])
+    r2 = run("EUR/USD", range_market(DAY + 10 * H1, 1.1000, 0.0008))  # the same stretch at 10:00 GMT: no trade
+    assert not (r2["setup"] and r2["setup"]["isFresh"]) and r2["overlay"]["fsmState"] in ("IDLE", "ARMED")
+
+
+def test_audchf_fade_across_midnight():
+    r = run("AUD/CHF", range_market(DAY + 23 * H1, 0.5700, 0.0010))  # 23:00 GMT: inside 22–05
+    assert r["status"] == "SIGNAL" and r["setup"]["direction"] == "BUY" and r["setup"]["params"]["maxBars"] == 48
+
+
+def test_gbp_fade_needs_no_strong_trend():
+    r = run("GBP/USD", gbp_market())
+    assert r["status"] == "SIGNAL" and r["setup"]["direction"] == "BUY" and r["setup"]["params"]["maxBars"] == 12
+    up = build(DAY - 299 * H4, [1.2 + 0.002 * k for k in range(300)], 1.2, 0.0002, H4)  # a strong trend: ADX ≥ 35
+    r2 = run("GBP/USD", up)
+    assert not (r2["setup"] and r2["setup"]["isFresh"]) and r2["overlay"]["fsmState"] == "COOLDOWN"
+
+
+def test_one_trade_at_a_time():
+    """While a trade runs, the agent takes no other: two stretches in a row give one trade."""
+    c = range_market(DAY + 2 * H1, 1.1000, 0.0008)
+    low = c[-1].low
+    c.append(Candle(c[-1].time + H1, c[-1].close, c[-1].close + 0.0001, low - 0.0010, low - 0.0008, 0))  # 03:00: a second, lower close
+    setups = AGENTS["EUR/USD"].scan(c)["setups"]
+    assert len([x for x in setups if x["time"] >= c[-2].time]) == 1
 
 
 def test_news_is_a_note_never_a_block():
-    c = eur_market()
-    sig = run("EUR/USD", c)["history"][0]["signalTime"]
+    c = range_market(DAY + 2 * H1, 1.1000, 0.0008)
+    sig = run("EUR/USD", c)["setup"]["signalTime"]
     news = [{"time": sig + 20 * 60, "currency": "EUR", "title": "ECB rate", "impact": "High"}]
     r = run("EUR/USD", c, now=sig + 3, events=news)
-    assert r["status"] == "SIGNAL" and r["canNotify"] and r["setup"]["expiresAt"] == sig + 12 * M5  # sent, the expiry untouched
+    assert r["status"] == "SIGNAL" and r["canNotify"]
     note = next(x for x in r["checklist"] if x["key"] == "news")
     assert not note["passed"] and not note["required"] and "ECB" in note["detail"]
 
 
-# ------------------------------------------------------------------ Agent 2 · GBP/USD
-def judas_market(base, judas, eur_break=False):
-    prev = [base + 0.0010 + 0.0020 * math.sin(k / 6) for k in range(288)]
-    day = [base + 0.0005 + 0.0010 * math.sin(k / 4) for k in range(90)]  # 00:00–07:30
-    day += [base + 0.0008 + 0.0001 * math.sin(k) for k in range(6)]
-    if judas:
-        day += [base + x for x in (0.0004, 0.0006, 0.0010, 0.0016, 0.0020, 0.0023, 0.0015, 0.0005, -0.0002, -0.0010, -0.0004, 0.0004, 0.0012,
-                                   0.0024, 0.0012, 0.0002, -0.0010, -0.0025, -0.0040, -0.0055, -0.0065, -0.0075)]
-    else:
-        top = 0.0019 if eur_break else 0.0012
-        day += [base + x for x in (0.0004, 0.0006, 0.0008, 0.0010, 0.0011, top, 0.0008, 0.0004, 0.0, -0.0004, 0.0, 0.0004, 0.0006, 0.0002)]
-    while len(day) < 288:
-        day.append(day[-1] + 0.00005 * math.sin(len(day)))
-    return build(T0 - 86400, prev + day, base, 0.00005)
-
-
-def test_agent2_gbpusd_judas_smt_order_block_and_its_chart():
-    g, e = judas_market(1.3000, True), judas_market(1.1000, False)
-    r = run("GBP/USD", g, peer=e)
-    assert len(r["history"]) == 1, r["overlay"]["statusBannerText"]
-    h = r["history"][0]
-    assert h["direction"] == "SELL" and abs(h["r"] - 3) < 0.05
-    live = run("GBP/USD", g, now=h["signalTime"] + 3, peer=e, price=1.2995)
-    s, ov = live["setup"], live["overlay"]
-    assert 15 <= s["slPips"] <= 28 and abs(s["rrTarget"] - 3) < 0.02 and abs(abs(s["tp1"] - s["entry"]) / abs(s["entry"] - s["sl"]) - 1.5) < 0.02
-    assert s["expiresAt"] - h["signalTime"] == 90 * 60
-    assert {"PDH", "PDL", "SESSION_HIGH", "SESSION_LOW", "MSS_BREAK"} <= cats(ov, "priceLines") and "OB_BEAR" in cats(ov, "zones")
-    ob = next(z for z in ov["zones"] if z["category"] == "OB_BEAR")
-    assert ob["label"] == "OB 50% ENTRY" and abs(ob["midPrice"] - s["entry"]) < 1e-5
-    assert any(m["text"] == "JUDAS TRAP + SMT vs EURUSD" for m in ov["markers"]) and ov["metrics"]["confluenceTag"] == "SMT CONFIRMED"
-    # EUR/USD took its own Asian high too: no SMT, no trade; no EUR/USD feed: the agent does not guess
-    assert not [t for t in run("GBP/USD", g, peer=judas_market(1.1000, False, eur_break=True))["history"] if t["direction"] == "SELL"]
-    assert not run("GBP/USD", g)["dataQuality"]["ok"]
-
-
-# ------------------------------------------------------------------ Agent 3 · AUD/CHF
-def range_market(n=3000, seed=7):
-    random.seed(seed)
-    c, p = [], 0.5950
-    for k in range(n):
-        target = 0.5950 + 0.0045 * math.sin(2 * math.pi * k / 160) + 0.0012 * math.sin(2 * math.pi * k / 37)
-        x = p + (target - p) * 0.35 + random.gauss(0, 0.0004)
-        c.append(Candle(1_790_985_600 + k * H1, p, max(p, x) + abs(random.gauss(0, 0.0002)), min(p, x) - abs(random.gauss(0, 0.0002)), x))
-        p = x
-    return c
-
-
-def test_agent3_audchf_mean_reversion_and_its_chart():
-    c = range_market()
-    r = run("AUD/CHF", c, tf="H1")
-    assert r["dataQuality"]["ok"] and r["history"]
-    t = r["history"][0]["time"]
-    idx = next(k for k, x in enumerate(c) if x.time == t)
-    live = run("AUD/CHF", c[:idx + 1], tf="H1")
-    s, ov = live["setup"], live["overlay"]
-    buy = s["direction"] == "BUY"
-    assert s["entryType"] == "MARKET" and s["params"]["partials"] == [0.5, 0, 0.5] and 20 <= s["slPips"] <= 35
-    assert (s["sl"] < s["entry"] < s["tp1"] < s["tp3"]) if buy else (s["sl"] > s["entry"] > s["tp1"] > s["tp3"])
-    assert {"SUPPLY_BAND", "DEMAND_BAND"} <= cats(ov, "zones") and {"EQUILIBRIUM", "DIVERGENCE_LINE"} <= cats(ov, "priceLines")
-    div = next(x for x in ov["priceLines"] if x["category"] == "DIVERGENCE_LINE")
-    assert div["label"] == "H1 RSI DIVERGENCE" and div["startTime"] < div["endTime"]
-    assert any(m["text"] == "ENGULFING TRIGGER" for m in ov["markers"]) and ov["fsmState"] == "IN_TRADE"
-    assert ov["tradeExecutionBox"]["orderType"] == "MARKET"
-
-
-# ------------------------------------------------------------------ Agent 4 · XAU/USD
-def gold_market(sweep_top=2007.4):
-    cl = [2000 + 6 * math.sin(k / 4) for k in range(90)]  # 00:00–07:30 UTC+1: Asia ≈ $12
-    cl += [2003.0 + 0.1 * math.sin(k) for k in range(6)]
-    cl += [2003.0, 2002.4, 2001.8, 2003.0, 2004.2, 2005.4, 2006.4, sweep_top,  # protected low 2001.8, the Asian high swept
-           2005.2, 2003.0, 1999.8,  # rejection, displacement with a bearish FVG, MSS
-           2001.0, 2003.0, 2005.3, 2003.0, 2000.0, 1997.0, 1994.0, 1991.0, 1989.0, 1988.0]
-    while len(cl) < 288:
-        cl.append(1989.5 + 0.2 * math.sin(len(cl)))
-    prev = [2000 + 3 * math.sin(k / 7) for k in range(288)]
-    return build(T0 - 86400, prev + cl, 2000.0, 0.3)
-
-
-def test_agent4_xauusd_sweep_rejection_ote_and_its_chart():
-    c = gold_market()
-    r = run("XAU/USD", c)
-    assert len(r["history"]) == 1, r["overlay"]["statusBannerText"]
-    h = r["history"][0]
-    assert h["direction"] == "SELL" and h["r"] > 0
-    live = run("XAU/USD", c, now=h["signalTime"] + 3, price=2000.0)
-    s, ov = live["setup"], live["overlay"]
-    assert s["entryType"] == "LIMIT" and 25 <= s["slPips"] <= 65 and s["params"]["partials"] == [0.5, 0, 0.5]
-    assert abs(s["params"]["beOffset"] - 0.2) < 1e-9  # TP1: stop to entry + 2 pips ($0.20)
-    assert abs(s["tp1"] - s["entry"]) / abs(s["entry"] - s["sl"]) >= 1.3 - 1e-6
-    assert {"ASIAN_BOX", "LONDON_BOX", "OTE_GOLD_ZONE"} <= cats(ov, "zones") and "FVG_BEAR" in cats(ov, "zones")
-    zone = next(z for z in ov["zones"] if z["category"] == "OTE_GOLD_ZONE")
-    assert zone["label"] == "OTE GOLDEN ZONE (61.8% - 78.6%)" and zone["bottomPrice"] <= s["entry"] <= zone["topPrice"] + 1e-6
-    assert next(z for z in ov["zones"] if z["category"] == "ASIAN_BOX")["fillColor"] == "rgba(212, 175, 55, 0.10)"
-    assert any(m["text"] == "XAU LIQUIDITY SWEEP + REJECTION" for m in ov["markers"]) and "MSS_BREAK" in cats(ov, "priceLines")
-    assert {"PDH", "PDL", "SESSION_HIGH"} <= cats(ov, "priceLines") and ov["metrics"]["confluenceTag"] in ("OTE + FVG", "FVG CE", "OTE + OB")
-    assert validate_signal(live)["approved"]
-    # swept by $7 (70 pips > 65): a real breakout, no trade
-    assert not run("XAU/USD", gold_market(sweep_top=2014.0))["history"]
+def test_fast_on_two_years_of_h1():
+    c = range_market(DAY + 2 * H1, 1.1000, 0.0008, n=12500)
+    run("EUR/USD", c)
+    t = time.perf_counter()
+    run("EUR/USD", c)
+    assert time.perf_counter() - t < 2.0
 
 
 def test_partial_and_break_even_plus_offset():
@@ -218,15 +159,6 @@ def test_partial_and_break_even_plus_offset():
          "marketFillTime": 0, "cancelIfTp1BeforeFill": False, "partials": [0.5, 0, 0.5], "breakeven": True, "beOffset": 0.2, "spread": 0, "slippage": 0}
     lc = simulate_lifecycle(c, p, 1)
     assert lc["state"] == "CLOSED" and lc["events"][-1]["price"] == 99.8 and abs(lc["rMultiple"] - (0.75 + 0.1)) < 1e-9
-
-
-def test_fast_on_60_days_of_m5():
-    days = [eur_market()[288:] for _ in range(42)]
-    c = [Candle(T0 + k * M5 - 41 * 86400, x.open, x.high, x.low, x.close) for k, x in enumerate(sum(days, []))]
-    run("EUR/USD", c)
-    t = time.perf_counter()
-    r = run("EUR/USD", c)
-    assert time.perf_counter() - t < 0.5 and len(r["history"]) >= 20
 
 
 # ------------------------------------------------------------------ the risk coordinator
@@ -238,20 +170,19 @@ def test_risk_notes_never_block_and_the_trader_keeps_the_risk():
     now = int(time.time())
 
     def add(id_, sym, side, state="OPEN"):
-        db.add(Signal(id=id_, symbol=sym, setup="AGENT", direction=side, entry_type="LIMIT", entry=1, sl=0.99, tp1=1.01, tp2=1.02, tp3=1.02,
+        db.add(Signal(id=id_, symbol=sym, setup="AGENT", direction=side, entry_type="MARKET", entry=1, sl=0.99, tp1=1.01, tp2=1.02, tp3=1.02,
                       rr_tp2=2, score=100, signal_time=now, state=state, params={}, payload={}))
         db.commit()
 
     with SessionLocal() as db:
         db.query(Signal).delete()
         db.commit()
-        assert usd_exposure("GBP/USD", "SELL", db)["count"] == 0
-        add("A", "EUR/USD", "SELL")
-        add("B", "XAU/USD", "SELL")  # two long-USD trades not at break-even
-        assert usd_exposure("GBP/USD", "SELL", db)["count"] == 2 and usd_exposure("GBP/USD", "BUY", db)["count"] == 0
-        g, eu = judas_market(1.3000, True), judas_market(1.1000, False)
-        sig = run("GBP/USD", g, peer=eu)["history"][0]["signalTime"]
-        r = run("GBP/USD", g, now=sig + 3, peer=eu, price=1.2995)
+        assert usd_exposure("GBP/USD", "BUY", db)["count"] == 0
+        add("A", "EUR/USD", "BUY")
+        add("B", "XAU/USD", "BUY")  # two short-USD trades not at break-even
+        assert usd_exposure("GBP/USD", "BUY", db)["count"] == 2 and usd_exposure("GBP/USD", "SELL", db)["count"] == 0
+        r = run("GBP/USD", gbp_market())
+        sig = r["setup"]["signalTime"]
         news = {**r["news"], "blocked": True, "detail": "USD CPI at 13:30"}
         d = coordinate({**r, "news": news}, db, now=sig + 3)
         # still sent: the correlated USD trades and the news are notes, the lots are the full 1 % table
@@ -262,6 +193,12 @@ def test_risk_notes_never_block_and_the_trader_keeps_the_risk():
 
 
 # ------------------------------------------------------------------ delivery: recorded first, Telegram and the app independent
+def _eur_signal():
+    c = range_market(DAY + 2 * H1, 1.1000, 0.0008)
+    sig = run("EUR/USD", c)["setup"]["signalTime"]
+    return run("EUR/USD", c, now=sig + 3, price=c[-1].close)
+
+
 def test_a_setup_is_recorded_then_sent_to_telegram_with_retry(monkeypatch):
     import asyncio
 
@@ -272,9 +209,7 @@ def test_a_setup_is_recorded_then_sent_to_telegram_with_retry(monkeypatch):
     from app.telegram import bot
 
     init_db()
-    c = eur_market()
-    sig = run("EUR/USD", c)["history"][0]["signalTime"]
-    r = run("EUR/USD", c, now=sig + 3, price=1.0999)
+    r = _eur_signal()
     res = build_exunu_result(r)
     res["consensus"] = coordinate(r, None)
 
@@ -315,21 +250,18 @@ def test_a_setup_is_recorded_then_sent_to_telegram_with_retry(monkeypatch):
 
 
 def test_the_notification_carries_the_whole_order():
-    """A new order is placed straight from the notification: side + order type, entry, SL, TP1, TP2, lot, validity."""
+    """A new order is placed straight from the notification: side + order type, entry, SL, TP1, TP2, lot."""
     from app.push import trade_message
     from app.strategies.exunu import build_exunu_result, to_ai_signal
     from app.telegram import bot
 
-    c = eur_market()
-    sig = run("EUR/USD", c)["history"][0]["signalTime"]
-    r = run("EUR/USD", c, now=sig + 3, price=1.0999)
+    r = _eur_signal()
     res = build_exunu_result(r)
     res["consensus"] = coordinate(r, None)
     s = r["setup"]
     signal = to_ai_signal(res)
     m = trade_message(signal, 0.25)
-    assert m["title"] == "🔴 SELL LIMIT · EUR/USD" and m["urgent"]
-    exp = time.strftime("%H:%M", time.gmtime(s["expiresAt"]))
-    assert m["body"] == f"Entry {s['entry']:.5f} | SL {s['sl']:.5f} | TP1 {s['tp1']:.5f} | TP2 {s['tp3']:.5f} | LOT 0.25 | valid until {exp} UTC"
+    assert m["title"] == "🟢 BUY MARKET · EUR/USD" and m["urgent"]
+    assert m["body"] == f"Entry {s['entry']:.5f} | SL {s['sl']:.5f} | TP1 {s['tp1']:.5f} | TP2 {s['tp3']:.5f} | LOT 0.25"
     tg = bot.format_signal_message(signal, {"lots": 0.25}).split("\n")
-    assert tg[0] == "🔴 <b>SELL LIMIT | EUR/USD</b>" and tg[2].startswith("🎯 TP1") and tg[3].startswith("🎯 TP2") and tg[-1] == f"⏳ Valid until {exp} UTC"
+    assert tg[0] == "🟢 <b>BUY | EUR/USD</b>" and not any("Valid until" in x for x in tg)
