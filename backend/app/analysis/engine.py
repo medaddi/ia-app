@@ -182,6 +182,8 @@ async def analyse(pair: str) -> dict:
                  "atrPips": round(a_now / spec["pipSize"], 1) if a_now else None, "smc": smc["summary"]},
         "verdict": (f"{len(setups)} setup(s) can be taken now" if setups else "No setup right now: every strategy is waiting"),
         "strategies": rows, "triggers": triggers,
+        # the picture of the scenarios: the last closed candles of the pair's main timeframe
+        "snapshot": {"tf": "H1" if "H1" in inds else next(iter(inds)), "candles": [[x.time, x.open, x.high, x.low, x.close] for x in main.c[-90:]]},
     }
 
 

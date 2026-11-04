@@ -55,7 +55,6 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
       if (!res.ok || !j.success) throw new Error(j.error || j.detail || `HTTP ${res.status}`);
       setData(j);
       if (j.pick?.draw) setAnalysisDrawing(symbol, j.pick.draw);  // the setup that applies now, drawn on the chart
-      else if (j.scenarios?.bothDraw) setAnalysisDrawing(symbol, j.scenarios.bothDraw);  // no setup yet: the BUY and SELL scenarios
     } catch (x) {
       setErr(String((x as Error).message || x));
     } finally {
@@ -139,7 +138,7 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
                     <button type="button" onClick={() => setAnalysisDrawing(symbol, null)} className="h-7 px-2 rounded-lg border border-line text-slate-300 hover:bg-white/[0.05] cursor-pointer">{t('Clear', 'Effacer', 'مسح')}</button>
                   </div>
                 )}
-                {data.scenarios && <ScenarioPanel sc={data.scenarios} decimals={data.decimals} lang={lang} onDraw={draw} />}
+                {data.scenarios && <ScenarioPanel sc={data.scenarios} decimals={data.decimals} lang={lang} symbol={symbol} price={data.price} snapshot={(data as any).snapshot} />}
                 <button type="button" onClick={() => setShowAll(v => !v)} className="mt-3 inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer" aria-expanded={showAll}>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
                   {showAll ? t('Hide the details', 'Masquer le détail', 'خبي التفاصيل') : t('Details: every strategy the agent checked', 'Détail : chaque stratégie vérifiée par l’agent', 'التفاصيل: كل استراتيجية شيكاها الوكيل')}

@@ -1,8 +1,9 @@
 import React from 'react';
-import { ArrowDownRight, ArrowUpRight, Check, PenLine, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Check, X } from 'lucide-react';
 import { tr } from './ui';
 import type { Language } from '../types';
 import type { AnalysisDrawing } from '../analysisDrawing';
+import { ScenarioPicture } from './ScenarioPicture';
 
 export interface Trigger {
   family: 'plan' | 'smc'; id: string; name: string; dir: 'BUY' | 'SELL'; trigger: string; order: string; level: number; entry: number; sl: number; tp: number;
@@ -19,7 +20,8 @@ const signed = (v: number) => `${v >= 0 ? '+' : ''}${v}`;
  * would make it a SELL now, each from the strongest strategy waiting on that side, drawn on the chart; and every
  * strategy compared in one table.
  */
-export const ScenarioPanel: React.FC<{ sc: Scenarios; decimals: number; lang: Language; onDraw: (d: AnalysisDrawing) => void }> = ({ sc, decimals, lang, onDraw }) => {
+export const ScenarioPanel: React.FC<{ sc: Scenarios; decimals: number; lang: Language; symbol: string; price: number;
+  snapshot?: { tf: string; candles: [number, number, number, number, number][] } }> = ({ sc, decimals, lang, symbol, price, snapshot }) => {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
   const f = (v: number) => v.toFixed(decimals);
   const card = (s: Side) => {
@@ -57,11 +59,6 @@ export const ScenarioPanel: React.FC<{ sc: Scenarios; decimals: number; lang: La
             </ul>
             <div className="mt-2 flex items-center justify-between gap-2">
               <span className="text-[10px] text-slate-500">{s.supporters} {t('strategies on this side', 'stratégies de ce côté', 'استراتيجيات ف هاد الجهة')}</span>
-              {s.draw && (
-                <button type="button" onClick={() => onDraw(s.draw!)} className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-line text-[11px] text-slate-200 hover:bg-white/[0.05] cursor-pointer">
-                  <PenLine className="w-3 h-3" aria-hidden="true" />{t('Draw', 'Tracer', 'رسم')}
-                </button>
-              )}
             </div>
           </>
         ) : <p className="mt-2 text-[11px] text-slate-500">{t('No strategy trades this side now', 'Aucune stratégie ne prend ce côté maintenant', 'حتى استراتيجية ما كتاخد هاد الجهة دابا')}</p>}
@@ -72,12 +69,8 @@ export const ScenarioPanel: React.FC<{ sc: Scenarios; decimals: number; lang: La
     <section className="mt-4">
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-sm font-semibold text-white">{t('Scenarios now', 'Scénarios maintenant', 'السيناريوهات دابا')}</h4>
-        {sc.bothDraw && (
-          <button type="button" onClick={() => onDraw(sc.bothDraw!)} className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-sky-500/40 text-[11px] text-sky-200 hover:bg-sky-500/10 cursor-pointer">
-            <PenLine className="w-3 h-3" aria-hidden="true" />{t('Draw both', 'Tracer les deux', 'رسم بجوج')}
-          </button>
-        )}
       </div>
+      {snapshot && snapshot.candles.length > 0 && <ScenarioPicture symbol={symbol} tf={snapshot.tf} bars={snapshot.candles} price={price} decimals={decimals} sc={sc} lang={lang} />}
       <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-rose-500/40" role="img" aria-label={`BUY ${sc.buyPct}% / SELL ${sc.sellPct}%`}>
         <div className="h-full bg-emerald-500/80" style={{ width: `${sc.buyPct}%` }} />
       </div>
