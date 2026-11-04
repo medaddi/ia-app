@@ -40,6 +40,18 @@ async def exunu_candles(symbol: str = "XAU/USD", timeframe: str = "15M", count: 
             "price": live.get("price"), "quoteTime": live.get("quoteTime"), "priceSource": live.get("source")}
 
 
+@router.get("/analyze")
+async def analyze_pair(symbol: str = "XAU/USD", _=Depends(current_user)):
+    """The "Analyse" button: the pair now and every library strategy checked on the latest closed candles (one request)."""
+    from ..agents.registry import AGENT_CONFIGS
+    from ..analysis.engine import analyse
+
+    sym = normalize_symbol(symbol)
+    if sym not in AGENT_CONFIGS:
+        raise HTTPException(404, f"{sym} is not traded by the app")
+    return await analyse(sym)
+
+
 @router.post("/exunu/dispatch-telegram")
 async def exunu_dispatch(body: dict = Body(default={}), _=Depends(admin_user)):
     r = await dispatch_setup(body.get("symbol") or "XAU/USD", manual=True)

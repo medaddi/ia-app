@@ -5,6 +5,7 @@ import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentDesk, type Consensus } from './AgentDesk';
 import { AgentChartPanel } from './AgentChartPanel';
+import { AnalyzeButton } from './AnalyzePanel';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { Columns2, Grid2x2 } from 'lucide-react';
 import { PairFlags } from './PairFlags';
@@ -30,7 +31,7 @@ const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
 // Each pair's chart: its plan's timeframe and EMAs (instruments.ts CHART_SPEC)
 const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, { label: INSTRUMENT_LABELS[s], ...chartSpec(s) }])) as Record<InstrumentSymbol, ChartSpec & { label: string }>;
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
-const LIVE_MS = 1000; // analysis, candles and price every second (the feed itself updates about once a second)
+const LIVE_MS = 5000; // analysis, candles and price every 5 s (the free feeds refresh every ~10–60 s)
 
 // Each pair remembers the timeframe it was last viewed on (default: the strategy's decision timeframe)
 const tfKey = (s: string) => `ld_chart_tf_${s}`;
@@ -145,6 +146,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             <span className="text-slate-400">{result?.market.isOpen ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
             <span className="text-white font-semibold tabular-nums">{result ? result.price.toFixed(result.spec.decimals) : '—'}</span>
           </div>
+          <AnalyzeButton symbol={symbol} lang={lang as Language} />
         </div>
       </div>
 

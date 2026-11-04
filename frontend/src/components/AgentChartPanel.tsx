@@ -4,6 +4,7 @@ import { useAgentOverlay } from '../agentOverlay';
 import { chartSpec, type InstrumentSymbol } from '../instruments';
 import { SmcChart, type SmcChartCandle } from './SmcChart';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
+import { AnalyzeButton } from './AnalyzePanel';
 
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
 
@@ -17,7 +18,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
   const [updatedAt, setUpdatedAt] = useState(0);
   const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);
-  const { overlay } = useAgentOverlay(symbol, 2000);
+  const { overlay } = useAgentOverlay(symbol, 10000);
   const tvChart = useChartingLibrary();
 
   const load = useCallback(async () => {
@@ -29,7 +30,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
     } catch { /* keep the last candles */ }
   }, [symbol, tf]);
 
-  useEffect(() => { if (tvChart !== false) return; setCandles([]); load(); const id = setInterval(load, 2000); return () => clearInterval(id); }, [load, tvChart]);
+  useEffect(() => { if (tvChart !== false) return; setCandles([]); load(); const id = setInterval(load, 10000); return () => clearInterval(id); }, [load, tvChart]);
 
   return (
     <div className="min-w-0">
@@ -45,11 +46,14 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
         <SmcChart symbol={symbol} candles={candles} result={null} overlay={overlay} timeframe={tf} timeframes={spec.timeframes} entryTf={spec.entryTf}
           emas={spec.emas} emaNote={spec.emaNote} updatedAt={updatedAt} onTimeframeChange={setTf} lang={lang} compact quote={quote} />
       )}
-      {onOpen && (
-        <button onClick={() => onOpen(symbol)} className="mt-1 text-[11px] text-slate-400 hover:text-gold-300 cursor-pointer">
-          {lang === 'ar' ? 'فتح هاد الزوج' : lang === 'fr' ? 'Ouvrir cette paire' : 'Open this pair'} →
-        </button>
-      )}
+      <div className="mt-1 flex items-center justify-between gap-2">
+        {onOpen && (
+          <button onClick={() => onOpen(symbol)} className="text-[11px] text-slate-400 hover:text-gold-300 cursor-pointer">
+            {lang === 'ar' ? 'فتح هاد الزوج' : lang === 'fr' ? 'Ouvrir cette paire' : 'Open this pair'} →
+          </button>
+        )}
+        <AnalyzeButton symbol={symbol} lang={lang as any} compact />
+      </div>
     </div>
   );
 };

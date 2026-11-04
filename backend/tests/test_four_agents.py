@@ -302,3 +302,21 @@ def test_the_smc_view_is_context_never_a_signal():
     r = run("EUR/USD", range_market(DAY + 10 * H1, 1.1000, 0.0008))
     assert any(z["id"].startswith("SMC-") for z in r["overlay"]["zones"] + r["overlay"]["priceLines"])
     assert not (r["setup"] and r["setup"]["isFresh"])  # outside its hours: the SMC drawings never make a trade
+
+
+def test_the_analyse_button_finds_the_setups_that_apply_now():
+    """Every library strategy checked on the closed candles: a fresh stretch in the Asian hours is a SETUP for the
+    EUR/CHF Asian fade, the same stretch at 10:00 GMT is WAITING; every library strategy won ≥ 55 % on unseen history."""
+    from app.analysis.engine import _check, _Ind
+    from app.analysis.library import LIBRARY
+
+    assert set(LIBRARY) == set(AGENTS) and all(s["test"]["unseen"]["winRate"] >= 55 for v in LIBRARY.values() for s in v)
+    spec = AGENT_CONFIGS["EUR/CHF"]["spec"]
+    asia = next(s for s in LIBRARY["EUR/CHF"] if s["id"] == "CHF-ASIA")
+    c = range_market(DAY + 2 * H1, 1.1000, 0.0008)
+    row = _check(_Ind(c), asia, spec, c[-1].close, c[-1].time + 2 * H1)
+    assert row["status"] == "SETUP" and row["setup"]["direction"] == "BUY" and row["setup"]["sl"] < row["setup"]["entry"] < row["setup"]["tp"]
+    assert abs((row["setup"]["tp"] - row["setup"]["entry"]) / (row["setup"]["entry"] - row["setup"]["sl"]) - 0.75) < 0.05 and row["setup"]["lots"]
+    late = range_market(DAY + 10 * H1, 1.1000, 0.0008)
+    row2 = _check(_Ind(late), asia, spec, late[-1].close, late[-1].time + 2 * H1)
+    assert row2["status"] == "WAITING" and "00:00–06:00 GMT" in row2["reason"]

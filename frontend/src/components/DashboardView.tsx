@@ -7,6 +7,7 @@ import { Language } from '../types';
 import { fmtMoney, fmtR, tr } from './ui';
 import type { Stats, Today, Trade } from './AccountView';
 import { TradeProgress } from './TradeProgress';
+import { AnalyzeButton } from './AnalyzePanel';
 
 // ---------------------------------------------------------------- API shape (/api/dashboard)
 
@@ -42,7 +43,7 @@ interface Dashboard {
   news: NewsRow[];
 }
 
-const REFRESH_MS = 3000; // live enough for a dashboard; the chart page is the 1 s view
+const REFRESH_MS = 15000; // a dashboard: the Analyse button gives the pair now, the chart page is the live view
 const WARMUP_MS = 1500; // while some pairs are still being analysed
 const EASE = [0.22, 1, 0.36, 1] as const; // ease-out: fast start, soft landing
 const RUNNING = ['OPEN', 'PENDING', 'TP1_HIT', 'TP2_HIT'];
@@ -608,7 +609,8 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
               const trends = [[m.entryTf, m.trend.entry]];
               const live = !!m.setup && RUNNING.includes(m.setup.state);
               return (
-                <motion.button key={m.symbol} onClick={() => onOpenChart(m.symbol)}
+                <motion.div key={m.symbol} role="button" tabIndex={0} onClick={() => onOpenChart(m.symbol)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChart(m.symbol); } }}
                   initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: Math.min(i, 9) * 0.04 }}
                   className={`text-left rounded-xl border p-3.5 cursor-pointer transition-[border-color,transform,background-color] duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold-400 ${live ? 'border-emerald-500/40 bg-emerald-500/[0.04]' : 'border-line bg-surface hover:border-gold-500/40'}`}>
                   <div className="flex items-start justify-between gap-2">
@@ -637,7 +639,8 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                     <div className="mt-2 text-xs text-slate-500">{t('Last trade', 'Dernier trade', 'آخر صفقة')}: <span className={tone(m.lastTrade.r)}>{m.lastTrade.outcome ?? stateLabel(m.symbol, m.lastTrade.state)} {m.lastTrade.r !== null ? r2(m.lastTrade.r) : ''}</span></div>
                   )}
                   {!m.dataOk && <p className="mt-2 text-xs text-amber-300/80 line-clamp-2">{m.dataReason}</p>}
-                </motion.button>
+                  <div className="mt-2.5 flex justify-end"><AnalyzeButton symbol={m.symbol} lang={lang} compact /></div>
+                </motion.div>
               );
             })}
           </div>
