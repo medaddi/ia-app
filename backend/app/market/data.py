@@ -8,6 +8,7 @@ Live market data for XAU/USD and the forex pairs (EUR/USD, GBP/USD and the FXAle
 """
 
 import asyncio
+import calendar
 import json
 import math
 import time
@@ -82,12 +83,14 @@ def market_session_status(symbol: str = "XAU/USD", now: datetime | None = None) 
     return {"isOpen": True, "labelEn": label, "labelFr": label, "labelAr": label, "sessionStage": stage}
 
 
-def _price_result(symbol: str, price: float, chg_pct: float, high: float, low: float, source: str) -> dict:
+def _price_result(symbol: str, price: float, chg_pct: float, high: float, low: float, source: str, quote_time: int | None = None) -> dict:
     s = market_session_status(symbol)
     dec = 5 if is_fx(symbol) else 2
     return {
         "symbol": symbol, "price": price, "change24h": chg_pct, "change24hAmount": round_to(price * chg_pct / 100, dec),
         "high24h": high, "low24h": low, "source": source, "lastUpdated": int(time.time() * 1000),
+        # when the provider itself last priced it (free feeds: forex every ~10–60 s, gold spot every ~30 s)
+        "quoteTime": int(quote_time) if quote_time else int(time.time()),
         "isMarketOpen": s["isOpen"], "marketStatusLabel": s["labelEn"], "nextOpen": s.get("nextOpen"), "sessionStage": s["sessionStage"],
     }
 
@@ -124,8 +127,9 @@ async def _spark_quotes() -> dict:
                 for ticker, v in r.json().items():
                     closes = [c for c in (v.get("close") or []) if isinstance(c, (int, float))]
                     if closes:
+                        stamps = [t for t, x in zip(v.get("timestamp") or [], v.get("close") or []) if isinstance(x, (int, float))]
                         out[ticker] = {"price": float(closes[-1]), "prev": float(v.get("previousClose") or v.get("chartPreviousClose") or 0),
-                                       "high": float(max(closes)), "low": float(min(closes))}
+                                       "high": float(max(closes)), "low": float(min(closes)), "time": stamps[-1] if stamps else None}
         except (httpx.HTTPError, ValueError, AttributeError):
             pass
         # A failed batch is retried after 1 s; meanwhile each symbol falls back to its own request
@@ -148,7 +152,12 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
                 if 2000 < p < 8000:
                     chg = float(d.get("chgp") or d.get("changePercent") or 0)
                     price = round_to(p, 2)
-                    result = _price_result(sym, price, chg, round_to(price + 14.5, 2), round_to(price - 12, 2), SPOT_SOURCE)
+                    qt = None
+                    try:
+                        qt = calendar.timegm(time.strptime(str(d.get("updatedAt"))[:19], "%Y-%m-%dT%H:%M:%S"))
+                    except (ValueError, TypeError):
+                        pass
+                    result = _price_result(sym, price, chg, round_to(price + 14.5, 2), round_to(price - 12, 2), SPOT_SOURCE, qt)
         except (httpx.HTTPError, ValueError, TypeError):
             pass
     if result is None and sym in FX_TICKERS:
@@ -156,7 +165,7 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
         if q and 0.3 < q["price"] < 3.0:
             price = round_to(q["price"], 5)
             result = _price_result(sym, price, round_to((q["price"] - q["prev"]) / q["prev"] * 100, 2) if q["prev"] else 0,
-                                   q["high"], q["low"], f"Interbank Forex {FX_TICKERS[sym]}")
+                                   q["high"], q["low"], f"Interbank Forex {FX_TICKERS[sym]}", q.get("time"))
     if result is None:
         fx = sym in FX_TICKERS
         meta = await _yahoo_meta(FX_TICKERS[sym] if fx else "GC=F")
@@ -171,7 +180,7 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
             price = round_to(p + adj, dec)
             result = _price_result(sym, price, round_to((p - prev) / prev * 100, 2),
                                    round_to(float(meta.get("regularMarketDayHigh") or p) + adj, dec), round_to(float(meta.get("regularMarketDayLow") or p) + adj, dec),
-                                   f"Interbank Forex {FX_TICKERS[sym]}" if fx else f"COMEX GC=F adjusted to spot ({adj:+g})")
+                                   f"Interbank Forex {FX_TICKERS[sym]}" if fx else f"COMEX GC=F adjusted to spot ({adj:+g})", meta.get("regularMarketTime"))
     if result is None:
         last = _last_known.get(sym)
         if last:

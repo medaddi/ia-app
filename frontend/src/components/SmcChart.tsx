@@ -40,6 +40,7 @@ interface SmcChartProps {
   emas: number[]; // the moving averages the strategy's rules use
   emaNote: string;
   updatedAt: number; // ms of the last live reload (0 = review mode)
+  quote?: { time: number; source: string } | null; // when the provider itself last priced the pair (unix s)
   onTimeframeChange: (tf: string) => void;
   isLoading?: boolean;
   onRefresh?: () => void;
@@ -89,7 +90,7 @@ function ema(values: number[], period: number): (number | null)[] {
 
 const readTheme = (): OverlayTheme => (typeof document !== 'undefined' && !document.documentElement.classList.contains('dark') ? 'light' : 'dark');
 
-export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, timeframe, timeframes, entryTf, emas, emaNote, updatedAt, onTimeframeChange, isLoading, onRefresh, lang = 'en', overlay: overlayProp, compact = false }) => {
+export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, timeframe, timeframes, entryTf, emas, emaNote, updatedAt, onTimeframeChange, isLoading, onRefresh, lang = 'en', overlay: overlayProp, compact = false, quote = null }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -378,6 +379,8 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
 
   const shownLayers = LAYERS.map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${emaNote}` : l.label[li] }));
   const age = updatedAt ? Math.max(0, Math.round((nowMs - updatedAt) / 1000)) : null;
+  // the price's own age at its provider (free feeds: forex every ~10–60 s, gold spot every ~30 s)
+  const quoteAge = quote?.time ? Math.max(0, Math.round(nowMs / 1000 - quote.time)) : null;
   const signalBarTime = setup ? setup.signalTime - (TF_SEC[entryTf] || tfSec) : null;
   const hoverIsSignal = !!(setup && hover.c && signalBarTime !== null && hover.c.time <= signalBarTime && hover.c.time + tfSec > signalBarTime);
   const statusTone = result?.status === 'SIGNAL' ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'
@@ -535,7 +538,12 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       {/* Layers + provenance */}
       <div className="flex flex-col gap-2 px-3 sm:px-4 py-2 border-t border-line text-[11px]">
         <span className="font-mono text-slate-500 truncate">
-          {age !== null && <span className={age > 5 ? 'text-rose-300' : 'text-emerald-400'}>{age > 5 ? `● ${t('Stale', 'Ancien', 'قديم')} · ${age}s` : `● Live · ${age}s`}</span>}
+          {age !== null && <span className={age > 5 ? 'text-rose-300' : 'text-emerald-400'}>{age > 5 ? `● ${t('Stale', 'Ancien', 'قديم')} · ${age}s` : '● Live'}</span>}
+          {age !== null && quoteAge !== null && (
+            <span className={quoteAge > 120 ? 'text-amber-300' : 'text-slate-400'} title={quote?.source}>
+              {' · '}{t('price', 'prix', 'الثمن')} {quoteAge < 90 ? `${quoteAge} s` : `${Math.round(quoteAge / 60)} min`}{quote?.source ? ` · ${quote.source.replace('Interbank ', '')}` : ''}
+            </span>
+          )}
         </span>
       </div>
     </div>

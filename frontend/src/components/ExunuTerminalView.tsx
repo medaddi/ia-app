@@ -46,7 +46,8 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   // The app picked another pair (search, dashboard card): follow it
   useEffect(() => { if (initialSymbol !== symbol) { setSymbolState(initialSymbol); setTimeframeState(savedTf(initialSymbol)); } }, [initialSymbol]);
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
-  const tvChart = useChartingLibrary();  // TradingView Advanced Charts when its files are served (docs/TRADINGVIEW.md)
+  const tvChart = useChartingLibrary();
+  const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);  // TradingView Advanced Charts when its files are served (docs/TRADINGVIEW.md)
   const [bundle, setBundle] = useState<ExunuSMCResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<number>(0);
@@ -66,7 +67,10 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
       const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400${asOfParam}`, { cache: 'no-store' });
       const json = await res.json();
       if (viewRef.current.symbol !== sym || viewRef.current.timeframe !== tf) return;
-      if (json.success && Array.isArray(json.candles)) setCandles(json.candles);
+      if (json.success && Array.isArray(json.candles)) {
+        setCandles(json.candles);
+        setQuote(json.quoteTime ? { time: json.quoteTime, source: json.priceSource || '' } : null);
+      }
     } catch {
       // keep the last good candles
     }
@@ -157,7 +161,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             ) : (
               <SmcChart symbol={symbol} candles={candles} result={result} overlay={result?.overlay ?? null} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
                 emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
-                onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
+                onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} quote={REVIEW_AS_OF > 0 ? null : quote} />
             )}
             <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
               hasSetup={!!result?.setup} lang={lang as Language} running={result?.running ?? []} decimals={result?.spec.decimals ?? 5} />

@@ -16,6 +16,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
   const [tf, setTf] = useState(spec.entryTf);
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
   const [updatedAt, setUpdatedAt] = useState(0);
+  const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);
   const { overlay } = useAgentOverlay(symbol, 2000);
   const tvChart = useChartingLibrary();
 
@@ -24,7 +25,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
     try {
       const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${PROVIDER_TF[tf]}&count=300`, { cache: 'no-store' });
       const j = await res.json();
-      if (j.success && Array.isArray(j.candles)) { setCandles(j.candles); setUpdatedAt(Date.now()); }
+      if (j.success && Array.isArray(j.candles)) { setCandles(j.candles); setUpdatedAt(Date.now()); setQuote(j.quoteTime ? { time: j.quoteTime, source: j.priceSource || '' } : null); }
     } catch { /* keep the last candles */ }
   }, [symbol, tf]);
 
@@ -42,7 +43,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
         </>
       ) : (
         <SmcChart symbol={symbol} candles={candles} result={null} overlay={overlay} timeframe={tf} timeframes={spec.timeframes} entryTf={spec.entryTf}
-          emas={spec.emas} emaNote={spec.emaNote} updatedAt={updatedAt} onTimeframeChange={setTf} lang={lang} compact />
+          emas={spec.emas} emaNote={spec.emaNote} updatedAt={updatedAt} onTimeframeChange={setTf} lang={lang} compact quote={quote} />
       )}
       {onOpen && (
         <button onClick={() => onOpen(symbol)} className="mt-1 text-[11px] text-slate-400 hover:text-gold-300 cursor-pointer">

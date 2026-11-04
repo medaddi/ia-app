@@ -9,7 +9,7 @@ from ..agent.agent import ask_agent, build_agent_context, detect_lang, explain_o
 from ..agent.system_prompt import build_system_prompt
 from ..auth import admin_user, current_user
 from ..backtest import run_backtest
-from ..market.data import TIMEFRAME_SECONDS, fetch_candle_series
+from ..market.data import TIMEFRAME_SECONDS, fetch_candle_series, fetch_live_price
 from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import both_results, get_strategy_result, get_strategy_result_as_of, normalize_symbol
 from ..telegram.bot import dispatch_setup
@@ -35,7 +35,9 @@ async def exunu_candles(symbol: str = "XAU/USD", timeframe: str = "15M", count: 
     if asOf > 0:
         tf_sec = TIMEFRAME_SECONDS[tf]
         candles = [c for c in candles if c.time + tf_sec <= asOf + tf_sec * 12][-count:]
-    return {"success": True, "symbol": sym, "timeframe": tf, "candles": [c.to_dict() for c in candles], "isSynthetic": series["isSynthetic"], "source": series["source"]}
+    live = await fetch_live_price(sym)
+    return {"success": True, "symbol": sym, "timeframe": tf, "candles": [c.to_dict() for c in candles], "isSynthetic": series["isSynthetic"], "source": series["source"],
+            "price": live.get("price"), "quoteTime": live.get("quoteTime"), "priceSource": live.get("source")}
 
 
 @router.post("/exunu/dispatch-telegram")
