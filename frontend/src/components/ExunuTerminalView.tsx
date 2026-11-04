@@ -5,6 +5,7 @@ import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentDesk, type Consensus } from './AgentDesk';
 import { AgentChartPanel } from './AgentChartPanel';
+import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { Columns2, Grid2x2 } from 'lucide-react';
 import { PairFlags } from './PairFlags';
 import { useDragScroll } from '../useDragScroll';
@@ -45,6 +46,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   // The app picked another pair (search, dashboard card): follow it
   useEffect(() => { if (initialSymbol !== symbol) { setSymbolState(initialSymbol); setTimeframeState(savedTf(initialSymbol)); } }, [initialSymbol]);
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
+  const tvChart = useChartingLibrary();  // TradingView Advanced Charts when its files are served (docs/TRADINGVIEW.md)
   const [bundle, setBundle] = useState<ExunuSMCResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<number>(0);
@@ -149,9 +151,14 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-8 min-w-0">
-            <SmcChart symbol={symbol} candles={candles} result={result} overlay={result?.overlay ?? null} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
-              emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
-              onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
+            {tvChart && REVIEW_AS_OF <= 0 ? (
+              <TradingViewChart symbol={symbol} timeframe={timeframe} overlay={result?.overlay ?? null} decimals={result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5)}
+                lang={lang} onTimeframeChange={setTimeframe} />
+            ) : (
+              <SmcChart symbol={symbol} candles={candles} result={result} overlay={result?.overlay ?? null} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
+                emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
+                onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} />
+            )}
             <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
               hasSetup={!!result?.setup} lang={lang as Language} running={result?.running ?? []} decimals={result?.spec.decimals ?? 5} />
           </div>

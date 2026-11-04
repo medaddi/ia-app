@@ -3,6 +3,7 @@ import { apiFetch } from '../api';
 import { useAgentOverlay } from '../agentOverlay';
 import { chartSpec, type InstrumentSymbol } from '../instruments';
 import { SmcChart, type SmcChartCandle } from './SmcChart';
+import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
 
@@ -16,6 +17,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
   const [updatedAt, setUpdatedAt] = useState(0);
   const { overlay } = useAgentOverlay(symbol, 2000);
+  const tvChart = useChartingLibrary();
 
   const load = useCallback(async () => {
     if (document.hidden) return;
@@ -26,12 +28,22 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
     } catch { /* keep the last candles */ }
   }, [symbol, tf]);
 
-  useEffect(() => { setCandles([]); load(); const id = setInterval(load, 2000); return () => clearInterval(id); }, [load]);
+  useEffect(() => { if (tvChart !== false) return; setCandles([]); load(); const id = setInterval(load, 2000); return () => clearInterval(id); }, [load, tvChart]);
 
   return (
     <div className="min-w-0">
-      <SmcChart symbol={symbol} candles={candles} result={null} overlay={overlay} timeframe={tf} timeframes={spec.timeframes} entryTf={spec.entryTf}
-        emas={spec.emas} emaNote={spec.emaNote} updatedAt={updatedAt} onTimeframeChange={setTf} lang={lang} compact />
+      {tvChart ? (
+        <>
+          <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+            <span className="font-mono font-semibold text-white">{symbol} · {tf}</span>
+            {overlay && <span className="truncate text-slate-400" title={overlay.statusBannerText}>{overlay.fsmState} · {overlay.statusBannerText.split(' · ').slice(2).join(' · ')}</span>}
+          </div>
+          <TradingViewChart symbol={symbol} timeframe={tf} overlay={overlay} decimals={symbol === 'XAU/USD' ? 2 : 5} lang={lang} compact onTimeframeChange={setTf} />
+        </>
+      ) : (
+        <SmcChart symbol={symbol} candles={candles} result={null} overlay={overlay} timeframe={tf} timeframes={spec.timeframes} entryTf={spec.entryTf}
+          emas={spec.emas} emaNote={spec.emaNote} updatedAt={updatedAt} onTimeframeChange={setTf} lang={lang} compact />
+      )}
       {onOpen && (
         <button onClick={() => onOpen(symbol)} className="mt-1 text-[11px] text-slate-400 hover:text-gold-300 cursor-pointer">
           {lang === 'ar' ? 'فتح هاد الزوج' : lang === 'fr' ? 'Ouvrir cette paire' : 'Open this pair'} →
