@@ -78,6 +78,18 @@ async def agent_ask(body: dict = Body(...)):
     return {"success": True, **(await ask_agent(question, await both_results()))}
 
 
+@router.get("/agents/radar")
+async def agents_radar(symbol: str = "XAU/USD", _=Depends(current_user)):
+    """The pair agent's radar: what it confirms now, or what is closest (its analysis, at most a minute old)."""
+    from ..agents.registry import AGENT_CONFIGS
+    from ..analysis.engine import agent_radar
+
+    sym = normalize_symbol(symbol)
+    if sym not in AGENT_CONFIGS:
+        raise HTTPException(404, f"{sym} is not traded by the app")
+    return await agent_radar(sym)
+
+
 @router.get("/agents/overlay")
 async def agent_overlay(symbol: str = "XAU/USD", asOf: int = 0):
     """The AgentChartOverlayState the pair's own agent emits for its chart (zones, price lines, markers, trade box)."""

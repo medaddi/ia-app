@@ -53,7 +53,10 @@ def test_session_sweep_rules_met_but_the_checklist_says_no():
     d = res["D"]["setups"]
     assert len(d) == 1 and d[0]["dir"] == -1 and d[0]["result"]["state"] == "PENDING"
     s = d[0]
-    assert abs(s["entry"] - 1.1008) < 1e-9 and s["sl"] > 1.1030 and abs(s["tp"] - min(x.low for x in m5[:72])) < 1e-9 and s["rr"] >= 1.5
+    assert abs(s["ideal"] - 1.1008) < 1e-9 and s["sl"] > 1.1030
+    # the approximate range: a sell limit at the near (lower) edge of a zone of ± 10 % of the stop around the gap
+    assert abs(s["zone"][0] - s["entry"]) < 1e-12 and abs((s["ideal"] - s["entry"]) - 0.1 * (s["sl"] - s["ideal"])) < 1e-9
+    assert abs(s["tp"] - min(x.low for x in m5[:72])) < 1e-9 and s["rr"] >= 1.5
     assert all(ok for _, ok, _ in s["steps"]) and any("London killzone" in a for a, _, _ in s["steps"])
     assert not s["pass"] and not s["checklist"][6][1]  # question 7: reward < 3R
     now = smc_now(m5, h1, COST, SPEC, m5[-1].close, lambda e, sl: {"1000$": 0.1})

@@ -48,6 +48,10 @@ NAMES = {"A": "Trend continuation (H1 OB + IDM + M5 CHoCH)", "B": "External liqu
          "C": "Supply → demand flip (S2D / D2S)", "D": "Session sweep (Asian range + London / NY killzone)",
          "E": "Single candle OB (H1 wick sweep, M5 entry at its 50 %)"}
 CHECK_RR = 3.0
+# The approximate range: price does not have to reach the exact level. The limit sits at the near edge of an entry zone
+# of ± TOL["entry"] × the stop distance (at least the spread) around the ideal entry, and a zone (OB / flip) counts as
+# tapped when price comes within TOL["zone"] × its height.
+TOL = {"entry": 0.10, "zone": 0.10}
 
 
 # ---------------------------------------------------------------- primitives
@@ -249,15 +253,19 @@ def _ob_before(c, lo_i: int, hi_i: int, d: int) -> Optional[int]:
 
 
 # ---------------------------------------------------------------- the four strategies
-def _setup(sid, d, k0, m5, entry, sl, tp, steps, cost, extra=None) -> Optional[dict]:
+def _setup(sid, d, k0, m5, ideal, sl, tp, steps, cost, extra=None) -> Optional[dict]:
+    if abs(ideal - sl) <= 0:
+        return None
+    tol = max(cost, TOL["entry"] * abs(ideal - sl))
+    entry = ideal + d * tol  # the near edge of the entry zone: filled when price comes close, not only at the exact level
     risk = abs(entry - sl)
     if risk <= 0 or (d > 0 and not (sl < entry < tp)) or (d < 0 and not (tp < entry < sl)):
         return None
     rr = abs(tp - entry) / risk
     if rr < MIN_RR[sid]:
         return None
-    out = {"strategy": sid, "dir": d, "index": k0, "time": m5[k0].time + M5S, "entry": entry, "sl": sl, "tp": tp, "rr": rr,
-           "steps": steps, **(extra or {})}
+    out = {"strategy": sid, "dir": d, "index": k0, "time": m5[k0].time + M5S, "entry": entry, "ideal": ideal,
+           "zone": (ideal - tol, ideal + tol), "sl": sl, "tp": tp, "rr": rr, "steps": steps, **(extra or {})}
     out["result"] = simulate(m5, k0, d, entry, sl, tp, EXPIRY[sid], cost)
     return out
 
@@ -439,7 +447,8 @@ def strategy_ac(sid: str, m5, st5, fv5, h1v: H1View, cost: float, fmt) -> tuple[
                         swept = i
                     if (d > 0 and x.high > p["ext"]) or (d < 0 and x.low < p["ext"]):
                         break  # the high was taken first: the leg goes on without a pullback
-                if swept is not None and ((d > 0 and x.low <= zone[1]) or (d < 0 and x.high >= zone[0])):
+                zt = TOL["zone"] * (zone[1] - zone[0])  # near enough to the OB counts as a tap
+                if swept is not None and ((d > 0 and x.low <= zone[1] + zt) or (d < 0 and x.high >= zone[0] - zt)):
                     tap = i
                     break
             disc = ("discount" if d > 0 else "premium")
@@ -482,7 +491,8 @@ def strategy_ac(sid: str, m5, st5, fv5, h1v: H1View, cost: float, fmt) -> tuple[
             idm = None
             for i in range(i0, life):
                 x = m5[i]
-                if (d > 0 and x.low <= zone[1]) or (d < 0 and x.high >= zone[0]):
+                zt = TOL["zone"] * (zone[1] - zone[0])
+                if (d > 0 and x.low <= zone[1] + zt) or (d < 0 and x.high >= zone[0] - zt):
                     break  # reached the zone before any inducement was taken: the zone itself was the inducement
                 if (d > 0 and x.high > p["ext"] + (p["ext"] - zone[1])) or (d < 0 and x.low < p["ext"] - (zone[0] - p["ext"])):
                     break  # gone without a pullback
@@ -657,6 +667,7 @@ def smc_now(m5, h1, cost: float, spec: dict, price: float, lot_fn, news=None) ->
             row["steps"] = [{"label": a, "ok": b, "detail": c} for a, b, c in live["steps"]]
             row["setup"] = {"direction": "BUY" if d > 0 else "SELL", "entryType": "LIMIT", "entry": round(live["entry"], dec), "sl": round(live["sl"], dec),
                             "tp": round(live["tp"], dec), "rr": round(live["rr"], 2), "since": live["time"],
+                            "entryZone": [round(live["zone"][0], dec), round(live["zone"][1], dec)], "ideal": round(live["ideal"], dec),
                             "validUntil": live["time"] + EXPIRY[sid] * M5S, "slPips": round(abs(live["entry"] - live["sl"]) / pip, 1),
                             "lots": lot_fn(live["entry"], live["sl"]), "rNow": round(r.get("rNow", 0), 2), "filled": r["state"] == "ACTIVE",
                             "geo": {**live.get("geo", {}), "eq": (lambda rg: rg[1] if rg else None)(h1v.range_mid(h1v.closed_at(live["time"])))}}

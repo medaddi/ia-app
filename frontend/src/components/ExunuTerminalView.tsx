@@ -6,6 +6,7 @@ import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentDesk, type Consensus } from './AgentDesk';
 import { AgentChartPanel } from './AgentChartPanel';
 import { AnalyzeButton } from './AnalyzePanel';
+import { AgentRadar } from './AgentRadar';
 import { useAnalysisDrawing, withAnalysis } from '../analysisDrawing';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { Columns2, Grid2x2 } from 'lucide-react';
@@ -148,6 +149,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             <span className="text-slate-400">{result?.market.isOpen ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
             <span className="text-white font-semibold tabular-nums">{result ? result.price.toFixed(result.spec.decimals) : '—'}</span>
           </div>
+          <AgentRadar symbol={symbol} lang={lang as Language} className="hidden md:flex max-w-[22rem]" />
           <AnalyzeButton symbol={symbol} lang={lang as Language} />
         </div>
       </div>

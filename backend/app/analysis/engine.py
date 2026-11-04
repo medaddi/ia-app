@@ -241,5 +241,55 @@ async def analyse_all(pair: str) -> dict:
                    f"{r['setup']['direction']} {r['setup']['entry']}" + (f" · {n_plan + n_smc - 1} more" if n_plan + n_smc > 1 else ""))
     else:
         verdict = "No strategy applies right now: each one is waiting for its conditions"
-    return {**plan, "verdict": verdict, "smc": smc if smc.get("success") else None,
+    # the pair's agent answers: its read of the market now, the setup it confirms, and its radar (what is closest)
+    from ..agents.registry import AGENTS
+
+    ag = AGENTS[pair]
+    rd, sr = plan["read"], (smc.get("read") if smc.get("success") else None) or {}
+    read = " · ".join(x for x in (
+        f"trend {rd['trend']}", f"volatility {rd['volatility']}",
+        f"H1 structure {sr['trend']}" if sr.get("trend") else "",
+        (f"last {sr['lastBreak']['kind']} {sr['lastBreak']['dir']} at {sr['lastBreak']['level']}" if sr.get("lastBreak") else ""),
+        f"price {sr['zone']}" if sr.get("zone") else "") if x)
+    radar = []
+    for r in (smc.get("strategies") or []):
+        if r["status"] in ("FORMING", "BLOCKED", "RUNNING"):
+            radar.append({"family": "smc", "id": r["id"], "name": r["name"], "status": r["status"], "line": r["reason"]})
+    for r in plan["strategies"]:
+        if r["status"] == "LATE":
+            radar.append({"family": "plan", "id": r["id"], "name": r["name"], "status": "LATE", "line": r["reason"]})
+    radar.sort(key=lambda x: {"FORMING": 0, "RUNNING": 1, "LATE": 2, "BLOCKED": 3}.get(x["status"], 4))
+    if not radar:
+        w = next((r for r in plan["strategies"] if r["status"] == "WAITING"), None)
+        if w:
+            radar.append({"family": "plan", "id": w["id"], "name": w["name"], "status": "WATCHING", "line": w["reason"]})
+    agent = {"id": ag.agent_id, "name": ag.name, "read": read}
+    return {**plan, "verdict": verdict, "smc": smc if smc.get("success") else None, "agent": agent, "radar": radar[:4],
             "pick": {"family": pick[0], "id": pick[1]["id"], "draw": pick[1]["draw"]} if pick else None}
+
+
+_radar_cache: dict[str, tuple[float, dict]] = {}
+
+
+async def agent_radar(pair: str, max_age: float = 60) -> dict:
+    """The agent's radar: its analysis at most `max_age` seconds old (the dashboard and the charts poll it)."""
+    hit = _radar_cache.get(pair)
+    if hit and time.time() - hit[0] < max_age:
+        r = hit[1]
+    else:
+        r = await analyse_all(pair)
+        if r.get("success"):
+            _radar_cache[pair] = (time.time(), r)
+    if not r.get("success"):
+        return {"success": False, "symbol": pair, "error": r.get("error")}
+    pick = r.get("pick")
+    row = None
+    if pick:
+        rows = r["strategies"] if pick["family"] == "plan" else r["smc"]["strategies"]
+        row = next((x for x in rows if x["id"] == pick["id"]), None)
+    top = next((x for x in r["radar"] if x["status"] == "FORMING"), r["radar"][0] if r["radar"] else None)
+    return {"success": True, "symbol": pair, "at": r["at"], "agent": r["agent"],
+            "status": "SETUP" if pick else ("FORMING" if top and top["status"] == "FORMING" else "WATCHING"),
+            "headline": (f"{row['name']}: {row['setup']['direction']} {row['setup'].get('entryZone') or row['setup']['entry']}" if row else
+                         f"{top['id']} · {top['line']}" if top else "Watching"),
+            "draw": pick["draw"] if pick else None}

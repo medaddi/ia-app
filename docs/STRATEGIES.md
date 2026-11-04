@@ -98,6 +98,18 @@ plan's SETUP first, else an SMC setup CONFIRMED by its rules and the 7 questions
 crossed or swept, the Asian range / previous day high-low, the entry FVG or OB, the H1 50 %. Any other setup can be
 drawn with its own "Draw on chart" button; "Clear" removes it.
 
+**The pair's agent answers.** The button belongs to the pair's agent: it reads the market at that moment (trend, volatility,
+H1 structure, last BOS / CHoCH, premium / discount), goes through its strategies and gives **one** confirmed setup, or
+says there is none and what its **radar** is watching (the closest SMC setup forming, a plan that fired late). Every
+strategy's detail is one click away. The radar (`GET /api/agents/radar`, the agent's analysis at most a minute old) shows
+on each dashboard card and on the chart page, and a setup it confirms is drawn on the chart by itself. It never sends a
+Telegram signal: those still come from the pair agents' proven plans only.
+
+**The approximate range.** Price does not have to reach the exact level: an SMC limit sits at the near edge of an entry
+zone of ± 10 % of the stop distance (at least the spread) around the ideal level, and an OB / flip zone counts as tapped
+within 10 % of its height. On the ~59 days of M5 it fills about as often and at a slightly worse price: all SMC
+strategies −26.2R at the exact level, −28.3R with ± 10 %, −31.7R with ± 25 %.
+
 The SMC strategies (`analysis/smc_setups.py`): the Smart Money Concepts course coded mechanically on closed M5 /
 H1 candles (no lookahead). Swings by the **valid pullback** rule (the leg's "mother" candle becomes a swing only when a
 later candle trades beyond its other end; inside bars are pauses), BOS / CHoCH on a **body close**, a **wick** beyond a

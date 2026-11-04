@@ -9,7 +9,7 @@ interface Stat { setups: number; trades: number; winRate: number; totalR: number
 interface Test extends Stat { days: number; checklist: Stat }
 export interface SmcRow {
   id: 'A' | 'B' | 'C' | 'D' | 'E'; name: string; status: 'CONFIRMED' | 'RUNNING' | 'BLOCKED' | 'FORMING' | 'WAITING'; reason: string; steps: Step[]; checklist: Step[]; test: Test;
-  setup?: { direction: 'BUY' | 'SELL'; entryType: string; entry: number; sl: number; tp: number; rr: number; since: number; validUntil: number; slPips: number; lots: Record<string, number>; rNow: number };
+  setup?: { direction: 'BUY' | 'SELL'; entryType: string; entry: number; entryZone?: [number, number]; ideal?: number; sl: number; tp: number; rr: number; since: number; validUntil: number; slPips: number; lots: Record<string, number>; rNow: number };
   last?: { direction: string; at: number; result: string; r: number };
   draw?: AnalysisDrawing | null;
 }
@@ -66,7 +66,7 @@ export const SmcSection: React.FC<{ data: SmcAnalysis; lang: Language; drawnId?:
             </div>
             {s.setup && (
               <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs font-mono">
-                <div className={`rounded-lg px-2 py-1.5 ${s.setup.direction === 'BUY' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>{s.setup.direction} LIMIT {s.setup.entry.toFixed(d)}</div>
+                <div className={`rounded-lg px-2 py-1.5 ${s.setup.direction === 'BUY' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-rose-500/10 text-rose-300'}`}>{s.setup.direction} LIMIT {s.setup.entryZone ? `${s.setup.entryZone[0].toFixed(d)} – ${s.setup.entryZone[1].toFixed(d)}` : s.setup.entry.toFixed(d)}</div>
                 <div className="rounded-lg px-2 py-1.5 bg-rose-500/10 text-rose-200">SL {s.setup.sl.toFixed(d)} <span className="text-slate-500">({s.setup.slPips}p)</span></div>
                 <div className="rounded-lg px-2 py-1.5 bg-emerald-500/10 text-emerald-200">TP {s.setup.tp.toFixed(d)} <span className="text-slate-500">(1:{s.setup.rr})</span></div>
                 <div className="rounded-lg px-2 py-1.5 bg-white/[0.04] text-slate-300">{t('lot', 'lot', 'لوت')} $1000 · {s.setup.lots['1000$']}</div>
