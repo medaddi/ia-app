@@ -8,6 +8,7 @@ import { AgentChartPanel } from './AgentChartPanel';
 import { AnalyzeButton } from './AnalyzePanel';
 import { AgentRadar } from './AgentRadar';
 import { useAnalysisDrawing, withAnalysis } from '../analysisDrawing';
+import { useLivePrice } from '../livePrices';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { Columns2, Grid2x2 } from 'lucide-react';
 import { PairFlags } from './PairFlags';
@@ -60,7 +61,8 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const result: StrategyResult | null = bundle?.strategy ?? null;
   const inst = INSTRUMENTS[symbol];
-  const drawing = useAnalysisDrawing(symbol);  // the Analyse button's setup, drawn on this chart
+  const drawing = useAnalysisDrawing(symbol);
+  const live = useLivePrice(symbol);  // every second  // the Analyse button's setup, drawn on this chart
   // The pair / timeframe on screen: an answer that arrives after a switch belongs to the old pair and is dropped
   // (otherwise GBP/USD could show EUR/USD's last price and candles for a moment)
   const viewRef = useRef({ symbol, timeframe });
@@ -147,7 +149,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
           <div className="hidden md:flex items-center gap-2 font-mono text-xs">
             <span className={`w-1.5 h-1.5 rounded-full ${result?.market.isOpen ? 'bg-emerald-400' : 'bg-slate-500'}`} aria-hidden="true" />
             <span className="text-slate-400">{result?.market.isOpen ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
-            <span className="text-white font-semibold tabular-nums">{result ? result.price.toFixed(result.spec.decimals) : '—'}</span>
+            <span className="text-white font-semibold tabular-nums">{result ? (live?.price ?? result.price).toFixed(result.spec.decimals) : '—'}</span>
           </div>
           <AgentRadar symbol={symbol} lang={lang as Language} className="hidden md:flex max-w-[22rem]" />
           <AnalyzeButton symbol={symbol} lang={lang as Language} />
@@ -167,7 +169,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             ) : (
               <SmcChart symbol={symbol} candles={candles} result={result} overlay={withAnalysis(result?.overlay ?? null, drawing)} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
                 emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
-                onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} quote={REVIEW_AS_OF > 0 ? null : quote} />
+                onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} quote={REVIEW_AS_OF > 0 ? null : (live?.quoteTime ? { time: live.quoteTime, source: live.source } : quote)} livePrice={REVIEW_AS_OF > 0 ? null : live?.price ?? null} />
             )}
             <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
               hasSetup={!!result?.setup} lang={lang as Language} running={result?.running ?? []} decimals={result?.spec.decimals ?? 5} />

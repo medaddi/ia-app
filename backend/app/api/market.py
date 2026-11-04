@@ -59,6 +59,20 @@ async def market_ticker(symbol: str = "XAU/USD"):
     return {**p, "spread": None, "isMarketOpen": s["isOpen"], "marketStatusLabel": s["labelEn"], "sessionStage": s["sessionStage"], "updated": p["lastUpdated"]}
 
 
+@router.get("/market/prices")
+async def market_prices():
+    """Every traded pair's live price in one request (each provider asked at most once a second, shared by all viewers)."""
+    from ..agents.registry import AGENT_CONFIGS
+
+    syms = list(AGENT_CONFIGS)
+    got = await asyncio.gather(*(fetch_live_price(s) for s in syms), return_exceptions=True)
+    out = {}
+    for s, p in zip(syms, got):
+        if isinstance(p, dict) and p.get("price"):
+            out[s] = {"price": p["price"], "quoteTime": p.get("quoteTime"), "source": p.get("source")}
+    return {"success": True, "prices": out, "at": int(time.time())}
+
+
 @router.get("/market/candles")
 async def market_candles(symbol: str = "XAU/USD", timeframe: str = "15M", count: int = 600, force: bool = False):
     sym = normalize_symbol(symbol)

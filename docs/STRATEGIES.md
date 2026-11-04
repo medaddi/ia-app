@@ -101,9 +101,17 @@ drawn with its own "Draw on chart" button; "Clear" removes it.
 **The pair's agent answers.** The button belongs to the pair's agent: it reads the market at that moment (trend, volatility,
 H1 structure, last BOS / CHoCH, premium / discount), goes through its strategies and gives **one** confirmed setup, or
 says there is none and what its **radar** is watching (the closest SMC setup forming, a plan that fired late). Every
-strategy's detail is one click away. The radar (`GET /api/agents/radar`, the agent's analysis at most a minute old) shows
+strategy's detail is one click away. The radar (`GET /api/agents/radar`, asked every second: the agent re-reads the whole market
+at each M5 close, H1 / H4 closes included, and checks the live price against its setup's entry zone at every call) shows
 on each dashboard card and on the chart page, and a setup it confirms is drawn on the chart by itself. It never sends a
 Telegram signal: those still come from the pair agents' proven plans only.
+
+**Prices every second.** `GET /api/market/prices` gives every pair's price in one request; the screens ask it every
+second (paused while the tab is hidden) and the chart's forming candle follows it. The server asks each provider at most
+once a second whatever the number of viewers. The free sources themselves move less often (gold-api, Yahoo: from a few
+seconds to a minute between two prices, slower in quiet hours): only a paid real-time feed would tick faster. With the
+app closed, the server's cron still runs the pair agents every minute (Vercel's shortest schedule), which sees every
+closed candle.
 
 **The approximate range.** Price does not have to reach the exact level: an SMC limit sits at the near edge of an entry
 zone of ± 10 % of the stop distance (at least the spread) around the ideal level, and an OB / flip zone counts as tapped

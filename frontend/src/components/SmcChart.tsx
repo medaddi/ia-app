@@ -41,6 +41,7 @@ interface SmcChartProps {
   emaNote: string;
   updatedAt: number; // ms of the last live reload (0 = review mode)
   quote?: { time: number; source: string } | null; // when the provider itself last priced the pair (unix s)
+  livePrice?: number | null;  // the price every second: the forming candle follows it
   onTimeframeChange: (tf: string) => void;
   isLoading?: boolean;
   onRefresh?: () => void;
@@ -60,11 +61,12 @@ const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'ema', label: ['EMA', 'EMA', 'EMA'] },
   { key: 'trade', label: ['Trade projection', 'Projection du trade', 'إسقاط الصفقة'] },
 ];
-const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Record<Layer, boolean>;
+// a clear chart by default: the SMC context view (swing labels, BSL / SSL, OB, FVG) is one click away in Layers
+const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, l.key !== 'smc'])) as Record<Layer, boolean>;
 // Candles shown when a pair / timeframe opens (the rest of the history stays one scroll away): close enough to read
 // each candle, wide enough for the structure. Daily ≈ 3 months, weekly ≈ 1 year.
 const VISIBLE_BARS: Record<string, number> = { M5: 160, M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
-const layerKey = (kind: string) => `ld_chart_layers_${kind}_v3`;
+const layerKey = (kind: string) => `ld_chart_layers_${kind}_v4`;  // v4: the SMC view off by default
 
 const fmtLeft = (sec: number) => {
   const s = Math.max(0, Math.floor(sec));
@@ -91,7 +93,7 @@ function ema(values: number[], period: number): (number | null)[] {
 
 const readTheme = (): OverlayTheme => (typeof document !== 'undefined' && !document.documentElement.classList.contains('dark') ? 'light' : 'dark');
 
-export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, timeframe, timeframes, entryTf, emas, emaNote, updatedAt, onTimeframeChange, isLoading, onRefresh, lang = 'en', overlay: overlayProp, compact = false, quote = null }) => {
+export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, timeframe, timeframes, entryTf, emas, emaNote, updatedAt, onTimeframeChange, isLoading, onRefresh, lang = 'en', overlay: overlayProp, compact = false, quote = null, livePrice = null }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -100,7 +102,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const frameRef = useRef<HTMLDivElement>(null);
   const [full, setFull] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches);
+  const [detailsOpen, setDetailsOpen] = useState(false);  // folded: the chart first, the numbers one click away
   const kind = symbol;  // the chart's layer choices are kept per pair
   // Only what this pair's own agent emits for this chart
   const overlay = overlayProp ?? result?.overlay ?? null;
@@ -259,6 +261,20 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     chartRef.current?.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - show), to: n + Math.max(4, Math.round(show * 0.08)) });
   };
 
+  // The forming candle follows the live price every second (between two candle reloads)
+  const liveBar = useRef<{ time: number; open: number; high: number; low: number } | null>(null);
+  useEffect(() => {
+    const cs = candleRef.current;
+    const last = bars[bars.length - 1];
+    if (!cs || !last || !livePrice || !(livePrice > 0)) return;
+    if (Date.now() / 1000 >= last.time + tfSec) return;  // the last candle is closed (market shut): leave it as it is
+    const lb = liveBar.current && liveBar.current.time === last.time ? liveBar.current : { time: last.time, open: last.open, high: last.high, low: last.low };
+    lb.high = Math.max(lb.high, livePrice);
+    lb.low = Math.min(lb.low, livePrice);
+    liveBar.current = lb;
+    cs.update({ time: last.time as Time, open: lb.open, high: lb.high, low: lb.low, close: livePrice });
+  }, [livePrice, bars, tfSec]);
+
   // Candles, volume, EMAs
   useEffect(() => {
     const cs = candleRef.current, chart = chartRef.current;
@@ -363,20 +379,20 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     : w === 'flat' || w === 'none' ? t('none', 'aucune', 'بلا اتجاه') : w || '—');
   const keyFacts: { label: string; value: string; tone?: string }[] = [];
   if (overlay) {
-    keyFacts.push({ label: t('Agent', 'Agent', 'الوكيل'), value: overlay.agentId, tone: 'text-gold-200' });
-    keyFacts.push({ label: t('Session', 'Session', 'الجلسة'), value: overlay.metrics.sessionName });
-    keyFacts.push({ label: 'Spread', value: `${overlay.metrics.spreadPips.toFixed(1)} pips` });
-    keyFacts.push({ label: `ATR ${entryTf}`, value: `${overlay.metrics.atrPips.toFixed(1)} pips` });
-    keyFacts.push({ label: t('Confluence', 'Confluence', 'التوافق'), value: overlay.metrics.confluenceTag, tone: 'text-sky-300' });
+    keyFacts.push({ label: t('Agent', 'Agent', 'الوكيل'), value: overlay.agentId.split('_')[1] || overlay.agentId, tone: 'text-gold-200' });
+    keyFacts.push({ label: t('Session', 'Session', 'الجلسة'), value: overlay.metrics.sessionName.replace('Outside the plan window', t('off hours', 'hors horaires', 'برا الوقت')).replace(' window', '') });
+    keyFacts.push({ label: 'Spread', value: `${overlay.metrics.spreadPips.toFixed(1)}p` });
+    keyFacts.push({ label: `ATR`, value: `${overlay.metrics.atrPips.toFixed(0)}p` });
+    keyFacts.push({ label: t('State', 'État', 'الحالة'), value: overlay.metrics.confluenceTag.toLowerCase(), tone: 'text-sky-300' });
   }
-  if (result?.dataQuality.ok && num(facts.ema50) !== null && num(facts.ema200) !== null) keyFacts.push({ label: 'EMA50 / 200', value: `${fmt(num(facts.ema50)!)} / ${fmt(num(facts.ema200)!)}` });
+  if (result?.dataQuality.ok && num(facts.ema50) !== null && num(facts.ema200) !== null) keyFacts.push({ label: 'EMA 50/200', value: `${fmt(num(facts.ema50)!)} / ${fmt(num(facts.ema200)!)}` });
   const entrySec = TF_SEC[entryTf] || 3600;
   const nowSec = nowMs / 1000;
   const nextClose = Math.ceil(nowSec / entrySec) * entrySec;
-  if (result?.market.isOpen && updatedAt) keyFacts.push({ label: t(`Next ${entryTf} close`, `Prochaine clôture ${entryTf}`, `الإغلاق الجاي ${entryTf}`), value: fmtLeft(nextClose - nowSec), tone: 'text-gold-300' });
-  if (result?.news.next) keyFacts.push({ label: t('News', 'News', 'خبر'), value: result.news.next, tone: result.news.blocked ? 'text-rose-300' : undefined });
+  if (result?.market.isOpen && updatedAt) keyFacts.push({ label: t(`${entryTf} close`, `Clôture ${entryTf}`, `إغلاق ${entryTf}`), value: fmtLeft(nextClose - nowSec), tone: 'text-gold-300' });
+  if (result?.news.next) keyFacts.push({ label: t('News', 'News', 'خبر'), value: result.news.next.replace(/ m\/m| q\/q| y\/y/g, '').replace(/ (\d{4})-(\d{2})-(\d{2}) /, ' $3/$2 '), tone: result.news.blocked ? 'text-rose-300' : undefined });
   const lastTrade = facts.lastTrade as { state: string; outcome: string | null; r: number | null } | null | undefined;
-  if (lastTrade) keyFacts.push({ label: t('Last trade', 'Dernier trade', 'آخر صفقة'), value: lastTrade.outcome ? `${lastTrade.outcome} ${lastTrade.r !== null ? `${lastTrade.r > 0 ? '+' : ''}${lastTrade.r.toFixed(2)}R` : ''}` : lastTrade.state,
+  if (lastTrade) keyFacts.push({ label: t('Last', 'Dernier', 'آخر'), value: lastTrade.outcome ? `${lastTrade.outcome} ${lastTrade.r !== null ? `${lastTrade.r > 0 ? '+' : ''}${lastTrade.r.toFixed(2)}R` : ''}` : lastTrade.state,
     tone: lastTrade.outcome === 'WIN' ? 'text-emerald-300' : lastTrade.outcome === 'LOSS' ? 'text-rose-300' : 'text-gold-200' });
 
   const shownLayers = LAYERS.map(l => ({ key: l.key, label: l.key === 'ema' ? `EMA ${emas.join('/')} · ${emaNote}` : l.label[li] }));
@@ -385,6 +401,8 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const quoteAge = quote?.time ? Math.max(0, Math.round(nowMs / 1000 - quote.time)) : null;
   const signalBarTime = setup ? setup.signalTime - (TF_SEC[entryTf] || tfSec) : null;
   const hoverIsSignal = !!(setup && hover.c && signalBarTime !== null && hover.c.time <= signalBarTime && hover.c.time + tfSec > signalBarTime);
+  const headline = result?.headline ?? '';
+  const shortHead = headline.split(/: | · /)[0].replace(/ \((\d\d:\d\d)–(\d\d:\d\d) GMT and (\d\d:\d\d)–(\d\d:\d\d) GMT\)/, ' ($1–$2 · $3–$4 GMT)');
   const statusTone = result?.status === 'SIGNAL' ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30'
     : result?.status === 'WATCH' ? 'bg-gold-500/15 text-gold-200 ring-gold-500/30'
     : 'bg-slate-500/10 text-slate-300 ring-slate-500/30';
@@ -438,40 +456,43 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
       </div>
 
       {/* Status strip */}
-      <div hidden={compact} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 sm:px-4 py-2 border-b border-line bg-surface-2/50 text-xs">
+      <div hidden={compact} className="flex items-center gap-x-3 px-3 sm:px-4 py-1.5 border-b border-line bg-surface-2/50 text-xs">
         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md ring-1 ring-inset font-medium ${statusTone}`}>
           <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />
           {result ? (result.status === 'NO_TRADE' ? t('No trade', 'Pas de trade', 'لا صفقة') : `${setup?.direction ?? ''} ${result.status === 'SIGNAL' ? t('Signal', 'Signal', 'إشارة') : result.status === 'WATCH' ? t('Watch', 'À surveiller', 'مراقبة') : t('Ignored', 'Ignoré', 'متجاهل')}`) : t('Loading', 'Chargement', 'تحميل')}
           {result?.setup && ` · ${result.score}`}
         </span>
-        <span className="text-slate-400 min-w-0 truncate">{result?.headline ?? t('Loading the analysis…', 'Chargement de l’analyse…', 'كيتحمل التحليل…')}</span>
-        {pastStats && pastStats.trades > 0 && (
-          <span className="inline-flex items-center gap-1.5 font-mono text-slate-400" title={t('Closed trades of the strategy on this pair: in profit (TP), at the entry (BE), at a loss (SL)', 'Trades clôturés de la stratégie sur cette paire : en gain (TP), au point mort (BE), en perte (SL)', 'الصفقات لي سدات الاستراتيجية ف هاد الزوج: ربح (TP)، تعادل (BE)، خسارة (SL)')}>
-            {pastStats.trades} · <span className="text-emerald-400">TP {pastStats.tp}</span>/<span className="text-slate-300">BE {pastStats.be}</span>/<span className="text-rose-400">SL {pastStats.sl}</span> ·
-            <span className={pastStats.totalR >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pastStats.totalR >= 0 ? '+' : ''}{pastStats.totalR.toFixed(1)}R</span>
-          </span>
-        )}
-        {keyFacts.length > 0 && (
+        <span className="text-slate-400 min-w-0 flex-1 truncate" title={headline}>{result ? shortHead : t('Loading the analysis…', 'Chargement de l’analyse…', 'كيتحمل التحليل…')}</span>
+        {(keyFacts.length > 0 || (pastStats && pastStats.trades > 0)) && (
           <button onClick={() => setDetailsOpen(o => !o)} aria-expanded={detailsOpen}
-            className="inline-flex items-center gap-1 text-slate-400 hover:text-gold-300 cursor-pointer">
+            className="shrink-0 inline-flex items-center gap-1 text-slate-500 hover:text-gold-300 cursor-pointer">
             {t('Details', 'Détails', 'التفاصيل')}<ChevronDown className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
           </button>
         )}
-        <span className="ms-auto font-mono text-slate-500">
-          {t('Trend', 'Tendance', 'الاتجاه')} <span className={result?.bias.direction === 'BULLISH' ? 'text-emerald-400' : result?.bias.direction === 'BEARISH' ? 'text-rose-400' : 'text-slate-400'}>{result ? (result.bias.direction === 'BULLISH' ? t('Bullish', 'Haussière', 'صاعد') : result.bias.direction === 'BEARISH' ? t('Bearish', 'Baissière', 'هابط') : t('Neutral', 'Neutre', 'محايد')) : '—'}</span>
-          {result?.market.window ? <span className="text-gold-300"> · {result.market.window}</span> : null}
+        <span className="shrink-0 font-mono text-slate-500">
+          <span className={result?.bias.direction === 'BULLISH' ? 'text-emerald-400' : result?.bias.direction === 'BEARISH' ? 'text-rose-400' : 'text-slate-400'}>{result ? (result.bias.direction === 'BULLISH' ? t('Bullish', 'Haussière', 'صاعد') : result.bias.direction === 'BEARISH' ? t('Bearish', 'Baissière', 'هابط') : t('Neutral', 'Neutre', 'محايد')) : '—'}</span>
         </span>
       </div>
 
       {/* Key numbers of the strategy */}
-      {keyFacts.length > 0 && detailsOpen && !compact && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 sm:px-4 py-2 border-b border-line text-xs font-mono" aria-label={t('Strategy key levels', 'Chiffres clés de la stratégie', 'أرقام الاستراتيجية')}>
-          {keyFacts.map((k, i) => (
-            <span key={i} className="whitespace-nowrap">
-              {k.label && <span className="text-slate-500">{k.label} </span>}
-              <span className={k.tone ?? 'text-slate-200'}>{k.value}</span>
-            </span>
-          ))}
+      {detailsOpen && !compact && (
+        <div className="px-3 sm:px-4 py-2 border-b border-line text-[11px] space-y-2" aria-label={t('Strategy key levels', 'Chiffres clés de la stratégie', 'أرقام الاستراتيجية')}>
+          {headline && <p className="text-slate-400 leading-snug">{headline}</p>}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-1.5 font-mono">
+            {pastStats && pastStats.trades > 0 && (
+              <div className="rounded-md bg-surface-2 px-2 py-1" title={t('Closed trades of the strategy on this pair', 'Trades clôturés de la stratégie sur cette paire', 'الصفقات لي سدات ف هاد الزوج')}>
+                <div className="text-[10px] text-slate-500">{t('Trades', 'Trades', 'صفقات')} {pastStats.trades}</div>
+                <div><span className="text-emerald-400">{pastStats.tp}</span><span className="text-slate-500">/</span><span className="text-slate-300">{pastStats.be}</span><span className="text-slate-500">/</span><span className="text-rose-400">{pastStats.sl}</span>{' '}
+                  <span className={pastStats.totalR >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pastStats.totalR >= 0 ? '+' : ''}{pastStats.totalR.toFixed(1)}R</span></div>
+              </div>
+            )}
+            {keyFacts.map((k, i) => (
+              <div key={i} className="rounded-md bg-surface-2 px-2 py-1 min-w-0">
+                <div className="text-[10px] text-slate-500 truncate">{k.label}</div>
+                <div className={`truncate ${k.tone ?? 'text-slate-200'}`} title={k.value}>{k.value}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -481,7 +502,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
         {overlay && (
           <div className="absolute z-10 top-2 start-2 max-w-[calc(100%-90px)] pointer-events-none flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface/80 backdrop-blur-sm text-[11px]" role="status">
             <span className={`shrink-0 px-1.5 py-0.5 rounded font-mono font-bold ring-1 ring-inset ${FSM_TONE[overlay.fsmState]}`}>{overlay.fsmState.replace('_', ' ')}</span>
-            <span className="text-slate-200 truncate">{overlay.statusBannerText.split(' · ').slice(2).join(' · ')}</span>
+            {compact && <span className="text-slate-200 truncate">{overlay.statusBannerText.split(' · ').slice(2).join(' · ').split(/: /)[0]}</span>}
           </div>
         )}
         {ohlc && !compact && (

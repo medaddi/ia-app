@@ -75,3 +75,18 @@ def smc_drawing(sym: str, row: dict, price: float, pip: float) -> Optional[dict]
     return {"label": f"SMC {row['id']} · {row['name']} · {s['direction']} LIMIT {s['entry']}", "family": "smc", "id": row["id"],
             "zones": zones, "priceLines": lines, "markers": markers,
             "tradeExecutionBox": _box(s["direction"], "LIMIT", status, t, s["entry"], s["sl"], s["tp"], s["rr"], price, pip)}
+
+
+def scenario_drawing(sym: str, t: dict, now: int) -> dict:
+    """One scenario on the chart: its trigger level, the entry zone, the stop and the target, as lines from now on."""
+    buy = t["dir"] == "BUY"
+    col = BULL if buy else BEAR
+    t0, t1 = now - 10 * H1S, now + 12 * H1S  # from the last candles on: the labels sit inside the view
+    side = "BUY" if buy else "SELL"
+    tol = abs(t["entry"] - t["sl"]) * 0.1
+    lines = [line(f"AN-{sym}-SC{side}-LVL", "MSS_BREAK", t0, t1, t["level"], None, f"{side} trigger", "DASHED", col),
+             line(f"AN-{sym}-SC{side}-SL", "MSS_BREAK", t0, t1, t["sl"], None, f"{side} SL", "DOTTED", "#F43F5E"),
+             line(f"AN-{sym}-SC{side}-TP", "MSS_BREAK", t0, t1, t["tp"], None, f"{side} TP", "DOTTED", "#10B981")]
+    zones = [zone(f"AN-{sym}-SC{side}-Z", "FVG_BULL" if buy else "FVG_BEAR", t0, t1, t["entry"] + tol, t["entry"] - tol, f"{side} entry zone", mid=t["entry"])]
+    return {"label": f"{side} scenario: {t['name']}", "family": "scenario", "id": side.lower(), "zones": zones, "priceLines": lines,
+            "markers": [], "tradeExecutionBox": None}

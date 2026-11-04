@@ -169,6 +169,9 @@ async def analyse(pair: str) -> dict:
     trend = "bullish" if (main.e50[last] or 0) > (main.e200[last] or 0) else "bearish"
     smc = smc_view(main.c, spec["symbol"], TF_SEC["H1" if "H1" in inds else "H4"])
     rows = [_check(inds[s["tf"]], s, spec, price, now) for s in LIBRARY[pair]]
+    from .scenarios import plan_triggers
+
+    triggers = [t for s in LIBRARY[pair] for t in plan_triggers(inds[s["tf"]], s, spec, price)]
     order = {"SETUP": 0, "LATE": 1, "WAITING": 2}
     rows.sort(key=lambda r: (order[r["status"]], -r["test"]["unseen"]["winRate"]))
     setups = [r for r in rows if r["status"] == "SETUP"]
@@ -178,7 +181,7 @@ async def analyse(pair: str) -> dict:
         "read": {"trend": trend, "volatility": "high" if ratio > 1.5 else "low" if ratio < 0.7 else "normal", "atrRatio": round(ratio, 2),
                  "atrPips": round(a_now / spec["pipSize"], 1) if a_now else None, "smc": smc["summary"]},
         "verdict": (f"{len(setups)} setup(s) can be taken now" if setups else "No setup right now: every strategy is waiting"),
-        "strategies": rows,
+        "strategies": rows, "triggers": triggers,
     }
 
 
@@ -264,22 +267,45 @@ async def analyse_all(pair: str) -> dict:
         if w:
             radar.append({"family": "plan", "id": w["id"], "name": w["name"], "status": "WATCHING", "line": w["reason"]})
     agent = {"id": ag.agent_id, "name": ag.name, "read": read}
-    return {**plan, "verdict": verdict, "smc": smc if smc.get("success") else None, "agent": agent, "radar": radar[:4],
+    from .drawing import scenario_drawing
+    from .scenarios import build as build_scenarios
+
+    sc = build_scenarios(plan.get("triggers", []) + ((smc.get("triggers") or []) if smc.get("success") else []),
+                         {"trend": rd["trend"], "structure": sr.get("trend"), "zone": sr.get("zone")}, price, rd.get("atrPips"), spec["decimals"])
+    for side in ("buy", "sell"):
+        if sc[side]["main"]:
+            sc[side]["draw"] = scenario_drawing(sym, sc[side]["main"], plan["at"])
+    if sc["buy"].get("draw") and sc["sell"].get("draw"):
+        b, s_ = sc["buy"]["draw"], sc["sell"]["draw"]
+        sc["bothDraw"] = {"label": "BUY and SELL scenarios", "family": "scenario", "id": "both", "zones": b["zones"] + s_["zones"],
+                          "priceLines": b["priceLines"] + s_["priceLines"], "markers": [], "tradeExecutionBox": None}
+    return {**plan, "verdict": verdict, "smc": smc if smc.get("success") else None, "agent": agent, "radar": radar[:4], "scenarios": sc,
             "pick": {"family": pick[0], "id": pick[1]["id"], "draw": pick[1]["draw"]} if pick else None}
 
 
-_radar_cache: dict[str, tuple[float, dict]] = {}
+_radar_cache: dict[str, tuple[int, dict]] = {}
+_radar_locks: dict[str, "asyncio.Lock"] = {}
 
 
-async def agent_radar(pair: str, max_age: float = 60) -> dict:
-    """The agent's radar: its analysis at most `max_age` seconds old (the dashboard and the charts poll it)."""
+async def agent_radar(pair: str) -> dict:
+    """The agent's radar, asked every second by the screens. Its strategies decide on CLOSED candles, so it reads the
+    whole market again as soon as a new M5 candle has closed (every 5 minutes, H1 / H4 closes included), and between
+    two closes it checks the live price against the setup it holds (inside the entry zone, past the stop or the target)."""
+    import asyncio
+
+    bucket = int(time.time()) // 300
     hit = _radar_cache.get(pair)
-    if hit and time.time() - hit[0] < max_age:
-        r = hit[1]
-    else:
-        r = await analyse_all(pair)
-        if r.get("success"):
-            _radar_cache[pair] = (time.time(), r)
+    if not hit or hit[0] != bucket:
+        lock = _radar_locks.setdefault(pair, asyncio.Lock())
+        async with lock:  # one re-read per pair at a time, however many screens ask
+            hit = _radar_cache.get(pair)
+            if not hit or hit[0] != bucket:
+                fresh = await analyse_all(pair)
+                if fresh.get("success"):
+                    _radar_cache[pair] = hit = (bucket, fresh)
+                elif not hit:
+                    return {"success": False, "symbol": pair, "error": fresh.get("error")}
+    r = hit[1]
     if not r.get("success"):
         return {"success": False, "symbol": pair, "error": r.get("error")}
     pick = r.get("pick")
@@ -288,7 +314,22 @@ async def agent_radar(pair: str, max_age: float = 60) -> dict:
         rows = r["strategies"] if pick["family"] == "plan" else r["smc"]["strategies"]
         row = next((x for x in rows if x["id"] == pick["id"]), None)
     top = next((x for x in r["radar"] if x["status"] == "FORMING"), r["radar"][0] if r["radar"] else None)
-    return {"success": True, "symbol": pair, "at": r["at"], "agent": r["agent"],
+    live = (await fetch_live_price(pair)).get("price") or 0
+    zone_now = None
+    if row and live:
+        st = row["setup"]
+        lo, hi = st.get("entryZone") or (st["entry"], st["entry"])
+        buy = st["direction"] == "BUY"
+        if (buy and live <= st["sl"]) or (not buy and live >= st["sl"]):
+            zone_now = "past the stop"
+        elif (buy and live >= st["tp"]) or (not buy and live <= st["tp"]):
+            zone_now = "target reached"
+        elif lo <= live <= hi or (pick["family"] == "plan"):
+            zone_now = "price in the entry zone now" if pick["family"] == "smc" else "in trade"
+        else:
+            zone_now = f"{abs(live - (hi if buy else lo)) / AGENT_CONFIGS[pair]['spec']['pipSize']:.1f} pips from the entry zone"
+    return {"success": True, "symbol": pair, "at": r["at"], "agent": r["agent"], "price": live, "zoneNow": zone_now,
+            "nextRead": (bucket + 1) * 300,
             "status": "SETUP" if pick else ("FORMING" if top and top["status"] == "FORMING" else "WATCHING"),
             "headline": (f"{row['name']}: {row['setup']['direction']} {row['setup'].get('entryZone') or row['setup']['entry']}" if row else
                          f"{top['id']} · {top['line']}" if top else "Watching"),

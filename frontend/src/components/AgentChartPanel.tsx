@@ -6,6 +6,7 @@ import { SmcChart, type SmcChartCandle } from './SmcChart';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { AnalyzeButton } from './AnalyzePanel';
 import { useAnalysisDrawing, withAnalysis } from '../analysisDrawing';
+import { useLivePrice } from '../livePrices';
 
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
 
@@ -20,7 +21,8 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
   const [updatedAt, setUpdatedAt] = useState(0);
   const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);
   const { overlay: agentOverlay } = useAgentOverlay(symbol, 10000);
-  const overlay = withAnalysis(agentOverlay, useAnalysisDrawing(symbol));  // the Analyse button's setup, when drawn
+  const overlay = withAnalysis(agentOverlay, useAnalysisDrawing(symbol));
+  const live = useLivePrice(symbol);  // the Analyse button's setup, when drawn
   const tvChart = useChartingLibrary();
 
   const load = useCallback(async () => {
@@ -46,7 +48,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
         </>
       ) : (
         <SmcChart symbol={symbol} candles={candles} result={null} overlay={overlay} timeframe={tf} timeframes={spec.timeframes} entryTf={spec.entryTf}
-          emas={spec.emas} emaNote={spec.emaNote} updatedAt={updatedAt} onTimeframeChange={setTf} lang={lang} compact quote={quote} />
+          emas={spec.emas} emaNote={spec.emaNote} updatedAt={updatedAt} onTimeframeChange={setTf} lang={lang} compact quote={live?.quoteTime ? { time: live.quoteTime, source: live.source } : quote} livePrice={live?.price ?? null} />
       )}
       <div className="mt-1 flex items-center justify-between gap-2">
         {onOpen && (

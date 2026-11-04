@@ -69,11 +69,11 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
   }
 
   private zones(): OverlayZone[] {
-    return (this.state?.zones ?? []).filter(z => this.layers[ZONE_LAYER[z.category] ?? 'zones']);
+    return (this.state?.zones ?? []).filter(z => z.id.startsWith('AN-') || this.layers[ZONE_LAYER[z.category] ?? 'zones']);  // AN-: the Analyse button's setup, always shown
   }
 
   private lines(): OverlayPriceLine[] {
-    return (this.state?.priceLines ?? []).filter(l => this.layers[LINE_LAYER[l.category] ?? 'structure']);
+    return (this.state?.priceLines ?? []).filter(l => l.id.startsWith('AN-') || this.layers[LINE_LAYER[l.category] ?? 'structure']);
   }
 
   /** The overlay item under a pane point: a line first, then the trade box, then the smallest zone. */
@@ -117,7 +117,12 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
       }
       logical = lo === times.length - 1 ? lo + (t - times[lo]) / this.tfSec : lo + (t - times[lo]) / Math.max(1, times[lo + 1] - times[lo]);
     }
-    return ts.logicalToCoordinate(logical as any);
+    // the library maps whole bar positions only: a time between two bars is placed between their coordinates
+    const k = Math.floor(logical);
+    const c0 = ts.logicalToCoordinate(k as any);
+    if (logical === k || c0 === null) return c0;
+    const c1 = ts.logicalToCoordinate((k + 1) as any);
+    return c1 === null ? c0 : c0 + (c1 - c0) * (logical - k);
   }
 
   private y(p: number): number | null {

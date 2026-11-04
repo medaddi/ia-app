@@ -6,6 +6,7 @@ import { tr } from './ui';
 import type { Language } from '../types';
 import { setAnalysisDrawing, useAnalysisDrawing, type AnalysisDrawing } from '../analysisDrawing';
 import { SmcSection, type SmcAnalysis } from './SmcPanel';
+import { ScenarioPanel, type Scenarios } from './ScenarioPanel';
 
 interface TestPart { trades: number; winRate: number; totalR: number }
 interface Row {
@@ -19,6 +20,7 @@ interface Analysis {
   success: boolean; error?: string; symbol: string; price: number; priceSource?: string; at: number; marketOpen: boolean; decimals: number;
   read: { trend: string; volatility: string; atrRatio: number; atrPips: number | null; smc: string }; verdict: string; strategies: Row[];
   smc: SmcAnalysis | null; pick: { family: 'plan' | 'smc'; id: string; draw: AnalysisDrawing | null } | null;
+  scenarios?: Scenarios;
   agent: { id: string; name: string; read: string }; radar: { family: string; id: string; name: string; status: string; line: string }[];
 }
 
@@ -53,6 +55,7 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
       if (!res.ok || !j.success) throw new Error(j.error || j.detail || `HTTP ${res.status}`);
       setData(j);
       if (j.pick?.draw) setAnalysisDrawing(symbol, j.pick.draw);  // the setup that applies now, drawn on the chart
+      else if (j.scenarios?.bothDraw) setAnalysisDrawing(symbol, j.scenarios.bothDraw);  // no setup yet: the BUY and SELL scenarios
     } catch (x) {
       setErr(String((x as Error).message || x));
     } finally {
@@ -136,6 +139,7 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
                     <button type="button" onClick={() => setAnalysisDrawing(symbol, null)} className="h-7 px-2 rounded-lg border border-line text-slate-300 hover:bg-white/[0.05] cursor-pointer">{t('Clear', 'Effacer', 'مسح')}</button>
                   </div>
                 )}
+                {data.scenarios && <ScenarioPanel sc={data.scenarios} decimals={data.decimals} lang={lang} onDraw={draw} />}
                 <button type="button" onClick={() => setShowAll(v => !v)} className="mt-3 inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer" aria-expanded={showAll}>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
                   {showAll ? t('Hide the details', 'Masquer le détail', 'خبي التفاصيل') : t('Details: every strategy the agent checked', 'Détail : chaque stratégie vérifiée par l’agent', 'التفاصيل: كل استراتيجية شيكاها الوكيل')}

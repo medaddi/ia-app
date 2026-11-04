@@ -9,6 +9,7 @@ import type { Stats, Today, Trade } from './AccountView';
 import { TradeProgress } from './TradeProgress';
 import { AnalyzeButton } from './AnalyzePanel';
 import { AgentRadar } from './AgentRadar';
+import { useLivePrice } from '../livePrices';
 
 // ---------------------------------------------------------------- API shape (/api/dashboard)
 
@@ -348,6 +349,16 @@ function PairBars({ rows, mode }: { rows: { key: string; value: number; sub: str
 
 // ---------------------------------------------------------------- page
 
+/** A pair's price, refreshed every second (green / red flash on each move). */
+function LivePriceText({ symbol, fallback, decimals }: { symbol: string; fallback: number; decimals: number }) {
+  const live = useLivePrice(symbol);
+  const p = live?.price ?? fallback;
+  const prev = React.useRef(p);
+  const dir = p > prev.current ? 'text-emerald-300' : p < prev.current ? 'text-rose-300' : 'text-slate-300';
+  React.useEffect(() => { prev.current = p; }, [p]);
+  return <div className={`font-mono text-sm tabular-nums transition-colors duration-300 ${dir}`}>{p ? p.toFixed(decimals) : '—'}</div>;
+}
+
 export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenChart: (symbol: string) => void }) {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
   const [data, setData] = useState<Dashboard | null>(null);
@@ -416,21 +427,21 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
   const fmt = (v: number) => signed(v, mode);
 
   const tiles: { label: string; value: React.ReactNode; sub?: string; valueTone?: string }[] = [
-    { label: t('This week', 'Cette semaine', 'هاد السيمانة'), value: <Counter value={days.week} format={fmt} />, valueTone: tone(days.week) },
-    { label: t('This month', 'Ce mois', 'هاد الشهر'), value: <Counter value={days.month} format={fmt} />, valueTone: tone(days.month) },
+    { label: t('Week', 'Semaine', 'السيمانة'), value: <Counter value={days.week} format={fmt} />, valueTone: tone(days.week) },
+    { label: t('Month', 'Mois', 'الشهر'), value: <Counter value={days.month} format={fmt} />, valueTone: tone(days.month) },
     { label: t('Profit factor', 'Profit factor', 'معامل الربح'), value: pf ?? '—', valueTone: (pf ?? 0) >= 1 ? 'text-emerald-400' : 'text-rose-400',
       sub: mode === 'me' ? `${t('total', 'total', 'المجموع')} ${signed(st.totalPnl, 'me')}` : `${t('total', 'total', 'المجموع')} ${r2(ss.totalR)}` },
     mode === 'me'
-      ? { label: t('Expectancy / trade', 'Espérance / trade', 'المتوقع لكل صفقة'), value: edge.expectancy !== null ? signed(edge.expectancy, 'me') : '—', valueTone: tone(edge.expectancy),
-        sub: edge.expectancyR !== null ? `${r2(edge.expectancyR)} ${t('per trade', 'par trade', 'لكل صفقة')}` : undefined }
-      : { label: t('Average / signal', 'Moyenne / signal', 'المعدل لكل إشارة'), value: r2(ss.avgR), valueTone: tone(ss.avgR) },
+      ? { label: t('Expectancy', 'Espérance', 'المتوقع'), value: edge.expectancy !== null ? signed(edge.expectancy, 'me') : '—', valueTone: tone(edge.expectancy),
+        sub: edge.expectancyR !== null ? `${r2(edge.expectancyR)} / trade` : undefined }
+      : { label: t('Average', 'Moyenne', 'المعدل'), value: r2(ss.avgR), valueTone: tone(ss.avgR) },
     mode === 'me'
-      ? { label: t('Avg win / avg loss', 'Gain moy. / perte moy.', 'متوسط الربح / الخسارة'), value: edge.payoff !== null ? `${edge.payoff}×` : '—',
+      ? { label: t('Win / loss', 'Gain / perte', 'ربح / خسارة'), value: edge.payoff !== null ? `${edge.payoff}×` : '—',
         sub: `${edge.avgWin !== null ? signed(edge.avgWin, 'me') : '—'} / ${edge.avgLoss !== null ? signed(edge.avgLoss, 'me') : '—'}` }
-      : { label: t('Best / worst signal', 'Meilleur / pire signal', 'أحسن / أسوأ إشارة'), value: r2(ss.bestR), valueTone: tone(ss.bestR), sub: `${t('worst', 'pire', 'أسوأ')} ${r2(ss.worstR)}` },
+      : { label: t('Best', 'Meilleur', 'الأحسن'), value: r2(ss.bestR), valueTone: tone(ss.bestR), sub: `${t('worst', 'pire', 'أسوأ')} ${r2(ss.worstR)}` },
     mode === 'me'
-      ? { label: t('Max drawdown', 'Drawdown max', 'أقصى تراجع'), value: fmtMoney(st.maxDrawdown), valueTone: 'text-rose-300', sub: `${me.openTrades.length} ${t('open trade(s)', 'trade(s) ouvert(s)', 'صفقة مفتوحة')}` }
-      : { label: t('Open signals', 'Signaux ouverts', 'إشارات مفتوحة'), value: ss.open, valueTone: 'text-gold-200', sub: t('followed until TP / SL', 'suivis jusqu’au TP / SL', 'كتتبع حتى TP / SL') },
+      ? { label: t('Drawdown', 'Drawdown', 'التراجع'), value: fmtMoney(st.maxDrawdown), valueTone: 'text-rose-300', sub: `${me.openTrades.length} ${t('open', 'ouvert(s)', 'مفتوحة')}` }
+      : { label: t('Open', 'Ouverts', 'مفتوحة'), value: ss.open, valueTone: 'text-gold-200', sub: t('until TP / SL', 'jusqu’au TP / SL', 'حتى TP / SL') },
   ];
 
   return (
@@ -460,6 +471,61 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
             ))}
           </div>
         </div>
+      </Reveal>
+
+      {/* Live analysis */}
+      <Reveal i={12}>
+        <Panel icon={<Radar className="w-4 h-4" />} title={t('Pairs', 'Paires', 'الأزواج')}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {data.markets.map((m, i) => {
+              if (m.loading) return (
+                <div key={m.symbol} className="rounded-xl border border-line bg-surface p-3.5" aria-busy="true">
+                  <div className="font-mono font-semibold text-white">{m.symbol} <span className="text-[10px] text-slate-500 font-normal">{m.entryTf}</span></div>
+                  <div className="mt-2 h-3 w-24 rounded bg-surface-2 animate-pulse" />
+                  <div className="mt-2 h-3 w-40 rounded bg-surface-2 animate-pulse" />
+                  <div className="mt-2 text-[11px] text-slate-500">{t('Analysing…', 'Analyse en cours…', 'كيتحلل…')}</div>
+                </div>
+              );
+              const f = (v: number) => v.toFixed(m.decimals);
+              const trends = [[m.entryTf, m.trend.entry]];
+              const live = !!m.setup && RUNNING.includes(m.setup.state);
+              return (
+                <motion.div key={m.symbol} role="button" tabIndex={0} onClick={() => onOpenChart(m.symbol)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChart(m.symbol); } }}
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: Math.min(i, 9) * 0.04 }}
+                  className={`text-left rounded-xl border p-3.5 cursor-pointer transition-[border-color,transform,background-color] duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold-400 ${live ? 'border-emerald-500/40 bg-emerald-500/[0.04]' : 'border-line bg-surface hover:border-gold-500/40'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-mono font-semibold text-white">{m.symbol} <span className="text-[10px] text-slate-500 font-normal">{m.entryTf}</span></div>
+                      <LivePriceText symbol={m.symbol} fallback={m.price} decimals={m.decimals} />
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {!m.dataOk ? <Chip kind="warn">{t('No data', 'Pas de données', 'بلا معطيات')}</Chip>
+                        : <Chip kind={m.status === 'SIGNAL' ? 'signal' : m.status === 'WATCH' ? 'watch' : 'none'}>{m.status === 'NO_TRADE' ? 'NO TRADE' : m.status}{m.setup ? ` · ${m.score}` : ''}</Chip>}
+                      <div className="flex gap-1">
+                        {trends.map(([k, v]) => <Chip key={k as string} kind={v === 'bullish' ? 'bull' : v === 'bearish' ? 'bear' : 'none'}>{k} {v === 'bullish' ? '▲' : v === 'bearish' ? '▼' : '–'}</Chip>)}
+                        {m.newsBlocked && <Chip kind="warn"><Newspaper className="w-3 h-3" aria-hidden="true" />News</Chip>}
+                      </div>
+                    </div>
+                  </div>
+                  {m.setup ? (
+                    <div className="mt-2.5 rounded-lg bg-canvas/60 border border-line px-2.5 py-1.5 font-mono text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className={m.setup.direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>{m.setup.direction === 'BUY' ? '▲' : '▼'} {m.setup.direction} {f(m.setup.entry)}</span>
+                        <span className={live ? 'text-gold-300' : tone(m.setup.r)}>{live ? stateLabel(m.symbol, m.setup.state) : `${m.setup.outcome ?? m.setup.state} ${r2(m.setup.r)}`}</span>
+                      </div>
+                      <div className="text-slate-500">SL {f(m.setup.sl)} · TP {f(m.setup.target)}{m.setup.rr ? ` · 1:${m.setup.rr}` : ''}</div>
+                    </div>
+                  ) : m.lastTrade && (
+                    <div className="mt-2 text-xs text-slate-500">{t('Last trade', 'Dernier trade', 'آخر صفقة')}: <span className={tone(m.lastTrade.r)}>{m.lastTrade.outcome ?? stateLabel(m.symbol, m.lastTrade.state)} {m.lastTrade.r !== null ? r2(m.lastTrade.r) : ''}</span></div>
+                  )}
+                  {!m.dataOk && <p className="mt-2 text-xs text-amber-300/80 line-clamp-2">{m.dataReason}</p>}
+                  <div className="mt-2.5 flex items-start justify-end gap-1.5"><AgentRadar symbol={m.symbol} lang={lang} className="flex-1" wrap /><AnalyzeButton symbol={m.symbol} lang={lang} compact onShowChart={() => onOpenChart(m.symbol)} /></div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </Panel>
       </Reveal>
 
       {/* Hero: today + session clock */}
@@ -592,61 +658,6 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
           </Reveal>
         ))}
       </div>
-
-      {/* Live analysis */}
-      <Reveal i={12}>
-        <Panel icon={<Radar className="w-4 h-4" />} title={t('Live analysis', 'Analyse en direct', 'التحليل المباشر')}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {data.markets.map((m, i) => {
-              if (m.loading) return (
-                <div key={m.symbol} className="rounded-xl border border-line bg-surface p-3.5" aria-busy="true">
-                  <div className="font-mono font-semibold text-white">{m.symbol} <span className="text-[10px] text-slate-500 font-normal">{m.entryTf}</span></div>
-                  <div className="mt-2 h-3 w-24 rounded bg-surface-2 animate-pulse" />
-                  <div className="mt-2 h-3 w-40 rounded bg-surface-2 animate-pulse" />
-                  <div className="mt-2 text-[11px] text-slate-500">{t('Analysing…', 'Analyse en cours…', 'كيتحلل…')}</div>
-                </div>
-              );
-              const f = (v: number) => v.toFixed(m.decimals);
-              const trends = [[m.entryTf, m.trend.entry]];
-              const live = !!m.setup && RUNNING.includes(m.setup.state);
-              return (
-                <motion.div key={m.symbol} role="button" tabIndex={0} onClick={() => onOpenChart(m.symbol)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChart(m.symbol); } }}
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: Math.min(i, 9) * 0.04 }}
-                  className={`text-left rounded-xl border p-3.5 cursor-pointer transition-[border-color,transform,background-color] duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-gold-400 ${live ? 'border-emerald-500/40 bg-emerald-500/[0.04]' : 'border-line bg-surface hover:border-gold-500/40'}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-mono font-semibold text-white">{m.symbol} <span className="text-[10px] text-slate-500 font-normal">{m.entryTf}</span></div>
-                      <div className="font-mono text-sm text-slate-300 tabular-nums">{m.price ? f(m.price) : '—'}</div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      {!m.dataOk ? <Chip kind="warn">{t('No data', 'Pas de données', 'بلا معطيات')}</Chip>
-                        : <Chip kind={m.status === 'SIGNAL' ? 'signal' : m.status === 'WATCH' ? 'watch' : 'none'}>{m.status === 'NO_TRADE' ? 'NO TRADE' : m.status}{m.setup ? ` · ${m.score}` : ''}</Chip>}
-                      <div className="flex gap-1">
-                        {trends.map(([k, v]) => <Chip key={k as string} kind={v === 'bullish' ? 'bull' : v === 'bearish' ? 'bear' : 'none'}>{k} {v === 'bullish' ? '▲' : v === 'bearish' ? '▼' : '–'}</Chip>)}
-                        {m.newsBlocked && <Chip kind="warn"><Newspaper className="w-3 h-3" aria-hidden="true" />News</Chip>}
-                      </div>
-                    </div>
-                  </div>
-                  {m.setup ? (
-                    <div className="mt-2.5 rounded-lg bg-canvas/60 border border-line px-2.5 py-1.5 font-mono text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className={m.setup.direction === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>{m.setup.direction === 'BUY' ? '▲' : '▼'} {m.setup.direction} {f(m.setup.entry)}</span>
-                        <span className={live ? 'text-gold-300' : tone(m.setup.r)}>{live ? stateLabel(m.symbol, m.setup.state) : `${m.setup.outcome ?? m.setup.state} ${r2(m.setup.r)}`}</span>
-                      </div>
-                      <div className="text-slate-500">SL {f(m.setup.sl)} · TP {f(m.setup.target)}{m.setup.rr ? ` · 1:${m.setup.rr}` : ''}</div>
-                    </div>
-                  ) : m.lastTrade && (
-                    <div className="mt-2 text-xs text-slate-500">{t('Last trade', 'Dernier trade', 'آخر صفقة')}: <span className={tone(m.lastTrade.r)}>{m.lastTrade.outcome ?? stateLabel(m.symbol, m.lastTrade.state)} {m.lastTrade.r !== null ? r2(m.lastTrade.r) : ''}</span></div>
-                  )}
-                  {!m.dataOk && <p className="mt-2 text-xs text-amber-300/80 line-clamp-2">{m.dataReason}</p>}
-                  <div className="mt-2.5 flex items-center justify-end gap-1.5"><AgentRadar symbol={m.symbol} lang={lang} className="flex-1" /><AnalyzeButton symbol={m.symbol} lang={lang} compact onShowChart={() => onOpenChart(m.symbol)} /></div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </Panel>
-      </Reveal>
 
       {/* History: curve + day stats, then daily bars + month; with fewer than two closed days only the day stats and the month */}
       {days.days.length >= 2 ? (<>

@@ -724,6 +724,78 @@ def smc_now(m5, h1, cost: float, spec: dict, price: float, lot_fn, news=None) ->
                  "zone": where, "bsl": round(bsl, dec) if bsl else None, "ssl": round(ssl, dec) if ssl else None},
         "verdict": (f"{len(conf)} confirmed SMC setup(s): every rule met" if conf else
                     "No confirmed SMC setup now" + (": one is forming" if any(r["status"] == "FORMING" for r in rows) else "")),
-        "strategies": rows, "test": {**alltest, "days": days},
+        "strategies": rows, "test": {**alltest, "days": days}, "triggers": smc_triggers(m5, res, cost, spec, price),
         "dataNote": ("This pair's M5 feed has overlapping wicks: fair value gaps (and so SMC entries) almost never form on it" if noisy else None),
     }
+
+
+# ---------------------------------------------------------------- what would make each SMC strategy BUY / SELL from here
+def smc_triggers(m5, res: dict, cost: float, spec: dict, price: float) -> list[dict]:
+    """Each SMC strategy's trigger on each side, from the levels it watches now. The entry / stop are estimates (the
+    exact ones come from the M5 candles when the rules confirm): entry at the level, stop 2 M5 ATR beyond it."""
+    from ..core.quant_primitives import atr
+
+    pip, dec = spec["pipSize"], spec["decimals"]
+    h1v = res["_h1v"]
+    a5 = next((v for v in reversed(atr(m5[-400:])) if v), None) or 10 * pip
+    hi1 = h1v.closed_at(m5[-1].time + M5S)
+    rngs = [h1v.c[k].high - h1v.c[k].low for k in range(max(0, hi1 - 13), hi1 + 1)]
+    a1 = (sum(rngs) / len(rngs)) if rngs else 5 * a5
+    last_t = m5[-1].time + M5S
+    tod = last_t % DAY
+    day_now = m5[-1].time // DAY
+    today = [x for x in m5 if x.time // DAY == day_now]
+    before = [x for x in m5 if x.time // DAY < day_now]
+    prev = [x for x in before if x.time // DAY == before[-1].time // DAY] if before else []
+    asia = [x for x in today if x.time % DAY < 6 * H1S]
+    test = {sid: {"kind": "last ~2 months of M5", **stats(res[sid]["setups"])} for sid in "ABCDE"}
+    out = []
+
+    def add(sid, d, trigger, level, entry, sl, tp, blockers, note):
+        risk = abs(entry - sl)
+        if risk <= 0 or (d > 0 and not (sl < entry < tp)) or (d < 0 and not (tp < entry < sl)):
+            return
+        out.append({"family": "smc", "id": sid, "name": NAMES[sid], "dir": "BUY" if d > 0 else "SELL", "trigger": trigger,
+                    "order": "LIMIT after the M5 CHoCH + FVG", "level": level, "entry": entry, "sl": sl, "tp": tp,
+                    "rr": abs(tp - entry) / risk, "distPips": abs(price - level) / pip, "blockers": blockers, "ready": not blockers,
+                    "note": note, "maxHours": 4, "test": test[sid]})
+
+    # D: the Asian range swept in a killzone
+    if len(asia) >= 48 and tod < 15 * H1S:
+        ah, al = max(x.high for x in asia), min(x.low for x in asia)
+        kz = 7 * H1S <= tod < 10 * H1S or 12 * H1S <= tod < 15 * H1S
+        bl = [] if kz else ["waits for the London (07-10) or New York (12-15 UTC) killzone"]
+        add("D", -1, f"sweep of the Asian high {ah:.{dec}f}, then M5 CHoCH + FVG", ah, ah, ah + 2 * a5 + cost, al, bl, "TP: the Asian low")
+        add("D", 1, f"sweep of the Asian low {al:.{dec}f}, then M5 CHoCH + FVG", al, al, al - 2 * a5 - cost, ah, bl, "TP: the Asian high")
+    # B: the previous day's high / low swept
+    if prev and 6 * H1S <= tod < 20 * H1S:
+        pdh, pdl = max(x.high for x in prev), min(x.low for x in prev)
+        eq = (pdh + pdl) / 2
+        add("B", -1, f"wick through the PDH {pdh:.{dec}f}, then M5 CHoCH + FVG", pdh, pdh, pdh + 2 * a5 + cost, eq, [], "TP: the previous day 50 %")
+        add("B", 1, f"wick through the PDL {pdl:.{dec}f}, then M5 CHoCH + FVG", pdl, pdl, pdl - 2 * a5 - cost, eq, [], "TP: the previous day 50 %")
+    # A: the latest fresh H1 OB of each side, not failed, its external high / low not taken yet
+    pois = _h1_pois(h1v, "A")
+    for d in (1, -1):
+        p = next((p for p in reversed(pois) if p["dir"] == d and p["break"] >= hi1 - 120), None)
+        if not p:
+            continue
+        z = p["zone"]
+        seg = h1v.c[p["break"]:hi1 + 1]
+        failed = any((d > 0 and x.close < z[0]) or (d < 0 and x.close > z[1]) for x in seg)
+        done = (d > 0 and price > p["ext"]) or (d < 0 and price < p["ext"])
+        if failed or done:
+            continue
+        lvl = z[1] if d > 0 else z[0]
+        idm_taken = any((d > 0 and x.low < p["idmLevel"]) or (d < 0 and x.high > p["idmLevel"]) for x in h1v.c[p["idm"]:hi1 + 1])
+        bl = [] if idm_taken else [f"IDM {p['idmLevel']:.{dec}f} not swept yet"]
+        add("A", d, f"price back in the fresh H1 OB {z[0]:.{dec}f} - {z[1]:.{dec}f}, then M5 sweep + CHoCH + FVG", lvl, lvl,
+            (z[0] - cost) if d > 0 else (z[1] + cost), p["ext"], bl, "TP: the H1 external " + ("high" if d > 0 else "low"))
+    # E: one H1 candle sweeping the last H1 swing and closing back
+    sh = h1v.st.last_sh[hi1] if hi1 >= 0 else None
+    sw = h1v.st.last_sl[hi1] if hi1 >= 0 else None
+    if sh and sw:
+        add("E", -1, f"an H1 candle wicks above the swing high {sh[0]:.{dec}f} and closes back below", sh[0], sh[0] - 0.25 * a1, sh[0] + 0.5 * a1 + cost,
+            sw[0], [], "entry at that candle 50 % - TP: the H1 swing low")
+        add("E", 1, f"an H1 candle wicks below the swing low {sw[0]:.{dec}f} and closes back above", sw[0], sw[0] + 0.25 * a1, sw[0] - 0.5 * a1 - cost,
+            sh[0], [], "entry at that candle 50 % - TP: the H1 swing high")
+    return out
