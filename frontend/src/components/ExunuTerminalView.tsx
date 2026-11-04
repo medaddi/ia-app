@@ -6,7 +6,7 @@ import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentDesk, type Consensus } from './AgentDesk';
 import { AgentChartPanel } from './AgentChartPanel';
 import { AnalyzeButton } from './AnalyzePanel';
-import { SmcButton } from './SmcPanel';
+import { useAnalysisDrawing, withAnalysis } from '../analysisDrawing';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { Columns2, Grid2x2 } from 'lucide-react';
 import { PairFlags } from './PairFlags';
@@ -59,6 +59,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const result: StrategyResult | null = bundle?.strategy ?? null;
   const inst = INSTRUMENTS[symbol];
+  const drawing = useAnalysisDrawing(symbol);  // the Analyse button's setup, drawn on this chart
   // The pair / timeframe on screen: an answer that arrives after a switch belongs to the old pair and is dropped
   // (otherwise GBP/USD could show EUR/USD's last price and candles for a moment)
   const viewRef = useRef({ symbol, timeframe });
@@ -148,7 +149,6 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             <span className="text-white font-semibold tabular-nums">{result ? result.price.toFixed(result.spec.decimals) : '—'}</span>
           </div>
           <AnalyzeButton symbol={symbol} lang={lang as Language} />
-          <SmcButton symbol={symbol} lang={lang as Language} />
         </div>
       </div>
 
@@ -160,10 +160,10 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-8 min-w-0">
             {tvChart && REVIEW_AS_OF <= 0 ? (
-              <TradingViewChart symbol={symbol} timeframe={timeframe} overlay={result?.overlay ?? null} decimals={result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5)}
+              <TradingViewChart symbol={symbol} timeframe={timeframe} overlay={withAnalysis(result?.overlay ?? null, drawing)} decimals={result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5)}
                 lang={lang} onTimeframeChange={setTimeframe} />
             ) : (
-              <SmcChart symbol={symbol} candles={candles} result={result} overlay={result?.overlay ?? null} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
+              <SmcChart symbol={symbol} candles={candles} result={result} overlay={withAnalysis(result?.overlay ?? null, drawing)} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
                 emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
                 onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} quote={REVIEW_AS_OF > 0 ? null : quote} />
             )}

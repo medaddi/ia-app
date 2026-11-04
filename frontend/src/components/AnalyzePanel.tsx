@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, ScanSearch, X } from 'lucide-react';
+import { LineChart, Loader2, PenLine, ScanSearch, X } from 'lucide-react';
 import { apiFetch } from '../api';
 import { tr } from './ui';
 import type { Language } from '../types';
+import { setAnalysisDrawing, useAnalysisDrawing, type AnalysisDrawing } from '../analysisDrawing';
+import { SmcSection, type SmcAnalysis } from './SmcPanel';
 
 interface TestPart { trades: number; winRate: number; totalR: number }
 interface Row {
@@ -11,10 +13,12 @@ interface Row {
   reason: string; test: { tuned: TestPart; unseen: TestPart };
   setup?: { direction: 'BUY' | 'SELL'; entry: number; sl: number; tp: number; rr: number; since: number; closeBy: number; rNow: number; slPips: number; lots: Record<string, number> };
   last?: { direction: string; at: number; result: string };
+  draw?: AnalysisDrawing | null;
 }
 interface Analysis {
   success: boolean; error?: string; symbol: string; price: number; priceSource?: string; at: number; marketOpen: boolean; decimals: number;
   read: { trend: string; volatility: string; atrRatio: number; atrPips: number | null; smc: string }; verdict: string; strategies: Row[];
+  smc: SmcAnalysis | null; pick: { family: 'plan' | 'smc'; id: string; draw: AnalysisDrawing | null } | null;
 }
 
 const TONE: Record<Row['status'], string> = {
@@ -23,15 +27,18 @@ const TONE: Record<Row['status'], string> = {
 };
 
 /**
- * The "Analyse" button of a pair: one request (backend /api/analyze) that checks every library strategy of the pair on
- * the latest closed candles, and shows the setups that can be taken now, those too late, and what the others wait for.
+ * The "Analyse" button of a pair: one request (backend /api/analyze) that checks every strategy of the pair on the
+ * latest closed candles, the proven plans AND the SMC strategies of the course, picks the one that applies now and draws
+ * its setup on the pair's chart (entry, stop, target and the levels that made it).
  */
-export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?: boolean }> = ({ symbol, lang, compact = false }) => {
+export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?: boolean; onShowChart?: () => void }> = ({ symbol, lang, compact = false, onShowChart }) => {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [data, setData] = useState<Analysis | null>(null);
   const [err, setErr] = useState('');
+  const drawn = useAnalysisDrawing(symbol);
+  const draw = (d: AnalysisDrawing) => setAnalysisDrawing(symbol, d);
 
   const run = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -43,6 +50,7 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
       const j = await res.json();
       if (!res.ok || !j.success) throw new Error(j.error || j.detail || `HTTP ${res.status}`);
       setData(j);
+      if (j.pick?.draw) setAnalysisDrawing(symbol, j.pick.draw);  // the setup that applies now, drawn on the chart
     } catch (x) {
       setErr(String((x as Error).message || x));
     } finally {
@@ -72,16 +80,23 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
               </div>
             </header>
 
-            {busy && !data && <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-400"><Loader2 className="w-4 h-4 animate-spin" />{t('Analysing every strategy…', 'Analyse de chaque stratégie…', 'كيحلل كل استراتيجية…')}</div>}
+            {busy && !data && <div className="py-10 flex items-center justify-center gap-2 text-sm text-slate-400"><Loader2 className="w-4 h-4 animate-spin" />{t('Checking every strategy: proven plans and SMC…', 'Vérification de chaque stratégie : plans prouvés et SMC…', 'كيشيك كل استراتيجية: الخطط المجربة و SMC…')}</div>}
             {err && <p className="mt-4 text-sm text-rose-300">{err}</p>}
 
             {data && (
               <>
-                <div className={`mt-3 rounded-xl border px-3 py-2 text-sm font-semibold ${data.strategies.some(s => s.status === 'SETUP') ? 'border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-200' : 'border-line bg-white/[0.02] text-slate-300'}`}>
-                  {data.strategies.some(s => s.status === 'SETUP')
-                    ? t(`${data.strategies.filter(s => s.status === 'SETUP').length} setup(s) can be taken now`, `${data.strategies.filter(s => s.status === 'SETUP').length} setup(s) à prendre maintenant`, `${data.strategies.filter(s => s.status === 'SETUP').length} سيتاب يقدر يتاخد دابا`)
-                    : t('No setup right now: every strategy is waiting', 'Aucun setup pour l’instant : chaque stratégie attend', 'حتى سيتاب دابا: كل استراتيجية كتسنا')}
+                <div className={`mt-3 rounded-xl border px-3 py-2 text-sm font-semibold ${data.pick ? 'border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-200' : 'border-line bg-white/[0.02] text-slate-300'}`}>
+                  {data.verdict}
                 </div>
+                {drawn && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/[0.06] px-2.5 py-1.5 text-[11px] text-sky-100">
+                    <PenLine className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">{t('On the chart', 'Sur le graphique', 'ف الشارت')}: {drawn.label}</span>
+                    {onShowChart && <button type="button" onClick={() => { setOpen(false); onShowChart(); }} className="inline-flex items-center gap-1 h-7 px-2 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 cursor-pointer"><LineChart className="w-3 h-3" aria-hidden="true" />{t('Open the chart', 'Ouvrir le graphique', 'حل الشارت')}</button>}
+                    <button type="button" onClick={() => setAnalysisDrawing(symbol, null)} className="h-7 px-2 rounded-lg border border-line text-slate-300 hover:bg-white/[0.05] cursor-pointer">{t('Clear', 'Effacer', 'مسح')}</button>
+                  </div>
+                )}
+                <h4 className="mt-4 text-sm font-semibold text-gold-200">{t('Proven plans (2-year test)', 'Plans prouvés (test 2 ans)', 'خطط مجربة (اختبار 2 سنين)')}</h4>
                 <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-mono">
                   <span className={`px-2 py-1 rounded-lg border border-line ${data.read.trend === 'bullish' ? 'text-emerald-300' : 'text-rose-300'}`}>{t('trend', 'tendance', 'الاتجاه')} {data.read.trend}</span>
                   <span className="px-2 py-1 rounded-lg border border-line text-slate-300">{t('volatility', 'volatilité', 'التقلب')} {data.read.volatility} ({data.read.atrRatio}×)</span>
@@ -111,12 +126,18 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
                         {t('2-year test', 'test 2 ans', 'اختبار 2 سنين')}: {t('never seen', 'jamais vu', 'ما شافوش')} {s.test.unseen.trades} · {s.test.unseen.winRate}% · {s.test.unseen.totalR >= 0 ? '+' : ''}{s.test.unseen.totalR}R
                         {s.last ? ` · ${t('last', 'dernier', 'آخر')} ${s.last.direction} ${s.last.result}` : ''}
                       </p>
+                      {s.draw && (
+                        <button type="button" onClick={() => draw(s.draw!)} className="mt-1.5 inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-gold-500/40 text-[11px] text-gold-200 hover:bg-gold-500/10 cursor-pointer">
+                          <PenLine className="w-3 h-3" aria-hidden="true" />{t('Draw on chart', 'Tracer sur le graphique', 'رسم ف الشارت')}
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>
-                <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">{t('Each strategy won ≥ 55 % on 2 years of history it was never tuned on. A test is evidence, not a guarantee: set your own risk.',
-                  'Chaque stratégie a gagné ≥ 55 % sur 2 ans d’historique jamais vu pendant son réglage. Un test est un indice, pas une garantie : fixez votre risque.',
-                  'كل استراتيجية ربحات ≥ 55% ف 2 سنين ما شافتهومش ف الضبط. الاختبار دليل، ماشي ضمانة: حدد المخاطرة ديالك.')}</p>
+                {data.smc && <SmcSection data={data.smc} lang={lang} drawnId={drawn ? `${drawn.family}-${drawn.id}` : null} onDraw={draw} />}
+                <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">{t('Each proven plan won ≥ 55 % on 2 years of history it was never tuned on. A test is evidence, not a guarantee: set your own risk.',
+                  'Chaque plan prouvé a gagné ≥ 55 % sur 2 ans d’historique jamais vu pendant son réglage. Un test est un indice, pas une garantie : fixez votre risque.',
+                  'كل خطة مجربة ربحات ≥ 55% ف 2 سنين ما شافتهومش ف الضبط. الاختبار دليل، ماشي ضمانة: حدد المخاطرة ديالك.')}</p>
               </>
             )}
           </section>

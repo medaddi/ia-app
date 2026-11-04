@@ -305,7 +305,8 @@ def strategy_d(m5, st5, fv5, h1v: H1View, cost: float, fmt) -> tuple[list, list]
                 swing = (min(m5[j].low for j in range(i, k0 + 1)) if d > 0 else max(m5[j].high for j in range(i, k0 + 1)))
                 sl = swing - cost if d > 0 else swing + cost
                 tp = ah if d > 0 else al
-                s = _setup("D", d, k0, m5, entry, sl, tp, steps + [("M5 CHoCH with an FVG", True, f"gap {fmt(g[1])} – {fmt(g[2])}")], cost)
+                s = _setup("D", d, k0, m5, entry, sl, tp, steps + [("M5 CHoCH with an FVG", True, f"gap {fmt(g[1])} – {fmt(g[2])}")], cost,
+                           {"geo": {"box": (ah, al, m5[asia[0]].time, m5[asia[-1]].time + M5S), "sweep": (level, x.time), "gap": (g[1], g[2], m5[i].time)}})
                 if s:
                     setups.append(s)
                 else:
@@ -349,7 +350,8 @@ def strategy_b(m5, st5, fv5, cost: float, fmt) -> tuple[list, list]:
                 sl = swing - cost if d > 0 else swing + cost
                 steps2 = steps + [("M5 CHoCH with an FVG", True, f"gap {fmt(g[1])} – {fmt(g[2])}"),
                                   ("Entry in " + ("premium" if d < 0 else "discount") + " of the previous day", inzone, f"entry {fmt(entry)} vs EQ {fmt(eq)}")]
-                s = _setup("B", d, k0, m5, entry, sl, eq, steps2, cost) if inzone else None
+                s = _setup("B", d, k0, m5, entry, sl, eq, steps2, cost,
+                           {"geo": {"pd": (pdh, pdl, m5[prev[0]].time), "sweep": (level, x.time), "gap": (g[1], g[2], m5[i].time)}}) if inzone else None
                 if s:
                     setups.append(s)
                 else:
@@ -468,7 +470,9 @@ def strategy_ac(sid: str, m5, st5, fv5, h1v: H1View, cost: float, fmt) -> tuple[
             entry = g[2] if d > 0 else g[1]
             swing = min(m5[j].low for j in range(tap, k0 + 1)) if d > 0 else max(m5[j].high for j in range(tap, k0 + 1))
             sl = swing - cost if d > 0 else swing + cost
-            s = _setup("A", d, k0, m5, entry, sl, p["ext"], steps2 + [st_sw, ("M5 CHoCH with an FVG", True, f"gap {fmt(g[1])} – {fmt(g[2])}")], cost)
+            s = _setup("A", d, k0, m5, entry, sl, p["ext"], steps2 + [st_sw, ("M5 CHoCH with an FVG", True, f"gap {fmt(g[1])} – {fmt(g[2])}")], cost,
+                       {"geo": {"ob": (zone[1], zone[0], h1v.c[p["ob"]].time), "sweep": (m5[sw].low if d > 0 else m5[sw].high, m5[sw].time),
+                                "gap": (g[1], g[2], m5[tap].time)}})
             if s:
                 setups.append(s)
         else:
@@ -492,7 +496,8 @@ def strategy_ac(sid: str, m5, st5, fv5, h1v: H1View, cost: float, fmt) -> tuple[
                 continue
             entry = zone[1] if d > 0 else zone[0]
             sl = zone[0] - cost if d > 0 else zone[1] + cost
-            s = _setup("C", d, idm, m5, entry, sl, p["ext"], steps + [("M5 inducement swept", True, f"at {_hm(m5[idm].time)} UTC")], cost)
+            s = _setup("C", d, idm, m5, entry, sl, p["ext"], steps + [("M5 inducement swept", True, f"at {_hm(m5[idm].time)} UTC")], cost,
+                       {"geo": {"ob": (zone[1], zone[0], h1v.c[p["ob"]].time), "sweep": (m5[idm].low if d > 0 else m5[idm].high, m5[idm].time)}})
             if s:
                 setups.append(s)
     return setups, watch
@@ -535,7 +540,8 @@ def strategy_e(m5, fv5, h1v: H1View, cost: float, fmt) -> tuple[list, list]:
             if not tgt:
                 continue
             sl = x.high + cost if d < 0 else x.low - cost
-            sres = _setup("E", d, k0, m5, mid, sl, tgt[0], steps2, cost)
+            sres = _setup("E", d, k0, m5, mid, sl, tgt[0], steps2, cost,
+                          {"geo": {"candle": (x.high, x.low, x.time), "sweep": (level, x.time), "gap": (g[1], g[2], x.time)}})
             if sres:
                 setups.append(sres)
             else:
@@ -652,7 +658,8 @@ def smc_now(m5, h1, cost: float, spec: dict, price: float, lot_fn, news=None) ->
             row["setup"] = {"direction": "BUY" if d > 0 else "SELL", "entryType": "LIMIT", "entry": round(live["entry"], dec), "sl": round(live["sl"], dec),
                             "tp": round(live["tp"], dec), "rr": round(live["rr"], 2), "since": live["time"],
                             "validUntil": live["time"] + EXPIRY[sid] * M5S, "slPips": round(abs(live["entry"] - live["sl"]) / pip, 1),
-                            "lots": lot_fn(live["entry"], live["sl"]), "rNow": round(r.get("rNow", 0), 2)}
+                            "lots": lot_fn(live["entry"], live["sl"]), "rNow": round(r.get("rNow", 0), 2), "filled": r["state"] == "ACTIVE",
+                            "geo": {**live.get("geo", {}), "eq": (lambda rg: rg[1] if rg else None)(h1v.range_mid(h1v.closed_at(live["time"])))}}
             fails = [a.split(" · ", 1)[-1] for a, ok, _ in chk if not ok]
             row["reason"] = (f"Every rule and the 7 questions met at {_hm(live['time'])} UTC: limit {fmt(live['entry'])} valid until {_hm(live['time'] + EXPIRY[sid] * M5S)} UTC"
                              if r["state"] == "PENDING" and passed else

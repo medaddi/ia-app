@@ -8,7 +8,6 @@ import { fmtMoney, fmtR, tr } from './ui';
 import type { Stats, Today, Trade } from './AccountView';
 import { TradeProgress } from './TradeProgress';
 import { AnalyzeButton } from './AnalyzePanel';
-import { SmcButton } from './SmcPanel';
 
 // ---------------------------------------------------------------- API shape (/api/dashboard)
 
@@ -640,7 +639,7 @@ export function DashboardView({ lang, onOpenChart }: { lang: Language; onOpenCha
                     <div className="mt-2 text-xs text-slate-500">{t('Last trade', 'Dernier trade', 'آخر صفقة')}: <span className={tone(m.lastTrade.r)}>{m.lastTrade.outcome ?? stateLabel(m.symbol, m.lastTrade.state)} {m.lastTrade.r !== null ? r2(m.lastTrade.r) : ''}</span></div>
                   )}
                   {!m.dataOk && <p className="mt-2 text-xs text-amber-300/80 line-clamp-2">{m.dataReason}</p>}
-                  <div className="mt-2.5 flex justify-end gap-1.5"><SmcButton symbol={m.symbol} lang={lang} compact /><AnalyzeButton symbol={m.symbol} lang={lang} compact /></div>
+                  <div className="mt-2.5 flex justify-end"><AnalyzeButton symbol={m.symbol} lang={lang} compact onShowChart={() => onOpenChart(m.symbol)} /></div>
                 </motion.div>
               );
             })}

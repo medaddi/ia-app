@@ -132,7 +132,10 @@ def _check(ind: _Ind, s: dict, spec: dict, price: float, now: int) -> dict:
                        last={"direction": "BUY" if sd > 0 else "SELL", "at": when, "result": hit})
             return out
         done = (price - e) / risk * sd if risk else 0  # R already made from the entry
-        setup = {"direction": "BUY" if sd > 0 else "SELL", "entry": round_to(e, d), "sl": round_to(sl, d), "tp": round_to(tp, d), "rr": s["rr"],
+        hi_i, lo_i = ind.channel(s["p"]["n"], i)
+        side = (1 if sd > 0 else -1) * (1 if s["fam"] == "breakout" else -1)  # +1: the close crossed the channel high
+        geo = {"level": round_to(hi_i if side > 0 else lo_i, d), "side": side, "n": s["p"]["n"], "t0": c[max(0, i - s["p"]["n"])].time}
+        setup = {"geo": geo, "direction": "BUY" if sd > 0 else "SELL", "entry": round_to(e, d), "sl": round_to(sl, d), "tp": round_to(tp, d), "rr": s["rr"],
                  "since": when, "closeBy": when + s["mb"] * TF_SEC[s["tf"]], "rNow": round(done, 2),
                  "slPips": round(risk / pip, 1), "lots": lot_table(spec, e, sl, 1, [500, 1000, 5000, 10000])}
         late = done > 0.5 * s["rr"]
@@ -208,3 +211,35 @@ async def analyse_smc(pair: str) -> dict:
     out = smc_now(m5, h1, cost, spec, price, lambda e, s: lot_table(spec, e, s, 1, [500, 1000, 5000, 10000]), news)
     return {"success": True, "symbol": pair, "price": price, "priceSource": live.get("source"), "at": now,
             "marketOpen": market_session_status(pair)["isOpen"], "decimals": spec["decimals"], **out}
+
+
+async def analyse_all(pair: str) -> dict:
+    """The one Analyse button: the proven plans AND the SMC strategies checked on the latest closed candles, the setup that
+    applies now picked (a proven plan's SETUP first, else an SMC setup CONFIRMED by its rules and the 7 questions), and the
+    drawing of each setup for the pair's chart."""
+    import asyncio
+
+    from .drawing import plan_drawing, smc_drawing
+
+    plan, smc = await asyncio.gather(analyse(pair), analyse_smc(pair))
+    if not plan.get("success"):
+        return plan
+    spec = AGENT_CONFIGS[pair]["spec"]
+    sym, pip, price = spec["symbol"], spec["pipSize"], plan["price"]
+    for r in plan["strategies"]:
+        r["draw"] = plan_drawing(sym, r, price, pip) if r["status"] in ("SETUP", "LATE") else None
+    if smc.get("success"):
+        for r in smc["strategies"]:
+            r["draw"] = smc_drawing(sym, r, price, pip) if r.get("setup") else None
+    pick = next((("plan", r) for r in plan["strategies"] if r["status"] == "SETUP"), None) or \
+        next((("smc", r) for r in (smc.get("strategies") or []) if r["status"] == "CONFIRMED"), None)
+    n_plan = sum(r["status"] == "SETUP" for r in plan["strategies"])
+    n_smc = sum(r["status"] == "CONFIRMED" for r in (smc.get("strategies") or []))
+    if pick:
+        fam, r = pick
+        verdict = (f"Applies now: {r['name']} ({'proven plan' if fam == 'plan' else 'SMC, every rule and the 7 questions met'}) · "
+                   f"{r['setup']['direction']} {r['setup']['entry']}" + (f" · {n_plan + n_smc - 1} more" if n_plan + n_smc > 1 else ""))
+    else:
+        verdict = "No strategy applies right now: each one is waiting for its conditions"
+    return {**plan, "verdict": verdict, "smc": smc if smc.get("success") else None,
+            "pick": {"family": pick[0], "id": pick[1]["id"], "draw": pick[1]["draw"]} if pick else None}

@@ -42,14 +42,14 @@ async def exunu_candles(symbol: str = "XAU/USD", timeframe: str = "15M", count: 
 
 @router.get("/analyze")
 async def analyze_pair(symbol: str = "XAU/USD", _=Depends(current_user)):
-    """The "Analyse" button: the pair now and every library strategy checked on the latest closed candles (one request)."""
+    """The "Analyse" button: the proven plans and the SMC strategies checked now, the one that applies picked and drawn."""
     from ..agents.registry import AGENT_CONFIGS
-    from ..analysis.engine import analyse
+    from ..analysis.engine import analyse_all
 
     sym = normalize_symbol(symbol)
     if sym not in AGENT_CONFIGS:
         raise HTTPException(404, f"{sym} is not traded by the app")
-    return await analyse(sym)
+    return await analyse_all(sym)
 
 
 @router.get("/analyze/smc")

@@ -5,7 +5,7 @@ import { chartSpec, type InstrumentSymbol } from '../instruments';
 import { SmcChart, type SmcChartCandle } from './SmcChart';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { AnalyzeButton } from './AnalyzePanel';
-import { SmcButton } from './SmcPanel';
+import { useAnalysisDrawing, withAnalysis } from '../analysisDrawing';
 
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
 
@@ -19,7 +19,8 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
   const [candles, setCandles] = useState<SmcChartCandle[]>([]);
   const [updatedAt, setUpdatedAt] = useState(0);
   const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);
-  const { overlay } = useAgentOverlay(symbol, 10000);
+  const { overlay: agentOverlay } = useAgentOverlay(symbol, 10000);
+  const overlay = withAnalysis(agentOverlay, useAnalysisDrawing(symbol));  // the Analyse button's setup, when drawn
   const tvChart = useChartingLibrary();
 
   const load = useCallback(async () => {
@@ -53,7 +54,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
             {lang === 'ar' ? 'فتح هاد الزوج' : lang === 'fr' ? 'Ouvrir cette paire' : 'Open this pair'} →
           </button>
         )}
-        <span className="flex items-center gap-1.5"><SmcButton symbol={symbol} lang={lang as any} compact /><AnalyzeButton symbol={symbol} lang={lang as any} compact /></span>
+        <AnalyzeButton symbol={symbol} lang={lang as any} compact />
       </div>
     </div>
   );

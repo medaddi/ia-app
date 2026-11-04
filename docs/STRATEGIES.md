@@ -89,9 +89,16 @@ of its chart), `metrics` (spread, ATR, session, confluence tag), `zones`, `price
 `tradeExecutionBox`. It is in every strategy result (`overlay`) and at `GET /api/agents/overlay?symbol=`. A chart renders
 only its own agent's state, in the single view and in the 4-chart split screen.
 
-## 4b. The SMC button (`analysis/smc_setups.py`, `GET /api/analyze/smc`)
+## 4b. The Analyse button (`analysis/engine.py` `analyse_all`, `GET /api/analyze`)
 
-Next to **Analyse**, every pair has an **SMC** button: the Smart Money Concepts course coded mechanically on closed M5 /
+Each pair has **one Analyse button**. Pressed, it checks every strategy on the latest closed candles: the proven plans
+of the library (`analysis/library.py`) **and** the SMC strategies below. It picks the one that applies now (a proven
+plan's SETUP first, else an SMC setup CONFIRMED by its rules and the 7 questions) and **draws it on the pair's chart**
+(`analysis/drawing.py` → `frontend/src/analysisDrawing.ts`): the trade box (entry, stop, target), the level that was
+crossed or swept, the Asian range / previous day high-low, the entry FVG or OB, the H1 50 %. Any other setup can be
+drawn with its own "Draw on chart" button; "Clear" removes it.
+
+The SMC strategies (`analysis/smc_setups.py`): the Smart Money Concepts course coded mechanically on closed M5 /
 H1 candles (no lookahead). Swings by the **valid pullback** rule (the leg's "mother" candle becomes a swing only when a
 later candle trades beyond its other end; inside bars are pauses), BOS / CHoCH on a **body close**, a **wick** beyond a
 level is a sweep (the level moves to the wick tip), FVG, OB with its 4 conditions, IDM, premium / discount.

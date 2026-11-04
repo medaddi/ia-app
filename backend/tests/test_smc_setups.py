@@ -94,3 +94,18 @@ def test_the_limit_order_life():
     assert r["state"] == "WIN" and abs(r["r"] - 2.0) < 1e-9
     c4 = c + [Candle(5 * M5, 1.0, 1.02, 1.0, 1.015)]  # the target is reached before the limit fills: missed
     assert simulate(c4, 0, 1, 0.99, 0.98, 1.01, 12, 0)["state"] == "MISSED"
+
+
+def test_the_analyse_drawing_of_a_confirmed_smc_setup():
+    from app.analysis.drawing import plan_drawing, smc_drawing
+    m5, h1 = asian_sweep_market(1.0960, 0.0060, lambda k: 1.1280 - 0.0001 * k + 0.0010 * math.sin(k / 3))
+    now = smc_now(m5, h1, COST, SPEC, m5[-1].close, lambda e, sl: {"1000$": 0.1})
+    row = now["strategies"][0]
+    d = smc_drawing("EURUSD", row, m5[-1].close, 0.0001)
+    assert {z["category"] for z in d["zones"]} == {"ASIAN_BOX", "FVG_BEAR"} and {l["category"] for l in d["priceLines"]} >= {"BSL", "EQUILIBRIUM"}
+    box = d["tradeExecutionBox"]
+    assert box["direction"] == "SHORT" and box["orderType"] == "LIMIT" and box["status"] == "PENDING" and box["entryPrice"] == row["setup"]["entry"]
+    plan = {"id": "P", "name": "plan", "timeframe": "H1", "status": "SETUP",
+            "setup": {"direction": "BUY", "entry": 1.1, "sl": 1.09, "tp": 1.12, "rr": 2, "since": DAY, "geo": {"level": 1.098, "side": -1, "n": 10, "t0": DAY - 36000}}}
+    p = plan_drawing("EURUSD", plan, 1.101, 0.0001)
+    assert p["priceLines"][0]["startPrice"] == 1.098 and p["tradeExecutionBox"]["orderType"] == "MARKET" and p["tradeExecutionBox"]["floatingPips"] == 10.0
