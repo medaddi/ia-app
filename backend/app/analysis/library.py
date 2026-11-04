@@ -17,10 +17,11 @@ def _s(id_, name, tf, fam, rr, mb, tuned, unseen, **p):
 
 
 LIBRARY: dict[str, list[dict]] = {
-    "XAU/USD": [
-        _s("XAU-BO40", "Trend breakout · 40 candles", "H4", "breakout", 1.25, 30, (43, 62.8, 17.1), (25, 72.0, 15.4), n=40, sl=2.0),
-        _s("XAU-BO20", "Trend breakout · 20 candles, ADX ≥ 20", "H4", "breakout", 1.25, 30, (42, 61.9, 14.2), (30, 63.3, 13.3), n=20, sl=2.0, adx=20),
-        _s("XAU-BO10", "Trend breakout · 10 candles, ADX ≥ 20", "H4", "breakout", 1.25, 30, (51, 58.8, 13.4), (39, 59.0, 14.2), n=10, sl=2.0, adx=20),
+    "XAU/USD": [  # fast gold: every trade closed within 3 hours (2 or 4 hours held up as well)
+        _s("XAU-ASIA-BO", "Asian breakout · 40 candles, 00–06 GMT", "H1", "breakout", 1.5, 3, (68, 61.8, 12.2), (38, 63.2, 9.6), n=40, sl=1.5, hours=(0, 6)),
+        _s("XAU-LDN-DIP", "London dip in the trend · 5 candles, 07–11 GMT", "H1", "fade", 1.25, 3, (59, 55.9, 11.9), (46, 60.9, 9.0), n=5, sl=1.0, hours=(7, 11), trend="with"),
+        _s("XAU-ASIA-BO20", "Asian breakout · 20 candles, ADX ≥ 20, 00–06 GMT", "H1", "breakout", 1.5, 3, (65, 60.0, 12.8), (36, 61.1, 9.5), n=20, sl=1.0, hours=(0, 6), adx=20),
+        _s("XAU-LDN-DIP35", "London dip in the trend · ADX < 35, 07–11 GMT", "H1", "fade", 1.25, 3, (42, 57.1, 9.4), (37, 59.5, 8.1), n=5, sl=0.75, hours=(7, 11), adx=35, trend="with"),
     ],
     "EUR/USD": [
         _s("EUR-ASIA", "Asian fade · 10 hours, ADX < 35", "H1", "fade", 1.0, 48, (129, 58.9, 16.3), (90, 56.7, 6.1), n=10, sl=2.0, hours=(0, 6), adx=35),

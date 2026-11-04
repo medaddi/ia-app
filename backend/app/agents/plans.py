@@ -5,7 +5,8 @@ tuned on the first 60 % of 2 years of H1 / H4 (win ≥ 55 %, expectancy ≥ +0.0
 agreed (with the pair's spread + slippage, the stop counted first, one trade at a time). A closer target wins more often
 and earns less per win; a loss always costs 1R.
 
-  XAU/USD  trends      → H4 breakout of the 40-candle channel in the EMA50 / EMA200 trend · 1.25R
+  XAU/USD  fast        → H1, every trade closed within 3 h: Asian breakout in the trend (00–06 GMT, 1.5R) + London
+                         dip fade in the EMA200 trend (07–11 GMT, 1.25R)
   EUR/USD  mixed       → H1 fade of a close beyond the 10-hour channel, 00–06 GMT, ADX < 35 · 1R
   GBP/USD  mixed       → H1 fade beyond the 40-hour channel in the trend's direction (EMA200), ADX < 35 · 1.25R
   EUR/CHF  reverting   → H1 fade of a close beyond the 10-hour channel, 00–06 GMT · 0.75R
@@ -18,26 +19,34 @@ USD/CAD, NZD/USD and NZD/CAD: no plan held up on the unseen part with a high win
 from .channel import ChannelAgent
 
 
-class GoldBreakoutAgent(ChannelAgent):
+class GoldFastAgent(ChannelAgent):
+    """Fast gold: every trade is closed within 3 hours (its stop, its target, or at market after 3 H1 candles)."""
     symbol = "XAUUSD"
-    agent_id = "XAUUSD_TrendBreakout_Agent"
-    name = "TrendBreakout"
-    tf = "H4"
-    history = 3200
-    timeframes = {"bias": "H4", "setup": "H4", "entry": "H4"}
-    rule, channel, sl_atr, target_r, max_bars = "breakout", 40, 2.0, 1.25, 30
-    profile = {"character": "trending", "follow": 40, "fade": 28, "tf": "H4"}
-    why = ("Gold trends: a close beyond its 40-candle H4 channel in the EMA50 / EMA200 trend keeps going. The agent buys strength "
-           "in an uptrend and sells weakness in a downtrend, never against the trend, with a wide 2 ATR stop and a close 1.25R "
-           "target the move usually reaches: about 2 trades in 3 won on the history it never saw.")
-    steps = ["Trend: EMA50 above EMA200 on H4 for buys, below for sells",
-             "Entry: an H4 close beyond the 40-candle high (buys) / low (sells): MARKET at that close",
-             "Stop 2 × ATR(14, H4) · one target at 1.25R · closed at market after 30 H4 candles (5 days)",
+    agent_id = "XAUUSD_FastIntraday_Agent"
+    name = "FastIntraday"
+    tf = "H1"
+    history = 12500
+    timeframes = {"bias": "H1", "setup": "H1", "entry": "H1"}
+    legs = (
+        {"label": "Asian breakout", "rule": "breakout", "channel": 40, "sl_atr": 1.5, "hours": (0, 6), "target_r": 1.5, "max_bars": 3},
+        {"label": "London dip", "rule": "fade", "channel": 5, "sl_atr": 1.0, "hours": (7, 11), "trend_side": True, "target_r": 1.25, "max_bars": 3},
+    )
+    profile = {"character": "trending", "follow": 40, "fade": 28, "tf": "H1"}
+    why = ("Fast gold, in and out within 3 hours. In the Asian hours (00–06 GMT) an H1 close beyond the 40-hour channel in the "
+           "EMA50 / EMA200 trend keeps running: the agent trades the breakout with it (stop 1.5 ATR, target 1.5R). At the London "
+           "open (07–11 GMT) the first push often overshoots: an H1 close beyond the 5-hour range against the EMA200 trend is a dip "
+           "(or a rally) the agent fades in the trend's direction (stop 1 ATR, target 1.25R). Whatever happens, a trade is closed "
+           "at market after 3 H1 candles: never a trade that lasts days.")
+    steps = ["Asian breakout · 00:00–06:00 GMT (01:00–07:00 Morocco): EMA50 above EMA200 and an H1 close above the 40-candle high buys; "
+             "EMA50 below EMA200 and a close below the 40-candle low sells · stop 1.5 × ATR(14, H1) · target 1.5R",
+             "London dip · 07:00–11:00 GMT (08:00–12:00 Morocco): price above EMA200 and an H1 close below the 5-candle low buys the dip; "
+             "below EMA200 and a close above the 5-candle high sells the rally · stop 1 × ATR(14, H1) · target 1.25R",
+             "Entry MARKET at that H1 close · one target · closed at market after 3 H1 candles (3 hours) at the latest",
              "One trade at a time: while a trade runs, the agent manages it and takes no other"]
-    test = {"tuned": {"trades": 43, "winRate": 62.8, "totalR": 17.1, "tp2R": None},
-            "unseen": {"trades": 25, "winRate": 72.0, "totalR": 15.4, "tp2R": None}, "costsX2": 32.1,
-            "neighbours": "every neighbouring setting (channel, stop, target, time limit) positive on both parts"}
-    note = "Few trades (about 3 a month): a high win rate, a slow pace"
+    test = {"tuned": {"trades": 126, "winRate": 58.7, "totalR": 22.9, "tp2R": None},
+            "unseen": {"trades": 84, "winRate": 61.9, "totalR": 18.6, "tp2R": None}, "costsX2": 37.4,
+            "neighbours": "every neighbouring setting of each leg (channel, stop, target, 2 or 4 hour limit) positive on both parts"}
+    note = "Fast trades only: about 2 a week, each closed within 3 hours"
 
 
 class EurAsianFadeAgent(ChannelAgent):

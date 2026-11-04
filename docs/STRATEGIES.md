@@ -11,7 +11,7 @@ settings agreed (the pair's spread + slippage, the stop counted first, one trade
 
 | Pair | Agent | Plan | Target | App replay (~2 years) | Unseen 40 % |
 |---|---|---|---|---|---|
-| XAU/USD | `XAUUSD_TrendBreakout_Agent` | H4 close beyond the 40-candle channel in the EMA50 / EMA200 trend · SL 2 ATR · 30 candles | 1.25R | 56 trades · **62.5 %** · +22.3R · PF 2.14 · DD 3.1R | 25 trades · 72 % · +15.4R |
+| XAU/USD | `XAUUSD_FastIntraday_Agent` | **Fast, every trade closed within 3 h** (3 H1 candles). Asian breakout 00–06 GMT: H1 close beyond the 40-candle channel in the EMA50 / EMA200 trend · SL 1.5 ATR · 1.5R. London dip 07–11 GMT: H1 close beyond the 5-candle range against the EMA200 side, faded in the trend · SL 1 ATR · 1.25R | 1.25–1.5R | 210 trades · **60.0 %** · +41.9R · PF 1.75 · DD 3.9R | 84 trades · 61.9 % · +18.6R |
 | EUR/USD | `EURUSD_AsianFade_Agent` | H1 fade of the 10-hour channel, 00–06 GMT, ADX < 35 · SL 2 ATR · 48 candles | 1R | 212 trades · **57.1 %** · +21.6R · PF 1.23 · DD 6.7R | 90 trades · 56.7 % · +6.1R |
 | GBP/USD | `GBPUSD_TrendPullback_Agent` | H1 fade of the 40-hour channel in the trend's direction (EMA200), ADX < 35 · SL 1.5 ATR · 48 candles | 1.25R | 75 trades · **60.0 %** · +21.6R · PF 1.68 · DD 3.8R | 29 trades · 65.5 % · +11.1R |
 | EUR/CHF | `EURCHF_AsianFade_Agent` | H1 fade of the 10-hour channel, 00–06 GMT · SL 1 ATR · 24 candles | 0.75R | 131 trades · **67.9 %** · +17.4R · PF 1.39 · DD 3.9R | 64 trades · 79.7 % · +15.0R |
@@ -51,7 +51,14 @@ takes **one trade at a time** (while a trade runs it manages it and takes no oth
 an ATR multiple, one target (its plan's R), closed at market at the plan's time limit. No partials, no break-even.
 States: `IDLE` (outside its hours) · `ARMED` (watching the channel) · `COOLDOWN` (a strong trend for a fade) · `IN_TRADE`.
 
-- **Gold** trends: it buys a close above its 40-candle H4 high in an uptrend (sells the mirror), never against the trend.
+- **Gold** is traded fast: every trade is closed within 3 hours (its stop, its target, or at market after 3 H1 candles).
+  Two legs, one trade at a time: in the **Asian hours (00–06 GMT)** it buys a close above its 40-hour high in an uptrend
+  (sells the mirror), never against the trend; at the **London open (07–11 GMT)** it buys a close below its 5-hour low
+  above EMA200 (sells a close above its 5-hour high below it): the first push often overshoots and comes back. The
+  afternoon and New York hours had no fast edge on gold, so it does not trade them. Search: breakout and fade, channels
+  5–40, stops 0.5–1.5 ATR, targets 0.5–1.5R, held 2, 3 or 4 hours, in 6 session windows (21,600 combinations); both
+  legs and every one-step neighbour of their settings were positive on the tuned and the unseen part, and with double
+  costs (+37.4R). The 2-year test is on H1: free M5 / M15 history only goes back ~60 days, too short to prove a plan.
 - **EUR/USD, EUR/CHF** fade a close beyond their 10-hour channel in the quiet Asian hours (00–06 GMT), when the move has
   no volume behind it.
 - **GBP/USD** buys a close below its 40-hour low only above EMA200 (a dip in an uptrend), sells a close above its 40-hour

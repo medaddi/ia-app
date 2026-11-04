@@ -17,7 +17,7 @@ export const isInstrument = (s: string | undefined | null): s is InstrumentSymbo
 export interface ChartSpec { entryTf: string; timeframes: string[]; emas: number[]; emaNote: string }
 const H1_SPEC = { entryTf: 'H1', timeframes: ['M15', 'M30', 'H1', 'H4', 'D1'], emas: [50, 200] };
 export const CHART_SPEC: Record<InstrumentSymbol, ChartSpec> = {
-  'XAU/USD': { entryTf: 'H4', timeframes: ['M30', 'H1', 'H4', 'D1', 'W1'], emas: [50, 200], emaNote: 'trend on H4' },  // XAUUSD_TrendBreakout_Agent: 40-candle H4 breakout in the trend
+  'XAU/USD': { ...H1_SPEC, emaNote: 'trend on H1' },  // XAUUSD_FastIntraday_Agent: Asian breakout + London dip on H1, every trade closed within 3 h
   'EUR/USD': { ...H1_SPEC, emaNote: 'context on H1' },  // EURUSD_AsianFade_Agent: 10-hour channel fade, 00–06 GMT, ADX < 35
   'GBP/USD': { ...H1_SPEC, emaNote: 'trend on H1' },  // GBPUSD_TrendPullback_Agent: 40-hour fade in the trend's direction (EMA200)
   'EUR/CHF': { ...H1_SPEC, emaNote: 'context on H1' },  // EURCHF_AsianFade_Agent: 10-hour channel fade, 00–06 GMT

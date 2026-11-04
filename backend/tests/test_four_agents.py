@@ -48,16 +48,29 @@ def range_market(last_open, base, amp, step=H1, n=320):
     return c
 
 
-def trend_market(base=3000.0, step=H4, channel=40):
-    """Gold: an uptrend (EMA50 > EMA200), a flat zig-zag, then a close well above the channel high."""
+def trend_market(base=3000.0, step=H1, channel=40, last_open=DAY + 2 * H1):
+    """Gold: an uptrend (EMA50 > EMA200), a flat zig-zag, then a close well above the channel high (opening at `last_open`)."""
     n = 320
-    t0 = DAY + 8 * H4 - (n - 1) * step
+    t0 = last_open - (n - 1) * step
     c = []
     for i in range(n - 1):
         m = base + 2.0 * min(i, 250) + 3 * math.sin(i)
         c.append(Candle(t0 + i * step, m - 1, m + 4, m - 4, m + 1, 0))
     top = max(x.high for x in c[-channel:])
     c.append(Candle(t0 + (n - 1) * step, top - 1, top + 30, top - 2, top + 25, 0))
+    return c
+
+
+def gold_dip_market(last_open, base=3000.0):
+    """Gold: an uptrend far above EMA200, then an H1 close below the 5-hour low (opening at `last_open`)."""
+    n = 320
+    t0 = last_open - (n - 1) * H1
+    c = []
+    for i in range(n - 1):
+        m = base + 2.0 * min(i, 250) + 3 * math.sin(i)
+        c.append(Candle(t0 + i * H1, m - 1, m + 4, m - 4, m + 1, 0))
+    low = min(x.low for x in c[-5:])
+    c.append(Candle(last_open, c[-1].close, c[-1].close + 1, low - 12, low - 10, 0))
     return c
 
 
@@ -91,14 +104,14 @@ def test_instrument_normalisation_and_primitives():
 
 # ------------------------------------------------------------------ the 6 agents
 PAIRS = ["XAU/USD", "EUR/USD", "GBP/USD", "EUR/CHF", "AUD/CAD", "AUD/CHF"]
-TARGET = {"XAU/USD": 1.25, "EUR/USD": 1.0, "GBP/USD": 1.25, "EUR/CHF": 0.75, "AUD/CAD": 0.75, "AUD/CHF": 0.75}
+TARGET = {"XAU/USD": (1.25, 1.5), "EUR/USD": 1.0, "GBP/USD": 1.25, "EUR/CHF": 0.75, "AUD/CAD": 0.75, "AUD/CHF": 0.75}
 
 
 def test_the_six_agents_and_their_high_win_plans():
     assert list(AGENTS) == list(STRATEGY_DEFS) == PAIRS
     for pair, ag in AGENTS.items():
         u, t = ag.test["unseen"], ag.test["tuned"]
-        assert ag.target_range == (TARGET[pair], TARGET[pair]) and ag.tf in ("H1", "H4") and AGENT_CONFIGS[pair]["live"]
+        assert ag.target_range == (TARGET[pair] if isinstance(TARGET[pair], tuple) else (TARGET[pair], TARGET[pair])) and ag.tf in ("H1", "H4") and AGENT_CONFIGS[pair]["live"]
         assert u["winRate"] >= 55 and t["winRate"] >= 55 and u["totalR"] > 0 and ag.test["costsX2"] > 0  # held up on unseen history
     assert AGENT_CONFIGS["XAU/USD"]["style"] == "trend" and AGENT_CONFIGS["AUD/CAD"]["style"] == "reversal"
     # EUR/USD and EUR/CHF trade 00–06 GMT (01:00–07:00 Morocco): a candle opened 02:00 GMT may signal at its 03:00 close
@@ -107,15 +120,32 @@ def test_the_six_agents_and_their_high_win_plans():
     assert STRATEGY_DEFS["AUD/CAD"].canSignalAt(DAY + 12 * H1)  # any hour
 
 
-def test_gold_h4_breakout_in_the_trend_and_its_chart():
-    r = run("XAU/USD", trend_market())
+def test_gold_fast_asian_breakout_closed_within_3_hours():
+    ag = AGENTS["XAU/USD"]
+    assert ag.tf == "H1" and ag.max_bars == 3 and all(p.max_bars == 3 for p in ag.plan)  # never a trade that lasts days
+    r = run("XAU/USD", trend_market())  # 02:00 GMT: the Asian breakout leg
     s = r["setup"]
     assert r["status"] == "SIGNAL" and r["canNotify"] and s["direction"] == "BUY" and s["entryType"] == "MARKET"
-    assert abs(s["rrTarget"] - 1.25) < 0.05 and s["params"]["maxBars"] == 30 and s["params"]["partials"] == [0, 0, 1] and not s["params"]["breakeven"]
-    assert any("Trend up" in w for w in s["anchors"]["pair"]["why"]) and validate_signal(r)["approved"]
+    assert abs(s["rrTarget"] - 1.5) < 0.05 and s["params"]["maxBars"] == 3 and s["params"]["partials"] == [0, 0, 1] and not s["params"]["breakeven"]
+    why = s["anchors"]["pair"]["why"]
+    assert any("Asian breakout" in w for w in why) and any("Trend up" in w for w in why) and any("(3 h)" in w for w in why)
+    assert validate_signal(r)["approved"]
     ov = r["overlay"]
-    assert ov["agentId"] == "XAUUSD_TrendBreakout_Agent" and ov["fsmState"] == "IN_TRADE" and ov["tradeExecutionBox"]
+    assert ov["agentId"] == "XAUUSD_FastIntraday_Agent" and ov["fsmState"] == "IN_TRADE" and ov["tradeExecutionBox"]
     assert any(m["text"] == "BREAKOUT" for m in ov["markers"])
+    late = run("XAU/USD", trend_market(last_open=DAY + 14 * H1))  # the same breakout at 14:00 GMT: no fast-gold edge
+    assert not (late["setup"] and late["setup"]["isFresh"])
+
+
+def test_gold_fast_london_dip_in_the_trend():
+    r = run("XAU/USD", gold_dip_market(DAY + 8 * H1))  # 08:00 GMT, price above EMA200: the dip is bought
+    s = r["setup"]
+    assert r["status"] == "SIGNAL" and s["direction"] == "BUY" and abs(s["rrTarget"] - 1.25) < 0.05 and s["params"]["maxBars"] == 3
+    assert any("London dip" in w for w in s["anchors"]["pair"]["why"]) and validate_signal(r)["approved"]
+    assert STRATEGY_DEFS["XAU/USD"].canSignalAt(DAY + 3 * H1) and STRATEGY_DEFS["XAU/USD"].canSignalAt(DAY + 9 * H1)
+    assert not STRATEGY_DEFS["XAU/USD"].canSignalAt(DAY + 15 * H1)  # the afternoon: no gold trade
+    off = run("XAU/USD", gold_dip_market(DAY + 15 * H1))
+    assert not (off["setup"] and off["setup"]["isFresh"]) and off["overlay"]["fsmState"] in ("IDLE", "ARMED", "IN_TRADE")
 
 
 def test_eur_fades_only_in_the_asian_hours():

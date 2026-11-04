@@ -111,7 +111,7 @@ def _check(ind: _Ind, s: dict, spec: dict, price: float, now: int) -> dict:
     d = spec["decimals"]
     out = {"id": s["id"], "name": s["name"], "timeframe": s["tf"], "family": s["fam"], "targetR": s["rr"], "maxBars": s["mb"], "test": s["test"]}
     # the most recent signal whose trade could still be running (within its time limit)
-    for i in range(last, max(210, last - s["mb"]) - 1, -1):
+    for i in range(last, max(210, last - s["mb"] + 1) - 1, -1):  # entered at the close of i, out by the close of i + mb
         sd = _signal(ind, s, i)
         if not sd:
             continue

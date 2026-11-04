@@ -129,7 +129,7 @@ def test_bot_commands(monkeypatch):
     assert "resumed" in say("/resume").lower()
     assert "XAU/USD" in say("/history") and "+1.75R" in sent[-1]
     assert "All time" in say("/stats") and "Win rate" in sent[-1]
-    assert "XAUUSD_TrendBreakout_Agent" in say("/rules") and "control your risk" in sent[-1]
+    assert "XAUUSD_FastIntraday_Agent" in say("/rules") and "control your risk" in sent[-1]
     assert "/pairs" in say("/help") and "/news" in sent[-1]
     assert "/gold · XAU/USD" in say("/pairs") and "/eurusd · EUR/USD" in sent[-1]  # the pair commands, tappable
     assert "No trade running" in say("/open")
