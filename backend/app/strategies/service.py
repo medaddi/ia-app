@@ -1,7 +1,6 @@
 """
-Strategy service: the 4 autonomous pair agents (app/agents/registry.py), one per chart:
-  XAU/USD → XAUUSD_Sovereign_SMC_Agent M5 · EUR/USD → EURUSD_AsianSweep_FVG_Agent M5
-  GBP/USD → GBPUSD_LondonJudas_SMT_Agent M5 (+ EUR/USD for SMT) · AUD/CHF → AUDCHF_MeanReversion_Range_Agent H1 (H4 range)
+Strategy service: the 6 pair agents (app/agents/registry.py), one per chart, each on its high-win-rate plan proven on
+2 years of H1 / H4 (gold H4 breakout; EUR/USD, GBP/USD, EUR/CHF, AUD/CAD, AUD/CHF H1 fades).
 Fetches real candles, computes today's trade/loss count by replaying the agent itself on today's closed candles
 (deterministic, survives restarts), runs the agent now and caches its result and its chart overlay.
 """
@@ -26,7 +25,7 @@ PROVIDER_TF = {"M5": "5M", "M15": "15M", "M30": "30M", "H1": "1H", "H4": "4H", "
 
 
 def _agent_def(pair: str) -> StrategyDef:
-    # The pair's own agent, decided at every close of its timeframe (M5 for XAU/USD, EUR/USD, GBP/USD; H1 for AUD/CHF)
+    # The pair's own agent, decided at every close of its timeframe (H4 for gold, H1 for the forex pairs)
     ag, cfg = AGENTS[pair], AGENT_CONFIGS[pair]
     tf = ag.tf
     return StrategyDef(entryTf=tf, run=partial(evaluate_agent, agent=ag, cfg=cfg), tfs=[tf], limits={tf: ag.history},

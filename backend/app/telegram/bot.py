@@ -675,10 +675,10 @@ def _market_text() -> str:
 
 def _rules_text() -> str:
     """/rules: each pair's agent and its steps, from its config (the rules the code runs)."""
-    flags = {"XAU/USD": "🥇", "EUR/USD": "💶", "GBP/USD": "💷", "AUD/CHF": "🇦🇺"}
+    flags = {"XAU/USD": "🥇", "EUR/USD": "💶", "GBP/USD": "💷", "EUR/CHF": "🇨🇭", "AUD/CAD": "🇨🇦", "AUD/CHF": "🇦🇺"}
     lines = ["<b>How the signals work</b>",
-             "🤖 4 autonomous agents, one per pair, each with its own strategy and its own chart. Sessions in UTC+1 (Morocco time).",
-             "🎛 One trade at a time per pair, one target at 2R. You control your risk: set it with /risk (e.g. /risk 50 or /risk 1%), "
+             f"🤖 {len(PAIR_CONFIGS)} autonomous agents, one per pair, each with its own strategy and its own chart. Sessions in UTC+1 (Morocco time).",
+             "🎛 One trade at a time per pair, one target per plan (0.75R–1.25R, chosen for a high win rate). You control your risk: set it with /risk (e.g. /risk 50 or /risk 1%), "
              "every signal comes with your lot. News and correlated USD trades come as notes, never as a block."]
     for pair, c in PAIR_CONFIGS.items():
         steps = "; ".join(html.escape(x) for x in c["steps"])

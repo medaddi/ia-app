@@ -1,12 +1,13 @@
 """
-The base of the 4 pair agents: a channel plan proven on 2 years (tuned on the first 60 %, judged on the last 40 % it never
+The base of the pair agents: a channel plan proven on 2 years (tuned on the first 60 %, judged on the last 40 % it never
 saw, docs/STRATEGIES.md), run like a disciplined trader:
 
   it reads the market first   the trend (EMA50 vs EMA200), the volatility against its usual level, the session, the
                               channel the plan watches and how far price is from it
   it acts only on its edge    a close beyond the channel: with the trend (breakout, gold) or against the stretch (fade)
   one trade at a time         while a trade runs the agent manages it and takes no other (as in the test)
-  it plans the exit first     stop at an ATR multiple, one target at 2R, closed at market at the plan's time limit
+  it plans the exit first     stop at an ATR multiple, one target (its plan's R: closer targets win more often), closed at
+                              market at the plan's time limit
 
 FSM: IDLE (outside its hours) · ARMED (watching the channel) · COOLDOWN (a strong trend for a fade) · IN_TRADE.
 """
@@ -15,6 +16,7 @@ from typing import Optional
 
 from ..core.quant_primitives import adx, atr, ema
 from .base import BEAR, BULL, PairAgent, context, line, marker
+from .smc import smc_view
 
 TARGET_R = 2.0
 
@@ -43,18 +45,20 @@ class ChannelAgent(PairAgent):
     sl_atr = 1.0
     hours: Optional[tuple[int, int]] = None  # GMT
     adx_max: Optional[float] = None
+    trend_side = False  # a fade only in the trend's direction: buy a dip above EMA200, sell a rally below it
+    target_r = TARGET_R
     max_bars = 48
     test: dict = {}
     note: Optional[str] = None
     entry_types = ("MARKET",)
-    target_range = (TARGET_R, TARGET_R)
     min_bars = 260
 
     def __init__(self):
         super().__init__()
         self.windows = utc1_windows(self.hours)
+        self.target_range = (self.target_r, self.target_r)
         self.params = {"channel": self.channel, "slAtr": self.sl_atr, "hours": list(self.hours) if self.hours else None,
-                       "adxMax": self.adx_max, "maxBars": self.max_bars, "targetR": TARGET_R}
+                       "adxMax": self.adx_max, "trendSide": self.trend_side, "maxBars": self.max_bars, "targetR": self.target_r}
 
     def session_name(self, minute: int) -> str:
         if not self.hours:
@@ -88,11 +92,10 @@ class ChannelAgent(PairAgent):
             return None
         if self.adx_max and (ax[i] is None or ax[i] >= self.adx_max):
             return None
-        if x.close > hi[i]:
-            return {"buy": False, "level": hi[i]}
-        if x.close < lo[i]:
-            return {"buy": True, "level": lo[i]}
-        return None
+        sig = {"buy": False, "level": hi[i]} if x.close > hi[i] else {"buy": True, "level": lo[i]} if x.close < lo[i] else None
+        if sig and self.trend_side and (e200[i] is None or sig["buy"] != (x.close > e200[i])):
+            return None  # a dip is bought only above EMA200, a rally sold only below it
+        return sig
 
     def _why(self, sig: dict, x, a: float, ax, e50, e200) -> list[str]:
         n, buy, lvl = self.channel, sig["buy"], sig["level"]
@@ -107,7 +110,9 @@ class ChannelAgent(PairAgent):
                 out.append(f"Inside the {self.hours[0]:02d}:00–{self.hours[1]:02d}:00 GMT window: thin market, no volume behind the move")
             if self.adx_max:
                 out.append(f"ADX {ax:.0f} < {self.adx_max:g}: no strong trend to run over the fade")
-        out.append(f"Stop {self.sl_atr:g} × ATR ({self.pips(self.sl_atr * a):.1f} pips) · one target at {TARGET_R:g}R · out after {self.max_bars} candles")
+            if self.trend_side:
+                out.append(f"With the trend: price {'above' if buy else 'below'} EMA200 {e200:.5g}, a {'dip bought' if buy else 'rally sold'}")
+        out.append(f"Stop {self.sl_atr:g} × ATR ({self.pips(self.sl_atr * a):.1f} pips) · one target at {self.target_r:g}R · out after {self.max_bars} candles")
         return out
 
     # ---------------------------------------------------------------- the trader's read of the market now
@@ -161,11 +166,11 @@ class ChannelAgent(PairAgent):
             entry = x.close
             sl = entry - risk if buy else entry + risk
             tp = lambda k: entry + k * risk if buy else entry - k * risk  # noqa: E731
-            tp3 = tp(TARGET_R)
+            tp3 = tp(self.target_r)
             busy_until = self._exit_index(c, i, buy, sl, tp3, self.max_bars)
             label = "BREAKOUT" if self.rule == "breakout" else "FADE"
             setups.append({
-                "index": i, "time": x.time, "buy": buy, "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": tp(1.0), "tp2": tp(1.5), "tp3": tp3,
+                "index": i, "time": x.time, "buy": buy, "entryType": "MARKET", "entry": entry, "sl": sl, "tp1": tp(0.5 * self.target_r), "tp2": tp(0.75 * self.target_r), "tp3": tp3,
                 "partials": [0, 0, 1], "breakeven": False, "beOffset": 0, "expiryBars": None, "cancelLevel": None, "maxBars": self.max_bars,
                 "session": self.session_name((x.time // 60 + 60) % 1440), "tag": f"{label} {self.channel}",
                 "draw": {"zones": [], "priceLines": [line(f"{self.symbol}-LVL-{x.time}", "MSS_BREAK", c[i - n].time, x.time, sig["level"], None,
@@ -178,4 +183,8 @@ class ChannelAgent(PairAgent):
         t0, t1 = c[max(0, last - n)].time, c[last].time + 3600 * 24
         lines = [line(f"{self.symbol}-HI-{c[last].time}", "SESSION_HIGH", t0, t1, hi[last], None, f"{n}-candle high"),
                  line(f"{self.symbol}-LO-{c[last].time}", "SESSION_LOW", t0, t1, lo[last], None, f"{n}-candle low")] if hi[last] is not None else []
-        return {"setups": setups, "context": context(state, banner, self.session_name((c[last].time // 60 + 60) % 1440), tag, [], lines)}
+        # the SMC view of the same candles: structure, liquidity, order block, FVG (context drawn on the chart, never a signal)
+        smc = smc_view(c, self.symbol, 3600 if self.tf == "H1" else 14400)
+        ctx = context(state, banner, self.session_name((c[last].time // 60 + 60) % 1440), tag, smc["zones"], lines + smc["lines"], smc["markers"])
+        ctx["smc"] = {"trend": smc["trend"], "summary": smc["summary"]}
+        return {"setups": setups, "context": ctx}

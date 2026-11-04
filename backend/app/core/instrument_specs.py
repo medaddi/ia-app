@@ -8,6 +8,8 @@ XAUUSD: 1 pip = $0.10, so $1.00 = 10 pips.
 INSTRUMENT_CONFIG = {
     "EURUSD": {"pip_size": 0.0001, "decimals": 5, "max_spread_pips": 1.5, "contract_size": 100000, "display": "EUR/USD"},
     "GBPUSD": {"pip_size": 0.0001, "decimals": 5, "max_spread_pips": 2.2, "contract_size": 100000, "display": "GBP/USD"},
+    "EURCHF": {"pip_size": 0.0001, "decimals": 5, "max_spread_pips": 2.5, "contract_size": 100000, "display": "EUR/CHF"},
+    "AUDCAD": {"pip_size": 0.0001, "decimals": 5, "max_spread_pips": 3.0, "contract_size": 100000, "display": "AUD/CAD"},
     "AUDCHF": {"pip_size": 0.0001, "decimals": 5, "max_spread_pips": 3.0, "contract_size": 100000, "display": "AUD/CHF"},
     "XAUUSD": {"pip_size": 0.10, "decimals": 2, "max_spread_pips": 3.5, "contract_size": 100, "display": "XAU/USD"},  # $1.00 = 10 pips
 }

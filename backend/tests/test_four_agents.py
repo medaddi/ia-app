@@ -48,20 +48,28 @@ def range_market(last_open, base, amp, step=H1, n=320):
     return c
 
 
-def trend_market(base=3000.0):
-    """Gold: an uptrend (EMA50 > EMA200), a flat zig-zag, then an H1 close well above the 20-hour high."""
-    t0 = DAY + 14 * H1 - 319 * H1
+def trend_market(base=3000.0, step=H4, channel=40):
+    """Gold: an uptrend (EMA50 > EMA200), a flat zig-zag, then a close well above the channel high."""
+    n = 320
+    t0 = DAY + 8 * H4 - (n - 1) * step
     c = []
-    for i in range(319):
-        m = base + 0.5 * min(i, 250) + 3 * math.sin(i)
-        c.append(Candle(t0 + i * H1, m - 1, m + 4, m - 4, m + 1, 0))
-    top = max(x.high for x in c[-20:])
-    c.append(Candle(t0 + 319 * H1, top - 1, top + 12, top - 2, top + 10, 0))
+    for i in range(n - 1):
+        m = base + 2.0 * min(i, 250) + 3 * math.sin(i)
+        c.append(Candle(t0 + i * step, m - 1, m + 4, m - 4, m + 1, 0))
+    top = max(x.high for x in c[-channel:])
+    c.append(Candle(t0 + (n - 1) * step, top - 1, top + 30, top - 2, top + 25, 0))
     return c
 
 
-def gbp_market():
-    return range_market(DAY + 8 * H4, 1.3000, 0.0020, step=H4, n=300)
+def dip_market(base=1.3000):
+    """GBP/USD: a steady uptrend (price far above EMA200), a quiet top, then an H1 close below the 40-hour low."""
+    n = 320
+    t0 = DAY + 9 * H1 - (n - 1) * H1
+    cl = [base + 0.0004 * min(k, 260) + 0.0003 * math.sin(k / 3) for k in range(n - 1)]
+    c = build(t0, cl, base, 0.00003, H1)
+    low = min(x.low for x in c[-40:])
+    c.append(Candle(t0 + (n - 1) * H1, c[-1].close, c[-1].close + 0.0001, low - 0.0012, low - 0.0010, 0))
+    return c
 
 
 # ------------------------------------------------------------------ instruments and primitives
@@ -81,49 +89,63 @@ def test_instrument_normalisation_and_primitives():
     assert ob and seq[ob.index].close > seq[ob.index].open
 
 
-# ------------------------------------------------------------------ the 4 agents
-def test_the_four_agents_and_their_plans():
-    assert list(AGENTS) == list(STRATEGY_DEFS) == ["XAU/USD", "EUR/USD", "GBP/USD", "AUD/CHF"]
+# ------------------------------------------------------------------ the 6 agents
+PAIRS = ["XAU/USD", "EUR/USD", "GBP/USD", "EUR/CHF", "AUD/CAD", "AUD/CHF"]
+TARGET = {"XAU/USD": 1.25, "EUR/USD": 1.0, "GBP/USD": 1.25, "EUR/CHF": 0.75, "AUD/CAD": 0.75, "AUD/CHF": 0.75}
+
+
+def test_the_six_agents_and_their_high_win_plans():
+    assert list(AGENTS) == list(STRATEGY_DEFS) == PAIRS
     for pair, ag in AGENTS.items():
-        assert ag.target_range == (2.0, 2.0) and ag.test["unseen"]["totalR"] > 0 and ag.test["costsX2"] > 0  # held up on unseen history
-        assert ag.tf in ("H1", "H4") and AGENT_CONFIGS[pair]["live"]
-    assert AGENT_CONFIGS["XAU/USD"]["style"] == "trend" and AGENT_CONFIGS["EUR/USD"]["style"] == "reversal"
-    # EUR/USD trades 00–06 GMT (01:00–07:00 Morocco): a candle opened 02:00 GMT may signal at its 03:00 close, 09:00 may not
-    assert STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 3 * H1) and not STRATEGY_DEFS["EUR/USD"].canSignalAt(DAY + 10 * H1)
-    assert STRATEGY_DEFS["AUD/CHF"].canSignalAt(DAY + 24 * H1) and not STRATEGY_DEFS["AUD/CHF"].canSignalAt(DAY + 12 * H1)
+        u, t = ag.test["unseen"], ag.test["tuned"]
+        assert ag.target_range == (TARGET[pair], TARGET[pair]) and ag.tf in ("H1", "H4") and AGENT_CONFIGS[pair]["live"]
+        assert u["winRate"] >= 55 and t["winRate"] >= 55 and u["totalR"] > 0 and ag.test["costsX2"] > 0  # held up on unseen history
+    assert AGENT_CONFIGS["XAU/USD"]["style"] == "trend" and AGENT_CONFIGS["AUD/CAD"]["style"] == "reversal"
+    # EUR/USD and EUR/CHF trade 00–06 GMT (01:00–07:00 Morocco): a candle opened 02:00 GMT may signal at its 03:00 close
+    for p in ("EUR/USD", "EUR/CHF"):
+        assert STRATEGY_DEFS[p].canSignalAt(DAY + 3 * H1) and not STRATEGY_DEFS[p].canSignalAt(DAY + 10 * H1)
+    assert STRATEGY_DEFS["AUD/CAD"].canSignalAt(DAY + 12 * H1)  # any hour
 
 
-def test_gold_breakout_in_the_trend_one_2r_target_and_its_chart():
+def test_gold_h4_breakout_in_the_trend_and_its_chart():
     r = run("XAU/USD", trend_market())
     s = r["setup"]
     assert r["status"] == "SIGNAL" and r["canNotify"] and s["direction"] == "BUY" and s["entryType"] == "MARKET"
-    assert abs(s["rrTarget"] - 2.0) < 0.05 and s["params"]["maxBars"] == 48 and s["params"]["partials"] == [0, 0, 1] and not s["params"]["breakeven"]
+    assert abs(s["rrTarget"] - 1.25) < 0.05 and s["params"]["maxBars"] == 30 and s["params"]["partials"] == [0, 0, 1] and not s["params"]["breakeven"]
     assert any("Trend up" in w for w in s["anchors"]["pair"]["why"]) and validate_signal(r)["approved"]
     ov = r["overlay"]
     assert ov["agentId"] == "XAUUSD_TrendBreakout_Agent" and ov["fsmState"] == "IN_TRADE" and ov["tradeExecutionBox"]
     assert any(m["text"] == "BREAKOUT" for m in ov["markers"])
 
 
-def test_eur_fade_only_in_the_asian_hours():
-    r = run("EUR/USD", range_market(DAY + 2 * H1, 1.1000, 0.0008))  # the stretch opens at 02:00 GMT: faded
+def test_eur_fades_only_in_the_asian_hours():
+    for pair in ("EUR/USD", "EUR/CHF"):
+        r = run(pair, range_market(DAY + 2 * H1, 1.1000, 0.0008))  # the stretch opens at 02:00 GMT: faded
+        s = r["setup"]
+        assert r["status"] == "SIGNAL" and s["direction"] == "BUY" and abs(s["rrTarget"] - TARGET[pair]) < 0.05, pair
+        assert any("00:00–06:00 GMT" in w for w in s["anchors"]["pair"]["why"]) and validate_signal(r)["approved"]
+        r2 = run(pair, range_market(DAY + 10 * H1, 1.1000, 0.0008))  # the same stretch at 10:00 GMT: no trade
+        assert not (r2["setup"] and r2["setup"]["isFresh"]) and r2["overlay"]["fsmState"] in ("IDLE", "ARMED", "IN_TRADE")  # an earlier Asian trade may still run
+
+
+def test_range_fades_at_any_hour():
+    for pair in ("AUD/CAD", "AUD/CHF"):
+        r = run(pair, range_market(DAY + 14 * H1, 0.9000, 0.0010))
+        s = r["setup"]
+        assert r["status"] == "SIGNAL" and s["direction"] == "BUY" and abs(s["rrTarget"] - 0.75) < 0.05 and s["params"]["maxBars"] == 48, pair
+
+
+def test_gbp_buys_a_dip_only_inside_an_uptrend():
+    r = run("GBP/USD", dip_market())
     s = r["setup"]
-    assert r["status"] == "SIGNAL" and s["direction"] == "BUY" and abs(s["rrTarget"] - 2.0) < 0.05 and s["params"]["maxBars"] == 48
-    assert any("00:00–06:00 GMT" in w for w in s["anchors"]["pair"]["why"])
-    r2 = run("EUR/USD", range_market(DAY + 10 * H1, 1.1000, 0.0008))  # the same stretch at 10:00 GMT: no trade
-    assert not (r2["setup"] and r2["setup"]["isFresh"]) and r2["overlay"]["fsmState"] in ("IDLE", "ARMED")
-
-
-def test_audchf_fade_across_midnight():
-    r = run("AUD/CHF", range_market(DAY + 23 * H1, 0.5700, 0.0010))  # 23:00 GMT: inside 22–05
-    assert r["status"] == "SIGNAL" and r["setup"]["direction"] == "BUY" and r["setup"]["params"]["maxBars"] == 48
-
-
-def test_gbp_fade_needs_no_strong_trend():
-    r = run("GBP/USD", gbp_market())
-    assert r["status"] == "SIGNAL" and r["setup"]["direction"] == "BUY" and r["setup"]["params"]["maxBars"] == 12
-    up = build(DAY - 299 * H4, [1.2 + 0.002 * k for k in range(300)], 1.2, 0.0002, H4)  # a strong trend: ADX ≥ 35
-    r2 = run("GBP/USD", up)
-    assert not (r2["setup"] and r2["setup"]["isFresh"]) and r2["overlay"]["fsmState"] == "COOLDOWN"
+    assert r["status"] == "SIGNAL" and s["direction"] == "BUY" and abs(s["rrTarget"] - 1.25) < 0.05
+    assert any("above EMA200" in w for w in s["anchors"]["pair"]["why"])
+    # the same stretch below EMA200 (no uptrend): no buy
+    r2 = run("GBP/USD", range_market(DAY + 9 * H1, 1.3000, 0.0008))
+    assert not (r2["setup"] and r2["setup"]["isFresh"])
+    # a strong trend (ADX ≥ 35): the agent stands aside
+    up = build(DAY - 319 * H1, [1.2 + 0.002 * k for k in range(320)], 1.2, 0.0002, H1)
+    assert run("GBP/USD", up)["overlay"]["fsmState"] == "COOLDOWN"
 
 
 def test_one_trade_at_a_time():
@@ -181,7 +203,7 @@ def test_risk_notes_never_block_and_the_trader_keeps_the_risk():
         add("A", "EUR/USD", "BUY")
         add("B", "XAU/USD", "BUY")  # two short-USD trades not at break-even
         assert usd_exposure("GBP/USD", "BUY", db)["count"] == 2 and usd_exposure("GBP/USD", "SELL", db)["count"] == 0
-        r = run("GBP/USD", gbp_market())
+        r = run("GBP/USD", dip_market())
         sig = r["setup"]["signalTime"]
         news = {**r["news"], "blocked": True, "detail": "USD CPI at 13:30"}
         d = coordinate({**r, "news": news}, db, now=sig + 3)
@@ -265,3 +287,18 @@ def test_the_notification_carries_the_whole_order():
     assert m["body"] == f"Entry {s['entry']:.5f} | SL {s['sl']:.5f} | TP1 {s['tp1']:.5f} | TP2 {s['tp3']:.5f} | LOT 0.25"
     tg = bot.format_signal_message(signal, {"lots": 0.25}).split("\n")
     assert tg[0] == "🟢 <b>BUY | EUR/USD</b>" and not any("Valid until" in x for x in tg)
+
+
+def test_the_smc_view_is_context_never_a_signal():
+    """Exunu's SMC read on an uptrend: swings labelled, a BOS up, liquidity above / below price; it adds no setup."""
+    from app.agents.smc import smc_view
+
+    c = build(DAY, [1.1 + 0.0004 * k + 0.0012 * math.sin(k / 2) for k in range(200)], 1.1, 0.0001, H1)
+    v = smc_view(c, "EURUSD", H1)
+    texts = {m["text"] for m in v["markers"]}
+    assert v["trend"] == "BULLISH" and {"HH", "HL"} <= texts
+    assert any(x["category"] == "BOS" for x in v["lines"]) and any(x["category"] == "SSL" for x in v["lines"])
+    assert all(x["id"].startswith("SMC-") for x in v["zones"] + v["lines"] + v["markers"])
+    r = run("EUR/USD", range_market(DAY + 10 * H1, 1.1000, 0.0008))
+    assert any(z["id"].startswith("SMC-") for z in r["overlay"]["zones"] + r["overlay"]["priceLines"])
+    assert not (r["setup"] and r["setup"]["isFresh"])  # outside its hours: the SMC drawings never make a trade

@@ -5,10 +5,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from './api';
 
-export type TradableSymbol = 'EURUSD' | 'GBPUSD' | 'AUDCHF' | 'XAUUSD';
+export type TradableSymbol = 'EURUSD' | 'GBPUSD' | 'EURCHF' | 'AUDCAD' | 'AUDCHF' | 'XAUUSD';
 export type FsmState = 'IDLE' | 'ARMED' | 'LIQUIDITY_SWEPT' | 'MSS_CONFIRMED' | 'PENDING_ORDER' | 'IN_TRADE' | 'COOLDOWN';
 export type ZoneCategory = 'ASIAN_BOX' | 'LONDON_BOX' | 'FVG_BULL' | 'FVG_BEAR' | 'OB_BULL' | 'OB_BEAR' | 'OTE_GOLD_ZONE' | 'SUPPLY_BAND' | 'DEMAND_BAND';
-export type LineCategory = 'PDH' | 'PDL' | 'SESSION_HIGH' | 'SESSION_LOW' | 'MSS_BREAK' | 'EQUILIBRIUM' | 'DIVERGENCE_LINE';
+export type LineCategory = 'PDH' | 'PDL' | 'SESSION_HIGH' | 'SESSION_LOW' | 'MSS_BREAK' | 'EQUILIBRIUM' | 'DIVERGENCE_LINE'
+  | 'BSL' | 'SSL' | 'BOS' | 'CHOCH';  // the SMC view (backend agents/smc.py): context, never a signal
 
 export interface OverlayZone {
   id: string;

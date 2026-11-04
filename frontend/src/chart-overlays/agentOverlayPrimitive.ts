@@ -10,15 +10,15 @@ import type { IChartApi, ISeriesApi, IPrimitivePaneRenderer, IPrimitivePaneView,
 import type { AgentChartOverlayState, LineCategory, OverlayPriceLine, OverlayZone, ZoneCategory } from '../agentOverlay';
 
 export type OverlayTheme = 'dark' | 'light';
-export type OverlayLayer = 'sessions' | 'zones' | 'structure' | 'markers' | 'trade';
+export type OverlayLayer = 'sessions' | 'zones' | 'structure' | 'markers' | 'trade' | 'smc';
 
 export const ZONE_LAYER: Record<ZoneCategory, OverlayLayer> = {
-  ASIAN_BOX: 'sessions', LONDON_BOX: 'sessions', FVG_BULL: 'zones', FVG_BEAR: 'zones', OB_BULL: 'zones', OB_BEAR: 'zones',
+  ASIAN_BOX: 'sessions', LONDON_BOX: 'sessions', FVG_BULL: 'smc', FVG_BEAR: 'smc', OB_BULL: 'smc', OB_BEAR: 'smc',
   OTE_GOLD_ZONE: 'zones', SUPPLY_BAND: 'zones', DEMAND_BAND: 'zones',
 };
 export const LINE_LAYER: Record<LineCategory, OverlayLayer> = {
   PDH: 'sessions', PDL: 'sessions', SESSION_HIGH: 'sessions', SESSION_LOW: 'sessions', MSS_BREAK: 'structure', EQUILIBRIUM: 'structure',
-  DIVERGENCE_LINE: 'structure',
+  DIVERGENCE_LINE: 'structure', BSL: 'smc', SSL: 'smc', BOS: 'smc', CHOCH: 'smc',
 };
 
 const BULL = '#16C784', BEAR = '#EA3943', GOLD = '#D4AF37';
@@ -31,7 +31,7 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
   private state: AgentChartOverlayState | null = null;
   private barTimes: number[] = [];
   private tfSec = 300;
-  private layers: Record<OverlayLayer, boolean> = { sessions: true, zones: true, structure: true, markers: true, trade: true };
+  private layers: Record<OverlayLayer, boolean> = { sessions: true, zones: true, structure: true, markers: true, trade: true, smc: true };
   private theme: OverlayTheme = 'dark';
   private decimals = 5;
   private readonly bgView: IPrimitivePaneView;

@@ -1,10 +1,12 @@
 """
-The 4 pair agents, one per chart (app/agents/plans.py), each on the plan proven on 2 years of H1 / H4:
+The 6 pair agents, one per chart (app/agents/plans.py), each on its high-win-rate plan proven on 2 years of H1 / H4:
 
-  XAU/USD → XAUUSD_TrendBreakout_Agent   H1 · breakout of the 20-hour channel in the EMA50 / EMA200 trend
-  EUR/USD → EURUSD_AsianFade_Agent       H1 · fade of a close beyond the 10-hour channel, 00–06 GMT
-  GBP/USD → GBPUSD_ChannelFade_Agent     H4 · fade of a close beyond the 10-candle channel, ADX < 35
-  AUD/CHF → AUDCHF_AsianFade_Agent       H1 · fade of a close beyond the 40-hour channel, 22–05 GMT
+  XAU/USD → XAUUSD_TrendBreakout_Agent   H4 · 40-candle breakout in the trend · 1.25R
+  EUR/USD → EURUSD_AsianFade_Agent       H1 · 10-hour fade, 00–06 GMT, ADX < 35 · 1R
+  GBP/USD → GBPUSD_TrendPullback_Agent   H1 · 40-hour fade in the trend's direction, ADX < 35 · 1.25R
+  EUR/CHF → EURCHF_AsianFade_Agent       H1 · 10-hour fade, 00–06 GMT · 0.75R
+  AUD/CAD → AUDCAD_RangeFade_Agent       H1 · 40-hour fade · 0.75R
+  AUD/CHF → AUDCHF_RangeFade_Agent       H1 · 40-hour fade, ADX < 35 · 0.75R
 
 AGENT_CONFIGS holds each pair's app config (spec, filters, risk, scoring) in the shape the rest of the app reads.
 """
@@ -13,14 +15,15 @@ import copy
 
 from ..core.instrument_specs import INSTRUMENT_CONFIG
 from .base import PairAgent
-from .plans import AudChfAsianFadeAgent, EurAsianFadeAgent, GbpChannelFadeAgent, GoldBreakoutAgent
+from .plans import AudCadFadeAgent, AudChfFadeAgent, EurAsianFadeAgent, EurChfAsianFadeAgent, GbpTrendFadeAgent, GoldBreakoutAgent
 
-AGENTS: dict[str, PairAgent] = {"XAU/USD": GoldBreakoutAgent(), "EUR/USD": EurAsianFadeAgent(), "GBP/USD": GbpChannelFadeAgent(),
-                                "AUD/CHF": AudChfAsianFadeAgent()}
+AGENTS: dict[str, PairAgent] = {"XAU/USD": GoldBreakoutAgent(), "EUR/USD": EurAsianFadeAgent(), "GBP/USD": GbpTrendFadeAgent(),
+                                "EUR/CHF": EurChfAsianFadeAgent(), "AUD/CAD": AudCadFadeAgent(), "AUD/CHF": AudChfFadeAgent()}
 
-ASSUMED_SPREAD_PIPS = {"XAUUSD": 2.5, "EURUSD": 1.0, "GBPUSD": 1.5, "AUDCHF": 2.0}  # gold: $0.25 (the costs of the 2-year test)
-SLIPPAGE_PIPS = {"XAUUSD": 0.5, "EURUSD": 0.2, "GBPUSD": 0.2, "AUDCHF": 0.2}
-NEWS_CURRENCIES = {"XAUUSD": ["USD"], "EURUSD": ["EUR", "USD"], "GBPUSD": ["GBP", "USD"], "AUDCHF": ["AUD", "CHF"]}
+ASSUMED_SPREAD_PIPS = {"XAUUSD": 2.5, "EURUSD": 1.0, "GBPUSD": 1.5, "EURCHF": 1.5, "AUDCAD": 2.0, "AUDCHF": 2.0}  # gold: $0.25 (the test's costs)
+SLIPPAGE_PIPS = {"XAUUSD": 0.5, "EURUSD": 0.2, "GBPUSD": 0.2, "EURCHF": 0.2, "AUDCAD": 0.2, "AUDCHF": 0.2}
+NEWS_CURRENCIES = {"XAUUSD": ["USD"], "EURUSD": ["EUR", "USD"], "GBPUSD": ["GBP", "USD"], "EURCHF": ["EUR", "CHF"], "AUDCAD": ["AUD", "CAD"],
+                   "AUDCHF": ["AUD", "CHF"]}
 
 BASE = {
     "version": "4.0.0",

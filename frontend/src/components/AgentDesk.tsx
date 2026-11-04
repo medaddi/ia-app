@@ -65,7 +65,7 @@ export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: Agent
                   <div key={k} className={`rounded-lg border px-2 py-1.5 ${k === 'unseen' ? 'border-gold-500/30 bg-gold-500/[0.05]' : 'border-line bg-white/[0.02]'}`}>
                     <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
                     <div className={`font-mono font-semibold ${x.totalR >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{x.totalR >= 0 ? '+' : ''}{x.totalR}R</div>
-                    <div className="font-mono text-slate-400">{x.trades} · {x.winRate}% · 2R {x.tp2R}%</div>
+                    <div className="font-mono text-slate-400">{x.trades} {t('trades', 'trades', 'صفقة')} · {t('won', 'gagnés', 'ربحات')} {x.winRate}%</div>
                   </div>
                 );
               })}
@@ -80,7 +80,7 @@ export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: Agent
             <span className="icon-tile w-8 h-8 text-slate-300" aria-hidden="true"><ClipboardList className="w-4 h-4" /></span>
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-semibold text-white">{t('Trade manager', 'Gestionnaire de trades', 'مسير الصفقات')}</span>
-              <span className="block text-[11px] text-slate-400">{running.length ? t(`${running.length} trade(s) followed to the 2R target, the stop or the time limit`, `${running.length} trade(s) suivi(s) jusqu’à l’objectif 2R, le stop ou la limite de durée`, `${running.length} صفقة متبوعة حتى الهدف 2R، الستوب ولا نهاية المدة`) : t('No trade running', 'Aucun trade en cours', 'حتى صفقة ما خدامة')}</span>
+              <span className="block text-[11px] text-slate-400">{running.length ? t(`${running.length} trade(s) followed to the target, the stop or the time limit`, `${running.length} trade(s) suivi(s) jusqu’à l’objectif, le stop ou la limite de durée`, `${running.length} صفقة متبوعة حتى الهدف، الستوب ولا نهاية المدة`) : t('No trade running', 'Aucun trade en cours', 'حتى صفقة ما خدامة')}</span>
             </span>
           </div>
           {running.length > 0 && (

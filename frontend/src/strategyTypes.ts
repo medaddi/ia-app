@@ -170,7 +170,7 @@ export interface PairStrategy {
   note?: string | null;
   maxBars?: number | null;
 }
-interface PlanTest { trades: number; winRate: number; totalR: number; tp2R: number }
+interface PlanTest { trades: number; winRate: number; totalR: number; tp2R?: number | null }
 
 export interface ExunuSMCResult {
   terminal: string;

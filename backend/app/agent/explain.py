@@ -26,7 +26,7 @@ def build_explanation(r: dict, lang: str = "en") -> str:
     if lang == "ar":
         parts = [f"الخطة: {ps.get('name', '')} {tf}" + (" (عكس الحركة الممتدة)." if fade else " (مع الاتجاه)."),
                  "السبب: " + "، ".join(why) + ".",
-                 f"الدخول بسعر السوق عند {f(s['entry'])}، الوقف {f(s['sl'])} ({js_str(s['slPips'])} نقطة)، هدف واحد {f(s['tp3'])} (2R).",
+                 f"الدخول بسعر السوق عند {f(s['entry'])}، الوقف {f(s['sl'])} ({js_str(s['slPips'])} نقطة)، هدف واحد {f(s['tp3'])} (1:{to_fixed(s['rrTarget'], 2)}).",
                  f"كتسد الصفقة بالسوق من بعد {bars} شمعة {tf} إلا ما وصلاتش للهدف ولا للوقف.",
                  (f"كتسد بالسوق من بعد {s['params']['maxBars']} شمعة {tf} إلا ما وصلاتش للهدف ولا للستوب." if s["params"].get("maxBars") else ""),
                  f"الإلغاء: {s['invalidation']}.", "الخسارة ممكنة دائماً. لا يوجد ربح مضمون."]

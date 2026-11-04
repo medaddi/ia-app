@@ -27,10 +27,11 @@ def validate_signal(r: dict) -> dict:
 
     dist = abs(s["entry"] - s["sl"])
     cfg = PAIR_CONFIGS[r["spec"]["displaySymbol"]]
-    # The target's R:R: the agent's own range (EUR/USD ≥ 2, GBP/USD 3, AUD/CHF ≥ 1.8), else the app rule 1.5R–2R
+    # The target's R:R: the agent's own target (0.75R–1.25R), else the app rule 1.5R–2R
     lo, hi = cfg.get("targetRange") or (TARGET_MIN_R, TARGET_MAX_R)
     rr_target = rr(s["entry"], s["sl"], s["tp3"])
-    if not (lo - 0.02 <= rr_target <= hi + 0.02):
+    tol = 0.02 + (2 * 10 ** -r["spec"]["decimals"] / dist if dist > 0 else 0)  # the levels are rounded to the price grid
+    if not (lo - tol <= rr_target <= hi + tol):
         issues.append(f"Target at 1:{to_fixed(rr_target, 2)}, outside 1:{js_str(lo)}–1:{js_str(hi)}")
     if not cfg["rule"]:
         issues.append("No validated strategy on this pair")

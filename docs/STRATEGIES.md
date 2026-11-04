@@ -4,19 +4,25 @@ Each instrument is run by **its own agent** (`backend/app/agents/`) with **its o
 chart**. Nothing else creates signals. Same closed candles → same result. Every session time is **UTC+1 (Morocco time)**,
 a fixed offset (`core/quant_primitives.py`, `TZ_OFFSET_SEC`).
 
-Each agent runs the plan its pair's behaviour favours, kept because it held up on the **last 40 % of 2 years of H1 / H4
-it was never tuned on** (with the pair's spread + slippage, the stop counted first, one trade at a time). The M5 SMC
-agents that ran before could only be tested on the ~60 days of M5 the free feed keeps, and placed no filled trade there.
+Each agent runs the plan its pair's behaviour favours, chosen for a **high win rate that still makes money**: tuned on the
+first 60 % of 2 years of H1 / H4 (win ≥ 55 %, expectancy ≥ +0.08R per trade, ≥ 40 trades), kept only if it **also won
+≥ 55 % and made money on the last 40 % it never saw**, stayed positive with double costs, and most of its neighbouring
+settings agreed (the pair's spread + slippage, the stop counted first, one trade at a time).
 
-| Pair | Agent | Decides on | App replay, ~2 years | Unseen 40 % |
-|---|---|---|---|---|
-| XAU/USD | `XAUUSD_TrendBreakout_Agent` | H1 | 223 trades · 44.8 % · **+50.1R** · PF 1.41 · max DD 16.5R | 87 trades · **+31.3R** |
-| EUR/USD | `EURUSD_AsianFade_Agent` | H1, 00–06 GMT | 254 trades · 40.6 % · **+38.6R** · PF 1.24 · max DD 13.9R | 107 trades · **+19.9R** |
-| GBP/USD | `GBPUSD_ChannelFade_Agent` | H4 | 171 trades · 40.8 % · **+20.6R** · PF 1.20 · max DD 10.7R | 80 trades · **+14.3R** |
-| AUD/CHF | `AUDCHF_AsianFade_Agent` | H1, 22–05 GMT | 100 trades · 47.0 % · **+35.3R** · PF 1.63 · max DD 7.6R | 36 trades · **+6.3R** |
+| Pair | Agent | Plan | Target | App replay (~2 years) | Unseen 40 % |
+|---|---|---|---|---|---|
+| XAU/USD | `XAUUSD_TrendBreakout_Agent` | H4 close beyond the 40-candle channel in the EMA50 / EMA200 trend · SL 2 ATR · 30 candles | 1.25R | 56 trades · **62.5 %** · +22.3R · PF 2.14 · DD 3.1R | 25 trades · 72 % · +15.4R |
+| EUR/USD | `EURUSD_AsianFade_Agent` | H1 fade of the 10-hour channel, 00–06 GMT, ADX < 35 · SL 2 ATR · 48 candles | 1R | 212 trades · **57.1 %** · +21.6R · PF 1.23 · DD 6.7R | 90 trades · 56.7 % · +6.1R |
+| GBP/USD | `GBPUSD_TrendPullback_Agent` | H1 fade of the 40-hour channel in the trend's direction (EMA200), ADX < 35 · SL 1.5 ATR · 48 candles | 1.25R | 75 trades · **60.0 %** · +21.6R · PF 1.68 · DD 3.8R | 29 trades · 65.5 % · +11.1R |
+| EUR/CHF | `EURCHF_AsianFade_Agent` | H1 fade of the 10-hour channel, 00–06 GMT · SL 1 ATR · 24 candles | 0.75R | 131 trades · **67.9 %** · +17.4R · PF 1.39 · DD 3.9R | 64 trades · 79.7 % · +15.0R |
+| AUD/CAD | `AUDCAD_RangeFade_Agent` | H1 fade of the 40-hour channel · SL 1 ATR · 48 candles | 0.75R | 376 trades · **67.0 %** · +48.7R · PF 1.37 · DD 7.6R | 165 trades · 70.9 % · +21.5R |
+| AUD/CHF | `AUDCHF_RangeFade_Agent` | H1 fade of the 40-hour channel, ADX < 35 · SL 1.5 ATR · 48 candles | 0.75R | 250 trades · **70.0 %** · +49.9R · PF 1.65 · DD 7.2R | 106 trades · 73.6 % · +20.0R |
 
-Every target is **2R**: a 41–47 % win rate is profitable at 2:1 (break-even 33 %). Past results do not guarantee future
-results.
+**The trade-off:** a closer target wins more often and earns less per win; a loss always costs 1R. So a 70 % win rate at
+0.75R is worth about +0.2R per trade, not a sure thing. No strategy guarantees profit: these are the plans that held
+up on history they were never tuned on. Past results do not guarantee future results.
+
+USD/CAD, NZD/USD and NZD/CAD: no plan won ≥ 55 % and made money on the unseen part, so they are not traded.
 
 ## 1. Instrument normalisation (`core/instrument_specs.py`)
 
@@ -42,39 +48,32 @@ results.
 Each agent works like a disciplined trader: it **reads the market** first (the trend by EMA50 vs EMA200, the volatility
 against its usual level, the session, the channel it watches and how far price is from it), **acts only on its edge**,
 takes **one trade at a time** (while a trade runs it manages it and takes no other), and **plans the exit first**: stop at
-an ATR multiple, one target at 2R, closed at market at the plan's time limit. No partials, no break-even.
+an ATR multiple, one target (its plan's R), closed at market at the plan's time limit. No partials, no break-even.
 States: `IDLE` (outside its hours) · `ARMED` (watching the channel) · `COOLDOWN` (a strong trend for a fade) · `IN_TRADE`.
 
-### XAUUSD_TrendBreakout_Agent (H1)
-Gold trends: a close beyond its channel runs on 40 % of the time against 28 % that comes back.
-1. Trend: EMA50 above EMA200 (H1) for buys, below for sells.
-2. Entry: an H1 close beyond the **20-candle** high (buy) / low (sell) → MARKET at that close.
-3. Stop **2 × ATR(14, H1)** · TP **2R** · closed after **48 H1 candles**.
-- Tuned 142 trades +24.9R · unseen 87 trades +31.3R · every channel (10–55) and stop (1–2 ATR) positive on the unseen part.
-
-### EURUSD_AsianFade_Agent (H1)
-No lean over the day, but a stretch in the quiet Asian hours has no volume behind it and comes back.
-1. Window: the H1 candle opened **00:00–06:00 GMT** (01:00–07:00 Morocco).
-2. Entry: it closes beyond the **10-candle** high (sell) / low (buy) → MARKET at that close.
-3. Stop **1.5 × ATR(14, H1)** · TP **2R** · closed after **48 H1 candles**.
-- Tuned 160 trades +26.3R · unseen 107 trades +19.9R · every Asian window positive on both parts.
-
-### GBPUSD_ChannelFade_Agent (H4)
-H4 closes beyond the channel come back more often than they run, unless a strong trend is under way.
-1. No strong trend: **ADX(14, H4) < 35** (else COOLDOWN).
-2. Entry: an H4 close beyond the **10-candle** high (sell) / low (buy) → MARKET at that close.
-3. Stop **1 × ATR(14, H4)** · TP **2R** · closed after **12 H4 candles** (2 days).
-- Tuned 144 trades +27.4R · unseen 80 trades +14.3R. **Fragile:** only the 10-candle channel with a 1 ATR stop holds.
-
-### AUDCHF_AsianFade_Agent (H1)
-The most reverting pair: a close beyond its channel comes back 43 % of the time against 19 % that runs on.
-1. Window: the H1 candle opened **22:00–05:00 GMT** (23:00–06:00 Morocco).
-2. Entry: it closes beyond the **40-candle** high (sell) / low (buy) → MARKET at that close.
-3. Stop **1 × ATR(14, H1)** · TP **2R** · closed after **48 H1 candles**.
-- Tuned 70 trades +25.7R · unseen 36 trades +6.3R. **The weakest edge of the four.**
+- **Gold** trends: it buys a close above its 40-candle H4 high in an uptrend (sells the mirror), never against the trend.
+- **EUR/USD, EUR/CHF** fade a close beyond their 10-hour channel in the quiet Asian hours (00–06 GMT), when the move has
+  no volume behind it.
+- **GBP/USD** buys a close below its 40-hour low only above EMA200 (a dip in an uptrend), sells a close above its 40-hour
+  high only below it, and stands aside when ADX ≥ 35.
+- **AUD/CAD, AUD/CHF** (commodity / safe-haven crosses that swing in ranges) fade a close beyond their 40-hour channel at
+  any hour; AUD/CHF only while ADX < 35.
 
 Draws (every agent): the channel high / low it watches, the broken level and the `BREAKOUT` / `FADE` marker at the
 signal, and the trade box.
+
+### The SMC view (Exunu's method, `agents/smc.py`) — context, never a signal
+
+The app's original Exunu engine traded Smart Money Concepts, but most of its checks were hard-coded to pass (a sweep was
+"verified" even when none happened, missing order blocks and FVGs were invented, entry was always the current price), so it
+emitted a trade at almost every refresh. Rebuilt with every check real — structure by confirmed 3-bar swings, a sweep of
+the last swing low (high) closed back inside in that trend, the order block before it, entry at market or at the OB, stop
+beyond, target 1R–2R — it **lost on every pair** on 2 years of H1 / H4 (unseen part: gold −6.1R, EUR/USD −7.6R, GBP/USD
+−7.5R, EUR/CHF −17.7R, AUD/CAD −1.5R, AUD/CHF −18.4R; 80 variants per pair, none profitable on both parts).
+
+So the signals stay with the pair agents above, and Exunu's read is drawn on every chart as its own layer
+("SMC view"): swing labels HH / HL / LH / LL, the latest BOS or CHoCH, the untaken buy-side (BSL) and sell-side (SSL)
+liquidity, the order block behind the latest break and the latest unfilled FVG.
 
 ## 4. The chart contract
 

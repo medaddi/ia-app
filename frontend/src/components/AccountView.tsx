@@ -287,7 +287,7 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
                     <div className="text-xs">
                       <div className={`font-semibold ${s.signalType === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`}>{s.signalType} {s.entryType} · {s.symbol}</div>
                       <div className="font-mono text-slate-400">
-                        {/* One target at 2R (older signals: TP2 when they had no TP3) */}
+                        {/* One target (older signals: TP2 when they had no TP3) */}
                         Entry {s.entryPrice} · SL {s.stopLoss} · {`TP ${s.target3 ?? s.target2}`} · score {s.confidence}
                       </div>
                       {rec ? (

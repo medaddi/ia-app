@@ -56,6 +56,7 @@ const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'zones', label: ['Zones (FVG, OB, OTE, supply / demand)', 'Zones (FVG, OB, OTE, offre / demande)', 'المناطق (FVG، OB، OTE)'] },
   { key: 'structure', label: ['Structure (MSS, 50 %, divergence)', 'Structure (MSS, 50 %, divergence)', 'الهيكل (MSS، 50%، دايفرجنس)'] },
   { key: 'markers', label: ['Agent markers', 'Marqueurs de l’agent', 'علامات الوكيل'] },
+  { key: 'smc', label: ['SMC view: structure, liquidity, OB, FVG (context, not a signal)', 'Vue SMC : structure, liquidité, OB, FVG (contexte, pas un signal)', 'قراءة SMC: الهيكل، السيولة، OB، FVG (سياق، ماشي إشارة)'] },
   { key: 'ema', label: ['EMA', 'EMA', 'EMA'] },
   { key: 'trade', label: ['Trade projection', 'Projection du trade', 'إسقاط الصفقة'] },
 ];
@@ -336,6 +337,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     const markers: any[] = [];
     if (overlay && layers.markers && bars.length) {
       for (const m of overlay.markers) {
+        if (m.id.startsWith('SMC-') && !layers.smc) continue;  // the SMC swing labels follow their own layer
         let snap: number | null = null;  // on the bar that contains the marker's time on this timeframe
         for (const b of bars) { if (b.time <= m.time) snap = b.time; else break; }
         if (snap !== null) markers.push({ time: snap as Time, position: m.position, color: m.color, shape: m.shape, text: m.text, size: 1.1 });

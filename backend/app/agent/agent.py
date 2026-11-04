@@ -49,9 +49,13 @@ def symbols_from_question(text: str) -> list[str]:
         wanted.append("EURUSD")
     if "GBPUSD" not in wanted and re.search(r"(gbp|cable|pound|sterling|livre|جنيه|الباوند|باوند)", t):
         wanted.append("GBPUSD")
-    if "AUDCHF" not in wanted and re.search(r"(aussie|\baud\b|\bchf\b|franc)", t):
+    if not any(w.startswith("AUD") for w in wanted) and re.search(r"(aussie|\baud\b)", t):
         wanted.append("AUDCHF")
-    return wanted or ["XAUUSD", "EURUSD", "GBPUSD", "AUDCHF"]
+    if not any(w.endswith("CHF") for w in wanted) and re.search(r"(\bchf\b|franc|swissy)", t):
+        wanted.append("EURCHF")
+    if "AUDCAD" not in wanted and re.search(r"(loonie|\bcad\b)", t):
+        wanted.append("AUDCAD")
+    return wanted or ["XAUUSD", "EURUSD", "GBPUSD", "EURCHF", "AUDCAD", "AUDCHF"]
 
 
 L = {

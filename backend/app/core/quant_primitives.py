@@ -1,5 +1,5 @@
 """
-Shared quantitative primitives of the 4 agents. Everything only looks back, so it is computed once on a series and read
+Shared quantitative primitives of the pair agents. Everything only looks back, so it is computed once on a series and read
 at any candle without look-ahead (a swing is known 2 candles after its pivot, which every caller respects).
 
 In the spec's notation [-1] is the last closed candle; here the same rules are written on absolute indices:

@@ -1,5 +1,5 @@
 """
-Risk notes for the 4 pair agents. Nothing here blocks an order: every setup an agent sees is sent, and each trader
+Risk notes for the pair agents. Nothing here blocks an order: every setup an agent sees is sent, and each trader
 controls their own risk (their $ or % per trade on their account and on Telegram).
 
 What the trader is told with each order (notes, not vetoes):

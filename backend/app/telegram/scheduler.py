@@ -26,7 +26,7 @@ GRACE = 1.2
 RETRY = 2.0
 PUBLISH_WAIT = 30  # seconds after a close to wait for the provider's closed bar within one tick
 MAX_RETRIES = 10
-TICK_TIMEOUT = 40.0  # seconds per pair in a serverless tick (the 4 pairs run in parallel; Vercel Pro allows 60 s+)
+TICK_TIMEOUT = 40.0  # seconds per pair in a serverless tick (the pairs run in parallel; Vercel Pro allows 60 s+)
 
 
 def next_close_sec(now: float, tf_sec: int) -> int:

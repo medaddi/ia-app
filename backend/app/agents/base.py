@@ -1,5 +1,5 @@
 """
-The base of the 4 autonomous pair agents and the drawing contract each one emits for ITS OWN chart
+The base of the pair agents and the drawing contract each one emits for ITS OWN chart
 (AgentChartOverlayState, frontend/src/agentOverlay.ts).
 
 An agent is a deterministic state machine on closed candles. `scan()` returns:
@@ -33,6 +33,8 @@ LINE_STYLE = {
     "PDH": ("SOLID", "#94A3B8"), "PDL": ("SOLID", "#94A3B8"),
     "SESSION_HIGH": ("DASHED", "#D4AF37"), "SESSION_LOW": ("DASHED", "#D4AF37"),
     "MSS_BREAK": ("DOTTED", "#E2E8F0"), "EQUILIBRIUM": ("DASHED", "#C9A04A"), "DIVERGENCE_LINE": ("SOLID", "#A78BFA"),
+    # the SMC view (agents/smc.py): context, never a signal
+    "BSL": ("DOTTED", "#38BDF8"), "SSL": ("DOTTED", "#F472B6"), "BOS": ("SOLID", "#94A3B8"), "CHOCH": ("DASHED", "#FBBF24"),
 }
 BULL, BEAR, GOLD = "#16C784", "#EA3943", "#D4AF37"
 

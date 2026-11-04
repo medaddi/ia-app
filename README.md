@@ -4,7 +4,7 @@ Gold and forex signals from **4 autonomous pair agents**, each with its own dete
 Multi-Agent Risk Coordinator over them, and delivery to the web app, the phone (Web Push) and Telegram, each with the
 lot for the trader's own risk.
 
-- **4 instruments, 4 agents:** XAU/USD, EUR/USD, GBP/USD, AUD/CHF (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
+- **6 instruments, 6 agents:** XAU/USD, EUR/USD, GBP/USD, EUR/CHF, AUD/CAD, AUD/CHF, each on a high-win-rate plan (rules in [docs/STRATEGIES.md](docs/STRATEGIES.md))
 - **Isolated per-chart rendering:** each agent emits its own `AgentChartOverlayState` (zones, lines, markers, trade projection)
 - **Every setup is sent; the trader sets the risk.** News, spread and correlated USD trades come as notes, never as a block
 - **Accounts managed by the admin**; Telegram works only for a linked, approved account
@@ -67,15 +67,18 @@ docs/       STRATEGIES.md — the exact rules of the 4 agents and the risk notes
 
 ## Strategies
 
-Each agent runs the plan proven on 2 years of H1 / H4 (tuned on the first 60 %, judged on the last 40 % it never saw),
-one trade at a time, one target at **2R**, closed at market at its time limit.
+Each agent runs a high-win-rate plan proven on 2 years of H1 / H4 (tuned on the first 60 %, judged on the last 40 % it
+never saw), one trade at a time, one target, closed at market at its time limit. Closer targets win more often and earn
+less per win; no strategy guarantees profit.
 
-| Pair | Agent | Decides on | Entry | Exit | 2-year replay |
+| Pair | Agent | Plan | Target | App replay (~2 years) | Unseen 40 % |
 |---|---|---|---|---|---|
-| XAU/USD | **XAUUSD_TrendBreakout_Agent** | H1 | Close beyond the 20-candle high / low in the EMA50 / EMA200 trend | SL 2 ATR · 2R · 48 candles | 223 trades · 44.8 % · +50.1R |
-| EUR/USD | **EURUSD_AsianFade_Agent** | H1, 00–06 GMT | Close beyond the 10-candle high / low, faded | SL 1.5 ATR · 2R · 48 candles | 254 trades · 40.6 % · +38.6R |
-| GBP/USD | **GBPUSD_ChannelFade_Agent** | H4, ADX < 35 | Close beyond the 10-candle high / low, faded | SL 1 ATR · 2R · 12 candles | 171 trades · 40.8 % · +20.6R |
-| AUD/CHF | **AUDCHF_AsianFade_Agent** | H1, 22–05 GMT | Close beyond the 40-candle high / low, faded | SL 1 ATR · 2R · 48 candles | 100 trades · 47.0 % · +35.3R |
+| XAU/USD | `XAUUSD_TrendBreakout_Agent` | H4 close beyond the 40-candle channel in the EMA50 / EMA200 trend · SL 2 ATR · 30 candles | 1.25R | 56 trades · **62.5 %** · +22.3R · PF 2.14 · DD 3.1R | 25 trades · 72 % · +15.4R |
+| EUR/USD | `EURUSD_AsianFade_Agent` | H1 fade of the 10-hour channel, 00–06 GMT, ADX < 35 · SL 2 ATR · 48 candles | 1R | 212 trades · **57.1 %** · +21.6R · PF 1.23 · DD 6.7R | 90 trades · 56.7 % · +6.1R |
+| GBP/USD | `GBPUSD_TrendPullback_Agent` | H1 fade of the 40-hour channel in the trend's direction (EMA200), ADX < 35 · SL 1.5 ATR · 48 candles | 1.25R | 75 trades · **60.0 %** · +21.6R · PF 1.68 · DD 3.8R | 29 trades · 65.5 % · +11.1R |
+| EUR/CHF | `EURCHF_AsianFade_Agent` | H1 fade of the 10-hour channel, 00–06 GMT · SL 1 ATR · 24 candles | 0.75R | 131 trades · **67.9 %** · +17.4R · PF 1.39 · DD 3.9R | 64 trades · 79.7 % · +15.0R |
+| AUD/CAD | `AUDCAD_RangeFade_Agent` | H1 fade of the 40-hour channel · SL 1 ATR · 48 candles | 0.75R | 376 trades · **67.0 %** · +48.7R · PF 1.37 · DD 7.6R | 165 trades · 70.9 % · +21.5R |
+| AUD/CHF | `AUDCHF_RangeFade_Agent` | H1 fade of the 40-hour channel, ADX < 35 · SL 1.5 ATR · 48 candles | 0.75R | 250 trades · **70.0 %** · +49.9R · PF 1.65 · DD 7.2R | 106 trades · 73.6 % · +20.0R |
 
 Past trades are replayed with the same code (`app/agents/engine.py`), so each pair's TP / SL / break-even record is
 measured, not estimated. Full rules: [docs/STRATEGIES.md](docs/STRATEGIES.md).

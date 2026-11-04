@@ -14,10 +14,12 @@ BANKS = {
 PAIRS = {
     "EUR/USD": (1.0, "EURUSD=X"),
     "GBP/USD": (1.5, "GBPUSD=X"),
+    "EUR/CHF": (1.5, "EURCHF=X"),
+    "AUD/CAD": (2.0, "AUDCAD=X"),
     "AUD/CHF": (2.0, "AUDCHF=X"),
 }
-# Price feeds only (never traded, never shown): EUR/CHF converts AUD/CHF's profit from francs to dollars
-CONVERSION_FEEDS = {"EUR/CHF": "EURCHF=X"}
+# Price feeds only (never traded, never shown): USD/CAD converts AUD/CAD's profit from Canadian dollars to dollars
+CONVERSION_FEEDS = {"USD/CAD": "USDCAD=X"}
 
 NAMES = {"XAU/USD": "Gold / US Dollar", "EUR/USD": "Euro / US Dollar", "GBP/USD": "British Pound / US Dollar",
-         "AUD/CHF": "Australian Dollar / Swiss Franc"}
+         "EUR/CHF": "Euro / Swiss Franc", "AUD/CAD": "Australian Dollar / Canadian Dollar", "AUD/CHF": "Australian Dollar / Swiss Franc"}
