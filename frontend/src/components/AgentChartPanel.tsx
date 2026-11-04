@@ -5,6 +5,7 @@ import { chartSpec, type InstrumentSymbol } from '../instruments';
 import { SmcChart, type SmcChartCandle } from './SmcChart';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { AnalyzeButton } from './AnalyzePanel';
+import { SmcButton } from './SmcPanel';
 
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
 
@@ -52,7 +53,7 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
             {lang === 'ar' ? 'فتح هاد الزوج' : lang === 'fr' ? 'Ouvrir cette paire' : 'Open this pair'} →
           </button>
         )}
-        <AnalyzeButton symbol={symbol} lang={lang as any} compact />
+        <span className="flex items-center gap-1.5"><SmcButton symbol={symbol} lang={lang as any} compact /><AnalyzeButton symbol={symbol} lang={lang as any} compact /></span>
       </div>
     </div>
   );

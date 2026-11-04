@@ -89,6 +89,33 @@ of its chart), `metrics` (spread, ATR, session, confluence tag), `zones`, `price
 `tradeExecutionBox`. It is in every strategy result (`overlay`) and at `GET /api/agents/overlay?symbol=`. A chart renders
 only its own agent's state, in the single view and in the 4-chart split screen.
 
+## 4b. The SMC button (`analysis/smc_setups.py`, `GET /api/analyze/smc`)
+
+Next to **Analyse**, every pair has an **SMC** button: the Smart Money Concepts course coded mechanically on closed M5 /
+H1 candles (no lookahead). Swings by the **valid pullback** rule (the leg's "mother" candle becomes a swing only when a
+later candle trades beyond its other end; inside bars are pauses), BOS / CHoCH on a **body close**, a **wick** beyond a
+level is a sweep (the level moves to the wick tip), FVG, OB with its 4 conditions, IDM, premium / discount.
+
+| | Strategy | Entry |
+|---|---|---|
+| A | Trend continuation: H1 break → IDM swept → fresh H1 OB tapped in discount / premium → M5 sweep + CHoCH + FVG | limit at the M5 FVG, TP the H1 external high / low |
+| B | PDH / PDL wick sweep → M5 CHoCH + FVG in premium / discount | limit at the FVG, TP the previous day's 50 % |
+| C | Supply → demand flip (S2D / D2S) on H1 → M5 inducement swept | limit at the flip zone, TP the push's extreme |
+| D | Asian range (00–06 UTC) swept in the London (07–10) / New York (12–15) killzone → M5 CHoCH + FVG | limit at the FVG, TP the other side of Asia |
+| E | Single candle OB: one H1 candle sweeps a swing with its wick and closes strongly the other way | limit at its 50 % where an M5 FVG sits |
+
+A setup is **CONFIRMED** only when its strategy's rules **and the 7-question master checklist** pass (H1 bias by a body
+close in the trade's direction · IDM / liquidity swept · discount for buys, premium for sells · fresh FVG / OB · LTF
+CHoCH with displacement · London / New York hours, not Friday evening or Monday morning, no high-impact news within 15
+minutes · reward ≥ 3R). One "no" shows **CHECKLIST: NO** with the failing questions. Every order: limit valid 1 h (4 h
+for C), stop first when both levels sit in one candle, closed at market after 4 h, no partials / break-even in the test.
+
+**Test (the M5 history the free feed gives, ~59 trading days, 4 Nov 2026):** all five, 6 pairs: 144 trades, 34.7 % won,
+−19.5R. Only E made money (+4.8R; gold +13.0R on 16 trades). With the 7 questions only 10 setups passed in those days
+and the 5 that filled all lost (−6.3R): far too few to judge either way. The AUD crosses' and EUR/CHF's M5 feed has
+overlapping wicks, so FVGs (and these entries) almost never form there. The SMC button is a rule check, not a proven
+edge: the pair agents (section 3) stay the ones that send the automatic signals.
+
 ## 5. Risk notes (`core/risk_guard.py`) — nothing blocks a setup
 
 Every fresh setup an agent sees is sent. **Each trader controls their own risk**: their $ or % per trade on their

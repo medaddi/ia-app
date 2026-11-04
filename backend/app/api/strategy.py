@@ -52,6 +52,18 @@ async def analyze_pair(symbol: str = "XAU/USD", _=Depends(current_user)):
     return await analyse(sym)
 
 
+@router.get("/analyze/smc")
+async def analyze_pair_smc(symbol: str = "XAU/USD", _=Depends(current_user)):
+    """The "SMC" button: the four mechanical SMC strategies checked now, a confirmed setup when every rule is met."""
+    from ..agents.registry import AGENT_CONFIGS
+    from ..analysis.engine import analyse_smc
+
+    sym = normalize_symbol(symbol)
+    if sym not in AGENT_CONFIGS:
+        raise HTTPException(404, f"{sym} is not traded by the app")
+    return await analyse_smc(sym)
+
+
 @router.post("/exunu/dispatch-telegram")
 async def exunu_dispatch(body: dict = Body(default={}), _=Depends(admin_user)):
     r = await dispatch_setup(body.get("symbol") or "XAU/USD", manual=True)

@@ -6,6 +6,7 @@ import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentDesk, type Consensus } from './AgentDesk';
 import { AgentChartPanel } from './AgentChartPanel';
 import { AnalyzeButton } from './AnalyzePanel';
+import { SmcButton } from './SmcPanel';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { Columns2, Grid2x2 } from 'lucide-react';
 import { PairFlags } from './PairFlags';
@@ -147,6 +148,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             <span className="text-white font-semibold tabular-nums">{result ? result.price.toFixed(result.spec.decimals) : '—'}</span>
           </div>
           <AnalyzeButton symbol={symbol} lang={lang as Language} />
+          <SmcButton symbol={symbol} lang={lang as Language} />
         </div>
       </div>
 

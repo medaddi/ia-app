@@ -177,3 +177,34 @@ async def analyse(pair: str) -> dict:
         "verdict": (f"{len(setups)} setup(s) can be taken now" if setups else "No setup right now: every strategy is waiting"),
         "strategies": rows,
     }
+
+
+async def analyse_smc(pair: str) -> dict:
+    """The "SMC" button: the four mechanical SMC strategies on M5 (H1 context), a confirmed setup when every rule is met."""
+    from ..agents.registry import ASSUMED_SPREAD_PIPS, SLIPPAGE_PIPS
+    from .smc_setups import smc_now
+
+    now = int(time.time())
+    spec = AGENT_CONFIGS[pair]["spec"]
+    live = await fetch_live_price(pair)
+    price = live.get("price") or 0
+    m5 = closed_only((await fetch_candle_series(pair, "5M", 20000, price))["candles"], TF_SEC["M5"], now)
+    h1 = closed_only((await fetch_candle_series(pair, "1H", 12500, price))["candles"], TF_SEC["H1"], now)
+    if len(m5) < 600 or len(h1) < 260:
+        return {"success": False, "symbol": pair, "error": "Not enough history from the feed"}
+    price = price or m5[-1].close
+    sym = spec["symbol"]
+    cost = (ASSUMED_SPREAD_PIPS.get(sym, 1.0) + SLIPPAGE_PIPS.get(sym, 0.2)) * spec["pipSize"]
+    from ..agents.registry import NEWS_CURRENCIES
+    from ..strategies.shared.news import load_news_calendar, news_block
+
+    cal = await load_news_calendar()
+    rule = {"keywords": [], "currencies": NEWS_CURRENCIES.get(sym, ["USD"]), "minutesBefore": 15, "minutesAfter": 15}
+
+    def news(ts: int):
+        hit = news_block(ts, cal.get("events") or [], rule)["event"]
+        return f"{hit.get('currency')} {hit.get('title')}" if hit else None
+
+    out = smc_now(m5, h1, cost, spec, price, lambda e, s: lot_table(spec, e, s, 1, [500, 1000, 5000, 10000]), news)
+    return {"success": True, "symbol": pair, "price": price, "priceSource": live.get("source"), "at": now,
+            "marketOpen": market_session_status(pair)["isOpen"], "decimals": spec["decimals"], **out}
