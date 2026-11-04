@@ -43,8 +43,8 @@ class Settings:
     admin_access_code: str = os.environ.get("ADMIN_ACCESS_CODE") or "admin1234"
     # Recovery: set ADMIN_RESET=true for one deploy to reset the admin's code to ADMIN_ACCESS_CODE, then remove it
     admin_reset: bool = _bool("ADMIN_RESET", False)
-    # A login lasts one hour, then the app asks for the password again (SESSION_MINUTES to change it)
-    session_minutes: int = int(os.environ.get("SESSION_MINUTES", "60"))
+    # A login stays open until the user logs out (or the admin disables the account). SESSION_MINUTES > 0 sets a time limit
+    session_minutes: int = int(os.environ.get("SESSION_MINUTES", "0"))
     telegram_bot_token: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_id: str = os.environ.get("TELEGRAM_CHAT_ID", "")
     gemini_api_key: str = os.environ.get("GEMINI_API_KEY", "")

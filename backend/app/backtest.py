@@ -15,7 +15,6 @@ from .strategies.shared.common import active_window
 from .strategies.shared.jsnum import fmt_utc_minute, iso, round_to
 from .strategies.shared.news import load_news_calendar
 from .strategies.shared.types import TF_SEC
-from .strategies.pairs.config import PAIR_CONFIGS
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -24,13 +23,13 @@ def _cfg(sym: str) -> dict:
     return CONFIGS[sym]
 
 
-def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
+def backtest_on(sym: str, candles: dict, source: str, news: dict, peer: dict | None = None) -> dict:
     d = STRATEGY_DEFS[sym]
     entry = candles.get(d.entryTf) or []
     tf_sec = TF_SEC[d.entryTf]
     warmup = min(len(entry) - 1, 700)
     frm, to = entry[warmup].time, entry[-1].time + tf_sec
-    base = {"candles": candles, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": source, "news": news}
+    base = {"candles": candles, "livePrice": 0, "spread": None, "isRealData": True, "dataSource": source, "news": news, "peer": peer}
     state = replay(d, base, frm, to)
     index_of = {c.time: i for i, c in enumerate(entry)}
     windows = (_cfg(sym).get("sessions") or {}).get("windows", [])  # RSI(2) trades every H4 close: no session windows
@@ -83,8 +82,10 @@ def backtest_on(sym: str, candles: dict, source: str, news: dict) -> dict:
     warnings.append("Spread is a fixed config value (feed has no live spread); real spreads widen around news and rollover.")
     if len(closed) >= 10 and total_r <= 0:
         warnings.append("Net result is negative or flat over this sample.")
-    costs = ({"spread": f"${PAIR_CONFIGS['XAU/USD']['filters']['assumedSpread']}", "slippage": f"${PAIR_CONFIGS['XAU/USD']['filters']['slippage']}"} if sym == "XAU/USD"
-             else {"spread": f"{_cfg(sym)['filters']['assumedSpreadPips']} pips", "slippage": f"{_cfg(sym)['filters']['slippagePips']} pips"})
+    f = _cfg(sym)["filters"]
+    pip = _cfg(sym)["spec"]["pipSize"]
+    costs = ({"spread": f"${f['assumedSpreadPips'] * pip:.2f}", "slippage": f"${f['slippagePips'] * pip:.2f}"} if sym == "XAU/USD"
+             else {"spread": f"{f['assumedSpreadPips']} pips", "slippage": f"{f['slippagePips']} pips"})
     return {
         "symbol": sym, "strategy": _cfg(sym)["name"],
         "period": {"from": iso(frm)[:10], "to": iso(to)[:10], "days": round_to(days, 1)}, "dataSource": source, "costs": costs,
@@ -108,7 +109,7 @@ async def run_backtest(raw_symbol: str) -> dict:
     loaded, news = await asyncio.gather(load_strategy_candles(sym), load_news_calendar())
     if not loaded["isReal"]:
         raise RuntimeError(f"Live feed unavailable for {sym}: cannot backtest on synthetic candles")
-    return await asyncio.to_thread(backtest_on, sym, loaded["candles"], loaded["source"], news)
+    return await asyncio.to_thread(backtest_on, sym, loaded["candles"], loaded["source"], news, loaded.get("peer"))
 
 
 if __name__ == "__main__":

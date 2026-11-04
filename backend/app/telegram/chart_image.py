@@ -14,13 +14,41 @@ from typing import Optional
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from ..market.data import fetch_candle_series
-from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
+from ..strategies.service import get_strategy_result, normalize_symbol
 from ..strategies.shared.types import Candle
 
 BG, PANEL, LINE, GRID = (7, 9, 13), (14, 17, 24), (36, 41, 54), (255, 255, 255, 13)
 TEXT, MUTED, DIM = (236, 240, 245), (148, 158, 175), (98, 106, 122)
 BULL, BEAR, GOLD, GOLD_LIGHT = (22, 199, 132), (234, 57, 67), (201, 160, 74), (239, 217, 154)
 COLOR = {"bull": BULL, "bear": BEAR, "entry": GOLD_LIGHT, "liquidity": GOLD, "muted": (120, 128, 145)}
+
+
+def _rgb(color: str, fallback: tuple = (148, 158, 175)) -> tuple:
+    """'#RRGGBB' or 'rgba(r, g, b, a)' → (r, g, b)."""
+    try:
+        if color.startswith("#") and len(color) >= 7:
+            return tuple(int(color[k:k + 2], 16) for k in (1, 3, 5))
+        if color.startswith("rgb"):
+            return tuple(int(float(v)) for v in color[color.index("(") + 1:color.index(")")].split(",")[:3])
+    except (ValueError, IndexError):
+        pass
+    return fallback
+
+
+def overlay_items(r: dict) -> list[dict]:
+    """The pair agent's chart overlay (zones, price lines, markers) as the picture's boxes / lines / markers."""
+    ov = r.get("overlay") or {}
+    out = []
+    for z in ov.get("zones", []):
+        out.append({"kind": "box", "t1": z["startTime"], "t2": z["endTime"], "p1": z["topPrice"], "p2": z["bottomPrice"], "text": z["label"],
+                    "rgb": _rgb(z["borderColor"])})
+    for ln in ov.get("priceLines", []):
+        out.append({"kind": "hline", "t1": ln["startTime"], "t2": ln["endTime"], "p1": ln["startPrice"], "p2": ln["endPrice"], "text": ln["label"],
+                    "rgb": _rgb(ln["color"]), "style": ln["lineStyle"].lower(), "bold": ln["category"] == "MSS_BREAK"})
+    for m in ov.get("markers", []):
+        out.append({"kind": "marker", "t1": m["time"], "p1": m["price"], "text": m["text"], "rgb": _rgb(m["color"]),
+                    "position": "below" if m["position"] == "belowBar" else "above"})
+    return out
 LIVE = ("PENDING", "OPEN", "TP1_HIT", "TP2_HIT")
 M15 = 900
 
@@ -125,9 +153,10 @@ def render_chart(candles: list[Candle], r: dict, now: Optional[float] = None) ->
         z.line((CX0, yy, CX1, yy), fill=GRID, width=1)
 
     # The strategy's zones (areas of interest) and the trade's target / stop zones
-    for dr in r.get("drawings") or []:
-        if dr["kind"] == "box" and dr["layer"] != "trade" and dr.get("p2") is not None and (inside(dr["p1"]) or inside(dr["p2"])):
-            col = COLOR.get(dr.get("color"), GOLD)
+    items = overlay_items(r)
+    for dr in items:
+        if dr["kind"] == "box" and (inside(dr["p1"]) or inside(dr["p2"])):
+            col = dr["rgb"]
             a, b = sorted((Y(dr["p1"]), Y(dr["p2"])))
             z.rectangle((min(max(CX0, X(dr["t1"])), CX1 - 4), a, CX1, max(b, a + 2)), fill=col + (26,), outline=col + (90,))
     if trade:
@@ -148,27 +177,28 @@ def render_chart(candles: list[Candle], r: dict, now: Optional[float] = None) ->
 
     # The strategy's levels and markers (why it acted), each named
     labels: list[tuple[float, str, tuple]] = []
-    for dr in r.get("drawings") or []:
-        if dr["layer"] == "trade":
-            continue
-        col = COLOR.get(dr.get("color"), MUTED)
+    for dr in items:
+        col = dr["rgb"]
         if dr["kind"] == "hline" and inside(dr["p1"]):
-            yy = Y(dr["p1"])
+            yy, y2 = Y(dr["p1"]), Y(dr["p2"]) if inside(dr["p2"]) else Y(dr["p1"])
             x_from = max(CX0, X(dr["t1"]))
             x_to = CX1 if not dr.get("t2") else min(CX1, X(dr["t2"]) + step)
             if x_to - x_from < 30:  # a level that only starts at the right edge says nothing
                 continue
-            dash = 8 if dr.get("style") in ("dashed", "dotted") else 0
-            if dash:
+            width = 2 if dr.get("bold") else 1
+            if y2 != yy:  # a sloped line (the RSI divergence)
+                g.line((x_from, yy, x_to, y2), fill=col, width=2)
+            elif dr.get("style") in ("dashed", "dotted"):
+                dash = 8 if dr["style"] == "dashed" else 3
                 xx = x_from
                 while xx < x_to:
-                    g.line((xx, yy, min(xx + dash, x_to), yy), fill=col, width=2 if dr["layer"] == "structure" else 1)
-                    xx += dash * 1.7
+                    g.line((xx, yy, min(xx + dash, x_to), yy), fill=col, width=width)
+                    xx += dash * 1.9
             else:
-                g.line((x_from, yy, x_to, yy), fill=col, width=2 if dr["layer"] == "structure" else 1)
+                g.line((x_from, yy, x_to, yy), fill=col, width=width)
             if dr.get("text"):
                 labels.append((yy, _clean(dr["text"]), col))
-        elif dr["kind"] == "box" and dr.get("text") and dr.get("p2") is not None and (inside(dr["p1"]) or inside(dr["p2"])):
+        elif dr["kind"] == "box" and dr.get("text") and (inside(dr["p1"]) or inside(dr["p2"])):
             labels.append((min(Y(dr["p1"]), Y(dr["p2"])) + 2, _clean(dr["text"]), col))
         elif dr["kind"] == "marker" and t0 <= dr["t1"] <= t1 and inside(dr["p1"]):
             mx, my = X(dr["t1"]) + step / 2, Y(dr["p1"])
@@ -398,15 +428,12 @@ async def pair_chart(symbol: str) -> tuple[bytes, str]:
 
 async def trade_pictures(symbol: str) -> list[tuple[bytes, str]]:
     """For a pair with a running trade: its chart (the setup), then its follow-up card. Empty when nothing runs."""
-    from ..agent.agents import manager_agent
-
     sym = normalize_symbol(symbol)
     bundle = await get_strategy_result(sym)
     r = bundle["result"]
     if not _running(r):
         return []
     chart, cap = await pair_chart(sym)
-    manager = manager_agent(r, bundle["candles"].get(STRATEGY_DEFS[sym].entryTf) or [])
-    card = render_card(r, manager)
-    verdict = (manager or {}).get("verdict", "HOLD").replace("_", " ")
+    card = render_card(r, None)
+    verdict = (r.get("overlay") or {}).get("fsmState", "IN_TRADE").replace("_", " ")
     return [(chart, cap), (card, f"📍 <b>Follow-up</b> · {sym} · {verdict}")]

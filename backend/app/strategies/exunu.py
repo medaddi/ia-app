@@ -1,11 +1,8 @@
 """
-EXUNU agent bridge.
-Presents the strategy result of the app's two strategies as the 4-agent EXUNU view
-(Structure, Liquidity, Risk, CTO). The agents run no logic of their own: each one reports its
-part of the same deterministic result the chart and Telegram use.
+Terminal bridge: the pair agent's result (its order, its checklist, its chart overlay) and the Multi-Agent Risk
+Coordinator's decision, in the shape the terminal and Telegram read.
 """
 
-import re
 import time
 from typing import Optional
 
@@ -22,14 +19,6 @@ def _grade(score: float) -> str:
 def _legacy_status(r: dict) -> str:
     """Only a SIGNAL is a confirmed entry."""
     return "CONFIRMED_ENTRY" if r["status"] == "SIGNAL" else "WAITING_CONFIRMATION" if r["status"] == "WATCH" else "NO_SETUP"
-
-
-_LOT_LABEL = re.compile(r" · [0-9.]+ lot / \$1k$")
-
-
-def _without_lot_labels(drawings: list[dict]) -> list[dict]:
-    """The app has no capital setting: drop the strategy's "lot per $1k" note from the trade box labels."""
-    return [{**d, "text": _LOT_LABEL.sub("", d["text"])} if d.get("layer") == "trade" and d.get("text") else d for d in drawings]
 
 
 def build_exunu_result(r: dict) -> dict:
@@ -85,7 +74,7 @@ def build_exunu_result(r: dict) -> dict:
         "agents": {
             "structure_agent": {"agent": "Structure Agent", "summary": structure_summary, "bias": r["bias"]},
             "liquidity_agent": {"agent": "Liquidity Agent", "summary": liquidity_summary},
-            "risk_agent": {"agent": "Risk Agent", "summary": risk_summary, "lots": s["lots"] if s else {}},
+            "risk_agent": {"agent": "Risk Coordinator", "summary": risk_summary, "lots": s["lots"] if s else {}},
             "cto_agent": {"agent": "Chief Trading Officer (CTO)", "summary": cto_summary, "status": r["status"], "score": r["score"],
                           "checklist": r["checklist"], "rejection": r["rejection"], "can_notify": r["canNotify"]},
         },
@@ -98,7 +87,8 @@ def build_exunu_result(r: dict) -> dict:
         "summary_ar": r["headlineAr"],
         "explanation": build_explanation(r),
         "timestamp": now_ms,
-        "strategy": {**r, "drawings": _without_lot_labels(r["drawings"])},
+        "strategy": r,
+        "overlay": r.get("overlay"),
     }
 
 
@@ -107,18 +97,12 @@ async def run_exunu(symbol: str = "XAU/USD", price: Optional[float] = None, as_o
     out = build_exunu_result(bundle["result"])
     r = bundle["result"]
     if as_of <= 0:
-        # The three agents (market analysis, strategy, risk & execution): the same votes decide a Telegram / push send
-        from ..agent.agents import consensus, manager_agent, market_candles
-        from .service import STRATEGY_DEFS
+        # The pair agent's order and its risk notes: a fresh setup is always sent, the trader sets the risk
+        from ..core.risk_guard import coordinate
         from ..db import SessionLocal
-        from .shared.news import load_news_calendar
 
-        news = await load_news_calendar()
         with SessionLocal() as db:
-            out["consensus"] = consensus(r, market_candles(bundle), news["events"], db if r["setup"] else None)
-        market = next((a for a in out["consensus"]["agents"] if a["key"] == "market"), None)
-        entry_c = bundle["candles"].get(STRATEGY_DEFS[normalize_symbol(symbol)].entryTf) or []
-        out["management"] = manager_agent(r, entry_c, market)
+            out["consensus"] = coordinate(r, db if r["setup"] else None)
     return out
 
 

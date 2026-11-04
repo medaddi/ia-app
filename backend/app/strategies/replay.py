@@ -25,6 +25,7 @@ class StrategyDef:
     confirmTf: Optional[str] = None
     # Cheap check on the entry candles up to index i: could the rule fire on that candle? (replay runs the strategy only then)
     trigger: Optional[Callable[[list[Candle], int], bool]] = None
+    peer: Optional[str] = None  # a second pair read at the same time (GBP/USD's agent reads EUR/USD for the SMT check)
 
 
 def decision_tf(d: StrategyDef) -> str:

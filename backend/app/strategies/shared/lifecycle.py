@@ -7,7 +7,7 @@ a SELL fills at bid and exits at ask. Stops get extra slippage. When one candle 
 SL and a target, SL is assumed first (conservative).
 
 `params` keys (camelCase, stored with the setup): side, entryType, entry, sl, tp1, tp2,
-tp3 (None = trail only), expiryTime, marketFillTime, cancelIfTp1BeforeFill, partials, spread, slippage,
+tp3 (None = trail only), expiryTime, marketFillTime, cancelIfTp1BeforeFill (cancelLevel: that level instead of TP1), partials, spread, slippage,
 breakeven (optional, default True: stop to entry at TP1; False = set & forget), maxBars (optional time exit).
 """
 
@@ -66,10 +66,11 @@ def simulate_lifecycle(c: list[Candle], p: dict, start_index: int,
                 events.append({"time": x.time, "type": "EXPIRE", "price": x.open})
                 return res
             touched = (x.low + spread <= p["entry"]) if buy else (x.high >= p["entry"])
-            tp1_first = p["cancelIfTp1BeforeFill"] and ((x.high >= p["tp1"]) if buy else (x.low + spread <= p["tp1"]))
+            lvl = p.get("cancelLevel") or p["tp1"]  # the level that, reached before the fill, deletes the order
+            tp1_first = p["cancelIfTp1BeforeFill"] and ((x.high >= lvl) if buy else (x.low + spread <= lvl))
             if not touched and tp1_first:
                 res["state"] = "CANCELLED"
-                events.append({"time": x.time, "type": "CANCEL", "price": p["tp1"]})
+                events.append({"time": x.time, "type": "CANCEL", "price": lvl})
                 return res
             if not touched:
                 i += 1
@@ -98,7 +99,8 @@ def simulate_lifecycle(c: list[Candle], p: dict, start_index: int,
             acc["remaining"] -= partials[0]
             stage = 1
             if p.get("breakeven", True):
-                stop = res["fillPrice"]
+                off = p.get("beOffset") or 0  # break-even plus a few pips locked in (gold: entry + 2 pips)
+                stop = res["fillPrice"] + (off if buy else -off)
             res["state"] = "TP1_HIT"
             events.append({"time": x.time, "type": "TP1", "price": p["tp1"]})
             if p.get("breakeven", True):

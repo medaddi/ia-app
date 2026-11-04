@@ -181,7 +181,7 @@ export function LoginScreen({ onLoginSuccess, sessionEnded = false, lang, setLan
   const pwValid = mode === 'login' ? accessCode.length >= 6 : strong;
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-canvas text-slate-100" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="app-screen overflow-x-hidden overflow-y-auto overscroll-contain bg-canvas text-slate-100" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Moving gold-on-black gradient: the page "breathes" slowly, like the reference */}
       <div aria-hidden="true" className="login-gradient absolute inset-0" />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
@@ -207,7 +207,7 @@ export function LoginScreen({ onLoginSuccess, sessionEnded = false, lang, setLan
         </div>
       )}
 
-      <div className="relative z-10 min-h-dvh flex flex-col items-center justify-center px-6 pt-[calc(env(safe-area-inset-top,0px)+56px)] pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
+      <div className="relative z-10 min-h-full flex flex-col items-center justify-center px-6 pt-[calc(env(safe-area-inset-top,0px)+56px)] pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
         <div className="w-full max-w-[380px]">
           {/* Emblem and name: alone in the middle first, then they move up to their place above the form */}
           <div ref={brandRef} className={`${opened ? 'intro-brand' : ''} flex flex-col items-center text-center`}
@@ -225,7 +225,7 @@ export function LoginScreen({ onLoginSuccess, sessionEnded = false, lang, setLan
           {opened && sessionEnded && mode === 'login' && (
             <motion.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} role="status"
               className="mt-6 flex items-center justify-center gap-2 text-xs text-gold-200">
-              <Clock className="w-4 h-4" aria-hidden="true" />{t('Your session ended after 1 hour: sign in again.', 'Votre session a pris fin après 1 heure : reconnectez-vous.', 'السيشن سالات من بعد ساعة: دخل من جديد.')}
+              <Clock className="w-4 h-4" aria-hidden="true" />{t('Your session ended: sign in again.', 'Votre session a pris fin : reconnectez-vous.', 'السيشن سالات: دخل من جديد.')}
             </motion.p>
           )}
 

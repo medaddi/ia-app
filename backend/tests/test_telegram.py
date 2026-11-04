@@ -45,9 +45,9 @@ def test_next_candle_close():
 
 def test_message_prints_exact_levels_only():
     msg = bot.format_signal_message({**EURO, "confirmationCheckPassed": True, "confirmationCloseTime": 1790668800})
-    # one value per line, the single target (TP3) only
-    assert msg.split("\n") == ["🔴 <b>SELL LIMIT | EUR/USD</b>", "📍 Entry: <code>1.13530</code>", "🎯 TP: <code>1.12804</code>",
-                                "🛑 SL: <code>1.13772</code>"]  # no lot line for a group chat
+    # one value per line, ready to place: entry, the agent's TP1 then the final target, the stop
+    assert msg.split("\n") == ["🔴 <b>SELL LIMIT | EUR/USD</b>", "📍 Entry: <code>1.13530</code>", "🎯 TP1: <code>1.13288</code>",
+                                "🎯 TP2: <code>1.12804</code>", "🛑 SL: <code>1.13772</code>"]  # no lot line for a group chat
 
 
 def test_lot_from_the_risk_in_dollars():
@@ -129,7 +129,7 @@ def test_bot_commands(monkeypatch):
     assert "resumed" in say("/resume").lower()
     assert "XAU/USD" in say("/history") and "+1.75R" in sent[-1]
     assert "All time" in say("/stats") and "Win rate" in sent[-1]
-    assert "Channel breakout in the trend" in say("/rules") and "not traded" in sent[-1]
+    assert "XAUUSD_Sovereign_SMC_Agent" in say("/rules") and "control your risk" in sent[-1]
     assert "/pairs" in say("/help") and "/news" in sent[-1]
     assert "/gold · XAU/USD" in say("/pairs") and "/eurusd · EUR/USD" in sent[-1]  # the pair commands, tappable
     assert "No trade running" in say("/open")
@@ -152,7 +152,7 @@ def test_follow_up_notices():
     from app.followup import events_for
 
     now = 1_800_000_000
-    sig = N(symbol="EUR/USD", direction="SELL", entry=1.1000, sl=1.1020, entry_type="LIMIT", state="OPEN")
+    sig = N(symbol="EUR/USD", direction="SELL", entry=1.1000, sl=1.1020, tp3=1.0960, entry_type="LIMIT", state="OPEN", params={})
     keys = lambda price, news=(): [k for k, _, _ in events_for(sig, price, list(news), now)]  # noqa: E731
     assert keys(1.0990) == ["fill"]  # +0.5R: just filled
     assert keys(1.0978) == ["fill", "1r"]  # +1.1R
@@ -166,6 +166,13 @@ def test_follow_up_notices():
     assert [k for k, _, _ in events_for(pending, 1.0978, [], now)] == []  # not filled: no price notice
     market = N(**{**sig.__dict__, "entry_type": "MARKET"})
     assert [k for k, _, _ in events_for(market, 1.0995, [], now)] == []  # a market order is live at once
+    # the trade-management agent: TP1 → close 50 % and move the stop (gold: entry + 2 pips locked); a limit about to expire
+    gold = N(symbol="XAU/USD", direction="BUY", entry=2000.0, sl=1996.0, tp3=2012.0, entry_type="LIMIT", state="TP1_HIT",
+             params={"partials": [0.5, 0, 0.5], "breakeven": True, "beOffset": 0.2})
+    tp1 = next(e for e in events_for(gold, 2006.5, [], now) if e[0] == "tp1")
+    assert tp1[1] == "🎯 TP1 HIT" and "Close 50 %" in tp1[2] and "2000.20" in tp1[2]
+    soon = N(**{**pending.__dict__, "params": {"expiryTime": now + 300}})
+    assert [k for k, _, _ in events_for(soon, 1.0995, [], now)] == ["expiry"]
 
 
 def test_bot_reads_only_commands_and_codes(monkeypatch):

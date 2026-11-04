@@ -391,6 +391,25 @@ html, body {
   max-width: 100vw;
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Like a native app once installed (home screen / "Install app"): the page itself never bounces or zooms, only the
+   app's own scroll areas move; the screens are pinned to the full screen (app-screen) instead of 100dvh, which iOS
+   measures short in a home-screen app and leaves an empty strip at the bottom */
+html, body, #root {
+  height: 100%;
+  overscroll-behavior: none;
+}
+.app-screen {
+  position: fixed;
+  inset: 0;
+}
+/* iOS zooms into any field whose text is under 16 px when it gets the focus (and stays zoomed): never on a touch screen */
+@media (pointer: coarse) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 .tap-target-44 {

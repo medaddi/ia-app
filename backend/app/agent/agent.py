@@ -96,11 +96,8 @@ def _strategy_line(r: dict) -> str:
     ps = r.get("pairStrategy") or {}
     if not ps:
         return ""
-    if not ps.get("live"):
-        return f"**Strategy:** none validated on this pair: {ps.get('why')}. No trade."
-    u = (ps.get("test") or {}).get("unseen") or {}
-    return (f"**Strategy:** {ps['name']} {ps['timeframe']}: {ps['why']} Unseen test: {u.get('trades')} trades, {u.get('winRate')}% winners, "
-            f"{u.get('totalR'):+}R, {u.get('tp2R')}% reached 2R.")
+    ov = r.get("overlay") or {}
+    return f"**Agent:** {ps['name']} ({ps['timeframe']}) · state {ov.get('fsmState', '—')}: {ps['why']}"
 
 
 def deterministic_answer(results: list[dict], lang: str) -> str:
@@ -121,7 +118,7 @@ def deterministic_answer(results: list[dict], lang: str) -> str:
         if s and r["status"] == "SIGNAL":
             v = validate_signal(r)
             issues = "" if v["approved"] else f" · ✘ {'; '.join(v['issues'])}"
-            targets = f"one target TP {f(s['tp3'])} (1:{to_fixed(s['rrTarget'], 1)}), closed after {s['params']['maxBars']} candles at the latest"
+            targets = f"TP1 {f(s['tp1'])} · TP2 {f(s['tp3'])} (1:{to_fixed(s['rrTarget'], 1)})"
             plan = (f"{s['direction']} {s['entryType']} · {t['entry']} {f(s['entry'])} · SL {f(s['sl'])} ({js_str(s['slPips'])} pips) · "
                     f"{targets} · score {js_str(v['score'])}/100{issues}")
         elif s and r["status"] == "WATCH":
@@ -205,53 +202,47 @@ async def ask_agent(question: str, results: list[dict]) -> dict:
     return {"answer": text, "source": "gemini", "lang": lang}
 
 
-LEVEL_WHAT = {"PDH": "previous day high", "PDL": "previous day low", "PWH": "previous week high", "PWL": "previous week low",
-              "$$$": "equal highs/lows (resting stops)", "Asia H": "Asian session high", "Asia L": "Asian session low",
-              "London H": "London session high", "London L": "London session low"}
+WHAT = {
+    "ASIAN_BOX": ("the Asian session range (00:00–07:00/07:30 UTC+1): the stops of the night rest just beyond its high and low",
+                  "رينج جلسة آسيا: الستوبات ديال الليل كاينين فوق القمة وتحت القاع ديالو"),
+    "LONDON_BOX": ("the London session range (08:00–13:15 UTC+1): its high / low become New York liquidity targets",
+                   "رينج لندن: القمة والقاع ديالو كيوليو أهداف سيولة لنيويورك"),
+    "FVG_BULL": ("a bullish fair value gap: Low[-1] above High[-3], an imbalance the price tends to refill; the dashed line is its 50 % (CE)",
+                 "فجوة FVG صاعدة: الخط المتقطع هو 50% (CE) فين كيتحط الأمر"),
+    "FVG_BEAR": ("a bearish fair value gap: High[-1] below Low[-3]; the dashed line is its 50 % (CE)", "فجوة FVG هابطة: الخط المتقطع هو 50%"),
+    "OB_BULL": ("a bullish order block: the lowest down candle of the 10 before the break; the dashed line is OB_Mean (50 % of its body)",
+                "بلوك أوامر صاعد: الخط المتقطع هو 50% ديال الجسم"),
+    "OB_BEAR": ("a bearish order block: the highest up candle of the 10 before the break; the dashed line is OB_Mean", "بلوك أوامر هابط"),
+    "OTE_GOLD_ZONE": ("the Fibonacci OTE of the displacement leg, 61.8–78.6 %; the dotted line is the 70.5 % sweet spot",
+                      "منطقة OTE ديال فيبوناتشي 61.8–78.6%، والخط المنقط هو 70.5%"),
+    "SUPPLY_BAND": ("the H4 supply zone: the 60-bar high down 0.8 × ATR_H4", "منطقة العرض H4"),
+    "DEMAND_BAND": ("the H4 demand zone: the 60-bar low up 0.8 × ATR_H4", "منطقة الطلب H4"),
+    "PDH": ("the previous day's high", "أعلى ثمن ديال البارح"), "PDL": ("the previous day's low", "أدنى ثمن ديال البارح"),
+    "SESSION_HIGH": ("a session high: buy-side liquidity", "قمة الجلسة: سيولة الشراء"), "SESSION_LOW": ("a session low: sell-side liquidity", "قاع الجلسة"),
+    "MSS_BREAK": ("the market structure shift: the swing a candle closed through", "كسر الهيكل: القمة / القاع لي سدات شمعة من وراه"),
+    "EQUILIBRIUM": ("the 50 % of the range", "نص الرينج 50%"),
+    "DIVERGENCE_LINE": ("the RSI divergence: price at or beyond its previous swing while RSI(14) is 3+ points better", "دايفرجنس RSI"),
+}
 
 
-def explain_drawing(r: dict, drawing: dict, lang: str) -> str:
-    """Explains one chart drawing from its own data and the shared definitions."""
+def explain_overlay_item(r: dict, item_id: str, lang: str) -> str | None:
+    """Explains one item of the pair agent's chart overlay from its own data."""
+    ov = r.get("overlay") or {}
     d = r["spec"]["decimals"]
     f = lambda v: to_fixed(float(v), d)  # noqa: E731
-    time_ = lambda t: f"{fmt_utc_minute(t)} UTC" if t else "now"  # noqa: E731
-    tf = drawing.get("tf") or ""
     ar = lang == "ar"
-    layer = drawing.get("layer")
-    text = drawing.get("text") or ""
-    p1, p2 = drawing.get("p1"), drawing.get("p2")
-    bull = drawing.get("color") == "bull"
-    faded = drawing.get("faded")
-    if layer == "structure":
-        choch = "CHoCH" in text
-        if ar:
-            return (f"{'CHoCH (تغير الطابع)' if choch else 'BOS (كسر الهيكل)'} على {tf}: شمعة أغلقت {'فوق' if bull else 'تحت'} القمة/القاع المؤكد عند {f(p1)} "
-                    f"(تكوّن {time_(drawing.get('t1'))}، كُسر {time_(drawing.get('t2'))}). {'هذا أول إغلاق عكس الاتجاه السابق.' if choch else 'إغلاق في اتجاه الترند الحالي.'}")
-        return (f"{'CHoCH (change of character)' if choch else 'BOS (break of structure)'} on {tf}: a candle CLOSED {'above' if bull else 'below'} the confirmed swing at {f(p1)} "
-                f"(formed {time_(drawing.get('t1'))}, broken {time_(drawing.get('t2'))}). "
-                f"{'It is the first close against the previous trend.' if choch else 'The close is in the direction of the current trend.'}")
-    if layer == "fvg" and p2 is not None:
-        if ar:
-            return f"فجوة FVG على {tf} بين {f(p2)} و {f(p1)}: الشمعة الأولى والثالثة لا تتلامسان. منتصفها {f((p1 + p2) / 2)}. {'تم ملء 50% منها (مستعملة).' if faded else 'لم يُملأ نصفها بعد.'}"
-        return (f"{tf} Fair Value Gap {f(p2)}–{f(p1)}: candle 1 and candle 3 do not overlap, leaving an imbalance (size ≥ 0.25 × ATR). Its 50% line is {f((p1 + p2) / 2)}. "
-                f"{'Price has already filled 50%, so it is mitigated.' if faded else 'Price has not filled 50% yet.'}")
-    if layer == "ob" and p2 is not None:
-        if ar:
-            return f"بلوك أوامر {'طلب' if bull else 'عرض'} على {tf} ({f(p2)}–{f(p1)}): آخر شمعة عكسية قبل الاندفاع (جسم > 1.5× المتوسط) الذي كسر الهيكل. {'السعر رجع إليه (مستعمل).' if faded else 'لم يُختبر بعد.'}"
-        return (f"{tf} {'demand' if bull else 'supply'} order block {f(p2)}–{f(p1)}: the last opposite-coloured candle before the displacement (body > 1.5× the 20-candle average) "
-                f"that broke structure. {'Price has returned into it (mitigated).' if faded else 'Not revisited yet.'}")
-    if layer in ("levels", "liquidity"):
-        if drawing.get("kind") == "marker":
-            if ar:
-                return f"سحب سيولة عند {f(p1)} ({time_(drawing.get('t1'))}): ذيل تجاوز المستوى ثم أُغلقت الشمعة داخله."
-            return f"Liquidity sweep at {f(p1)} ({time_(drawing.get('t1'))}): the wick went beyond the level and the candle closed back inside."
-        if ar:
-            return f"مستوى {text} عند {f(p1)}: سيولة (أوامر وقف) تتجمع هنا."
-        return f"{text} at {f(p1)}: {LEVEL_WHAT.get(text, 'key level')}. Stops rest beyond it, which is why the strategy watches for a sweep here."
-    if layer == "fib":
-        return f"فيبوناتشي {text} لآخر موجة اندفاع H1 عند {f(p1)}." if ar else f"Fibonacci {text} of the last H1 impulse leg at {f(p1)}; the forex pullback zone is 50–61.8%."
-    if layer == "sessions":
-        return f"جلسة {text}." if ar else f"{text} session window ({time_(drawing.get('t1'))} → {time_(drawing.get('t2'))})."
-    if layer == "trade" and r["setup"]:
+    for z in ov.get("zones", []):
+        if z["id"] == item_id:
+            what = WHAT.get(z["category"], ("", ""))[1 if ar else 0]
+            mid = f" · 50 % {f(z['midPrice'])}" if z.get("midPrice") is not None else ""
+            return f"{z['label']}: {f(z['bottomPrice'])} – {f(z['topPrice'])}{mid}. {what}."
+    for ln in ov.get("priceLines", []):
+        if ln["id"] == item_id:
+            what = WHAT.get(ln["category"], ("", ""))[1 if ar else 0]
+            return f"{ln['label']} {f(ln['startPrice'])}" + (f" → {f(ln['endPrice'])}" if ln["endPrice"] != ln["startPrice"] else "") + f": {what}."
+    for m in ov.get("markers", []):
+        if m["id"] == item_id:
+            return f"{m['text']} at {f(m['price'])} ({fmt_utc_minute(m['time'])} UTC)."
+    if item_id == "trade" and r.get("setup"):
         return build_explanation(r, "ar" if ar else "en")
-    return f"عنصر {drawing.get('id')}." if ar else f"Drawing {drawing.get('id')}."
+    return None

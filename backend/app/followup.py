@@ -5,7 +5,8 @@ that got the trade) and on the phones (Web Push). Each notice goes out once per 
 - 📈 +1R            one risk in profit (targets are 1.5R–2R) → hold
 - ⚠️ NEAR SL        down 0.7R → keep the stop, add nothing
 - 📰 NEWS IN N MIN  high-impact news on one of the pair's currencies within 30 min → keep the SL
-- 🚪 EXIT SOON / ⌛ CANCEL  the trade-management agent: the strategy's exit is forming, or a limit order is about to expire
+- 🎯 TP1 HIT           close the partial and move the stop to break-even (the plan of the pair's agent)
+- ⌛ ORDER EXPIRES SOON a pending limit is about to be deleted
 How a trade ends (TP / SL / BE / cancelled) is sent by notify_closed / push_closed.
 """
 
@@ -35,8 +36,23 @@ def events_for(sig: Signal, price: Optional[float], news: list[dict], now: float
     """The notices this trade is due now, as (key, headline, what to do)."""
     out: list[tuple[str, str, str]] = []
     filled = sig.state in FILLED
+    p = sig.params or {}
+    buy = sig.direction == "BUY"
+    d = 2 if sig.symbol.replace("/", "").startswith("XAU") else 5
+    f = lambda v: f"{v:.{d}f}"  # noqa: E731
     if filled and sig.entry_type != "MARKET":
-        out.append(("fill", "🟡 ORDER FILLED", "👉 The trade is live. Keep SL and TP as they are."))
+        out.append(("fill", "🟡 ORDER FILLED", "👉 The trade is live. Keep the SL and the targets as the plan says."))
+    if sig.state in ("TP1_HIT", "TP2_HIT") and p.get("breakeven", True):
+        part = (p.get("partials") or [0])[0] or 0
+        off = p.get("beOffset") or 0
+        be = sig.entry + off if buy else sig.entry - off
+        lock = " (+2 pips locked)" if off else ""
+        out.append(("tp1", "🎯 TP1 HIT", f"👉 Close {round(part * 100)} % now and move the SL to {f(be)}{lock}. The rest runs to TP2 {f(sig.tp3)}." if part
+                    else f"👉 Move the SL to break-even {f(be)}{lock}. The target stays {f(sig.tp3)}."))
+    exp = p.get("expiryTime")
+    if sig.state == "PENDING" and exp and 0 < exp - now <= 600:
+        out.append(("expiry", "⌛ ORDER EXPIRES SOON",
+                    f"👉 Not filled yet: delete the pending order at {time.strftime('%H:%M', time.gmtime(exp))} UTC if the price has not come."))
     risk = abs(sig.entry - sig.sl)
     if filled and price and risk > 0:
         r = (price - sig.entry) / risk * (1 if sig.direction == "BUY" else -1)

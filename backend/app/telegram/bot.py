@@ -10,28 +10,27 @@ reference code (protection.py) and protect_content.
 
 import asyncio
 import html
-import re
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
-from ..market.data import FX_TICKERS, market_session_status
+from ..market.data import market_session_status
 from ..config import settings
 from ..models import Signal, Subscriber, TelegramConnect, User, Watermark
 from ..store import get_setting, set_setting
 from ..strategies.exunu import run_exunu, to_ai_signal
 from ..strategies.service import STRATEGY_DEFS, get_strategy_result, normalize_symbol
 from ..strategies._pairs import PAIRS
-from ..strategies.pairs.config import PAIR_CONFIGS
+from ..agents.registry import AGENT_CONFIGS as PAIR_CONFIGS
 from ..strategies.shared.news import load_news_calendar
-from ..strategies.shared.jsnum import fmt_time, fmt_utc_minute, js_round, to_fixed
+from ..strategies.shared.jsnum import fmt_utc_minute, to_fixed
 from ..trading import effective_risk, lot_for_risk, signal_json, stats
 from .protection import personalize_signal
 
@@ -163,12 +162,18 @@ def format_signal_message(signal: dict, lot: Optional[dict] = None, ref: Optiona
         return f"⚠️ {normalize_symbol(signal.get('symbol', ''))}: signal levels incomplete, not sent."
     c = lambda v: f"<code>{to_fixed(v, L['decimals'])}</code>"  # noqa: E731
     order = "" if L["orderType"] == "MARKET" else f" {L['orderType']}"
+    tp = L["tp3"] if L["tp3"] is not None else L["tp2"]
     lines = [f"{'🟢' if L['buy'] else '🔴'} <b>{'BUY' if L['buy'] else 'SELL'}{order} | {L['symbol']}</b>",
              f"📍 Entry: {c(L['entry'])}",
-             f"🎯 TP: {c(L['tp3'] if L['tp3'] is not None else L['tp2'])}",
+             f"🎯 TP: {c(tp)}",
              f"🛑 SL: {c(L['sl'])}"]
+    if L["tp1"] and abs(L["tp1"] - tp) > 1e-9:  # the agent's TP1 (partial / break-even) before the final target
+        lines.insert(2, f"🎯 TP1: {c(L['tp1'])}")
+        lines[3] = f"🎯 TP2: {c(tp)}"
     if lot and lot.get("lots"):
         lines.append(f"📦 Lot: <code>{lot['lots']:.2f}</code>")
+    if L["orderType"] == "LIMIT" and L.get("expires"):
+        lines.append(f"⏳ Valid until {str(L['expires'])[11:16]} UTC")
     if ref:
         lines.append(f"<i>Ref {ref}</i>")
     return "\n".join(lines)
@@ -368,6 +373,9 @@ def unlink_chat(db: Session, chat_id: Optional[str]) -> None:
 
 # ---------------------------------------------------------------- dispatch
 
+RETRY_SEC = 15 * 60  # a signal Telegram did not deliver is retried this long after its candle closed
+
+
 async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
     symbol = normalize_symbol(raw_symbol)
     res = await run_exunu(symbol)
@@ -378,54 +386,77 @@ async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
         return {"success": False, "state": state, "error": f"Market closed for {symbol}: no signals are sent while it is closed."}
     if not setup or r["status"] != "SIGNAL":
         return {"success": False, "state": state, "error": f"{r['headlineAr']} ({r['headline']})"}
-    # Manual sends are allowed while the order is still valid; automatic sends only on the signal candle
+    # Manual sends are allowed while the order is still valid; automatic sends on the signal candle, and retried for
+    # RETRY_SEC after it when the first Telegram attempt reached nobody (the trade is already recorded then)
     if not manual and not r["canNotify"]:
-        return {"success": False, "state": state, "error": r["headline"]}
+        with SessionLocal() as db:
+            row = db.get(Signal, setup["id"])
+            retry = (row is not None and (row.recipients or 0) == 0 and setup["lifecycle"]["state"] in ("PENDING", "OPEN")
+                     and time.time() - setup["signalTime"] <= RETRY_SEC)
+        if not retry:
+            return {"success": False, "state": state, "error": r["headline"]}
     if manual and setup["lifecycle"]["state"] not in ("PENDING", "OPEN"):
         return {"success": False, "state": state, "error": f"Order is {setup['lifecycle']['state']}: too late to send"}
     if setup["id"] in _in_flight:
         return {"success": False, "state": state, "error": "Already being sent"}
     with SessionLocal() as db:
-        if db.get(Signal, setup["id"]):
+        # The pair agent's fresh setup is sent; the risk notes travel with it, they never block (the trader sets the risk)
+        check = res.get("consensus") or {"approved": False, "issues": ["The agent did not decide"]}
+        if not check["approved"]:
+            log_event("SIGNAL", f"{setup['direction']} {symbol} not sent", "; ".join(check["issues"]), False)
+            return {"success": False, "state": state, "error": f"Agent: {'; '.join(check['issues'])}", "check": check}
+        signal = to_ai_signal(res)
+        # 1. Record the trade first, whatever happens to Telegram: the trade-management agent and the app notifications
+        #    follow it from here. The id is the primary key, so two concurrent ticks can never both create it
+        row = db.get(Signal, setup["id"])
+        if row is None:
+            row = Signal(id=setup["id"], symbol=symbol, setup=setup["setup"], direction=setup["direction"], entry_type=setup["entryType"],
+                         entry=setup["entry"], sl=setup["sl"], tp1=setup["tp1"], tp2=setup["tp2"], tp3=setup["tp3"], rr_tp2=setup["rrTp2"],
+                         score=r["score"], signal_time=setup["signalTime"], recipients=0, state=setup["lifecycle"]["state"],
+                         params=setup["params"], payload=signal)
+            db.add(row)
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                row = db.get(Signal, setup["id"])
+        if row is not None and (row.recipients or 0) != 0:
             return {"success": False, "state": state, "error": "This setup was already sent."}
         cfg = get_setting(db, "telegram")
         if not cfg["enabled"] or not cfg["botToken"]:
-            return {"success": False, "state": state, "error": "Telegram is disabled or has no bot token"}
+            return {"success": False, "state": state, "recorded": True, "error": "Telegram is disabled or has no bot token (the trade is recorded)"}
         if cfg.get("assets") and symbol not in cfg["assets"]:
-            return {"success": False, "state": state, "error": f"{symbol} is not in the Telegram asset list"}
-        # Three agents must agree: market analysis (daily trend, volatility, news ahead), strategy (a valid fresh signal
-        # that fits the market), risk & execution (AI trade desk + open book). Each one can only block
-        check = res.get("consensus") or {"approved": False, "issues": ["The agents did not vote"]}
-        if not check["approved"]:
-            log_event("SIGNAL", f"{setup['direction']} {symbol} blocked", "; ".join(check["issues"]), False)
-            return {"success": False, "state": state, "error": f"Agents: {'; '.join(check['issues'])}", "check": check}
+            return {"success": False, "state": state, "recorded": True, "error": f"{symbol} is not in the Telegram asset list"}
         recipients = {s.chat_id: s for s in active_subscribers(db) if not s.muted}
         if cfg["chatId"]:
             recipients.setdefault(str(cfg["chatId"]), None)
         if not recipients:
-            return {"success": False, "state": state, "error": "No active subscribers"}
-        signal = to_ai_signal(res)
-        # Claim the setup in the database first: its id is the primary key, so two concurrent ticks
-        # (serverless functions, several workers) can never both send it
-        row = Signal(id=setup["id"], symbol=symbol, setup=setup["setup"], direction=setup["direction"], entry_type=setup["entryType"],
-                     entry=setup["entry"], sl=setup["sl"], tp1=setup["tp1"], tp2=setup["tp2"], tp3=setup["tp3"], rr_tp2=setup["rrTp2"],
-                     score=r["score"], signal_time=setup["signalTime"], recipients=0, state=setup["lifecycle"]["state"],
-                     params=setup["params"], payload=signal)
-        db.add(row)
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            return {"success": False, "state": state, "error": "This setup was already sent."}
+            return {"success": False, "state": state, "recorded": True, "error": "No active subscribers"}
+        # 2. Claim this Telegram attempt (recipients 0 → −1): only one tick sends; a failed attempt goes back to 0 and the
+        #    next tick retries while the order is still valid
+        claimed = db.execute(update(Signal).where(Signal.id == setup["id"], Signal.recipients == 0).values(recipients=-1)).rowcount
+        db.commit()
+        if not claimed:
+            return {"success": False, "state": state, "error": "Already being sent"}
         _in_flight.add(setup["id"])
+        progress = {"sent": 0}
         try:
-            sent, first_ack, last_error = await _send_to_all(cfg, signal, recipients, db)
+            sent, first_ack, last_error = await _send_to_all(cfg, signal, recipients, db, progress)
+        except Exception as err:
+            sent, first_ack, last_error = progress["sent"], None, repr(err)
+        except BaseException:
+            # the tick ran out of time mid-send: keep what went out (no double message), or free the retry if nothing did
+            with SessionLocal() as db2:
+                db2.execute(update(Signal).where(Signal.id == setup["id"]).values(recipients=progress["sent"]))
+                db2.commit()
+            raise
         finally:
             _in_flight.discard(setup["id"])
+        row = db.get(Signal, setup["id"])
         if not sent:
-            db.delete(row)  # nobody received it: release the claim so it can be retried
+            row.recipients = 0  # nobody received it: the next tick tries again
             db.commit()
-            log_event("SIGNAL", f"{signal['signalType']} {symbol}", "No chat received it", False, last_error)
+            log_event("SIGNAL", f"{signal['signalType']} {symbol}", "No chat received it (retried at the next tick)", False, last_error)
             return {"success": False, "state": state, "error": last_error or "Send failed", "signal": signal}
         latency = int(first_ack - setup["signalTime"] * 1000) if first_ack else None
         row.recipients, row.latency_ms = sent, latency
@@ -437,7 +468,7 @@ async def dispatch_setup(raw_symbol: str, manual: bool) -> dict:
         return {"success": True, "state": state, "signal": signal, "recipients": sent, "latencyMs": latency}
 
 
-async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session) -> tuple[int, Optional[float], Optional[str]]:
+async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session, progress: Optional[dict] = None) -> tuple[int, Optional[float], Optional[str]]:
     """Parallel delivery in batches under Telegram's ~30 messages/second limit."""
     ids = list(recipients)
     sent = 0
@@ -460,6 +491,8 @@ async def _send_to_all(cfg: dict, signal: dict, recipients: dict, db: Session) -
         for chat_id, out, offset, ref in await asyncio.gather(*(one(c) for c in batch)):
             if out["success"]:
                 sent += 1
+                if progress is not None:
+                    progress["sent"] = sent
                 first_ack = first_ack or time.time() * 1000
                 marks.append(Watermark(ref=ref, chat_id=chat_id, signal_id=str(signal["id"]), symbol=str(signal["symbol"]), offset=offset))
             else:
@@ -641,24 +674,16 @@ def _market_text() -> str:
 
 
 def _rules_text() -> str:
-    """/rules: each pair's plan, from its config (the rules the code runs)."""
+    """/rules: each pair's agent and its steps, from its config (the rules the code runs)."""
     flags = {"XAU/USD": "🥇", "EUR/USD": "💶", "GBP/USD": "💷", "AUD/CHF": "🇦🇺"}
     lines = ["<b>How the signals work</b>",
-             "🎯 Every signal has <b>one target at 2R</b>; the stop and the target never move (no partial closes, no breakeven).",
-             "📐 Each pair runs the strategy its own behaviour favours, kept only if it held up on the unseen 40 % of 2 years."]
+             "🤖 4 autonomous agents, one per pair, each with its own strategy and its own chart. Sessions in UTC+1 (Morocco time).",
+             "🎛 Every setup an agent sees is sent. You control your risk: set it with /risk (e.g. /risk 50 or /risk 1%), "
+             "every signal comes with your lot. News and correlated USD trades come as notes, never as a block."]
     for pair, c in PAIR_CONFIGS.items():
-        p, tf, u = c["params"], c["timeframes"]["entry"], c["test"]["unseen"]
-        when = f" between {p['hours'][0]:02d}:00 and {p['hours'][1]:02d}:00 GMT" if p.get("hours") else ""
-        adx = f" with ADX below {p['adxMax']}" if p.get("adxMax") else ""
-        if c["rule"] == "channel_breakout":
-            rule = (f"an {tf} close beyond the {p['channel']}-candle high / low in the EMA50 / EMA200 trend is bought / sold at the close")
-        else:
-            rule = f"an {tf} close beyond the {p['channel']}-candle high / low{when}{adx} is faded at the close"
-        lines.append(f"{flags.get(pair, '💱')} <b>{pair} ({html.escape(c['name'].split('·', 1)[1].strip())})</b>: {rule}. Stop {p['slAtr']:g} × ATR, "
-                     f"TP 2R, closed after {c['risk']['maxBars']} {tf} candles. Unseen test: {u['totalR']:+}R on {u['trades']} trades.")
-    lines.append("⏸ USD/CAD, NZD/USD, EUR/CHF, NZD/CAD and AUD/CAD are not traded: no strategy held up in their test.")
-    lines.append("Only signals with every rule passed and a score ≥ 75 are sent, at the candle close. No signal around high-impact news.")
-    lines.append("⚠️ Past results do not guarantee future results: risk only what you can lose.")
+        steps = "; ".join(html.escape(x) for x in c["steps"])
+        lines.append(f"{flags.get(pair, '💱')} <b>{pair} · {c['agent']}</b> ({c['timeframes']['entry']}): {steps}.")
+    lines.append("Orders are sent at the candle close where the agent's setup completes.")
     return "\n".join(lines)
 
 
