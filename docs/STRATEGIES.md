@@ -143,6 +143,20 @@ and the 5 that filled all lost (−6.3R): far too few to judge either way. The A
 overlapping wicks, so FVGs (and these entries) almost never form there. The SMC button is a rule check, not a proven
 edge: the pair agents (section 3) stay the ones that send the automatic signals.
 
+## 4c. The trader skill on each pair (`trader/`, `api/trader.py`)
+
+The method of [trader-skill](https://github.com/Jakeschincariol/trader-skill) (MIT, credit kept in
+`backend/app/trader/LICENSE-trader-skill.txt`), adapted to gold and forex and added to every pair's Analyse panel:
+
+| Skill | Here |
+|---|---|
+| copycat | The big players' side from the weekly **CFTC Commitments of Traders** (large speculators' net % on gold, EUR, GBP, CHF, AUD, CAD futures; a cross is the difference of its two currencies). More than 10 % net long → BUY, more than 10 % net short → SELL. Crowded = their 3-year extreme. It is also a context point of the scenarios, and the panel says whether the setup / each scenario is **with** or **against** them |
+| budget | The lots that make the setup's own stop lose your risk % of the balance (My account), rounded down, capped |
+| risk | PASS / BLOCK: risk per trade and in total, margin, lots, US dollar exposure, high-impact news within 30 min, market closed, duplicates, orders per day |
+| broker | A ticket READY only if this exact order passed today; your explicit yes recorded word for word ("yes to all", "ok", a yes with a doubt or another size are refused). The app never places an order |
+
+COT is weekly (as of Tuesday, published Friday): positioning, not a signal. Not financial advice.
+
 ## 5. Risk notes (`core/risk_guard.py`) — nothing blocks a setup
 
 Every fresh setup an agent sees is sent. **Each trader controls their own risk**: their $ or % per trade on their

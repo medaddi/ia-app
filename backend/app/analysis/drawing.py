@@ -32,8 +32,8 @@ def plan_drawing(sym: str, row: dict, price: float, pip: float) -> Optional[dict
     t, tf = s["since"], 3600 if row["timeframe"] == "H1" else 14400
     lines, markers = [], []
     if g.get("level") is not None:
-        lines.append(line(f"AN-{sym}-LVL-{t}", "MSS_BREAK", g["t0"], t, g["level"], None, f"{g['n']}-candle {'high' if g['side'] > 0 else 'low'}"))
-    markers.append(marker(f"AN-{sym}-SIG-{t}", t - tf, s["entry"], not buy, f"{row['id']} {s['direction']}", BULL if buy else BEAR))
+        lines.append(line(f"AN-{sym}-LVL-{t}", "MSS_BREAK", g["t0"], t, g["level"], None, ""))  # unnamed: the agent's overlay names it
+    markers.append(marker(f"AN-{sym}-SIG-{t}", t - tf, s["entry"], not buy, s["direction"], BULL if buy else BEAR))
     return {"label": f"{row['name']} · {s['direction']} {s['entry']}", "family": "plan", "id": row["id"],
             "zones": [], "priceLines": lines, "markers": markers,
             "tradeExecutionBox": _box(s["direction"], "MARKET", "OPEN", t, s["entry"], s["sl"], s["tp"], s["rr"], price, pip)}

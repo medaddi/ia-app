@@ -7,6 +7,7 @@ Database tables.
   trades         trades a user actually took (history, P&L, win rate per user)
   settings       app parameters (key → JSON value)
   watermarks     anti copy-trading log: which chat received which personal offset
+  trader_files   each user's trader-skill files: config, the order of each pair, the decision log
 """
 
 from datetime import datetime, timezone
@@ -178,3 +179,12 @@ class Watermark(Base):
     symbol: Mapped[str] = mapped_column(String(16))
     offset: Mapped[float] = mapped_column(Float)
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TraderFile(Base):
+    """One user's trader-skill file (the skill keeps them in trader/): config, each pair's order, the decision log."""
+    __tablename__ = "trader_files"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

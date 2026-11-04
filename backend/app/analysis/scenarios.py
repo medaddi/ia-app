@@ -98,6 +98,8 @@ def build(triggers: list[dict], ctx: dict, price: float, atr_pips: Optional[floa
         if ctx.get("zone"):
             prem = "premium" in ctx["zone"]
             pts.append(("price " + ctx["zone"], prem == (d < 0)))
+        if ctx.get("cot") in ("BUY", "SELL"):  # the trader skill: the big players' side (CFTC COT)
+            pts.append((f"big players (COT) on the {ctx['cot']} side", (ctx["cot"] == "BUY") == (d > 0)))
         score = sum(t["weight"] for t in mine[:3]) + 0.35 * sum(1 for _, ok in pts if ok)
         out[side.lower()] = {"side": side, "main": mine[0] if mine else None, "others": mine[1:4], "context": [{"label": a, "ok": ok} for a, ok in pts],
                              "supporters": len(mine), "score": round(score, 2)}

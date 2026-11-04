@@ -34,6 +34,7 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
   private layers: Record<OverlayLayer, boolean> = { sessions: true, zones: true, structure: true, markers: true, trade: true, smc: true };
   private theme: OverlayTheme = 'dark';
   private decimals = 5;
+  private zoneLabels: { x: number; y: number; text: string; color: string; maxW: number }[] = [];
   private readonly bgView: IPrimitivePaneView;
   private readonly fgView: IPrimitivePaneView;
 
@@ -143,6 +144,7 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
           ctx.textBaseline = 'middle';
 
           if (pass === 'bg') {
+            this.zoneLabels = [];
             for (const z of this.zones()) {
               const x1 = this.x(z.startTime), x2 = this.x(z.endTime) ?? W, ya = this.y(z.topPrice), yb = this.y(z.bottomPrice);
               if (x1 === null || ya === null || yb === null || x2 < 0 || x1 > W) continue;
@@ -165,14 +167,8 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
                   ctx.setLineDash([]);
                 }
               }
-              // the label inside the top-right corner
-              const tw = ctx.measureText(z.label).width;
-              if (right - left > tw + 10 && h >= 10) {
-                ctx.fillStyle = z.borderColor;
-                ctx.textAlign = 'right';
-                ctx.fillText(z.label, right - 5, top + Math.min(h / 2, 8));
-                ctx.textAlign = 'left';
-              }
+              // the label inside the top-right corner (drawn in the fg pass, after the labels that matter more)
+              if (z.label && h >= 10) this.zoneLabels.push({ x: right - 5, y: top + Math.min(h / 2, 8), text: z.label, color: z.borderColor, maxW: right - left - 10 });
               ctx.globalAlpha = 1;
             }
             const tb = s.tradeExecutionBox;
@@ -195,6 +191,18 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
 
           // fg: price lines with their labels, then the trade projection's levels
           const right: { y: number; text: string; color: string }[] = [];
+          const middle: { x: number; y: number; text: string; color: string }[] = [];
+          // every label of the frame takes a slot; one that would land on another moves a step up or down, else it waits
+          const slots: [number, number, number, number][] = [];
+          const free = (x0: number, y0: number, x1: number, y1: number) => !slots.some(([a, b, c, d]) => x0 < c && x1 > a && y0 < d && y1 > b);
+          const place = (x0: number, w: number, y: number, h = 13): number | null => {
+            for (const dy of [0, -13, 13, -26, 26]) {
+              const yy = y + dy;
+              if (yy - h / 2 < 0 || yy + h / 2 > mediaSize.height) continue;
+              if (free(x0 - 1, yy - h / 2, x0 + w + 1, yy + h / 2)) { slots.push([x0 - 1, yy - h / 2, x0 + w + 1, yy + h / 2]); return yy; }
+            }
+            return null;
+          };
           for (const l of this.lines()) {
             const x1 = this.x(l.startTime), x2 = this.x(l.endTime) ?? W, y1 = this.y(l.startPrice), y2 = this.y(l.endPrice);
             if (x1 === null || y1 === null || y2 === null || x2 < 0 || x1 > W) continue;
@@ -205,19 +213,15 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
             ctx.setLineDash([]);
             if (!l.label) continue;
             if (l.startPrice === l.endPrice && x2 >= W - 2) right.push({ y: y1, text: l.label, color: l.color });
-            else {
-              ctx.fillStyle = l.color;
-              ctx.textAlign = 'center';
-              ctx.fillText(l.label, (Math.max(0, x1) + Math.min(W, x2)) / 2, Math.min(y1, y2) - 8);
-              ctx.textAlign = 'left';
-            }
+            else middle.push({ x: (Math.max(0, x1) + Math.min(W, x2)) / 2, y: Math.min(y1, y2) - 8, text: l.label, color: l.color });
           }
           const tb = s.tradeExecutionBox;
           const tradeYs: number[] = [];
           if (tb && this.layers.trade) {
             const x1 = Math.max(0, this.x(tb.entryTime) ?? 0);
             // the levels are on the price axis; the canvas draws the lines and one status tag on the entry row
-            const rows: [number, string, number[]][] = [[tb.entryPrice, GOLD, []], [tb.stopLoss, BEAR, []], [tb.tp1Price, BULL, [5, 3]], [tb.tp2Price, BULL, []]];
+            const rows: [number, string, number[]][] = [[tb.entryPrice, GOLD, []], [tb.stopLoss, BEAR, []], [tb.tp2Price, BULL, []]];
+            if (Math.abs(tb.tp1Price - tb.tp2Price) > 1e-9) rows.push([tb.tp1Price, BULL, [5, 3]]);  // a second target only when there is one
             for (const [p, color, dash] of rows) {
               const y = this.y(p);
               if (y === null) continue;
@@ -231,18 +235,33 @@ export class AgentOverlayPrimitive implements ISeriesPrimitive<Time> {
               const text = `${tb.direction} ${tb.orderType} · ${tb.status === 'PENDING' ? 'PENDING' : tb.status === 'TP1_HIT_BE' ? 'TP1 · BE' : `${tb.floatingPips >= 0 ? '+' : ''}${tb.floatingPips.toFixed(1)}p`} · 1:${tb.rrRatio.toFixed(1)}`;
               const w = ctx.measureText(text).width + 8;
               const lx = Math.max(2, Math.min(x1 - w - 4, W - w - 2));  // left of the projection, on the candles side
+              slots.push([lx - 1, ye - 7, lx + w + 1, ye + 6]);  // the trade's tag first: it never moves
               ctx.fillStyle = labelBg; ctx.fillRect(lx, ye - 7, w, 13);
               ctx.fillStyle = GOLD; ctx.fillText(text, lx + 4, ye);
             }
+            for (const ty of tradeYs) slots.push([W - 150, ty - 6, W, ty + 6]);  // the trade levels' rows at the price edge
           }
+          // then the price-edge labels (channel, liquidity), then the labels along their lines, then the zones'
           right.sort((a, b) => a.y - b.y);
-          let last = -Infinity;
           for (const l of right) {
-            if (l.y - last < 14 || tradeYs.some(ty => Math.abs(ty - l.y) < 12)) continue;
-            last = l.y;
             const w = ctx.measureText(l.text).width + 8;
-            ctx.fillStyle = labelBg; ctx.fillRect(W - w - 2, l.y - 7, w, 13);
-            ctx.fillStyle = l.color; ctx.fillText(l.text, W - w + 2, l.y);
+            const yy = place(W - w - 2, w, l.y);
+            if (yy === null) continue;
+            ctx.fillStyle = labelBg; ctx.fillRect(W - w - 2, yy - 7, w, 13);
+            ctx.fillStyle = l.color; ctx.fillText(l.text, W - w + 2, yy);
+          }
+          for (const l of middle) {
+            const w = ctx.measureText(l.text).width;
+            const yy = place(l.x - w / 2, w, l.y, 12);
+            if (yy === null) continue;
+            ctx.fillStyle = l.color; ctx.textAlign = 'center'; ctx.fillText(l.text, l.x, yy); ctx.textAlign = 'left';
+          }
+          for (const z of this.zoneLabels) {
+            const w = ctx.measureText(z.text).width;
+            if (w > z.maxW) continue;
+            const yy = place(z.x - w, w, z.y, 12);
+            if (yy === null) continue;
+            ctx.fillStyle = z.color; ctx.textAlign = 'right'; ctx.fillText(z.text, z.x, yy); ctx.textAlign = 'left';
           }
           ctx.restore();
         });

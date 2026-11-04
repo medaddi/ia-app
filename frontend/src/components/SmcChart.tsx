@@ -61,12 +61,12 @@ const LAYERS: { key: Layer; label: [string, string, string] }[] = [
   { key: 'ema', label: ['EMA', 'EMA', 'EMA'] },
   { key: 'trade', label: ['Trade projection', 'Projection du trade', 'إسقاط الصفقة'] },
 ];
-// a clear chart by default: the SMC context view (swing labels, BSL / SSL, OB, FVG) is one click away in Layers
-const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, l.key !== 'smc'])) as Record<Layer, boolean>;
+// every layer on by default, the SMC read included (structure, BOS / CHoCH, OB, FVG, BSL / SSL): one click away in Layers to hide
+const DEFAULT_LAYERS = Object.fromEntries(LAYERS.map(l => [l.key, true])) as Record<Layer, boolean>;  // the SMC read is part of the agent: shown
 // Candles shown when a pair / timeframe opens (the rest of the history stays one scroll away): close enough to read
 // each candle, wide enough for the structure. Daily ≈ 3 months, weekly ≈ 1 year.
 const VISIBLE_BARS: Record<string, number> = { M5: 160, M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
-const layerKey = (kind: string) => `ld_chart_layers_${kind}_v4`;  // v4: the SMC view off by default
+const layerKey = (kind: string) => `ld_chart_layers_${kind}_v5`;  // v4: the SMC view off by default
 
 const fmtLeft = (sec: number) => {
   const s = Math.max(0, Math.floor(sec));
@@ -186,8 +186,8 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
         vertLine: { color: 'rgba(214,174,87,0.45)', width: 1, style: LineStyle.Dashed, labelBackgroundColor: theme === 'dark' ? '#1A1F29' : '#4D5566' },
         horzLine: { color: 'rgba(214,174,87,0.45)', width: 1, style: LineStyle.Dashed, labelBackgroundColor: theme === 'dark' ? '#1A1F29' : '#4D5566' },
       },
-      rightPriceScale: { borderColor: p.border, scaleMargins: { top: 0.08, bottom: 0.16 } },
-      timeScale: { borderColor: p.border, timeVisible: true, secondsVisible: false, barSpacing: 8, rightOffset: 14 },
+      rightPriceScale: { borderColor: p.border, scaleMargins: { top: 0.14, bottom: 0.16 } },
+      timeScale: { borderColor: p.border, timeVisible: true, secondsVisible: false, barSpacing: 8, rightOffset: 22 },  // the labels sit right of the last candle
     });
     const minMove = decimals === 2 ? 0.01 : decimals === 4 ? 0.0001 : 0.00001;
     const cs = chart.addSeries(CandlestickSeries, {
@@ -196,7 +196,8 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     });
     const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.88, bottom: 0 } });
-    const emaLines = [p.ema50, p.ema200].map(color => chart.addSeries(LineSeries, { color, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }));
+    // no EMA tags on the price axis (they crowded the price and the trade levels): their values are in the legend
+    const emaLines = [p.ema50, p.ema200].map(color => chart.addSeries(LineSeries, { color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }));
     const prim = new AgentOverlayPrimitive();
     cs.attachPrimitive(prim);
 
@@ -304,7 +305,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     emaRefs.current.forEach((line, k) => {
       const period = emas[k];
       line.setData(layers.ema && period ? toLine(ema(closes, period)) : []);
-      line.applyOptions({ color: k === 0 ? p.ema50 : p.ema200, title: period ? `EMA${period}` : '' });
+      line.applyOptions({ color: k === 0 ? p.ema50 : p.ema200, title: '' });  // the EMA values are in the legend, not in the margin
     });
     const key = `${symbol}-${timeframe}-${theme}`;
     if (fitKeyRef.current !== key && bars.length) {
@@ -320,7 +321,7 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     if (!chart) return;
     const hasVolume = bars.some(b => (b.volume || 0) > 0);
     chart.applyOptions({ timeScale: { timeVisible: tfSec < 86400 } });
-    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.08, bottom: hasVolume ? 0.16 : 0.06 } });
+    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.14, bottom: hasVolume ? 0.16 : 0.06 } });
     volRef.current?.applyOptions({ visible: hasVolume });
   }, [bars, tfSec, theme, decimals]);
 
@@ -335,8 +336,9 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
         lines.push(cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title, lineVisible: false }));
       add(box.entryPrice, '#D4AF37', t('Entry', 'Entrée', 'دخول'));
       add(box.stopLoss, p.bear, box.status === 'TP1_HIT_BE' ? 'SL · BE' : 'SL');
-      add(box.tp1Price, p.bull, 'TP1', LineStyle.Dashed);
-      add(box.tp2Price, p.bull, 'TP2');
+      const oneTarget = Math.abs(box.tp1Price - box.tp2Price) < 1e-9;
+      if (oneTarget) add(box.tp2Price, p.bull, 'TP');
+      else { add(box.tp1Price, p.bull, 'TP1', LineStyle.Dashed); add(box.tp2Price, p.bull, 'TP2'); }
     }
     return () => { lines.forEach(l => { try { cs.removePriceLine(l); } catch { /* chart rebuilt */ } }); };
   }, [box?.entryPrice, box?.stopLoss, box?.tp1Price, box?.tp2Price, box?.status, layers.trade, theme, decimals, lang]);

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentDesk, type Consensus } from './AgentDesk';
+import { AgentBrain } from './AgentBrain';
 import { AgentChartPanel } from './AgentChartPanel';
 import { AnalyzeButton } from './AnalyzePanel';
 import { AgentRadar } from './AgentRadar';
@@ -171,6 +172,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
                 emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
                 onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} quote={REVIEW_AS_OF > 0 ? null : (live?.quoteTime ? { time: live.quoteTime, source: live.source } : quote)} livePrice={REVIEW_AS_OF > 0 ? null : live?.price ?? null} />
             )}
+            <AgentBrain symbol={symbol} lang={lang as Language} />
             <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
               hasSetup={!!result?.setup} lang={lang as Language} running={result?.running ?? []} decimals={result?.spec.decimals ?? 5} />
           </div>

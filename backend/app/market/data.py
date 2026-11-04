@@ -57,7 +57,7 @@ def canonical(symbol: str) -> str:
         if pair.replace("/", "") in s:
             return pair
     # Bare currency ("EUR", "GBP"): first pair quoting it against USD, then any pair starting with it
-    for pair in sorted(FX_TICKERS, key=lambda p: "USD" not in p):
+    for pair in sorted(FX_TICKERS, key=lambda p: (p not in PAIRS, "USD" not in p)):
         if len(s) >= 3 and s[:3] == pair[:3] and pair[:3] != "USD":
             return pair
     return "XAU/USD"

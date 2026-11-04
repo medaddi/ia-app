@@ -10,6 +10,7 @@ latest CLOSED candles (library.py):
 One request per press, nothing polled: the candles come from the feed's cache (refreshed at most once a minute).
 """
 
+import asyncio
 import time
 from typing import Optional
 
@@ -269,11 +270,19 @@ async def analyse_all(pair: str) -> dict:
         if w:
             radar.append({"family": "plan", "id": w["id"], "name": w["name"], "status": "WATCHING", "line": w["reason"]})
     agent = {"id": ag.agent_id, "name": ag.name, "read": read}
+    from ..trader.cot import CAVEATS, cot_all
     from .drawing import scenario_drawing
     from .scenarios import build as build_scenarios
 
+    try:  # the trader skill: the big players' positioning (CFTC COT, weekly, cached 6 hours): at most 4 s, never blocking
+        cot = next((r for r in await asyncio.wait_for(cot_all(), 4) if r["symbol"] == pair), None)
+    except Exception as err:
+        cot, cot_err = None, err.__class__.__name__
+    else:
+        cot_err = None
     sc = build_scenarios(plan.get("triggers", []) + ((smc.get("triggers") or []) if smc.get("success") else []),
-                         {"trend": rd["trend"], "structure": sr.get("trend"), "zone": sr.get("zone")}, price, rd.get("atrPips"), spec["decimals"])
+                         {"trend": rd["trend"], "structure": sr.get("trend"), "zone": sr.get("zone"), "cot": (cot or {}).get("bias")},
+                         price, rd.get("atrPips"), spec["decimals"])
     for side in ("buy", "sell"):
         if sc[side]["main"]:
             sc[side]["draw"] = scenario_drawing(sym, sc[side]["main"], plan["at"])
@@ -281,8 +290,24 @@ async def analyse_all(pair: str) -> dict:
         b, s_ = sc["buy"]["draw"], sc["sell"]["draw"]
         sc["bothDraw"] = {"label": "BUY and SELL scenarios", "family": "scenario", "id": "both", "zones": b["zones"] + s_["zones"],
                           "priceLines": b["priceLines"] + s_["priceLines"], "markers": [], "tradeExecutionBox": None}
+    skill = None
+    if cot:
+        bias = cot["bias"]
+        agree = lambda direction: None if bias == "NEUTRAL" or not direction else bias == direction  # noqa: E731
+        pick_dir = pick[1]["setup"]["direction"] if pick else None
+        skill = {"cot": {k: v for k, v in cot.items() if k != "legs"}, "legs": [{k: v for k, v in l.items() if k != "history"} for l in cot["legs"]],
+                 "history": cot["legs"][0]["history"], "agrees": {"pick": agree(pick_dir), "buy": agree("BUY"), "sell": agree("SELL")},
+                 "caveats": CAVEATS}
     return {**plan, "verdict": verdict, "smc": smc if smc.get("success") else None, "agent": agent, "radar": radar[:4], "scenarios": sc,
+            "skill": skill, "skillError": cot_err,
             "pick": {"family": pick[0], "id": pick[1]["id"], "draw": pick[1]["draw"]} if pick else None}
+
+
+async def cached_analysis(pair: str) -> dict:
+    """The pair's latest full analysis: the radar's (re-read at each M5 close), or a fresh one."""
+    await agent_radar(pair)
+    hit = _radar_cache.get(pair)
+    return hit[1] if hit else await analyse_all(pair)
 
 
 _radar_cache: dict[str, tuple[int, dict]] = {}

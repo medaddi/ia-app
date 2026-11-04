@@ -43,9 +43,9 @@ def smc_view(c, symbol: str, tf_sec: int) -> dict:
              else "BEARISH" if highs[-1][1] < highs[-2][1] and lows[-1][1] < lows[-2][1] else "NEUTRAL")
     out["trend"] = trend
 
-    # the swing labels: each high against the previous high, each low against the previous low (the last 4 of each)
+    # the swing labels: each high against the previous high, each low against the previous low (the last 2 of each)
     for seq, high in ((highs, True), (lows, False)):
-        for (k0, p0), (k1, p1) in list(zip(seq, seq[1:]))[-4:]:
+        for (k0, p0), (k1, p1) in list(zip(seq, seq[1:]))[-2:]:
             tag = ("HH" if p1 > p0 else "LH") if high else ("HL" if p1 > p0 else "LL")
             out["markers"].append(marker(f"SMC-{symbol}-{tag}-{c[k1].time}", c[k1].time, p1, high, tag, "#94A3B8", "circle"))
 
@@ -67,7 +67,7 @@ def smc_view(c, symbol: str, tf_sec: int) -> dict:
         i, (k, lvl), up = event
         kind = "BOS" if (up and trend != "BEARISH") or (not up and trend != "BULLISH") else "CHoCH"
         out["lines"].append(line(f"SMC-{symbol}-BRK-{c[i].time}", "BOS" if kind == "BOS" else "CHOCH", c[k].time, c[i].time, lvl, None,
-                                 f"SMC {kind} {'↑' if up else '↓'}"))
+                                 f"{kind} {'↑' if up else '↓'}"))
         # the order block: the last opposite candle before the impulse that broke the level
         ob = next((j for j in range(i - 1, max(k - 1, i - 12), -1) if (c[j].close < c[j].open) == up), None)
         if ob is not None:
@@ -75,25 +75,25 @@ def smc_view(c, symbol: str, tf_sec: int) -> dict:
             hit = any((x.low < bot) if up else (x.high > top) for x in c[i + 1:])  # traded through: no longer valid
             if not hit:
                 out["zones"].append(zone(f"SMC-{symbol}-OB-{c[ob].time}", "OB_BULL" if up else "OB_BEAR", c[ob].time, end, top, bot,
-                                         f"SMC {'demand' if up else 'supply'} OB", (top + bot) / 2))
+                                         f"OB {'demand' if up else 'supply'}", (top + bot) / 2))
 
     # liquidity: the nearest swing high above / low below price not taken since it formed
     px = c[last].close
     bsl = next(((k, p) for k, p in reversed(highs) if p > px and all(x.high <= p for x in c[k + 1:])), None)
     ssl = next(((k, p) for k, p in reversed(lows) if p < px and all(x.low >= p for x in c[k + 1:])), None)
     if bsl:
-        out["lines"].append(line(f"SMC-{symbol}-BSL-{c[bsl[0]].time}", "BSL", c[bsl[0]].time, end, bsl[1], None, "SMC BSL · buy stops"))
+        out["lines"].append(line(f"SMC-{symbol}-BSL-{c[bsl[0]].time}", "BSL", c[bsl[0]].time, end, bsl[1], None, "BSL"))
     if ssl:
-        out["lines"].append(line(f"SMC-{symbol}-SSL-{c[ssl[0]].time}", "SSL", c[ssl[0]].time, end, ssl[1], None, "SMC SSL · sell stops"))
+        out["lines"].append(line(f"SMC-{symbol}-SSL-{c[ssl[0]].time}", "SSL", c[ssl[0]].time, end, ssl[1], None, "SSL"))
 
     # the latest unfilled fair value gap
     for i in range(last, max(start, last - 60), -1):
         a, b = c[i - 2], c[i]
         if b.low > a.high and all(x.low > a.high for x in c[i + 1:]):
-            out["zones"].append(zone(f"SMC-{symbol}-FVG-{a.time}", "FVG_BULL", a.time, end, b.low, a.high, "SMC bullish FVG", (b.low + a.high) / 2))
+            out["zones"].append(zone(f"SMC-{symbol}-FVG-{a.time}", "FVG_BULL", a.time, end, b.low, a.high, "FVG ↑", (b.low + a.high) / 2))
             break
         if b.high < a.low and all(x.high < a.low for x in c[i + 1:]):
-            out["zones"].append(zone(f"SMC-{symbol}-FVG-{a.time}", "FVG_BEAR", a.time, end, a.low, b.high, "SMC bearish FVG", (a.low + b.high) / 2))
+            out["zones"].append(zone(f"SMC-{symbol}-FVG-{a.time}", "FVG_BEAR", a.time, end, a.low, b.high, "FVG ↓", (a.low + b.high) / 2))
             break
 
     parts = [f"structure {trend.lower()}"]

@@ -19,7 +19,7 @@ PAIRS = {
     "AUD/CHF": (2.0, "AUDCHF=X"),
 }
 # Price feeds only (never traded, never shown): USD/CAD converts AUD/CAD's profit from Canadian dollars to dollars
-CONVERSION_FEEDS = {"USD/CAD": "USDCAD=X"}
+CONVERSION_FEEDS = {"USD/CAD": "USDCAD=X", "USD/CHF": "USDCHF=X", "AUD/USD": "AUDUSD=X"}  # also the trader skill: CHF pip value, AUD margin
 
 NAMES = {"XAU/USD": "Gold / US Dollar", "EUR/USD": "Euro / US Dollar", "GBP/USD": "British Pound / US Dollar",
          "EUR/CHF": "Euro / Swiss Franc", "AUD/CAD": "Australian Dollar / Canadian Dollar", "AUD/CHF": "Australian Dollar / Swiss Franc"}

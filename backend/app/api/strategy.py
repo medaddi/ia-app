@@ -90,6 +90,22 @@ async def agents_radar(symbol: str = "XAU/USD", _=Depends(current_user)):
     return await agent_radar(sym)
 
 
+@router.get("/agents/brain")
+async def agents_brain(symbol: str = "XAU/USD", _=Depends(current_user)):
+    """The pair's one agent: its proven plan, the SMC strategies and the big players' positioning read together."""
+    from ..agents.registry import AGENT_CONFIGS
+    from ..analysis.brain import brain
+    from ..analysis.engine import cached_analysis
+
+    sym = normalize_symbol(symbol)
+    if sym not in AGENT_CONFIGS:
+        raise HTTPException(404, f"{sym} is not traded by the app")
+    a = await cached_analysis(sym)
+    if not a.get("success"):
+        raise HTTPException(502, a.get("error") or "No analysis right now")
+    return {"success": True, "symbol": sym, **brain(a)}
+
+
 @router.get("/agents/overlay")
 async def agent_overlay(symbol: str = "XAU/USD", asOf: int = 0):
     """The AgentChartOverlayState the pair's own agent emits for its chart (zones, price lines, markers, trade box)."""

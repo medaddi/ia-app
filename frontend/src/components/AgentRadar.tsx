@@ -34,7 +34,7 @@ export const AgentRadar: React.FC<{ symbol: string; lang: Language; className?: 
       } catch { /* the next tick retries */ } finally { busy = false; }
     };
     load();
-    const id = setInterval(load, 1000);  // every second: the agent re-reads the market at each candle close, the price every call
+    const id = setInterval(load, 5000);  // every 5 s: the agent re-reads the market at each candle close (the price is live every second elsewhere)
     return () => { alive = false; clearInterval(id); };
   }, [symbol]);
   useEffect(() => {

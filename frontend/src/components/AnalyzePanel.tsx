@@ -7,6 +7,7 @@ import type { Language } from '../types';
 import { setAnalysisDrawing, useAnalysisDrawing, type AnalysisDrawing } from '../analysisDrawing';
 import { SmcSection, type SmcAnalysis } from './SmcPanel';
 import { ScenarioPanel, type Scenarios } from './ScenarioPanel';
+import { SkillPanel, type Skill } from './SkillPanel';
 
 interface TestPart { trades: number; winRate: number; totalR: number }
 interface Row {
@@ -20,7 +21,7 @@ interface Analysis {
   success: boolean; error?: string; symbol: string; price: number; priceSource?: string; at: number; marketOpen: boolean; decimals: number;
   read: { trend: string; volatility: string; atrRatio: number; atrPips: number | null; smc: string }; verdict: string; strategies: Row[];
   smc: SmcAnalysis | null; pick: { family: 'plan' | 'smc'; id: string; draw: AnalysisDrawing | null } | null;
-  scenarios?: Scenarios;
+  scenarios?: Scenarios; skill?: Skill | null; skillError?: string | null;
   agent: { id: string; name: string; read: string }; radar: { family: string; id: string; name: string; status: string; line: string }[];
 }
 
@@ -50,13 +51,34 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
     setBusy(true);
     setErr('');
     try {
-      const res = await apiFetch(`/api/analyze?symbol=${encodeURIComponent(symbol)}`, { cache: 'no-store' });
-      const j = await res.json();
-      if (!res.ok || !j.success) throw new Error(j.error || j.detail || `HTTP ${res.status}`);
-      setData(j);
-      if (j.pick?.draw) setAnalysisDrawing(symbol, j.pick.draw);  // the setup that applies now, drawn on the chart
+      // A cold server can be slow or cut a long request: up to 3 tries, the last result stays on screen meanwhile
+      let last: unknown = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await apiFetch(`/api/analyze?symbol=${encodeURIComponent(symbol)}`, { cache: 'no-store' });
+          const text = await res.text();
+          let j: any = null;
+          try { j = JSON.parse(text); } catch { /* an HTML error page from the host: retried */ }
+          if (res.ok && j?.success) {
+            setData(j);
+            setErr('');
+            if (j.pick?.draw) setAnalysisDrawing(symbol, j.pick.draw);  // the setup that applies now, drawn on the chart
+            return;
+          }
+          if (j && res.status < 500 && res.status !== 429) throw Object.assign(new Error(j.error || j.detail || `HTTP ${res.status}`), { final: true });
+          last = new Error(j?.error || j?.detail || `HTTP ${res.status}`);
+        } catch (x: any) {
+          if (x?.final) throw x;
+          last = x;
+        }
+        if (attempt < 3) {
+          setErr(t(`The server is busy, trying again (${attempt + 1}/3)…`, `Le serveur est occupé, nouvel essai (${attempt + 1}/3)…`, `السيرفر مشغول، كنعاود (${attempt + 1}/3)…`));
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
+      }
+      throw last ?? new Error('analysis unavailable');
     } catch (x) {
-      setErr(String((x as Error).message || x));
+      setErr(t('The analysis did not arrive: ', 'L’analyse n’est pas arrivée : ', 'التحليل ما وصلش: ') + String((x as Error).message || x));
     } finally {
       setBusy(false);
     }
@@ -138,6 +160,8 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
                     <button type="button" onClick={() => setAnalysisDrawing(symbol, null)} className="h-7 px-2 rounded-lg border border-line text-slate-300 hover:bg-white/[0.05] cursor-pointer">{t('Clear', 'Effacer', 'مسح')}</button>
                   </div>
                 )}
+                <SkillPanel symbol={symbol} skill={data.skill ?? null} error={data.skillError} hasPick={!!data.pick} lang={lang}
+                  scenarios={{ buy: !!data.scenarios?.buy.main, sell: !!data.scenarios?.sell.main }} />
                 {data.scenarios && <ScenarioPanel sc={data.scenarios} decimals={data.decimals} lang={lang} symbol={symbol} price={data.price} snapshot={(data as any).snapshot} />}
                 <button type="button" onClick={() => setShowAll(v => !v)} className="mt-3 inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer" aria-expanded={showAll}>
                   <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
