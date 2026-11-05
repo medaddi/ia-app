@@ -8,6 +8,7 @@ import { setAnalysisDrawing, useAnalysisDrawing, type AnalysisDrawing } from '..
 import { SmcSection, type SmcAnalysis } from './SmcPanel';
 import { ScenarioPanel, type Scenarios } from './ScenarioPanel';
 import { SkillPanel, type Skill } from './SkillPanel';
+import { SmcReportCard } from './SmcReportCard';
 
 interface TestPart { trades: number; winRate: number; totalR: number }
 interface Row {
@@ -160,6 +161,7 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
                     <button type="button" onClick={() => setAnalysisDrawing(symbol, null)} className="h-7 px-2 rounded-lg border border-line text-slate-300 hover:bg-white/[0.05] cursor-pointer">{t('Clear', 'Effacer', 'مسح')}</button>
                   </div>
                 )}
+                {(data.smc as any)?.report && <SmcReportCard report={(data.smc as any).report} decimals={data.decimals} lang={lang} />}
                 <SkillPanel symbol={symbol} skill={data.skill ?? null} error={data.skillError} hasPick={!!data.pick} lang={lang}
                   scenarios={{ buy: !!data.scenarios?.buy.main, sell: !!data.scenarios?.sell.main }} />
                 {data.scenarios && <ScenarioPanel sc={data.scenarios} decimals={data.decimals} lang={lang} symbol={symbol} price={data.price} snapshot={(data as any).snapshot} />}

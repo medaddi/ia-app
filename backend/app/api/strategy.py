@@ -90,6 +90,22 @@ async def agents_radar(symbol: str = "XAU/USD", _=Depends(current_user)):
     return await agent_radar(sym)
 
 
+@router.get("/smc/report")
+async def smc_report_get(symbol: str = "XAU/USD", _=Depends(current_user)):
+    """The six SMC agents' report of the pair (SMCAnalysisReport) and its drawing for the chart."""
+    from ..agents.registry import AGENT_CONFIGS
+    from ..analysis.engine import cached_analysis
+
+    sym = normalize_symbol(symbol)
+    if sym not in AGENT_CONFIGS:
+        raise HTTPException(404, f"{sym} is not traded by the app")
+    a = await cached_analysis(sym)
+    smc = a.get("smc") or {}
+    if not smc.get("report"):
+        raise HTTPException(502, "No SMC report right now")
+    return {"success": True, "symbol": sym, "report": smc["report"], "draw": smc.get("reportDraw")}
+
+
 @router.get("/agents/brain")
 async def agents_brain(symbol: str = "XAU/USD", _=Depends(current_user)):
     """The pair's one agent: its proven plan, the SMC strategies and the big players' positioning read together."""

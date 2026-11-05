@@ -6,6 +6,7 @@ import { SmcChart, type SmcChartCandle } from './SmcChart';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { AnalyzeButton } from './AnalyzePanel';
 import { useAnalysisDrawing, withAnalysis } from '../analysisDrawing';
+import { useSmcReport, withSmcReport } from '../smcReport';
 import { useLivePrice } from '../livePrices';
 
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
@@ -17,11 +18,13 @@ const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', 
 export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string; onOpen?: (s: InstrumentSymbol) => void }> = ({ symbol, lang, onOpen }) => {
   const spec = chartSpec(symbol);
   const [tf, setTf] = useState(spec.entryTf);
-  const [candles, setCandles] = useState<SmcChartCandle[]>([]);
+  const [candleStore, setCandleStore] = useState<{ key: string; list: SmcChartCandle[] }>({ key: '', list: [] });
+  const candles = candleStore.key === `${symbol}_${tf}` ? candleStore.list : [];
   const [updatedAt, setUpdatedAt] = useState(0);
   const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);
   const { overlay: agentOverlay } = useAgentOverlay(symbol, 10000);
-  const overlay = withAnalysis(agentOverlay, useAnalysisDrawing(symbol));
+  const smcRep = useSmcReport(symbol, 60000);
+  const overlay = withAnalysis(withSmcReport(agentOverlay, smcRep, symbol), useAnalysisDrawing(symbol));
   const live = useLivePrice(symbol);  // the Analyse button's setup, when drawn
   const tvChart = useChartingLibrary();
 
@@ -30,11 +33,11 @@ export const AgentChartPanel: React.FC<{ symbol: InstrumentSymbol; lang: string;
     try {
       const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(symbol)}&timeframe=${PROVIDER_TF[tf]}&count=300`, { cache: 'no-store' });
       const j = await res.json();
-      if (j.success && Array.isArray(j.candles)) { setCandles(j.candles); setUpdatedAt(Date.now()); setQuote(j.quoteTime ? { time: j.quoteTime, source: j.priceSource || '' } : null); }
+      if (j.success && Array.isArray(j.candles)) { setCandleStore({ key: `${symbol}_${tf}`, list: j.candles }); setUpdatedAt(Date.now()); setQuote(j.quoteTime ? { time: j.quoteTime, source: j.priceSource || '' } : null); }
     } catch { /* keep the last candles */ }
   }, [symbol, tf]);
 
-  useEffect(() => { if (tvChart !== false) return; setCandles([]); load(); const id = setInterval(load, 10000); return () => clearInterval(id); }, [load, tvChart]);
+  useEffect(() => { if (tvChart !== false) return; load(); const id = setInterval(load, 10000); return () => clearInterval(id); }, [load, tvChart]);
 
   return (
     <div className="min-w-0">

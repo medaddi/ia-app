@@ -215,8 +215,12 @@ async def analyse_smc(pair: str) -> dict:
         return f"{hit.get('currency')} {hit.get('title')}" if hit else None
 
     out = smc_now(m5, h1, cost, spec, price, lambda e, s: lot_table(spec, e, s, 1, [500, 1000, 5000, 10000]), news)
+    from .smc_agents import report_drawing, smc_report
+
+    is_open = market_session_status(pair)["isOpen"]
+    report = smc_report(pair, spec, m5, h1, price, now, is_open, out["strategies"])  # the six SMC agents
     return {"success": True, "symbol": pair, "price": price, "priceSource": live.get("source"), "at": now,
-            "marketOpen": market_session_status(pair)["isOpen"], "decimals": spec["decimals"], **out}
+            "marketOpen": is_open, "decimals": spec["decimals"], **out, "report": report, "reportDraw": report_drawing(report)}
 
 
 async def analyse_all(pair: str) -> dict:

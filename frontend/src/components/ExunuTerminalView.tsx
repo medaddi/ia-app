@@ -5,6 +5,7 @@ import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentDesk, type Consensus } from './AgentDesk';
 import { AgentBrain } from './AgentBrain';
+import { useSmcReport, withSmcReport } from '../smcReport';
 import { AgentChartPanel } from './AgentChartPanel';
 import { AnalyzeButton } from './AnalyzePanel';
 import { AgentRadar } from './AgentRadar';
@@ -35,6 +36,7 @@ const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
 // Each pair's chart: its plan's timeframe and EMAs (instruments.ts CHART_SPEC)
 const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, { label: INSTRUMENT_LABELS[s], ...chartSpec(s) }])) as Record<InstrumentSymbol, ChartSpec & { label: string }>;
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
+const NO_CANDLES: SmcChartCandle[] = [];
 const LIVE_MS = 5000; // analysis, candles and price every 5 s (the free feeds refresh every ~10–60 s)
 
 // Each pair remembers the timeframe it was last viewed on (default: the strategy's decision timeframe)
@@ -50,19 +52,26 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const setTimeframe = (tf: string) => { setTimeframeState(tf); try { localStorage.setItem(tfKey(symbol), tf); } catch { /* storage blocked */ } };
   // The app picked another pair (search, dashboard card): follow it
   useEffect(() => { if (initialSymbol !== symbol) { setSymbolState(initialSymbol); setTimeframeState(savedTf(initialSymbol)); } }, [initialSymbol]);
-  const [candles, setCandles] = useState<SmcChartCandle[]>([]);
+  // Strict isolation: the candles and the analysis are kept under the key of the pair (and timeframe) they belong to,
+  // and the chart only ever gets the ones whose key is the pair on screen
+  const [candleStore, setCandleStore] = useState<{ key: string; list: SmcChartCandle[] }>({ key: '', list: [] });
   const tvChart = useChartingLibrary();
   const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);  // TradingView Advanced Charts when its files are served (docs/TRADINGVIEW.md)
-  const [bundle, setBundle] = useState<ExunuSMCResult | null>(null);
+  const [bundleStore, setBundleStore] = useState<{ symbol: string; data: ExunuSMCResult } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<number>(0);
   // One chart (the selected pair) or the 4-chart split screen: each chart is bound to its own agent's overlay
   const [split, setSplitState] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_split') === '1'; } catch { return false; } });
   const setSplit = (v: boolean) => { setSplitState(v); try { localStorage.setItem('ld_chart_split', v ? '1' : '0'); } catch { /* storage blocked */ } };
 
+  const pairKey = `${symbol}_${timeframe}`;
+  const candles = candleStore.key === pairKey ? candleStore.list : NO_CANDLES;
+  const bundle = bundleStore && bundleStore.symbol === symbol ? bundleStore.data : null;
   const result: StrategyResult | null = bundle?.strategy ?? null;
+  const abortRef = useRef<AbortController | null>(null);
   const inst = INSTRUMENTS[symbol];
   const drawing = useAnalysisDrawing(symbol);
+  const smcRep = useSmcReport(symbol);  // the six SMC agents of THIS pair, drawn on its chart
   const live = useLivePrice(symbol);  // every second  // the Analyse button's setup, drawn on this chart
   // The pair / timeframe on screen: an answer that arrives after a switch belongs to the old pair and is dropped
   // (otherwise GBP/USD could show EUR/USD's last price and candles for a moment)
@@ -71,11 +80,11 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const loadCandles = useCallback(async (sym: string, tf: string) => {
     try {
-      const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400${asOfParam}`, { cache: 'no-store' });
+      const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400${asOfParam}`, { cache: 'no-store', signal: abortRef.current?.signal });
       const json = await res.json();
       if (viewRef.current.symbol !== sym || viewRef.current.timeframe !== tf) return;
       if (json.success && Array.isArray(json.candles)) {
-        setCandles(json.candles);
+        setCandleStore({ key: `${sym}_${tf}`, list: json.candles });
         setQuote(json.quoteTime ? { time: json.quoteTime, source: json.priceSource || '' } : null);
       }
     } catch {
@@ -85,10 +94,10 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const loadStrategy = useCallback(async (sym: string): Promise<ExunuSMCResult | null> => {
     try {
-      const res = await apiFetch(`/api/exunu/setup?symbol=${encodeURIComponent(sym)}${asOfParam}`, { cache: 'no-store' });
+      const res = await apiFetch(`/api/exunu/setup?symbol=${encodeURIComponent(sym)}${asOfParam}`, { cache: 'no-store', signal: abortRef.current?.signal });
       const json = await res.json();
       if (viewRef.current.symbol !== sym) return null;
-      if (json.success && json.result?.strategy) { setBundle(json.result); markDataReady(); return json.result; }
+      if (json.success && json.result?.strategy) { setBundleStore({ symbol: sym, data: json.result }); markDataReady(); return json.result; }
     } catch {
       // next poll retries
     }
@@ -102,7 +111,8 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
     setIsLoading(false);
   }, [symbol, timeframe, loadStrategy, loadCandles]);
 
-  useEffect(() => { setBundle(null); setCandles([]); refreshAll(); }, [symbol, timeframe]);
+  // A switch: the old pair's pending requests are aborted before the new pair loads
+  useEffect(() => { abortRef.current?.abort(); abortRef.current = new AbortController(); refreshAll(); }, [symbol, timeframe]);
 
   // Live loop: every second the analysis and the candles (with the forming one) are reloaded together,
   // so the drawings, the checklist and the chart always come from the same moment. Paused while the tab is hidden.
@@ -165,10 +175,10 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-8 min-w-0">
             {tvChart && REVIEW_AS_OF <= 0 ? (
-              <TradingViewChart symbol={symbol} timeframe={timeframe} overlay={withAnalysis(result?.overlay ?? null, drawing)} decimals={result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5)}
+              <TradingViewChart symbol={symbol} timeframe={timeframe} overlay={withAnalysis(withSmcReport(result?.overlay ?? null, smcRep, symbol), drawing)} decimals={result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5)}
                 lang={lang} onTimeframeChange={setTimeframe} />
             ) : (
-              <SmcChart symbol={symbol} candles={candles} result={result} overlay={withAnalysis(result?.overlay ?? null, drawing)} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
+              <SmcChart symbol={symbol} candles={candles} result={result} overlay={withAnalysis(withSmcReport(result?.overlay ?? null, smcRep, symbol), drawing)} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
                 emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
                 onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} quote={REVIEW_AS_OF > 0 ? null : (live?.quoteTime ? { time: live.quoteTime, source: live.source } : quote)} livePrice={REVIEW_AS_OF > 0 ? null : live?.price ?? null} />
             )}

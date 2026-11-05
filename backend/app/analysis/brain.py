@@ -57,6 +57,16 @@ def brain(a: dict) -> dict:
         return {"side": None, "state": "WAITING", "line": f"{w['name']}: {w['reason']}" if w else "no plan"}
 
     def smc_vote():
+        rep = (a.get("smc") or {}).get("report")
+        if rep:  # the six SMC agents: the trade agent 5 validated, else the HTF bias agent 1 read
+            a1, a4, a5 = rep["agent1_structure"], rep["agent4_strategy"], rep["agent5_riskAndTrade"]
+            ready = a5["status"] in ("READY_TO_EXECUTE", "RUNNING")
+            lean = {"BULLISH": "BUY", "BEARISH": "SELL"}.get(a1["htfBias"])
+            idm = rep["agent2_liquidity"].get("idm")
+            line = (f"{a4.get('strategyName') or 'SMC'}: {a5['status'].replace('_', ' ').lower()}"
+                    + (f" {a5['direction']} 1:{a5['riskRewardRatio']} · checklist {a5['checklistScore']}" if a5.get("direction") else "")
+                    + f" · H1 {a1['htfBias'].lower()}" + (f" · IDM {idm['status'].lower()}" if idm else ""))
+            return {"side": _side(a5.get("direction")) if ready else None, "state": a5["status"], "line": line, "lean": lean}
         order = {"CONFIRMED": 0, "RUNNING": 1, "FORMING": 2, "BLOCKED": 3, "WAITING": 4}
         r = min(smc, key=lambda r: order.get(r["status"], 9)) if smc else None
         if not r:

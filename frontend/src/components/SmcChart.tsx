@@ -105,7 +105,23 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
   const [detailsOpen, setDetailsOpen] = useState(false);  // folded: the chart first, the numbers one click away
   const kind = symbol;  // the chart's layer choices are kept per pair
   // Only what this pair's own agent emits for this chart
-  const overlay = overlayProp ?? result?.overlay ?? null;
+  // Strict pair isolation: an overlay drawn only if it is THIS pair's, and only its items within ±20 % of the price
+  const overlayRaw = overlayProp ?? result?.overlay ?? null;
+  const refPrice = candles.length ? candles[candles.length - 1].close : 0;
+  const overlay = useMemo(() => {
+    if (!overlayRaw) return null;
+    if (overlayRaw.symbol && overlayRaw.symbol !== symbol.replace('/', '')) return null;
+    if (!(refPrice > 0)) return overlayRaw;
+    const near = (p: number) => Math.abs(p - refPrice) / refPrice <= 0.2;
+    const box = overlayRaw.tradeExecutionBox;
+    return {
+      ...overlayRaw,
+      zones: overlayRaw.zones.filter(z => near(z.topPrice) && near(z.bottomPrice)),
+      priceLines: overlayRaw.priceLines.filter(l => near(l.startPrice) && near(l.endPrice)),
+      markers: overlayRaw.markers.filter(m => near(m.price)),
+      tradeExecutionBox: box && near(box.entryPrice) && near(box.stopLoss) ? box : null,
+    };
+  }, [overlayRaw, symbol, refPrice]);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const primitiveRef = useRef<AgentOverlayPrimitive | null>(null);
   const fitKeyRef = useRef('');
@@ -248,10 +264,19 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
     };
   }, [theme, decimals]);
 
-  const bars = useMemo(() => [...candles]
-    .filter(c => c && [c.open, c.high, c.low, c.close].every(v => typeof v === 'number'))
-    .sort((a, b) => a.time - b.time)
-    .filter((c, i, arr) => i === 0 || c.time !== arr[i - 1].time), [candles]);
+  // Zero time décalage: UTC seconds, each intraday candle snapped to the open of its timeframe slot, sorted, one per slot
+  const bars = useMemo(() => {
+    const step = TF_SEC[timeframe] || 0;
+    const bySlot = new Map<number, SmcChartCandle>();
+    for (const c of candles) {
+      if (!c || ![c.open, c.high, c.low, c.close].every(v => typeof v === 'number' && Number.isFinite(v))) continue;
+      let t = Number(c.time);
+      if (t > 1e11) t = Math.floor(t / 1000);  // milliseconds → seconds
+      if (step > 0 && step < 86400) t -= t % step;  // daily / weekly bars keep the provider's own session open
+      bySlot.set(t, { ...c, time: t });
+    }
+    return [...bySlot.values()].sort((a, b) => a.time - b.time);
+  }, [candles, timeframe]);
 
   const barsLenRef = useRef(0);
   const barTimesRef = useRef<number[]>([]);
@@ -264,10 +289,12 @@ export const SmcChart: React.FC<SmcChartProps> = ({ symbol, candles, result, tim
 
   // The forming candle follows the live price every second (between two candle reloads)
   const liveBar = useRef<{ time: number; open: number; high: number; low: number } | null>(null);
+  useEffect(() => { liveBar.current = null; }, [symbol, timeframe]);
   useEffect(() => {
     const cs = candleRef.current;
     const last = bars[bars.length - 1];
     if (!cs || !last || !livePrice || !(livePrice > 0)) return;
+    if (Math.abs(livePrice - last.close) / last.close > 0.2) return;  // a price of another pair (mid-switch): never drawn on these candles
     if (Date.now() / 1000 >= last.time + tfSec) return;  // the last candle is closed (market shut): leave it as it is
     const lb = liveBar.current && liveBar.current.time === last.time ? liveBar.current : { time: last.time, open: last.open, high: last.high, low: last.low };
     lb.high = Math.max(lb.high, livePrice);
