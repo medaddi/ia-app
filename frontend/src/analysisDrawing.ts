@@ -17,22 +17,22 @@ export interface AnalysisDrawing {
 }
 
 const store = new Map<string, AnalysisDrawing>();
-const subs = new Set<() => void>();
-const emit = () => subs.forEach(f => f());
+const subs = new Map<string, Set<() => void>>();  // per pair: a drawing on one pair re-renders only that pair's screens
 
 export function setAnalysisDrawing(symbol: string, d: AnalysisDrawing | null) {
   if (d) store.set(symbol, { ...d, at: Date.now() });
   else store.delete(symbol);
-  emit();
+  subs.get(symbol)?.forEach(f => f());
 }
 
 export function useAnalysisDrawing(symbol: string): AnalysisDrawing | null {
   const [, tick] = useState(0);
   useEffect(() => {
     const f = () => tick(n => n + 1);
-    subs.add(f);
-    return () => { subs.delete(f); };
-  }, []);
+    if (!subs.has(symbol)) subs.set(symbol, new Set());
+    subs.get(symbol)!.add(f);
+    return () => { const s = subs.get(symbol); s?.delete(f); if (s && s.size === 0) subs.delete(symbol); };
+  }, [symbol]);
   return store.get(symbol) ?? null;
 }
 

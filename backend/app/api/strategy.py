@@ -90,6 +90,19 @@ async def agents_radar(symbol: str = "XAU/USD", _=Depends(current_user)):
     return await agent_radar(sym)
 
 
+@router.get("/agents/radars")
+async def agents_radars(symbols: str = "", _=Depends(current_user)):
+    """Several pairs' radars in one call (the dashboard shows every pair at once): one request instead of one per pair."""
+    import asyncio
+
+    from ..agents.registry import AGENT_CONFIGS
+    from ..analysis.engine import agent_radar
+
+    syms = list(dict.fromkeys(s for s in (normalize_symbol(x) for x in symbols.split(",") if x.strip()) if s in AGENT_CONFIGS))[:12]
+    rows = await asyncio.gather(*(agent_radar(s) for s in syms), return_exceptions=True)
+    return {"success": True, "radars": {s: r for s, r in zip(syms, rows) if isinstance(r, dict)}}
+
+
 @router.get("/smc/report")
 async def smc_report_get(symbol: str = "XAU/USD", _=Depends(current_user)):
     """The six SMC agents' report of the pair (SMCAnalysisReport) and its drawing for the chart."""

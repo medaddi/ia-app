@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Radar } from 'lucide-react';
-import { apiFetch } from '../api';
+import { useRadar } from '../radarStore';
 import { setAnalysisDrawing, useAnalysisDrawing, type AnalysisDrawing } from '../analysisDrawing';
 import { tr } from './ui';
 import type { Language } from '../types';
@@ -19,24 +19,8 @@ const TONE = {
  */
 export const AgentRadar: React.FC<{ symbol: string; lang: Language; className?: string; wrap?: boolean }> = ({ symbol, lang, className = '', wrap = false }) => {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
-  const [r, setR] = useState<RadarState | null>(null);
+  const r = useRadar(symbol) as RadarState | null;  // every pair's radar in one shared request every 5 s
   const drawn = useAnalysisDrawing(symbol);
-  useEffect(() => {
-    let alive = true;
-    let busy = false;
-    const load = async () => {
-      if (document.hidden || busy) return;
-      busy = true;
-      try {
-        const res = await apiFetch(`/api/agents/radar?symbol=${encodeURIComponent(symbol)}`, { cache: 'no-store' });
-        const j = await res.json();
-        if (alive && j.success) setR(j);
-      } catch { /* the next tick retries */ } finally { busy = false; }
-    };
-    load();
-    const id = setInterval(load, 5000);  // every 5 s: the agent re-reads the market at each candle close (the price is live every second elsewhere)
-    return () => { alive = false; clearInterval(id); };
-  }, [symbol]);
   useEffect(() => {
     // the radar found a confirmed setup: it goes on the chart (unless that one is already drawn)
     if (r?.status === 'SETUP' && r.draw && (!drawn || drawn.label !== r.draw.label)) setAnalysisDrawing(symbol, r.draw);
