@@ -161,15 +161,16 @@ export const AnalyzeButton: React.FC<{ symbol: string; lang: Language; compact?:
                     <button type="button" onClick={() => setAnalysisDrawing(symbol, null)} className="h-7 px-2 rounded-lg border border-line text-slate-300 hover:bg-white/[0.05] cursor-pointer">{t('Clear', 'Effacer', 'مسح')}</button>
                   </div>
                 )}
+                <button type="button" onClick={() => setShowAll(v => !v)} className="mt-3 inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer" aria-expanded={showAll}>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  {showAll ? t('Hide the details', 'Masquer le détail', 'خبي التفاصيل') : t('Details: each agent’s read and every strategy', 'Détails : la lecture de chaque agent et chaque stratégie', 'التفاصيل: قراءة كل وكيل وكل استراتيجية')}
+                </button>
+                {showAll && (<>
+                {/* the agents' own reads: SMC, the big players (COT) and the BUY / SELL scenarios */}
                 {(data.smc as any)?.report && <SmcReportCard report={(data.smc as any).report} decimals={data.decimals} lang={lang} />}
                 <SkillPanel symbol={symbol} skill={data.skill ?? null} error={data.skillError} hasPick={!!data.pick} lang={lang}
                   scenarios={{ buy: !!data.scenarios?.buy.main, sell: !!data.scenarios?.sell.main }} />
                 {data.scenarios && <ScenarioPanel sc={data.scenarios} decimals={data.decimals} lang={lang} symbol={symbol} price={data.price} snapshot={(data as any).snapshot} />}
-                <button type="button" onClick={() => setShowAll(v => !v)} className="mt-3 inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 cursor-pointer" aria-expanded={showAll}>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAll ? 'rotate-180' : ''}`} aria-hidden="true" />
-                  {showAll ? t('Hide the details', 'Masquer le détail', 'خبي التفاصيل') : t('Details: every strategy the agent checked', 'Détail : chaque stratégie vérifiée par l’agent', 'التفاصيل: كل استراتيجية شيكاها الوكيل')}
-                </button>
-                {showAll && (<>
                 <h4 className="mt-4 text-sm font-semibold text-gold-200">{t('Proven plans (2-year test)', 'Plans prouvés (test 2 ans)', 'خطط مجربة (اختبار 2 سنين)')}</h4>
                 <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-mono">
                   <span className={`px-2 py-1 rounded-lg border border-line ${data.read.trend === 'bullish' ? 'text-emerald-300' : 'text-rose-300'}`}>{t('trend', 'tendance', 'الاتجاه')} {data.read.trend}</span>

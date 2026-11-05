@@ -18,14 +18,14 @@ export interface Consensus { approved: boolean; agreed: number; agents: DeskVote
 
 /** The pair's agent (its state, its strategy steps) and the risk notes of its order: the trader sets the risk. */
 export const AgentDesk: React.FC<{ consensus?: Consensus | null; overlay?: AgentChartOverlayState | null; plan?: PairStrategy | null; hasSetup: boolean; lang?: Language;
-  running?: StrategyResult['running']; decimals?: number }> =
-  ({ consensus, overlay, plan, hasSetup, lang = 'en', running = [], decimals = 5 }) => {
+  running?: StrategyResult['running']; decimals?: number; bare?: boolean }> =
+  ({ consensus, overlay, plan, hasSetup, lang = 'en', running = [], decimals = 5, bare = false }) => {
     const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
     const risk = consensus?.agents.find(a => a.key === 'risk');
     const warnings = risk ? risk.checks.filter(c => !c.passed).length : 0;
     return (
-      <section className="mt-4 rounded-[var(--radius-card)] glass border p-4" aria-labelledby="agent-desk-title">
-        <header className="flex items-center justify-between gap-2 mb-3">
+      <section className={bare ? '' : 'mt-4 rounded-[var(--radius-card)] glass border p-4'} aria-labelledby="agent-desk-title">
+        <header className={`flex items-center justify-between gap-2 mb-3 ${bare ? 'text-xs' : ''}`}>
           <h3 id="agent-desk-title" className="flex items-center gap-2 text-sm font-semibold text-white">
             <span className="icon-tile icon-tile-gold w-7 h-7" aria-hidden="true"><Bot className="w-4 h-4" /></span>
             {overlay?.agentId ?? plan?.name ?? t('Pair agent', 'Agent de la paire', 'وكيل الزوج')}

@@ -38,6 +38,7 @@ export function withSmcReport(overlay: AgentChartOverlayState | null, rep: SmcRe
     ...overlay,
     zones: [...overlay.zones.filter(z => own(z.id)), ...rep.draw.zones],
     priceLines: [...overlay.priceLines.filter(l => own(l.id)), ...rep.draw.priceLines],
-    markers: overlay.markers,  // the swing labels (HH / HL / LH / LL) stay the agent's
+    // the swing labels (HH / HL / LH / LL) stay the agent's; the report adds the strategy's setup at its own candle
+    markers: [...overlay.markers.filter(m => own(m.id)), ...(rep.draw.markers ?? [])],
   };
 }

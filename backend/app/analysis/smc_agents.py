@@ -80,6 +80,7 @@ def agent0(symbol: str, spec: dict, m5, h1, price: float, now: int, market_open:
     age = now - (m5[-1].time + M5S) if m5 else 10 ** 9
     checks.append(("fresh data (last M5 close under 20 min old)" if market_open else "market closed: last data kept", age <= 1200 or not market_open))
     return {"symbol": spec["symbol"], "pair": symbol, "htfTimeframe": "1h", "itfTimeframe": "15m", "ltfTimeframe": "5m", "timestampUTC": now,
+            "lastCandleTime": m5[-1].time if m5 else None,
             "currentPrice": round(price, spec["decimals"]), "pricePrecision": spec["decimals"], "pipSize": spec["pipSize"],
             "guard": {"ok": all(ok for _, ok in checks), "checks": [{"label": a, "ok": ok} for a, ok in checks]}}
 
@@ -136,22 +137,24 @@ def agent2(h1v: H1View, m5, price: float, dec: int, bias: str, atr1: float) -> d
     asia = [x for x in today if x.time % DAY < 6 * H1S]
     levels = []
 
-    def add(label, p, side, since):
-        if p is None:
+    def add(label, side, src, since):
+        if not src:
             return
+        x0 = max(src, key=lambda x: x.high) if side == "BSL" else min(src, key=lambda x: x.low)  # the candle that made the level
+        p = x0.high if side == "BSL" else x0.low
         swept = any((x.high > p) if side == "BSL" else (x.low < p) for x in since)
-        levels.append({"label": label, "price": round(p, dec), "side": side, "swept": swept})
+        levels.append({"label": label, "price": round(p, dec), "side": side, "swept": swept, "time": x0.time})
     if prev:
-        add("PDH", max(x.high for x in prev), "BSL", today)
-        add("PDL", min(x.low for x in prev), "SSL", today)
+        add("PDH", "BSL", prev, today)
+        add("PDL", "SSL", prev, today)
     if prev_week:
         this_week = [x for x in c if (x.time // DAY + 3) // 7 == week]
-        add("PWH", max(x.high for x in prev_week), "BSL", this_week)
-        add("PWL", min(x.low for x in prev_week), "SSL", this_week)
+        add("PWH", "BSL", prev_week, this_week)
+        add("PWL", "SSL", prev_week, this_week)
     if len(asia) >= 48:
         after = [x for x in today if x.time % DAY >= 6 * H1S]
-        add("Asian High", max(x.high for x in asia), "BSL", after)
-        add("Asian Low", min(x.low for x in asia), "SSL", after)
+        add("Asian High", "BSL", asia, after)
+        add("Asian Low", "SSL", asia, after)
     # equal highs / lows: two of the last H1 swings within 0.1 ATR of each other, not taken since
     tol = 0.1 * atr1
     for kind, lst, side in (("EQH", st.swing_highs_after[-12:], "BSL"), ("EQL", st.swing_lows_after[-12:], "SSL")):
@@ -162,7 +165,7 @@ def agent2(h1v: H1View, m5, price: float, dec: int, bias: str, atr1: float) -> d
                 lvl = max(hit[1], vals[a][1]) if side == "BSL" else min(hit[1], vals[a][1])
                 since = c[vals[a][0] + 1:]
                 if not any((x.high > lvl) if side == "BSL" else (x.low < lvl) for x in since):
-                    levels.append({"label": kind, "price": round(lvl, dec), "side": side, "swept": False})
+                    levels.append({"label": kind, "price": round(lvl, dec), "side": side, "swept": False, "time": c[hit[0]].time})
                 break
     # the IDM of the latest H1 break in the bias' direction
     pois = [p for p in _h1_pois(h1v, "A") if p["break"] >= last - 120]
@@ -309,7 +312,8 @@ def agent5(a4: dict, m5, dec: int, pip: float, symbol: str) -> dict:
             "tp1_partial50": round(tp1, dec), "tp2_finalRunner": round(tp2, dec), "riskRewardRatio": round(rr, 2),
             "breakevenTriggerPrice": round(be, dec), "breakevenRule": "move the stop to the entry only after the first M5 internal BOS (body close) in favour",
             "partialsRule": "close 50 % at TP1, hold the runner to TP2", "slPips": round(risk / pip, 1), "lots": st.get("lots"),
-            "checklistScore": f"{passed}/7" if chk else None, "checklist": chk, "validUntil": st.get("validUntil"), "summaryDarija": summ}
+            "checklistScore": f"{passed}/7" if chk else None, "checklist": chk, "setupTime": st.get("since"), "validUntil": st.get("validUntil"),
+            "strategyId": r["id"], "summaryDarija": summ}
 
 
 def smc_report(symbol: str, spec: dict, m5, h1, price: float, now: int, market_open: bool, smc_rows: list[dict]) -> dict:
@@ -342,11 +346,13 @@ def smc_report(symbol: str, spec: dict, m5, h1, price: float, now: int, market_o
 def report_drawing(rep: dict) -> dict:
     """The report on the chart, in the chart's drawing contract: its zones, the last break, the dealing range's 50 %, the
     IDM and the liquidity pools. Every id starts with SMC- and carries the symbol."""
-    from ..agents.base import BEAR, BULL, line, zone
+    from ..agents.base import BEAR, BULL, line, marker, zone
 
     sym = rep["meta"]["symbol"]
-    now = rep["meta"]["timestampUTC"]
-    end = now + 12 * H1S
+    # anchored on the last closed candle's hour, never on the clock: the drawing stays still between two candles
+    base = rep["meta"].get("lastCandleTime") or rep["meta"]["timestampUTC"]
+    base -= base % H1S
+    end = base + 12 * H1S
     zones, lines = [], []
     cat = {"OB": ("OB_BULL", "OB_BEAR"), "FVG": ("FVG_BULL", "FVG_BEAR"), "IFVG": ("FVG_BULL", "FVG_BEAR"), "BREAKER": ("DEMAND_BAND", "SUPPLY_BAND"),
            "FLIP": ("DEMAND_BAND", "SUPPLY_BAND")}
@@ -375,5 +381,14 @@ def report_drawing(rep: dict) -> dict:
     for l in rep["agent2_liquidity"]["liquidityLevels"]:
         if l["swept"]:
             continue
-        lines.append(line(f"SMC-{sym}-LQ-{l['label']}", "BSL" if l["side"] == "BSL" else "SSL", now - 24 * H1S, end, l["price"], None, l["label"]))
-    return {"zones": zones, "priceLines": lines, "markers": []}
+        lines.append(line(f"SMC-{sym}-LQ-{l['label']}", "BSL" if l["side"] == "BSL" else "SSL", l.get("time") or base - 24 * H1S, end, l["price"], None, l["label"]))
+    # the strategy's setup, at the candle where it formed: its marker and its entry until the limit expires
+    a5 = rep["agent5_riskAndTrade"]
+    markers = []
+    if a5.get("direction") and a5.get("setupTime") and a5["status"] not in ("WAITING", "NO_TRADE"):
+        buy, t = a5["direction"] == "BUY", a5["setupTime"]
+        markers.append(marker(f"SMC-{sym}-SET-{t}", t - M5S, a5["entryPrice"], not buy, f"SMC {a5.get('strategyId', '')} {a5['direction']}".replace("  ", " "),
+                              BULL if buy else BEAR))
+        lines.append(line(f"SMC-{sym}-SET-E-{t}", "MSS_BREAK", t, max(a5.get("validUntil") or t, t + H1S), a5["entryPrice"], None, "entry", "DASHED",
+                          BULL if buy else BEAR))
+    return {"zones": zones, "priceLines": lines, "markers": markers}

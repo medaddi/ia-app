@@ -4,8 +4,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SmcChart, SmcChartCandle } from './SmcChart';
 import { ExunuActiveSetup } from './ExunuActiveSetup';
 import { AgentDesk, type Consensus } from './AgentDesk';
-import { AgentBrain } from './AgentBrain';
-import { useSmcReport, withSmcReport } from '../smcReport';
+import { withSmcReport } from '../smcReport';
+import { PairDossier } from '../pairs/PairDossier';
+import { reportOf, usePairDossier } from '../pairs/usePairDossier';
 import { AgentChartPanel } from './AgentChartPanel';
 import { AnalyzeButton } from './AnalyzePanel';
 import { AgentRadar } from './AgentRadar';
@@ -71,7 +72,8 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const abortRef = useRef<AbortController | null>(null);
   const inst = INSTRUMENTS[symbol];
   const drawing = useAnalysisDrawing(symbol);
-  const smcRep = useSmcReport(symbol);  // the six SMC agents of THIS pair, drawn on its chart
+  const dossier = usePairDossier(symbol);  // THIS pair's dossier: its team, its SMC report (drawn on its chart), its trades
+  const smcRep = reportOf(dossier);
   const live = useLivePrice(symbol);  // every second  // the Analyse button's setup, drawn on this chart
   // The pair / timeframe on screen: an answer that arrives after a switch belongs to the old pair and is dropped
   // (otherwise GBP/USD could show EUR/USD's last price and candles for a moment)
@@ -162,7 +164,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             <span className="text-slate-400">{result?.market.isOpen ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
             <span className="text-white font-semibold tabular-nums">{result ? (live?.price ?? result.price).toFixed(result.spec.decimals) : '—'}</span>
           </div>
-          <AgentRadar symbol={symbol} lang={lang as Language} className="hidden md:flex max-w-[22rem]" />
+          <AgentRadar symbol={symbol} lang={lang as Language} silent />
           <AnalyzeButton symbol={symbol} lang={lang as Language} />
         </div>
       </div>
@@ -182,9 +184,10 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
                 emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
                 onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} quote={REVIEW_AS_OF > 0 ? null : (live?.quoteTime ? { time: live.quoteTime, source: live.source } : quote)} livePrice={REVIEW_AS_OF > 0 ? null : live?.price ?? null} />
             )}
-            <AgentBrain symbol={symbol} lang={lang as Language} />
-            <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
-              hasSetup={!!result?.setup} lang={lang as Language} running={result?.running ?? []} decimals={result?.spec.decimals ?? 5} />
+            {/* the pair's dossier: its team and its trades; the agent's own desk (its test, its risk notes) under Details */}
+            <PairDossier key={symbol} symbol={symbol} dossier={dossier} decimals={result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5)} lang={lang as Language} details={
+              <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
+                hasSetup={!!result?.setup} lang={lang as Language} running={result?.running ?? []} decimals={result?.spec.decimals ?? 5} bare />} />
           </div>
           <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
             <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />

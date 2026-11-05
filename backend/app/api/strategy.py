@@ -119,20 +119,21 @@ async def smc_report_get(symbol: str = "XAU/USD", _=Depends(current_user)):
     return {"success": True, "symbol": sym, "report": smc["report"], "draw": smc.get("reportDraw")}
 
 
-@router.get("/agents/brain")
-async def agents_brain(symbol: str = "XAU/USD", _=Depends(current_user)):
-    """The pair's one agent: its proven plan, the SMC strategies and the big players' positioning read together."""
+@router.get("/pairs/dossier")
+async def pairs_dossier(symbol: str = "XAU/USD", _=Depends(current_user)):
+    """One pair's dossier: its team's decision (roles, probabilities), its SMC report and drawing, its trades."""
     from ..agents.registry import AGENT_CONFIGS
-    from ..analysis.brain import brain
-    from ..analysis.engine import cached_analysis
+    from ..db import SessionLocal
+    from ..pairs.dossier import pair_dossier
 
     sym = normalize_symbol(symbol)
     if sym not in AGENT_CONFIGS:
         raise HTTPException(404, f"{sym} is not traded by the app")
-    a = await cached_analysis(sym)
-    if not a.get("success"):
-        raise HTTPException(502, a.get("error") or "No analysis right now")
-    return {"success": True, "symbol": sym, **brain(a)}
+    with SessionLocal() as db:
+        out = await pair_dossier(sym, db)
+    if not out.get("success"):
+        raise HTTPException(502, out.get("error"))
+    return out
 
 
 @router.get("/agents/overlay")

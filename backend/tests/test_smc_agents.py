@@ -16,10 +16,10 @@ def history(m5, n=620):
     return seq(t0, [1.0990 + 0.0004 * math.sin(k / 7) for k in range(n)], 1.0990) + m5
 
 
-def build():
+def build(late: int = 0):
     m5, h1 = asian_sweep_market(1.0960, 0.0060, lambda k: 1.1280 - 0.0001 * k + 0.0010 * math.sin(k / 3))
     m5 = history(m5)
-    now = m5[-1].time + 300
+    now = m5[-1].time + 300 + late
     rows = smc_now(m5, h1, COST, SPEC_EU, m5[-1].close, lambda e, s: {"1000$": 0.1})["strategies"]
     return smc_report("EUR/USD", SPEC_EU, m5, h1, m5[-1].close, now, True, rows), m5
 
@@ -51,3 +51,15 @@ def test_a_price_from_another_pair_fails_the_guard():
     m5 = history(m5)
     rep = smc_report("EUR/USD", SPEC_EU, m5, h1, 4000.0, m5[-1].time + 300, True, [])  # a gold price on EUR/USD candles
     assert not rep["meta"]["guard"]["ok"] and rep["agent5_riskAndTrade"]["status"] == "NO_TRADE"
+
+
+def test_the_drawing_stays_still_between_two_candles_and_the_setup_sits_on_its_candle():
+    rep, m5 = build()
+    later, _ = build(late=240)  # the same candles, read 4 minutes later (the screens poll every 30 s)
+    assert report_drawing(rep) == report_drawing(later)
+    d = report_drawing(rep)
+    a5 = rep["agent5_riskAndTrade"]
+    mk = next(m for m in d["markers"] if m["id"].startswith("SMC-EURUSD-SET-"))
+    assert mk["time"] == a5["setupTime"] - 300 and a5["setupTime"] <= m5[-1].time + 300 and mk["text"].startswith("SMC ")
+    for l in rep["agent2_liquidity"]["liquidityLevels"]:  # each pool starts where its high / low was made
+        assert l["time"] <= m5[-1].time

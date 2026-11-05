@@ -81,6 +81,7 @@ def scenario_drawing(sym: str, t: dict, now: int) -> dict:
     """One scenario on the chart: its trigger level, the entry zone, the stop and the target, as lines from now on."""
     buy = t["dir"] == "BUY"
     col = BULL if buy else BEAR
+    now -= now % H1S  # on the hour, not the clock: the lines stay still between two refreshes
     t0, t1 = now - 10 * H1S, now + 12 * H1S  # from the last candles on: the labels sit inside the view
     side = "BUY" if buy else "SELL"
     tol = abs(t["entry"] - t["sl"]) * 0.1
