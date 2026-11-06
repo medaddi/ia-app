@@ -1,0 +1,26 @@
+{
+  "H1": {
+    "rows": 13761,
+    "flat": 0.0005,
+    "jumps": 0.0098,
+    "medianRangePips": 124.0,
+    "verdict": "FIT",
+    "why": []
+  },
+  "M15": {
+    "rows": 4528,
+    "flat": 0.0011,
+    "jumps": 0.0055,
+    "medianRangePips": 68.0,
+    "verdict": "FIT",
+    "why": []
+  },
+  "M5": {
+    "rows": 13554,
+    "flat": 0.0004,
+    "jumps": 0.0041,
+    "medianRangePips": 38.0,
+    "verdict": "FIT",
+    "why": []
+  }
+}

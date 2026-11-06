@@ -5,16 +5,14 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
-from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import admin_user
 from ..config import settings
 from ..db import SessionLocal, get_db
-from ..models import Signal, Subscriber, User
+from ..models import User
 from ..store import get_setting, public_telegram, set_setting
-from ..strategies.service import STRATEGY_DEFS, normalize_symbol
 from ..telegram import bot
 
 router = APIRouter(prefix="/api")
@@ -103,28 +101,9 @@ async def telegram_test(body: dict = Body(default={}), _: User = Depends(admin_u
     return out
 
 
-@router.post("/telegram/dispatch-now")
-async def telegram_dispatch_now(body: dict = Body(default={}), _: User = Depends(admin_user)):
-    symbols = [normalize_symbol(body["symbol"])] if body.get("symbol") else list(STRATEGY_DEFS)
-    results = {s: await bot.dispatch_setup(s, manual=True) for s in symbols}
-    return {"success": any(r["success"] for r in results.values()),
-            "results": {s: {k: v for k, v in r.items() if k != "signal"} for s, r in results.items()}}
-
-
-@router.get("/telegram/latency")
-def telegram_latency(db: Session = Depends(get_db)):
-    rows = db.scalars(select(Signal).where(Signal.latency_ms.is_not(None)).order_by(Signal.sent_at.desc()).limit(50))
-    return {"success": True, "deliveries": [{"signalId": s.id, "latencyMs": s.latency_ms, "recipients": s.recipients, "at": s.sent_at.isoformat()} for s in rows]}
-
-
-@router.get("/telegram/trace")
-def telegram_trace(ref: str, _: User = Depends(admin_user), db: Session = Depends(get_db)):
-    return {"success": True, "matches": bot.trace_leak(db, ref)}
-
-
 @router.get("/telegram/subscribers")
 def telegram_subscribers(_: User = Depends(admin_user), db: Session = Depends(get_db)):
-    """The accounts linked to Telegram (the only way to get the signals)."""
+    """The accounts linked to Telegram."""
     subs = {s.chat_id: s for s in bot.active_subscribers(db)}
     out = [{"chatId": u.telegram_chat_id, "username": u.username, "firstName": (subs.get(u.telegram_chat_id).first_name if subs.get(u.telegram_chat_id) else ""),
             "active": u.telegram_chat_id in subs, "muted": bool(subs.get(u.telegram_chat_id) and subs[u.telegram_chat_id].muted)}

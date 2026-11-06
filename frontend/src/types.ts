@@ -15,8 +15,8 @@ export interface MarketAsset {
   high24h: number;
   low24h: number;
   volume24h: string;
-  trend: 'Bullish' | 'Bearish' | 'Sideways';
-  trendStrength: number; // 0 - 100%
+  trend?: 'Bullish' | 'Bearish' | 'Sideways';
+  trendStrength?: number; // 0 - 100%
   pipSize: number;
   decimalPlaces: number;
   isMarketOpen?: boolean;

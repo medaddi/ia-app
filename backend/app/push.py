@@ -1,9 +1,8 @@
 """
-Web Push: trade notifications that reach the phone even when the app is closed (the tab is frozen or not open).
+Web Push: notifications that reach the phone even when the app is closed (the tab is frozen or not open).
 - VAPID keys are generated once and kept in the database (settings "push"), or come from VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY.
 - Each browser that turns notifications on stores its push subscription (PushSubscription).
-- Every new signal the strategy may notify, once the AI trade desk approves it, is pushed once (PushSent dedupes by setup id),
-  to every approved, active account. Independent of Telegram.
+Nothing is pushed automatically for now: the app's analysis is being rebuilt.
 """
 
 import asyncio
@@ -15,18 +14,14 @@ from typing import Optional
 from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid01
 from pywebpush import WebPushException, webpush
-from sqlalchemy import or_, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .db import SessionLocal
-from .models import PushSent, PushSubscription, User
+from .models import PushSubscription, User
 from .store import get_setting, set_setting
-from .strategies.service import CONFIGS, normalize_symbol
-from .trading import effective_risk, lot_for_risk
 
 SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:alerts@liquiditydissection.app")  # contact the push services may use
-TTL = 3600  # a trade notification older than an hour is useless: the push service may drop it after that
+TTL = 3600  # a notification older than an hour is useless: the push service may drop it after that
 
 
 def _b64url(b: bytes) -> str:
@@ -91,108 +86,3 @@ async def send_push(db: Session, rows: list[PushSubscription], message: dict) ->
             db.delete(r)
     db.commit()
     return sum(s is None for s in results)
-
-
-def trade_message(signal: dict, lots: Optional[float] = None) -> dict:
-    """The notification of a new trade, everything needed to place it at once:
-    title "🟢 BUY LIMIT · XAU/USD", body "Entry 2005.06 | SL 2008.20 | TP1 2000.35 | TP2 1993.70 | LOT 0.07 | valid until 09:55 UTC".
-    LOT is the lot for the receiver's own risk (left out when unset); the validity only for a pending (LIMIT) order."""
-    sym, side = signal["symbol"], signal["signalType"]
-    order = (signal.get("entryType") or "MARKET").upper()
-    tp1, tp2 = signal.get("target1"), signal.get("target3") or signal.get("target2")
-    try:
-        dec = CONFIGS[normalize_symbol(sym)]["spec"]["decimals"]
-    except KeyError:
-        dec = 5
-    fmt = lambda v: f"{float(v):.{dec}f}" if v is not None else "—"
-    parts = [f"Entry {fmt(signal.get('entryPrice'))}", f"SL {fmt(signal.get('stopLoss'))}"]
-    if tp1 is not None and tp2 is not None and abs(float(tp1) - float(tp2)) > 1e-9:
-        parts += [f"TP1 {fmt(tp1)}", f"TP2 {fmt(tp2)}"]
-    else:
-        parts.append(f"TP {fmt(tp2)}")
-    if lots:
-        parts.append(f"LOT {lots:.2f}")
-    exp = (signal.get("signalJson") or {}).get("expires_at") or signal.get("expiresAt")
-    if order == "LIMIT" and exp:
-        parts.append(f"valid until {str(exp)[11:16]} UTC")
-    return {"title": f"{'🟢' if side == 'BUY' else '🔴'} {side} {order} · {sym}", "body": " | ".join(parts),
-            "tag": f"ld-{signal['id']}", "symbol": sym, "urgent": True}
-
-
-def _user_lot(u: User, signal: dict) -> Optional[float]:
-    """The lot for this user's saved risk with the signal's own stop (None when no risk is set)."""
-    risk = effective_risk(u.risk_usd, u.capital, u.risk_pct) or 0
-    entry, sl = signal.get("entryPrice"), signal.get("stopLoss")
-    if risk <= 0 or entry is None or sl is None:
-        return None
-    return lot_for_risk(signal["symbol"], float(entry), float(sl), risk)["lots"] or None
-
-
-async def notify_trade(signal: dict) -> int:
-    """Pushes a new trade once to every approved, active account (claimed by setup id first, like the Telegram send)."""
-    with SessionLocal() as db:
-        db.add(PushSent(id=str(signal["id"])))
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()
-            return 0  # already pushed (another tick or worker)
-        rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
-                          .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()
-        by_user: dict[int, list[PushSubscription]] = {}
-        for r in rows:
-            by_user.setdefault(r.user_id, []).append(r)
-        sent = 0
-        try:
-            for uid, subs in by_user.items():  # each account gets the lot for its own risk
-                sent += await send_push(db, subs, trade_message(signal, _user_lot(db.get(User, uid), signal)))
-        except Exception:
-            if not sent:  # nothing went out: release the claim so the next tick tries again
-                db.query(PushSent).filter(PushSent.id == str(signal["id"])).delete()
-                db.commit()
-            raise
-        return sent
-
-
-async def push_closed(ended: list[dict]) -> int:
-    """Pushes how each trade ended ("✅ TP HIT · XAU/USD (BUY)" over "Result: +2.00R"), once per trade."""
-    from .telegram.bot import close_message
-
-    sent = 0
-    with SessionLocal() as db:
-        rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
-                          .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()
-        for sig in ended:
-            db.add(PushSent(id=f"end:{sig['id']}"[:80]))
-            try:
-                db.commit()
-            except IntegrityError:
-                db.rollback()
-                continue  # already pushed
-            head, res = close_message(sig)
-            sent += await send_push(db, list(rows), {"title": f"{head} · {sig['symbol']} ({sig['direction']})", "body": res.replace("\n", " "),
-                                                     "tag": f"ld-end-{sig['id']}", "symbol": sig["symbol"]})
-    return sent
-
-
-async def push_update(sig: dict, head: str, body: str, tag: str) -> int:
-    """A follow-up notice of a running trade to every approved account's devices (claimed once by app.followup)."""
-    with SessionLocal() as db:
-        rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
-                          .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()
-        return await send_push(db, list(rows), {"title": f"{head} · {sig['symbol']} ({sig['direction']})", "body": body.replace("\n", " "),
-                                                "tag": tag[:120], "symbol": sig["symbol"]})
-
-
-async def push_setup(symbol: str) -> str:
-    """At a candle close: pushes the fresh setup of `symbol` to every approved account (the same decision as Telegram)."""
-    from .strategies.exunu import run_exunu, to_ai_signal
-
-    res = await run_exunu(symbol)
-    r = res["strategy"]
-    if not (r["market"]["isOpen"] and r["status"] == "SIGNAL" and r["canNotify"] and r["setup"]):
-        return "no signal to push"
-    if not (res.get("consensus") or {}).get("approved"):
-        return "agent: no fresh setup"
-    n = await notify_trade(to_ai_signal(res))
-    return f"pushed to {n} device(s)"

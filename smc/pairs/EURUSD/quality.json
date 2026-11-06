@@ -1,0 +1,31 @@
+{
+  "H1": {
+    "rows": 17287,
+    "flat": 0.0074,
+    "jumps": 0.0387,
+    "medianRangePips": 9.2,
+    "verdict": "FIT",
+    "why": []
+  },
+  "M15": {
+    "rows": 5648,
+    "flat": 0.0145,
+    "jumps": 0.1333,
+    "medianRangePips": 3.8,
+    "verdict": "NOT FIT",
+    "why": [
+      "opening jumps"
+    ]
+  },
+  "M5": {
+    "rows": 16942,
+    "flat": 0.1523,
+    "jumps": 0.3215,
+    "medianRangePips": 1.3,
+    "verdict": "NOT FIT",
+    "why": [
+      "flat candles",
+      "opening jumps"
+    ]
+  }
+}

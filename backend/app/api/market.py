@@ -1,4 +1,4 @@
-"""Prices, candles, the economic calendar (as news) and a price-action sentiment gauge. XAU/USD and the forex pairs."""
+"""Prices, candles and the economic calendar (as news). XAU/USD and the forex pairs. No analysis: it is being rebuilt."""
 
 import asyncio
 import time
@@ -7,10 +7,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter
 
-from ..market.data import TIMEFRAME_SECONDS, fetch_candle_series, fetch_live_price, market_session_status
-from ..strategies.exunu import run_exunu, to_ai_signal
-from ..strategies.service import _cache as strategy_cache, normalize_symbol
-from ..strategies.shared.news import load_news_calendar
+from ..market.data import TIMEFRAME_SECONDS, canonical as normalize_symbol, fetch_candle_series, fetch_live_price, market_session_status
+from ..market.news import load_news_calendar
 
 router = APIRouter(prefix="/api")
 
@@ -25,23 +23,12 @@ ASSETS = {
 NEWS_CCYS = {"USD", *(c for sym in ASSETS if sym != "XAU/USD" for c in sym.split("/"))}
 
 
-def _trend(sym: str) -> tuple[str, int]:
-    """Trend from the strategy's own bias (cached result), never invented."""
-    hit = strategy_cache.get(sym)
-    if not hit:
-        return "Sideways", 50
-    r = hit[0]["result"]
-    d = r["bias"]["direction"]
-    return ("Bullish" if d == "BULLISH" else "Bearish" if d == "BEARISH" else "Sideways"), int(r["score"]) if r["setup"] else 50
-
-
 async def assets_list() -> list[dict]:
     prices = await asyncio.gather(*(fetch_live_price(s) for s in ASSETS))
     out = []
     for (sym, meta), p in zip(ASSETS.items(), prices):
-        trend, strength = _trend(sym)
         out.append({**meta, "symbol": sym, "price": p["price"], "change24h": p["change24h"], "change24hAmount": p["change24hAmount"],
-                    "high24h": p["high24h"], "low24h": p["low24h"], "volume24h": "—", "trend": trend, "trendStrength": strength,
+                    "high24h": p["high24h"], "low24h": p["low24h"], "volume24h": "—",
                     "isMarketOpen": p["isMarketOpen"], "marketStatusLabel": p["marketStatusLabel"], "marketSource": p["source"], "nextOpen": p.get("nextOpen")})
     return out
 
@@ -62,9 +49,7 @@ async def market_ticker(symbol: str = "XAU/USD"):
 @router.get("/market/prices")
 async def market_prices():
     """Every traded pair's live price in one request (each provider asked at most once a second, shared by all viewers)."""
-    from ..agents.registry import AGENT_CONFIGS
-
-    syms = list(AGENT_CONFIGS)
+    syms = list(ASSETS)
     got = await asyncio.gather(*(fetch_live_price(s) for s in syms), return_exceptions=True)
     out = {}
     for s, p in zip(syms, got):
@@ -81,17 +66,15 @@ async def market_candles(symbol: str = "XAU/USD", timeframe: str = "15M", count:
             "isLiveFeed": not series["isSynthetic"], "source": series["source"]}
 
 
-async def all_signals() -> list[dict]:
-    results = await asyncio.gather(*(run_exunu(s) for s in ASSETS))
-    return [to_ai_signal(r) for r in results]
-
-
-@router.get("/signals")
-async def signals():
-    sigs = await all_signals()
-    actionable = [s for s in sigs if s["isActionableNow"]]
-    return {"signals": sigs, "actionableCount": len(actionable), "totalCount": len(sigs), "allowedCount": len(actionable),
-            "waitCount": len(sigs) - len(actionable)}
+@router.get("/exunu/candles")
+async def chart_candles(symbol: str = "XAU/USD", timeframe: str = "15M", count: int = 300):
+    """The chart's candles and the live price of one pair."""
+    sym = normalize_symbol(symbol)
+    tf = timeframe if timeframe in TIMEFRAME_SECONDS else "15M"
+    series = await fetch_candle_series(sym, tf, min(1000, max(count, 10)))
+    live = await fetch_live_price(sym)
+    return {"success": True, "symbol": sym, "timeframe": tf, "candles": [c.to_dict() for c in series["candles"]], "isSynthetic": series["isSynthetic"],
+            "source": series["source"], "price": live.get("price"), "quoteTime": live.get("quoteTime"), "priceSource": live.get("source")}
 
 
 # ---------------------------------------------------------------- news (economic calendar)
@@ -130,8 +113,8 @@ async def news_items() -> list[dict]:
             "id": f"cal-{cur}-{e['time']}-{zlib.crc32(e['title'].encode()) % 100000}", "title": f"{cur} · {e['title']}", "titleAr": f"{cur} · {e['title']}",
             "source": cal["source"], "timeAgo": _ago(e["time"], now), "category": _category(e["title"]), "impactAsset": asset,
             "impactVerdict": "neutral", "impactHeadlineAr": "حدث اقتصادي عالي التأثير" if high else "حدث اقتصادي متوسط التأثير",
-            "reasonAr": "خبر قوي: الصفقة اللي تخرج 30 دقيقة قبل ولا بعد كتجي مع تنبيه." if high else "تأثير متوسط على التقلب.",
-            "reasonEn": "High impact: a trade within 30 min of it comes with a news warning." if high else "Medium impact on volatility.",
+            "reasonAr": "خبر قوي: تقلب كبير ممكن 30 دقيقة قبل وبعد." if high else "تأثير متوسط على التقلب.",
+            "reasonEn": "High impact: strong volatility possible 30 min before and after." if high else "Medium impact on volatility.",
             "importance": "HIGH" if high else "MEDIUM", "isLive": True,
             "publishedAt": datetime.fromtimestamp(e["time"], timezone.utc).isoformat(), "isLockoutEvent": lock,
             "lockoutReasonAr": "نافذة حظر الأخبار نشطة" if lock else None,
@@ -148,40 +131,3 @@ async def news():
 async def news_sync():
     items = await news_items()
     return {"success": True, "news": items, "count": len(items)}
-
-
-# ---------------------------------------------------------------- sentiment (price action, not social media)
-
-async def sentiment_for(symbol: str) -> dict:
-    sym = normalize_symbol(symbol)
-    series = await fetch_candle_series(sym, "1H", 120)
-    c = series["candles"][-48:]
-    up = sum(1 for x in c if x.close > x.open)
-    down = sum(1 for x in c if x.close < x.open)
-    n = len(c) or 1
-    pos, neg = round(up / n * 100), round(down / n * 100)
-    neu = max(0, 100 - pos - neg)
-    move = (c[-1].close - c[0].open) / c[0].open * 100 if len(c) > 1 else 0
-    index = max(0, min(100, round(50 + move * (10 if sym == "XAU/USD" else 25))))
-    label = "Greed" if index >= 60 else "Fear" if index <= 40 else "Neutral"
-    split = {"positive": pos, "negative": neg, "neutral": neu}
-    return {
-        "assetSymbol": sym, **split,
-        "sentimentSummaryAr": f"آخر 48 شمعة H1: {pos}% صاعدة و {neg}% هابطة، التغير {move:+.2f}%.",
-        "sentimentSummary": f"Last 48 H1 candles: {pos}% up, {neg}% down, change {move:+.2f}%.",
-        "sources": {"priceAction": split}, "fearAndGreedIndex": index, "fearAndGreedLabel": label,
-        "method": "Share of bullish/bearish H1 candles over 48 hours (real candles, no social-media data)",
-    }
-
-
-@router.get("/sentiment")
-async def sentiment(symbol: str = "XAU/USD"):
-    return {"sentiment": await sentiment_for(symbol)}
-
-
-@router.get("/market/sync-all")
-async def sync_all(symbol: str = "XAU/USD", timeframe: str = "1H"):
-    sym = normalize_symbol(symbol)
-    assets, candles, sigs, items, sent = await asyncio.gather(assets_list(), market_candles(sym, timeframe, 300), all_signals(), news_items(), sentiment_for(sym))
-    return {"success": True, "assets": assets, "selectedAsset": next(a for a in assets if a["symbol"] == sym),
-            "candleData": candles, "signals": sigs, "news": items, "sentiment": sent, "updated": int(time.time() * 1000)}

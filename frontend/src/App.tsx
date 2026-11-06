@@ -1,23 +1,19 @@
 import React, { Suspense, lazy, useState, useEffect, useRef } from 'react';
-import { MarketAsset, AISignal, NewsItem, SentimentData, Language } from './types';
+import { MarketAsset, NewsItem, Language } from './types';
 import { apiFetch, apiJson, setToken, getToken, setSessionExpiry } from './api';
-const SignalPerformanceTracker = lazy(() => import('./components/SignalPerformanceTracker').then(m => ({ default: m.SignalPerformanceTracker })));
 const NewsAISection = lazy(() => import('./components/NewsAISection').then(m => ({ default: m.NewsAISection })));
-const SentimentRadar = lazy(() => import('./components/SentimentRadar').then(m => ({ default: m.SentimentRadar })));
 const TelegramSettingsModal = lazy(() => import('./components/TelegramSettingsModal').then(m => ({ default: m.TelegramSettingsModal })));
 import { LoginScreen } from './components/LoginScreen';
 import { PendingApproval } from './components/PendingApproval';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { AppLayout } from './components/layout/AppLayout';
 import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
-const PairPerformanceView = lazy(() => import('./components/PairPerformanceView').then(m => ({ default: m.PairPerformanceView })));
 const ExunuTerminalView = lazy(() => import('./components/ExunuTerminalView').then(m => ({ default: m.ExunuTerminalView })));
 import { DashboardView } from './components/DashboardView';
 import { isInstrument } from './instruments';
-import { notifyEnabled, notifyNewSignals, subscribePush } from './notifications';
+import { notifyEnabled, subscribePush } from './notifications';
 import { GoldLoader, LogoLoader } from './components/GoldLoader';
 import { hideSplash } from './splash';
-const AgentPanel = lazy(() => import('./components/AgentPanel').then(m => ({ default: m.AgentPanel })));
 import type { AppUser } from './components/AccountView';
 const AccountView = lazy(() => import('./components/AccountView').then(m => ({ default: m.AccountView })));
 const AdminView = lazy(() => import('./components/AdminView').then(m => ({ default: m.AdminView })));
@@ -25,7 +21,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 const TG_KEY = 'ld_tg_connect';  // the bot's one-time Connect token, kept through the login
 
-const ACCOUNT_TABS = ['account', 'positions', 'history', 'settings'];
+const ACCOUNT_TABS = ['account', 'positions', 'history', 'settings'];  // old links to the account's tabs open the account page
 
 export default function App() {
   const [lang, setLang] = useState<Language>('fr');
@@ -130,7 +126,7 @@ export default function App() {
     return () => clearInterval(id);
   }, [tgWatch, currentUser?.telegramLinked]);
   const unlinkTelegram = async () => {
-    if (!window.confirm(tgText('Disconnect Telegram? The bot stops sending you the trades.', 'Déconnecter Telegram ? Le bot n’enverra plus les trades.', 'قطع ربط تيليغرام؟ البوت غادي يوقف يصيفط ليك الصفقات.'))) return;
+    if (!window.confirm(tgText('Disconnect Telegram from your account?', 'Déconnecter Telegram de votre compte ?', 'قطع ربط تيليغرام من حسابك؟'))) return;
     try {
       const r = await apiJson<{ user: AppUser }>('/api/me/telegram-link', { method: 'DELETE' });
       setCurrentUser(r.user);
@@ -148,7 +144,7 @@ export default function App() {
         <h2 id="tg-accept-title" className="mt-4 text-base font-semibold text-white">{tgText('Link Telegram to your account?', 'Lier Telegram à votre compte ?', 'ربط تيليغرام بحسابك؟')}</h2>
         <p className="mt-2 text-xs text-slate-400 leading-relaxed">
           {tgText('Telegram', 'Telegram', 'تيليغرام')} <b className="text-slate-100">{tgAsk.firstName || '—'}</b> → {tgText('account', 'compte', 'الحساب')} <b className="text-gold-200">{currentUser.username}</b><br />
-          {tgText('The bot will send you every trade with your lot. One Telegram per account.', 'Le bot vous enverra chaque trade avec votre lot. Un Telegram par compte.', 'البوت غادي يصيفط ليك كل صفقة باللوت ديالك. تيليغرام واحد لكل حساب.')}
+          {tgText('One Telegram per account.', 'Un Telegram par compte.', 'تيليغرام واحد لكل حساب.')}
         </p>
         {tgAsk.problem && <p className="mt-3 rounded-xl bg-rose-500/10 border border-rose-500/30 px-3 py-2 text-xs text-rose-200">{tgAsk.problem}</p>}
         <div className="mt-5 grid grid-cols-2 gap-2">
@@ -184,13 +180,10 @@ export default function App() {
   // Live data from the backend only (no client-side fallback data)
   const [assets, setAssets] = useState<MarketAsset[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('XAU/USD');
-  const [signals, setSignals] = useState<AISignal[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
-  const [sentiment, setSentiment] = useState<SentimentData | null>(null);
   const selectedAsset = assets.find(a => a.symbol === selectedSymbol) || assets[0] || null;
 
-  // Assistant drawer & Telegram Modal & Tools Drawer
-  const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(false);
+  // Telegram modal & mobile drawer
   const [isTelegramOpen, setIsTelegramOpen] = useState<boolean>(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
 
@@ -209,38 +202,23 @@ export default function App() {
       setBackendDown(true);
     }
   };
-  const langRef = useRef(lang);
-  langRef.current = lang;
-  const loadSignals = async () => {
-    try {
-      const list = (await apiJson<{ signals: AISignal[] }>('/api/signals')).signals || [];
-      setSignals(list);
-      notifyNewSignals(list, langRef.current);  // browser notification for every new trade
-    } catch { /* next poll retries */ }
-  };
   const loadNews = async () => {
     try { setNews((await apiJson<{ news: NewsItem[] }>('/api/news')).news || []); } catch { /* next poll retries */ }
-  };
-  const loadSentiment = async () => {
-    try { setSentiment((await apiJson<{ sentiment: SentimentData }>(`/api/sentiment?symbol=${encodeURIComponent(symbolRef.current)}`)).sentiment); } catch { /* next poll retries */ }
   };
 
   const syncAllMarketData = async () => {
     setIsSyncingLive(true);
-    await Promise.all([loadPrices(), loadSignals(), loadNews(), loadSentiment()]);
+    await Promise.all([loadPrices(), loadNews()]);
     setIsSyncingLive(false);
   };
 
-  // Prices and signals every second (live), news and sentiment every 2 min; refresh when the tab comes back
+  // Prices (header, search) every 15 s, news every 2 min; refresh when the tab comes back
   useEffect(() => {
     if (!currentUser || currentUser.status === 'pending') return;  // a pending account only sees its waiting page
     syncAllMarketData();
     const live = (fn: () => Promise<void>) => { let busy = false; return () => { if (busy || document.hidden) return; busy = true; fn().finally(() => { busy = false; }); }; };
-    // The dashboard and the chart refresh themselves; these lists (header badge, notifications) only need a slow pace
-    const every = 15000;
-    const ids = [setInterval(live(loadPrices), every), setInterval(live(loadSignals), every), setInterval(() => { loadNews(); loadSentiment(); }, 120000),
-      // Tab in the background with notifications on: keep checking for new trades (browsers allow about once a minute there)
-      setInterval(() => { if (document.hidden && notifyEnabled()) loadSignals(); }, 30000)];
+    // The dashboard and the chart refresh themselves; the header's list only needs a slow pace
+    const ids = [setInterval(live(loadPrices), 15000), setInterval(loadNews, 120000)];
     const onVisible = () => { if (document.visibilityState === 'visible') syncAllMarketData(); };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('online', onVisible);
@@ -261,7 +239,7 @@ export default function App() {
     return () => clearInterval(id);
   }, [currentUser?.id, currentUser?.role, activeTab]);
 
-  // A clicked trade notification opens the chart on its pair (service worker message, direct click, or a new window ?symbol=)
+  // A clicked notification opens the chart on its pair (service worker message, direct click, or a new window ?symbol=)
   useEffect(() => {
     const open = (sym: unknown) => {
       if (typeof sym !== 'string' || !isInstrument(sym)) return;
@@ -277,8 +255,6 @@ export default function App() {
     navigator.serviceWorker?.addEventListener('message', onMsg);
     return () => { window.removeEventListener('ld-open-symbol', onEvent); navigator.serviceWorker?.removeEventListener('message', onMsg); };
   }, []);
-
-  useEffect(() => { if (currentUser) loadSentiment(); }, [selectedSymbol]);
 
   const setSelectedAsset = (a: MarketAsset | null) => { if (a) setSelectedSymbol(a.symbol); };
   // The intro fades out once there is a real screen to show: the login or the waiting page at once, the app once its data is in
@@ -318,7 +294,7 @@ export default function App() {
     return (
       <GoldLoader label={backendDown
         ? (lang === 'fr' ? 'Le serveur se réveille, cela peut prendre une minute…' : isAr ? 'الخادم كيفيق، يقدر ياخد دقيقة…' : 'The server is waking up, this can take a minute…')
-        : (lang === 'fr' ? 'Chargement des stratégies or et forex…' : isAr ? 'جاري تحميل استراتيجيات الذهب والفوركس…' : 'Loading the gold and forex strategies…')} />
+        : (lang === 'fr' ? 'Chargement de l’or et du forex…' : isAr ? 'جاري تحميل الذهب والفوركس…' : 'Loading gold and forex…')} />
     );
   }
 
@@ -338,11 +314,10 @@ export default function App() {
           const found = assets.find(a => a.symbol === sym || a.symbol.includes(sym));
           if (found) setSelectedSymbol(found.symbol);
         }}
-        activeSignalsCount={signals.filter((s) => s.isActionableNow).length}
+        activeSignalsCount={0}
         pendingUsers={pendingUsers}
         isSyncingLive={isSyncingLive}
         onForceRefresh={() => syncAllMarketData()}
-        onOpenAssistant={() => setIsAssistantOpen(true)}
         onOpenTelegram={() => setIsTelegramOpen(true)}
         isMobileDrawerOpen={isMobileDrawerOpen}
         setIsMobileDrawerOpen={setIsMobileDrawerOpen}
@@ -360,7 +335,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <DashboardView lang={lang} onOpenChart={sym => { setSelectedSymbol(sym); setActiveTab('chart'); }} />
+              <DashboardView lang={lang} username={currentUser?.username} onOpenChart={sym => { setSelectedSymbol(sym); setActiveTab('chart'); }} />
             </motion.div>
           )}
 
@@ -374,43 +349,14 @@ export default function App() {
               <ExunuTerminalView
                 initialSymbol={isInstrument(selectedSymbol) ? selectedSymbol : 'XAU/USD'}
                 onSymbolChange={sym => setSelectedSymbol(sym)}
-                onOpenTelegram={() => setIsTelegramOpen(true)}
                 lang={lang}
               />
             </motion.div>
           )}
 
-          {activeTab === 'performance' && (
-            <motion.div
-              key="performance"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
-            >
-              <InternalPageTemplate subtitle={isFr ? 'Chaque signal envoyé, suivi jusqu’au TP ou au SL.' : isAr ? 'كل إشارة تصيفطات، متبوعة حتى TP ولا SL.' : 'Every signal sent, followed to its TP or SL.'}>
-                <SignalPerformanceTracker
-                  lang={lang}
-                  theme={theme}
-                  onOpenTelegram={() => setIsTelegramOpen(true)}
-                />
-              </InternalPageTemplate>
-            </motion.div>
-          )}
 
 
 
-          {activeTab === 'pairs' && (
-            <motion.div
-              key="pairs"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
-            >
-              <InternalPageTemplate subtitle={isFr ? 'Choisissez une paire : le bilan de sa stratégie et ses trades clôturés.' : isAr ? 'ختار زوج: النتائج ديال الاستراتيجية ديالو والصفقات المسدودة.' : 'Pick a pair: its strategy’s track record and closed trades.'}>
-                <PairPerformanceView lang={lang} initialSymbol={selectedSymbol} />
-              </InternalPageTemplate>
-            </motion.div>
-          )}
 
           {activeTab === 'news' && (
             <motion.div
@@ -419,15 +365,8 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <InternalPageTemplate subtitle={isFr ? 'Les annonces économiques fortes : un trade à 30 min près arrive avec un avertissement.' : isAr ? 'الأخبار الاقتصادية القوية: الصفقة اللي قريبة منها ب 30 دقيقة كتجي مع تنبيه.' : 'High-impact economic news: a trade within 30 min of one comes with a warning.'}>
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-                  <div className="xl:col-span-8 min-w-0">
-                    <NewsAISection news={news} lang={lang} theme={theme} onRefreshNews={loadNews} />
-                  </div>
-                  <div className="xl:col-span-4 min-w-0 xl:sticky xl:top-0">
-                    <SentimentRadar sentiment={sentiment} lang={lang} theme={theme} />
-                  </div>
-                </div>
+              <InternalPageTemplate subtitle={isFr ? 'Les annonces économiques à fort impact sur l’or et le forex.' : isAr ? 'الأخبار الاقتصادية اللي عندها تأثير قوي على الذهب والفوركس.' : 'High-impact economic news for gold and forex.'}>
+                <NewsAISection news={news} lang={lang} theme={theme} onRefreshNews={loadNews} />
               </InternalPageTemplate>
             </motion.div>
           )}
@@ -452,8 +391,8 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <InternalPageTemplate subtitle={isFr ? 'Votre risque, vos trades et vos résultats.' : isAr ? 'المخاطرة، الصفقات والنتائج ديالك.' : 'Your risk, your trades and your results.'}>
-                <AccountView lang={lang} theme={theme} user={currentUser} onUserChange={setCurrentUser} signals={signals} assets={assets} />
+              <InternalPageTemplate subtitle={isFr ? 'Votre compte, Telegram et les notifications.' : isAr ? 'الحساب ديالك، تيليغرام والإشعارات.' : 'Your account, Telegram and notifications.'}>
+                <AccountView lang={lang} theme={theme} user={currentUser} onUserChange={setCurrentUser} />
               </InternalPageTemplate>
             </motion.div>
           )}
@@ -462,8 +401,6 @@ export default function App() {
 
       </AppLayout>
 
-      {/* 4. Tools Sidebar Drawer (Optional quick drawer) */}
-      <AgentPanel isOpen={isAssistantOpen} onClose={() => setIsAssistantOpen(false)} lang={lang} />
 
 
 
@@ -485,10 +422,9 @@ export default function App() {
         setActiveTab={setActiveTab}
         lang={lang}
         theme={theme}
-        onOpenAssistant={() => setIsAssistantOpen(true)}
         onOpenTelegram={() => setIsTelegramOpen(true)}
         onOpenMenu={() => setIsMobileDrawerOpen(true)}
-        activeSignalsCount={signals.filter((s) => s.isActionableNow).length}
+        activeSignalsCount={0}
       />
     </>
   );

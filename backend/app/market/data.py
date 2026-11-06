@@ -16,9 +16,9 @@ from datetime import datetime, timezone
 
 import httpx
 
-from ..strategies._pairs import CONVERSION_FEEDS, PAIRS
-from ..strategies.shared.jsnum import round_to
-from ..strategies.shared.types import Candle
+from .pairs import CONVERSION_FEEDS, PAIRS
+from .jsnum import round_to
+from .types import Candle
 
 UA = {"Accept": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"}
 PRICE_TTL = 1.0  # live price shared by every viewer: at most one provider request per symbol per second

@@ -1,13 +1,14 @@
 """
 LiquidityDissection backend (FastAPI).
   uvicorn app.main:app --reload --port 8000
-Starts the candle-close scheduler (signals → Telegram) and the Telegram command bot.
+Starts the pair teams' notifier (every minute) and the Telegram command bot.
 """
 
 import asyncio
+import hmac
 import os
 import re
-import hmac
+
 import time
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -20,15 +21,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .api import account, dashboard, market, settings as settings_api, strategy, trader
+from .api import account, market, settings as settings_api, smc as smc_api
 from .auth import ensure_admin
 from .config import settings
 from .db import SessionLocal, engine, init_db
-from .telegram import scheduler
-from .store import get_setting
 from .telegram.bot import poll_forever
-
-ENGINE_STALE_SEC = 180  # the pinger calls /api/cron/tick every minute: 3 min without a tick = stopped
 
 STARTED = time.time()
 _ready = False
@@ -58,16 +55,31 @@ def _try_prepare() -> Optional[str]:
     return _setup_error
 
 
+async def _teams_forever(stop: asyncio.Event) -> None:
+    """An always-on server: the six teams read the market every minute and send each new setup once."""
+    from .smc.notify import tick
+
+    while not stop.is_set():
+        try:
+            await tick()
+        except Exception as err:  # keep running whatever happens
+            print(f"[smc] tick failed: {err!r}")
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=60)
+        except asyncio.TimeoutError:
+            pass
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if not settings.database_missing:
         _try_prepare()
     stop = asyncio.Event()
     tasks: list[asyncio.Task] = []
-    if settings.scheduler_enabled:
-        tasks += scheduler.start(stop)
     if settings.telegram_polling:
         tasks.append(asyncio.create_task(poll_forever(stop)))
+    if settings.scheduler_enabled:
+        tasks.append(asyncio.create_task(_teams_forever(stop)))
     yield
     stop.set()
     for t in tasks:
@@ -82,7 +94,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-for r in (account.router, dashboard.router, market.router, strategy.router, settings_api.router, trader.router):
+for r in (account.router, market.router, settings_api.router, smc_api.router):
     app.include_router(r)
 
 
@@ -129,26 +141,28 @@ def health():
             conn.execute(text("SELECT 1"))
     except SQLAlchemyError:
         return JSONResponse({"status": "error", "database": "unavailable"}, status_code=503)
-    return {"status": "ok", "database": "ok", "uptimeSeconds": int(time.time() - STARTED),
-            "scheduler": settings.scheduler_enabled, "telegramPolling": settings.telegram_polling}
+    return {"status": "ok", "database": "ok", "uptimeSeconds": int(time.time() - STARTED), "telegramPolling": settings.telegram_polling}
 
 
 @app.get("/api/cron/status")
-async def cron_status():
-    """Is the signal engine running? When the pinger last called /api/cron/tick and what each pair decided (no secrets)."""
+def cron_status():
+    """When the teams last read the market and what each one did (no secrets)."""
+    from .store import get_setting
+
     with SessionLocal() as db:
         e = get_setting(db, "engine")
     last = e.get("lastTickAt")
     ago = int(time.time() - last) if last else None
-    return {"running": ago is not None and ago <= ENGINE_STALE_SEC, "lastTickAt": last, "secondsAgo": ago, "durationSec": e.get("durationSec"),
-            "ticks": e.get("ticks", 0), "pairs": e.get("results") or {}, "lastSent": e.get("lastSent") or {}}
+    return {"running": ago is not None and ago <= 180, "lastTickAt": last, "secondsAgo": ago, "results": e.get("results") or {}}
 
 
 @app.api_route("/api/cron/tick", methods=["GET", "POST"])
 async def cron_tick(authorization: Optional[str] = Header(None)):
-    """One scheduled strategy pass for serverless hosts; protect it with CRON_SECRET."""
+    """One pass of the six teams for serverless hosts (the host's cron, every minute); protected by CRON_SECRET."""
+    from .smc.notify import tick
+
     if not settings.cron_secret:
         raise HTTPException(503, "CRON_SECRET is not configured")
     if not hmac.compare_digest(authorization or "", f"Bearer {settings.cron_secret}"):
         raise HTTPException(401, "Invalid cron authorization")
-    return {"success": True, "results": await scheduler.tick()}
+    return {"success": True, "results": await tick()}

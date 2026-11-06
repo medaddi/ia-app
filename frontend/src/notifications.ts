@@ -1,16 +1,11 @@
 /**
- * Trade notifications.
- * - Web Push: the browser subscribes with the server's key; the server pushes every new trade, so it reaches the phone
- *   even when the app is closed or the tab is frozen (the only way it works on mobile).
- * - In-app: while the app is open it also notifies the trades it sees in /api/signals, with the same tag
- *   ("ld-<id>"), so a trade never shows twice. Seen ids are kept per browser.
+ * Notifications (Web Push): the browser subscribes with the server's key, so a push reaches the phone even when the app
+ * is closed or the tab is frozen. Nothing is pushed automatically for now: the app's analysis is being rebuilt.
  * iPhone / iPad: web notifications only exist once the app is added to the home screen (iOS 16.4+).
  */
 import { apiFetch, apiJson } from './api';
-import type { AISignal, Language } from './types';
 
 const ENABLED_KEY = 'ld_notify_enabled';
-const SEEN_KEY = 'ld_notify_seen_v1';
 
 export const notifySupported = () => typeof window !== 'undefined' && 'Notification' in window;
 export const isIos = () => typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
@@ -71,7 +66,7 @@ export async function enableNotifications(): Promise<boolean> {
   return p === 'granted';
 }
 
-/** A test push from the server to this account's devices (the same path as a real trade). */
+/** A test push from the server to this account's devices. */
 export async function testPush(): Promise<boolean> {
   try { return (await apiJson<{ success: boolean }>('/api/push/test', { method: 'POST' })).success; } catch { return false; }
 }
@@ -83,40 +78,5 @@ export async function disableNotifications() {
   if (sub) {
     apiFetch('/api/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {});
     await sub.unsubscribe().catch(() => {});
-  }
-}
-
-async function show(title: string, body: string, tag: string, symbol: string) {
-  const options: NotificationOptions = { body, tag, icon: '/brand/icon-192.png', badge: '/brand/favicon-64.png', data: { symbol }, requireInteraction: true } as NotificationOptions;
-  const reg = await registerServiceWorker();
-  if (reg) return reg.showNotification(title, options);
-  const n = new Notification(title, options);
-  n.onclick = () => { window.focus(); window.dispatchEvent(new CustomEvent('ld-open-symbol', { detail: symbol })); n.close(); };
-}
-
-/** One line, like the push: "🟢 XAU/USD (BUY)" over "Entry: 2745.50 | LOT: 0.07 | TP: 2760.00 | SL: 2738.00". */
-async function tradeNotice(s: AISignal): Promise<[string, string]> {
-  const dec = s.symbol === 'XAU/USD' ? 2 : 5;
-  const f = (v: number | null | undefined) => (v == null ? '—' : Number(v).toFixed(dec));
-  let lots = 0;
-  try {
-    const r = await apiJson<{ lots: number; riskUsd: number }>(`/api/lot?symbol=${encodeURIComponent(s.symbol)}&entry=${s.entryPrice}&sl=${s.stopLoss}`);
-    if (r.riskUsd > 0) lots = r.lots;
-  } catch { /* no lot: the line goes without it */ }
-  const parts = [`Entry: ${f(s.entryPrice)}`, ...(lots ? [`LOT: ${lots.toFixed(2)}`] : []), `TP: ${f(s.target3 ?? s.target2)}`, `SL: ${f(s.stopLoss)}`];
-  return [`${s.signalType === 'BUY' ? '🟢' : '🔴'} ${s.symbol} (${s.signalType})`, parts.join(' | ')];
-}
-
-export function notifyNewSignals(signals: AISignal[], lang: Language) {
-  let seen: string[] | null = null;
-  try { seen = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null'); } catch { seen = null; }
-  const live = signals.filter(s => s.isActionableNow && s.signalType !== 'WAIT');
-  const known = new Set(seen ?? []);
-  const fresh = seen === null ? [] : live.filter(s => !known.has(s.id));
-  live.forEach(s => known.add(s.id));
-  try { localStorage.setItem(SEEN_KEY, JSON.stringify([...known].slice(-200))); } catch { /* storage unavailable */ }
-  if (!notifyEnabled()) return;
-  for (const s of fresh) {
-    tradeNotice(s).then(([title, body]) => show(title, body, `ld-${s.id}`, s.symbol)).catch(() => {});
   }
 }

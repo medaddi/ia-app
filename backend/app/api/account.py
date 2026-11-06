@@ -1,8 +1,6 @@
-"""Login, user accounts (admin), each user's trades with the lot they took, history, statistics and daily loss limit."""
+"""Login, the profile, user accounts (admin), notifications and the Telegram link. No analysis and no trade: they are being rebuilt."""
 
-import secrets
 import time
-from datetime import datetime, timezone
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
@@ -13,11 +11,9 @@ from sqlalchemy.orm import Session
 from ..auth import admin_user, bearer, current_user, hash_code, login, logout, password_problems, register, session_user, user_json
 from ..db import get_db
 from .. import push
-from ..models import PushSubscription, Signal, Subscriber, Trade, User
-from ..strategies.service import normalize_symbol
+from ..models import PushSubscription, User
 from ..store import get_setting
 from ..telegram import bot as tg
-from ..trading import close_trade, effective_risk, lot_for_risk, signal_json, stats, today_status, trade_json
 
 router = APIRouter(prefix="/api")
 
@@ -113,63 +109,27 @@ def push_unsubscribe(body: dict = Body(...), _: User = Depends(current_user), db
 async def push_test(u: User = Depends(current_user), db: Session = Depends(get_db)):
     """A test notification to this account's devices: proves the push reaches the phone with the app closed."""
     rows = db.scalars(select(PushSubscription).where(PushSubscription.user_id == u.id)).all()
-    n = await push.send_push(db, list(rows), {"title": "LiquidityDissection", "body": "Notifications OK: every new trade will arrive here.", "tag": "ld-test", "symbol": ""})
+    n = await push.send_push(db, list(rows), {"title": "LiquidityDissection", "body": "Notifications OK.", "tag": "ld-test", "symbol": ""})
     return {"success": n > 0, "devices": len(rows), "delivered": n}
 
 
-# ---------------------------------------------------------------- profile (daily loss limit)
+# ---------------------------------------------------------------- profile
 
 class ProfileIn(BaseModel):
-    dailyLossLimit: Optional[float] = Field(None, ge=0)  # $; 0 = no limit
-    riskUsd: Optional[float] = Field(None, ge=0)  # $ per signal (fixed); 0 = use the % of the capital instead
-    capital: Optional[float] = Field(None, ge=0)  # $ account size; 0 = not set
-    riskPct: Optional[float] = Field(None, ge=0, le=100)  # % of the capital per trade (used when no fixed $ risk)
-    telegramChatId: Optional[str] = None
     accessCode: Optional[str] = Field(None, min_length=6)
 
 
-def _user_trades(db: Session, user_id: int) -> list[Trade]:
-    return db.scalars(select(Trade).where(Trade.user_id == user_id).order_by(Trade.opened_at.desc())).all()
-
-
-def _stats_with_today(trades: list[Trade], u: User) -> dict:
-    return {**stats(trades, "trade"), "today": today_status(trades, u.daily_loss_limit)}
-
-
 @router.get("/me")
-def me(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    return {"user": user_json(u), "stats": _stats_with_today(_user_trades(db, u.id), u)}
+def me(u: User = Depends(current_user)):
+    return {"user": user_json(u)}
 
 
 @router.put("/me")
 def me_update(body: ProfileIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
-    if body.dailyLossLimit is not None:
-        u.daily_loss_limit = body.dailyLossLimit or None
-    if body.telegramChatId is not None:
-        u.telegram_chat_id = body.telegramChatId.strip() or None
-    if body.riskUsd is not None:
-        u.risk_usd = body.riskUsd or None
-    if body.capital is not None:
-        u.capital = body.capital
-    if body.riskPct is not None:
-        u.risk_pct = body.riskPct or 1
-    sub = db.get(Subscriber, u.telegram_chat_id) if u.telegram_chat_id else None
-    if sub:  # one risk for the app and the Telegram bot
-        if body.riskUsd is not None or body.capital is not None or body.riskPct is not None:
-            sub.risk_usd, sub.capital, sub.risk_pct = u.risk_usd, u.capital or 0, u.risk_pct
-        elif u.risk_usd is None and not u.capital:
-            u.risk_usd = sub.risk_usd  # linking keeps the risk already set with /risk
     if body.accessCode:
         u.access_code_hash = hash_code(body.accessCode)
     db.commit()
     return {"success": True, "user": user_json(u)}
-
-
-@router.get("/lot")
-def lot(symbol: str, entry: float, sl: float, riskUsd: Optional[float] = None, u: User = Depends(current_user)):
-    """The lot for my risk ($, or % of my capital) with the signal's own stop."""
-    risk = riskUsd if riskUsd is not None else (effective_risk(u.risk_usd, u.capital, u.risk_pct) or 0)
-    return {"success": True, "symbol": normalize_symbol(symbol), **lot_for_risk(symbol, entry, sl, risk)}
 
 
 @router.get("/telegram/bot")
@@ -248,29 +208,17 @@ class UserPatch(BaseModel):
 def users_list(_: User = Depends(admin_user), db: Session = Depends(get_db)):
     out = []
     for u in db.scalars(select(User).order_by(User.id)):
-        trades = _user_trades(db, u.id)
-        s = stats(trades, "trade")
-        out.append({**user_json(u), "stats": {k: s[k] for k in ("total", "open", "closed", "wins", "losses", "winRate", "totalPnl", "totalLots")},
-                    "today": today_status(trades, u.daily_loss_limit)})
+        out.append(user_json(u))
     return {"users": out}
-
-
-@router.get("/users/stats")
-def users_stats(db: Session = Depends(get_db)):
-    """Aggregate of every user's trades (no personal details)."""
-    s = stats(db.scalars(select(Trade)).all(), "trade")
-    s.pop("pnlCurve", None)
-    return {"success": True, "users": db.query(User).count(), "stats": s}
 
 
 @router.get("/users/{user_id}")
 def users_detail(user_id: int, _: User = Depends(admin_user), db: Session = Depends(get_db)):
-    """One user's statistics and full trade history (admin)."""
+    """One user's account (admin)."""
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(404, "User not found")
-    trades = _user_trades(db, u.id)
-    return {"user": user_json(u), "stats": _stats_with_today(trades, u), "trades": [trade_json(t) for t in trades]}
+    return {"user": user_json(u)}
 
 
 @router.post("/users")
@@ -323,121 +271,3 @@ async def users_delete(user_id: int, admin: User = Depends(admin_user), db: Sess
     db.delete(u)
     db.commit()
     return {"success": True}
-
-
-# ---------------------------------------------------------------- trades (each with the lot the user took)
-
-class TradeIn(BaseModel):
-    symbol: str
-    direction: Literal["BUY", "SELL"]
-    entry: float = Field(gt=0)
-    sl: float = Field(gt=0)
-    tp1: Optional[float] = None
-    tp2: Optional[float] = None
-    tp3: Optional[float] = None
-    lots: float = Field(gt=0, le=100)
-    signalId: Optional[str] = None
-    notes: str = ""
-
-
-class TradeClose(BaseModel):
-    exitPrice: float = Field(gt=0)
-
-
-class TradePatch(BaseModel):
-    sl: Optional[float] = Field(None, gt=0)
-    tp1: Optional[float] = None
-    tp2: Optional[float] = None
-    tp3: Optional[float] = None
-    lots: Optional[float] = Field(None, gt=0, le=100)
-    notes: Optional[str] = None
-
-
-def _own_trade(db: Session, u: User, trade_id: int) -> Trade:
-    t = db.get(Trade, trade_id)
-    if not t or (t.user_id != u.id and u.role != "admin"):
-        raise HTTPException(404, "Trade not found")
-    return t
-
-
-@router.get("/trades")
-def trades_list(status: Optional[str] = None, symbol: Optional[str] = None, all_users: bool = False,
-                u: User = Depends(current_user), db: Session = Depends(get_db)):
-    q = select(Trade).order_by(Trade.opened_at.desc())
-    if not (all_users and u.role == "admin"):
-        q = q.where(Trade.user_id == u.id)
-    if status:
-        q = q.where(Trade.status == status.upper())
-    if symbol:
-        q = q.where(Trade.symbol == normalize_symbol(symbol))
-    rows = db.scalars(q).all()
-    return {"trades": [trade_json(t) for t in rows], "count": len(rows)}
-
-
-@router.post("/trades")
-def trades_create(body: TradeIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
-    sym = normalize_symbol(body.symbol)
-    if (body.direction == "BUY") != (body.sl < body.entry):
-        raise HTTPException(400, "Stop loss must be below entry for a BUY and above entry for a SELL")
-    today = today_status(_user_trades(db, u.id), u.daily_loss_limit)
-    if today["reached"]:
-        raise HTTPException(403, f"Daily loss limit reached ({today['pnl']}$ / -{today['limit']}$): no new trades until the next trading day")
-    sig = db.get(Signal, body.signalId.removeprefix("sig-")) if body.signalId else None
-    t = Trade(user_id=u.id, signal_id=sig.id if sig else None, symbol=sym, direction=body.direction, entry=body.entry, sl=body.sl,
-              tp1=body.tp1, tp2=body.tp2, tp3=body.tp3, lots=body.lots, source="app", notes=body.notes)
-    db.add(t)
-    db.commit()
-    return {"success": True, "trade": trade_json(t)}
-
-
-@router.patch("/trades/{trade_id}")
-def trades_update(trade_id: int, body: TradePatch, u: User = Depends(current_user), db: Session = Depends(get_db)):
-    t = _own_trade(db, u, trade_id)
-    for field in ("sl", "tp1", "tp2", "tp3", "lots", "notes"):
-        v = getattr(body, field)
-        if v is not None:
-            setattr(t, field, v)
-    db.commit()
-    return {"success": True, "trade": trade_json(t)}
-
-
-@router.post("/trades/{trade_id}/close")
-def trades_close(trade_id: int, body: TradeClose, u: User = Depends(current_user), db: Session = Depends(get_db)):
-    t = _own_trade(db, u, trade_id)
-    if t.status != "OPEN":
-        raise HTTPException(400, "Trade is already closed")
-    close_trade(t, body.exitPrice)
-    db.commit()
-    return {"success": True, "trade": trade_json(t)}
-
-
-@router.post("/trades/{trade_id}/breakeven")
-def trades_breakeven(trade_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
-    t = _own_trade(db, u, trade_id)
-    if t.status != "OPEN":
-        raise HTTPException(400, "Trade is closed")
-    t.breakeven = True
-    t.notes = (t.notes + "\n" if t.notes else "") + f"SL moved to breakeven {t.entry} ({datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC)"
-    db.commit()
-    return {"success": True, "trade": trade_json(t)}
-
-
-@router.delete("/trades/{trade_id}")
-def trades_delete(trade_id: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
-    db.delete(_own_trade(db, u, trade_id))
-    db.commit()
-    return {"success": True}
-
-
-@router.get("/stats")
-def my_stats(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    return _stats_with_today(_user_trades(db, u.id), u)
-
-
-# ---------------------------------------------------------------- strategy signal performance (public)
-
-@router.get("/signals/performance")
-def signals_performance(db: Session = Depends(get_db)):
-    rows = db.scalars(select(Signal).order_by(Signal.sent_at.desc())).all()
-    return {"success": True, "stats": stats(rows, "signal"), "signals": [signal_json(s) for s in rows[:100]],
-            "activeTrades": [signal_json(s) for s in rows if s.state in ("PENDING", "OPEN", "TP1_HIT", "TP2_HIT")]}

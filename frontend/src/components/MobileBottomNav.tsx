@@ -7,7 +7,7 @@ interface MobileBottomNavProps {
   setActiveTab: (tab: string) => void;
   lang: Language;
   theme: 'light' | 'dark';
-  onOpenAssistant: () => void;
+  onOpenAssistant?: () => void;
   onOpenTelegram: () => void;
   onOpenMenu?: () => void;
   activeSignalsCount: number;
@@ -41,10 +41,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       icon: ChartCandlestick
     },
     {
-      id: 'positions',
-      labelAr: 'صفقاتي',
-      labelFr: 'Mes trades',
-      labelEn: 'My trades',
+      id: 'account',
+      labelAr: 'حسابي',
+      labelFr: 'Mon compte',
+      labelEn: 'My account',
       icon: WalletCards
     },
     {

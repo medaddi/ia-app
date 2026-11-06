@@ -1,138 +1,102 @@
 import { apiFetch } from '../api';
 import { markDataReady } from '../splash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { SmcChart, SmcChartCandle } from './SmcChart';
-import { ExunuActiveSetup } from './ExunuActiveSetup';
-import { AgentDesk, type Consensus } from './AgentDesk';
-import { withSmcReport } from '../smcReport';
-import { PairDossier } from '../pairs/PairDossier';
-import { reportOf, usePairDossier } from '../pairs/usePairDossier';
-import { AgentChartPanel } from './AgentChartPanel';
-import { AnalyzeButton } from './AnalyzePanel';
-import { AgentRadar } from './AgentRadar';
-import { useAnalysisDrawing, withAnalysis } from '../analysisDrawing';
+import { PriceChart, type ChartLevel, type PriceCandle } from './PriceChart';
+import { TeamCard } from './TeamCard';
+import { useSmcTeam } from '../smcTeam';
+import type { Language } from '../types';
 import { useLivePrice } from '../livePrices';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
-import { Columns2, Grid2x2 } from 'lucide-react';
 import { PairFlags } from './PairFlags';
 import { useDragScroll } from '../useDragScroll';
-import type { ExunuSMCResult } from '../strategyTypes';
-import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, chartSpec, type ChartSpec, type InstrumentSymbol } from '../instruments';
-import type { StrategyResult } from '../strategyTypes';
-import type { Language } from '../types';
+import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, PAIR_DECIMALS, TIMEFRAMES, marketOpenNow, type InstrumentSymbol } from '../instruments';
 
+/**
+ * The live chart of each pair: its candles, its live price, and its team (SMC S1–S4) with the setup it found drawn on the chart.
+ */
 interface ExunuTerminalViewProps {
   initialSymbol?: InstrumentSymbol;
   onSymbolChange?: (symbol: InstrumentSymbol) => void; // keeps the app header on the pair shown here
-  onOpenTelegram?: () => void;
   lang?: string;
 }
 
-// Review mode: ?asOf=<unix seconds> replays the strategy at a past moment (read-only)
-const REVIEW_AS_OF = (() => {
-  try { return Number(new URLSearchParams(window.location.search).get('asOf')) || 0; } catch { return 0; }
-})();
-const asOfParam = REVIEW_AS_OF > 0 ? `&asOf=${REVIEW_AS_OF}` : '';
-
-// Each pair's chart: its plan's timeframe and EMAs (instruments.ts CHART_SPEC)
-const INSTRUMENTS = Object.fromEntries(INSTRUMENT_SYMBOLS.map(s => [s, { label: INSTRUMENT_LABELS[s], ...chartSpec(s) }])) as Record<InstrumentSymbol, ChartSpec & { label: string }>;
 const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
-const NO_CANDLES: SmcChartCandle[] = [];
-const LIVE_MS = 5000; // analysis, candles and price every 5 s (the free feeds refresh every ~10–60 s)
+const NO_CANDLES: PriceCandle[] = [];
+const LIVE_MS = 5000; // candles every 5 s; the price every second (livePrices.ts)
+const DEFAULT_TF = 'H1';
 
-// Each pair remembers the timeframe it was last viewed on (default: the strategy's decision timeframe)
+// Each pair remembers the timeframe it was last viewed on
 const tfKey = (s: string) => `ld_chart_tf_${s}`;
 const savedTf = (s: InstrumentSymbol) => {
-  try { const v = localStorage.getItem(tfKey(s)); return v && INSTRUMENTS[s].timeframes.includes(v) ? v : INSTRUMENTS[s].entryTf; } catch { return INSTRUMENTS[s].entryTf; }
+  try { const v = localStorage.getItem(tfKey(s)); return v && TIMEFRAMES.includes(v) ? v : DEFAULT_TF; } catch { return DEFAULT_TF; }
 };
 
-export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onSymbolChange, onOpenTelegram, lang = 'en' }) => {
+export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onSymbolChange, lang = 'en' }) => {
   const [symbol, setSymbolState] = useState<InstrumentSymbol>(initialSymbol);
   const [timeframe, setTimeframeState] = useState<string>(() => savedTf(initialSymbol));
   const setSymbol = (s: InstrumentSymbol) => { setSymbolState(s); setTimeframeState(savedTf(s)); onSymbolChange?.(s); };
   const setTimeframe = (tf: string) => { setTimeframeState(tf); try { localStorage.setItem(tfKey(symbol), tf); } catch { /* storage blocked */ } };
   // The app picked another pair (search, dashboard card): follow it
   useEffect(() => { if (initialSymbol !== symbol) { setSymbolState(initialSymbol); setTimeframeState(savedTf(initialSymbol)); } }, [initialSymbol]);
-  // Strict isolation: the candles and the analysis are kept under the key of the pair (and timeframe) they belong to,
-  // and the chart only ever gets the ones whose key is the pair on screen
-  const [candleStore, setCandleStore] = useState<{ key: string; list: SmcChartCandle[] }>({ key: '', list: [] });
-  const tvChart = useChartingLibrary();
-  const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);  // TradingView Advanced Charts when its files are served (docs/TRADINGVIEW.md)
-  const [bundleStore, setBundleStore] = useState<{ symbol: string; data: ExunuSMCResult } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [updatedAt, setUpdatedAt] = useState<number>(0);
-  // One chart (the selected pair) or the 4-chart split screen: each chart is bound to its own agent's overlay
-  const [split, setSplitState] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_split') === '1'; } catch { return false; } });
-  const setSplit = (v: boolean) => { setSplitState(v); try { localStorage.setItem('ld_chart_split', v ? '1' : '0'); } catch { /* storage blocked */ } };
 
+  // The candles are kept under the key of the pair and timeframe they belong to: the chart only gets the pair on screen
+  const [candleStore, setCandleStore] = useState<{ key: string; list: PriceCandle[] }>({ key: '', list: [] });
+  const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);
+  const [updatedAt, setUpdatedAt] = useState(0);
+  const tvChart = useChartingLibrary();  // TradingView Advanced Charts when its files are served (docs/TRADINGVIEW.md)
   const pairKey = `${symbol}_${timeframe}`;
   const candles = candleStore.key === pairKey ? candleStore.list : NO_CANDLES;
-  const bundle = bundleStore && bundleStore.symbol === symbol ? bundleStore.data : null;
-  const result: StrategyResult | null = bundle?.strategy ?? null;
+  const live = useLivePrice(symbol);
+  const team = useSmcTeam(symbol);  // THIS pair's team
   const abortRef = useRef<AbortController | null>(null);
-  const inst = INSTRUMENTS[symbol];
-  const drawing = useAnalysisDrawing(symbol);
-  const dossier = usePairDossier(symbol);  // THIS pair's dossier: its team, its SMC report (drawn on its chart), its trades
-  const smcRep = reportOf(dossier);
-  const live = useLivePrice(symbol);  // every second  // the Analyse button's setup, drawn on this chart
-  // The pair / timeframe on screen: an answer that arrives after a switch belongs to the old pair and is dropped
-  // (otherwise GBP/USD could show EUR/USD's last price and candles for a moment)
   const viewRef = useRef({ symbol, timeframe });
   viewRef.current = { symbol, timeframe };
 
   const loadCandles = useCallback(async (sym: string, tf: string) => {
     try {
-      const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400${asOfParam}`, { cache: 'no-store', signal: abortRef.current?.signal });
+      const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400`, { cache: 'no-store', signal: abortRef.current?.signal });
       const json = await res.json();
-      if (viewRef.current.symbol !== sym || viewRef.current.timeframe !== tf) return;
+      if (viewRef.current.symbol !== sym || viewRef.current.timeframe !== tf) return;  // an answer for the old pair: dropped
       if (json.success && Array.isArray(json.candles)) {
         setCandleStore({ key: `${sym}_${tf}`, list: json.candles });
         setQuote(json.quoteTime ? { time: json.quoteTime, source: json.priceSource || '' } : null);
+        setUpdatedAt(Date.now());
+        markDataReady();
       }
     } catch {
       // keep the last good candles
     }
   }, []);
 
-  const loadStrategy = useCallback(async (sym: string): Promise<ExunuSMCResult | null> => {
-    try {
-      const res = await apiFetch(`/api/exunu/setup?symbol=${encodeURIComponent(sym)}${asOfParam}`, { cache: 'no-store', signal: abortRef.current?.signal });
-      const json = await res.json();
-      if (viewRef.current.symbol !== sym) return null;
-      if (json.success && json.result?.strategy) { setBundleStore({ symbol: sym, data: json.result }); markDataReady(); return json.result; }
-    } catch {
-      // next poll retries
-    }
-    return null;
-  }, []);
-
-  const refreshAll = useCallback(async () => {
-    setIsLoading(true);
-    const [b] = await Promise.all([loadStrategy(symbol), loadCandles(symbol, timeframe)]);
-    if (b) setUpdatedAt(Date.now());
-    setIsLoading(false);
-  }, [symbol, timeframe, loadStrategy, loadCandles]);
-
-  // A switch: the old pair's pending requests are aborted before the new pair loads
-  useEffect(() => { abortRef.current?.abort(); abortRef.current = new AbortController(); refreshAll(); }, [symbol, timeframe]);
-
-  // Live loop: every second the analysis and the candles (with the forming one) are reloaded together,
-  // so the drawings, the checklist and the chart always come from the same moment. Paused while the tab is hidden.
+  // A switch: the old pair's pending request is aborted before the new pair loads
+  useEffect(() => { abortRef.current?.abort(); abortRef.current = new AbortController(); loadCandles(symbol, timeframe); }, [symbol, timeframe]);
+  // Live loop: the candles every 5 s, paused while the tab is hidden
   useEffect(() => {
-    if (REVIEW_AS_OF > 0) return;
     let busy = false;
     const id = setInterval(async () => {
       if (busy || document.hidden) return;
       busy = true;
-      const [b] = await Promise.all([loadStrategy(symbol), loadCandles(symbol, timeframe)]);
-      if (b) setUpdatedAt(Date.now());
+      await loadCandles(symbol, timeframe);
       busy = false;
     }, LIVE_MS);
     return () => clearInterval(id);
-  }, [symbol, timeframe, loadStrategy, loadCandles]);
+  }, [symbol, timeframe, loadCandles]);
 
   const t = (en: string, fr: string, ar: string) => (lang === 'ar' ? ar : lang === 'fr' ? fr : en);
   const pairBar = useDragScroll<HTMLDivElement>();
+  const decimals = PAIR_DECIMALS[symbol];
+  const lastClose = candles.length ? candles[candles.length - 1].close : null;
+  const shown = live?.price ?? lastClose;
+  const open = marketOpenNow();
+  // What THIS pair's team draws: its analysis (levels, zones, BOS / CHoCH / sweeps) and its setup when one passed the 7 questions
+  const mine = team?.success && team.symbol === symbol ? team : null;
+  const sig = mine ? mine.signals[mine.signals.length - 1] : undefined;
+  const ch = mine?.chart;
+  const near = (v: number) => !lastClose || Math.abs(v - lastClose) / lastClose < 0.2;  // never another pair's level
+  const levels: ChartLevel[] = (sig ? [{ price: sig.entry, label: `${sig.strategy} ${sig.direction}`, kind: 'entry' as const },
+    { price: sig.sl, label: 'SL', kind: 'sl' as const }, { price: sig.tp, label: 'TP', kind: 'tp' as const }] : []).filter(l => near(l.price));
+  const drawing = ch ? { boxes: ch.boxes.filter(b => near(b.top) && near(b.bottom)), segments: ch.segments.filter(x => near(x.price)),
+    labels: ch.labels.filter(x => near(x.price)), trade: ch.trade && near(ch.trade.entry) ? ch.trade : null } : null;
 
   return (
     <div className="flex flex-col gap-4 w-full">
@@ -142,59 +106,28 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
           <div ref={pairBar} role="tablist" aria-label={t('Instrument', 'Instrument', 'الأداة')}
             className="no-scrollbar select-none cursor-grab flex items-center gap-1 overflow-x-auto max-w-full -mx-1 px-1 [mask-image:linear-gradient(90deg,transparent,#000_12px,#000_calc(100%-16px),transparent)]">
             {INSTRUMENT_SYMBOLS.map(id => (
-              <button key={id} role="tab" aria-selected={symbol === id}
-                onClick={() => setSymbol(id)}
+              <button key={id} role="tab" aria-selected={symbol === id} onClick={() => setSymbol(id)}
                 className={`h-10 ps-2 pe-3 shrink-0 inline-flex items-center gap-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${symbol === id ? 'glass-pill text-gold-100' : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'}`}>
                 <PairFlags symbol={id} size={18} />
-                <span className="font-mono">{id}</span><span className="hidden 2xl:inline text-slate-500"> · {INSTRUMENTS[id].label}</span>
+                <span className="font-mono">{id}</span><span className="hidden 2xl:inline text-slate-500"> · {INSTRUMENT_LABELS[id]}</span>
               </button>
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {REVIEW_AS_OF > 0 && <span className="px-2 py-1 rounded-md bg-gold-500/15 text-gold-200 text-xs font-medium">Review {new Date(REVIEW_AS_OF * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC</span>}
-          <div role="group" aria-label={t('Chart layout', 'Disposition', 'العرض')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5">
-            <button onClick={() => setSplit(false)} aria-pressed={!split} title={t('One chart', 'Un graphique', 'شارت واحد')}
-              className={`h-8 w-9 inline-flex items-center justify-center rounded-md cursor-pointer ${!split ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}><Columns2 className="w-4 h-4" /></button>
-            <button onClick={() => setSplit(true)} aria-pressed={split} title={t('4 charts · one per agent', '4 graphiques · un par agent', '4 شارتات · واحد لكل وكيل')}
-              className={`h-8 w-9 inline-flex items-center justify-center rounded-md cursor-pointer ${split ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}><Grid2x2 className="w-4 h-4" /></button>
-          </div>
-          <div className="hidden md:flex items-center gap-2 font-mono text-xs">
-            <span className={`w-1.5 h-1.5 rounded-full ${result?.market.isOpen ? 'bg-emerald-400' : 'bg-slate-500'}`} aria-hidden="true" />
-            <span className="text-slate-400">{result?.market.isOpen ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
-            <span className="text-white font-semibold tabular-nums">{result ? (live?.price ?? result.price).toFixed(result.spec.decimals) : '—'}</span>
-          </div>
-          <AgentRadar symbol={symbol} lang={lang as Language} silent />
-          <AnalyzeButton symbol={symbol} lang={lang as Language} />
+        <div className="flex items-center gap-2 font-mono text-xs">
+          <span className={`w-1.5 h-1.5 rounded-full ${open ? 'bg-emerald-400' : 'bg-slate-500'}`} aria-hidden="true" />
+          <span className="text-slate-400">{open ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
+          <span className="text-white font-semibold tabular-nums">{shown != null ? shown.toFixed(decimals) : '—'}</span>
         </div>
       </div>
 
-      {split && REVIEW_AS_OF <= 0 ? (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {INSTRUMENT_SYMBOLS.map(id => <AgentChartPanel key={id} symbol={id} lang={lang} onOpen={s => { setSplit(false); setSymbol(s); }} />)}
-        </div>
+      {tvChart ? (
+        <TradingViewChart symbol={symbol} timeframe={timeframe} lang={lang} onTimeframeChange={setTimeframe} />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-8 min-w-0">
-            {tvChart && REVIEW_AS_OF <= 0 ? (
-              <TradingViewChart symbol={symbol} timeframe={timeframe} overlay={withAnalysis(withSmcReport(result?.overlay ?? null, smcRep, symbol), drawing)} decimals={result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5)}
-                lang={lang} onTimeframeChange={setTimeframe} />
-            ) : (
-              <SmcChart symbol={symbol} candles={candles} result={result} overlay={withAnalysis(withSmcReport(result?.overlay ?? null, smcRep, symbol), drawing)} timeframe={timeframe} timeframes={inst.timeframes} entryTf={inst.entryTf}
-                emas={inst.emas} emaNote={inst.emaNote} updatedAt={REVIEW_AS_OF > 0 ? 0 : updatedAt}
-                onTimeframeChange={setTimeframe} isLoading={isLoading} onRefresh={refreshAll} lang={lang} quote={REVIEW_AS_OF > 0 ? null : (live?.quoteTime ? { time: live.quoteTime, source: live.source } : quote)} livePrice={REVIEW_AS_OF > 0 ? null : live?.price ?? null} />
-            )}
-            {/* the pair's dossier: its team and its trades; the agent's own desk (its test, its risk notes) under Details */}
-            <PairDossier key={symbol} symbol={symbol} dossier={dossier} decimals={result?.spec.decimals ?? (symbol === 'XAU/USD' ? 2 : 5)} lang={lang as Language} details={
-              <AgentDesk consensus={(bundle as any)?.consensus as Consensus | undefined} overlay={result?.overlay ?? null} plan={result?.pairStrategy ?? null}
-                hasSetup={!!result?.setup} lang={lang as Language} running={result?.running ?? []} decimals={result?.spec.decimals ?? 5} bare />} />
-          </div>
-          <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
-            <ExunuActiveSetup symbol={symbol} result={result} explanation={bundle?.explanation} lang={lang} />
-          </div>
-        </div>
+        <PriceChart symbol={symbol} candles={candles} decimals={decimals} timeframe={timeframe} timeframes={TIMEFRAMES} onTimeframeChange={setTimeframe}
+          livePrice={live?.price ?? null} quote={live?.quoteTime ? { time: live.quoteTime, source: live.source } : quote} updatedAt={updatedAt} lang={lang} levels={levels} drawing={drawing} />
       )}
-
+      <TeamCard key={symbol} team={team} symbol={symbol} decimals={decimals} lang={lang as Language} />
     </div>
   );
 };

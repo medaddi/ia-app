@@ -1,0 +1,54 @@
+{
+  "pair": "XAUUSD",
+  "symbol": "XAU/USD",
+  "decimals": 2,
+  "pip": 0.1,
+  "point": 0.01,
+  "contract_size": 100,
+  "pip_value_usd_per_lot": 10.0,
+  "spread_pips": 2.5,
+  "slippage_pips": 0.5,
+  "commission_usd_per_lot": 0.0,
+  "s3_min_asia_range_atr": 0.0,
+  "notes": [
+    "Very high volatility: the rules use structure levels (swings, OB, FVG), never fixed point distances; ATR only in the S3 range filter.",
+    "Data is COMEX GC=F futures (Yahoo has no spot history): levels sit a few dollars above spot.",
+    "USD, real yields and US data (NFP, CPI, FOMC) drive it: the news filter is mandatory live.",
+    "Spreads widen at news and rollover: the test uses one fixed spread (an under-estimate there)."
+  ],
+  "min_stop_cost_ratio": 5.0,
+  "sessions_utc": {
+    "asia": [
+      0,
+      6
+    ],
+    "london": [
+      7,
+      10
+    ],
+    "newyork": [
+      12,
+      15
+    ],
+    "trade": [
+      7,
+      16
+    ]
+  },
+  "sessions_note": "SCRIPT values in UTC, not shifted for DST (the script gives UTC). London opens 07:00 UTC in winter, 06:00 UTC in summer: testing DST-shifted killzones is an open experiment.",
+  "news_window_min": 15,
+  "risk_pct": 1.0,
+  "split": {
+    "in_sample": 0.6,
+    "out_of_sample": 0.4
+  },
+  "timeframes": {
+    "htf": "H1",
+    "ltf": "M5",
+    "context": [
+      "D1",
+      "H4 (from H1)",
+      "M15"
+    ]
+  }
+}

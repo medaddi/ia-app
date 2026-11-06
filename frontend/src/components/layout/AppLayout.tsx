@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bell, BellOff, BotMessageSquare, CalendarRange, ChartCandlestick, ChartSpline, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, LayoutGrid,
-  LogOut, Menu, Search, Send, Trophy, UserRoundCog, WalletCards, Workflow, X,
+  Bell, BellOff, CalendarRange, ChartCandlestick, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, LayoutGrid,
+  LogOut, Menu, Search, Send, UserRoundCog, WalletCards, Workflow, X,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { MarketAsset, Language } from '../../types';
@@ -24,7 +24,7 @@ export interface AppLayoutProps {
   pendingUsers?: number;  // admin: self sign-ups waiting for approval (badge on Users)
   isSyncingLive?: boolean;
   onForceRefresh?: () => void;
-  onOpenAssistant: () => void;
+  onOpenAssistant?: () => void;
   onOpenTelegram?: () => void;
   isMobileDrawerOpen?: boolean;
   setIsMobileDrawerOpen?: (open: boolean) => void;
@@ -44,19 +44,17 @@ const T = {
   performance: ['Signal results', 'Résultats des signaux', 'نتائج الإشارات'],
   pairPerf: ['Pair performance', 'Performance des paires', 'أداء الأزواج'],
   news: ['News & calendar', 'Actualités & calendrier', 'الأخبار والأجندة'],
-  account: ['My account & trades', 'Mon compte & trades', 'حسابي وصفقاتي'],
+  account: ['My account', 'Mon compte', 'حسابي'],
   admin: ['Users', 'Utilisateurs', 'المستخدمون'],
   assistant: ['AI assistant', 'Assistant IA', 'المساعد الذكي'],
   telegram: ['Telegram bot', 'Bot Telegram', 'بوت تيليغرام'],
   gTrading: ['Trading', 'Trading', 'التداول'],
-  gResults: ['Results', 'Résultats', 'النتائج'],
+  gResults: ['Markets', 'Marchés', 'الأسواق'],
   gAccount: ['Account', 'Compte', 'الحساب'],
   gTools: ['Tools', 'Outils', 'الأدوات'],
   marketOpen: ['Market open', 'Marché ouvert', 'السوق مفتوح'],
   marketClosed: ['Market closed', 'Marché fermé', 'السوق مغلق'],
   session: ['Session', 'Session', 'الجلسة'],
-  engines: ['Strategies', 'Stratégies', 'الاستراتيجيات'],
-  engineText: ['Gold · fast H1 (≤ 3 h)  ·  EUR, GBP · fades H1  ·  EUR/CHF, AUD/CAD, AUD/CHF · range fades H1', 'Or · rapide H1 (≤ 3 h)  ·  EUR, GBP · retours H1  ·  EUR/CHF, AUD/CAD, AUD/CHF · retours de range H1', 'الذهب · سريع H1 (≤ 3 س)  ·  EUR، GBP · ارتداد H1  ·  EUR/CHF، AUD/CAD، AUD/CHF · ارتداد الرينج H1'],
   search: ['Search a pair… (XAU/USD, AUD/CHF)', 'Chercher une paire… (XAU/USD, AUD/CHF)', 'قلب على زوج… (XAU/USD، AUD/CHF)'],
   noMatch: ['No pair found', 'Aucune paire trouvée', 'ما كاين حتى زوج'],
   refresh: ['Refresh the data', 'Actualiser les données', 'تحديث المعطيات'],
@@ -87,11 +85,11 @@ const T = {
   sessionRollover: ['Rollover', 'Rollover', 'تبديل اليوم'],
   privateDesk: ['Private desk', 'Desk privé', 'المكتب الخاص'],
   pairs: ['Pairs', 'Paires', 'الأزواج'],
-  ctaTitle: ['Signals on Telegram', 'Signaux sur Telegram', 'الإشارات ف تيليغرام'],
-  ctaText: ['Every trade with the lot for your risk, the moment it is taken', 'Chaque trade avec le lot pour votre risque, dès qu’il est pris', 'كل صفقة باللوت ديال المخاطرة ديالك، فاللحظة لي كتاخد'],
+  ctaTitle: ['Telegram', 'Telegram', 'تيليغرام'],
+  ctaText: ['Link your Telegram to your account', 'Liez votre Telegram à votre compte', 'ربط التيليغرام ديالك بالحساب'],
   ctaButton: ['Link Telegram', 'Lier Telegram', 'ربط تيليغرام'],
   ctaLinked: ['Telegram linked', 'Telegram lié', 'تيليغرام مربوط'],
-  ctaLinkedText: ['Every trade arrives on this Telegram', 'Chaque trade arrive sur ce Telegram', 'كل صفقة كتوصل لهاد التيليغرام'],
+  ctaLinkedText: ['This Telegram is linked to your account', 'Ce Telegram est lié à votre compte', 'هاد التيليغرام مربوط بالحساب ديالك'],
   ctaDisconnect: ['Disconnect', 'Déconnecter', 'قطع الربط'],
 } as const;
 type Key = keyof typeof T;
@@ -169,8 +167,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       { id: 'chart', label: 'chart', icon: ChartCandlestick, count: activeSignalsCount },
     ] },
     { title: 'gResults', items: [
-      { id: 'performance', label: 'performance', icon: Trophy },
-      { id: 'pairs', label: 'pairPerf', icon: ChartSpline },
       { id: 'news', label: 'news', icon: CalendarRange },
     ] },
     { title: 'gAccount', items: [
@@ -178,17 +174,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       ...(isAdmin ? [{ id: 'admin', label: 'admin' as Key, icon: UserRoundCog, count: pendingUsers }] : []),
     ] },
     { title: 'gTools', items: [
-      { id: 'assistant', label: 'assistant', icon: BotMessageSquare, action: 'assistant' as const },
       ...(isAdmin && onOpenTelegram ? [{ id: 'telegram', label: 'telegram' as Key, icon: Send, action: 'telegram' as const }] : []),
     ] },
   ];
+  const shownGroups = groups.filter(g => g.items.length > 0);  // a section with nothing in it (Tools for a member) is not shown
   const allItems = groups.flatMap(g => g.items);
   // Sub-pages light up their section: the account tabs → "My account", the technical view → "Live chart"
   const section = ['positions', 'history', 'settings'].includes(activeTab) ? 'account' : activeTab === 'technical' ? 'chart' : activeTab;
   const current = allItems.find(i => i.id === section);
 
   const go = (item: NavItem) => {
-    if (item.action === 'assistant') onOpenAssistant();
+    if (item.action === 'assistant') onOpenAssistant?.();
     else if (item.action === 'telegram') onOpenTelegram?.();
     else onSelectTab(item.id);
     setDrawerOpen(false);
@@ -329,7 +325,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         </div>
 
         <nav className={`flex-1 overflow-y-auto no-scrollbar ${compact ? 'px-2 py-2 space-y-4' : 'px-3 py-2 space-y-5'}`}>
-          {groups.map(g => (
+          {shownGroups.map(g => (
             <div key={g.title} className="space-y-1">
               {!compact ? <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500/80">{t(g.title)}</div>
                 : <div className="text-center pb-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-600 truncate">{t(g.title)}</div>}
@@ -393,7 +389,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <div className="login-orb absolute -top-40 -left-32 w-[560px] h-[560px] rounded-full bg-gold-500/[0.10] blur-3xl" />
         <div className="login-orb-2 absolute -bottom-48 -right-32 w-[620px] h-[620px] rounded-full bg-gold-700/[0.12] blur-3xl" />
       </div>
-      {/* Status strip: market, session, strategies */}
+      {/* Status strip: market and session */}
       <div className="relative h-8 px-3 sm:px-4 border-b border-line bg-black/20 text-[11px] flex items-center justify-between gap-3 shrink-0 select-none whitespace-nowrap overflow-hidden">
         <div className="flex items-center gap-3">
           <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-semibold ring-1 ring-inset ${open ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/25' : 'bg-slate-500/10 text-slate-300 ring-slate-500/25'}`}>
@@ -402,7 +398,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </span>
           <span className="text-zinc-500">{t('session')} <span className="text-gold-300 font-medium">{t(session)}</span></span>
         </div>
-        <span className="hidden md:inline text-zinc-500">{t('engines')} <span className="text-zinc-300">{t('engineText')}</span></span>
       </div>
 
       <div className="relative flex-1 flex overflow-hidden w-full max-w-full">

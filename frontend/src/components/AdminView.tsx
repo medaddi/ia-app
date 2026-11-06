@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Clock, Settings2, ShieldCheck, Trash2, UserCheck, UserPlus, Users } from 'lucide-react';
+import { Clock, Settings2, ShieldCheck, Trash2, UserCheck, UserPlus, Users } from 'lucide-react';
 import { apiJson } from '../api';
 import { Language } from '../types';
-import type { AppUser, Stats, Today, Trade } from './AccountView';
-import { StatsGrid, TradesTable } from './AccountView';
-import { Button, Card, Field, Notice, fmtDate, fmtMoney, fmtPct, inputCls, tr } from './ui';
+import type { AppUser } from './AccountView';
+import { Button, Card, Field, Notice, fmtDate, inputCls, tr } from './ui';
 
 interface UserRow extends AppUser {
   createdAt: string;
-  stats: { total: number; open: number; closed: number; wins: number; losses: number; winRate: number | null; totalPnl: number; totalLots: number };
-  today: Today;
 }
 
 interface AdminViewProps {
@@ -20,7 +17,7 @@ interface AdminViewProps {
 
 const NEW_USER = { username: '', accessCode: '', role: 'user' };
 
-/** Admin page: creates and manages accounts. Each user records their own trades and lots and has their own statistics. */
+/** Admin page: creates, approves and manages accounts and their Telegram links. */
 export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }) => {
   const isLight = theme === 'light';
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
@@ -28,7 +25,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
   const [form, setForm] = useState(NEW_USER);
   const [codes, setCodes] = useState<Record<number, string>>({});
   const roleLabel = (r: string) => (r === 'admin' ? t('Admin', 'Admin', 'مدير') : t('Trader', 'Trader', 'متداول'));
-  const [detail, setDetail] = useState<{ user: AppUser; stats: Stats; trades: Trade[] } | null>(null);
   const [appSettings, setAppSettings] = useState<{ app: any } | null>(null);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,21 +57,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
   useEffect(() => { const id = setInterval(() => { if (!document.hidden) load(); }, 30000); return () => clearInterval(id); }, []);
   const pending = users.filter(u => u.status === 'pending');
   const approved = users.filter(u => u.status !== 'pending');
-
-  if (detail) {
-    return (
-      <div className="space-y-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-        <Button variant="ghost" onClick={() => setDetail(null)}><ArrowLeft className="w-3.5 h-3.5" />{t('All users', 'Tous les utilisateurs', 'كل المستخدمين')}</Button>
-        <Card isLight={isLight} icon={<Users className="w-4 h-4" />} title={detail.user.username}
-          right={<span className="text-xs text-slate-500">{roleLabel(detail.user.role)} · {t('daily loss limit', 'perte jour max', 'الخسارة اليومية')} {detail.user.dailyLossLimit ? fmtMoney(detail.user.dailyLossLimit) : '—'}</span>}>
-          <StatsGrid isLight={isLight} lang={lang} stats={detail.stats} />
-        </Card>
-        <Card isLight={isLight} title={`${t('Trades', 'Trades', 'الصفقات')} (${detail.trades.length})`}>
-          <TradesTable isLight={isLight} lang={lang} trades={detail.trades} />
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -131,22 +112,15 @@ export const AdminView: React.FC<AdminViewProps> = ({ lang, theme = 'dark', me }
       <Card isLight={isLight} icon={<Users className="w-4 h-4" />} title={`${t('Accounts', 'Comptes', 'الحسابات')} (${approved.length})`}>
         <div className="overflow-x-auto"><table className="w-full text-xs tabular-nums">
           <thead className="text-slate-500 text-left"><tr>
-            {[t('User', 'Utilisateur', 'المستخدم'), t('Trades', 'Trades', 'الصفقات'), 'Lots', t('Win rate', 'Réussite', 'النجاح'), 'P&L', t('Today', "Aujourd'hui", 'اليوم'),
+            {[t('User', 'Utilisateur', 'المستخدم'),
               t('Last login', 'Connexion', 'آخر دخول'), 'Telegram', t('New access code', 'Nouveau code d’accès', 'رمز دخول جديد'), ''].map(h => <th key={h} className="px-1.5 py-1.5 font-medium whitespace-nowrap">{h}</th>)}
           </tr></thead>
           <tbody>
             {approved.map(u => (
               <tr key={u.id} className={`border-t ${isLight ? 'border-paper-line' : 'border-line'} ${u.active === false ? 'opacity-40' : ''}`}>
                 <td className="px-1.5 py-1.5 whitespace-nowrap">
-                  <button onClick={() => run(async () => setDetail(await apiJson(`/api/users/${u.id}`)))} className="font-semibold text-gold-500 hover:underline cursor-pointer">{u.username}</button>
+                  <span className="font-semibold text-gold-500">{u.username}</span>
                   <span className="ms-1 text-slate-500">{roleLabel(u.role)}</span>
-                </td>
-                <td className="px-1.5 py-1.5 font-mono">{u.stats.total} ({u.stats.open})</td>
-                <td className="px-1.5 py-1.5 font-mono">{u.stats.totalLots.toFixed(2)}</td>
-                <td className="px-1.5 py-1.5 font-mono">{fmtPct(u.stats.winRate)}</td>
-                <td className={`px-1.5 py-1.5 font-mono ${u.stats.totalPnl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{fmtMoney(u.stats.totalPnl)}</td>
-                <td className={`px-1.5 py-1.5 font-mono whitespace-nowrap ${u.today.reached ? 'text-rose-500' : ''}`}>
-                  {fmtMoney(u.today.pnl)}{u.today.limit ? ` / -${fmtMoney(u.today.limit)}` : ''}{u.today.reached ? ' ⛔' : ''}
                 </td>
                 <td className="px-1.5 py-1.5 font-mono whitespace-nowrap">{fmtDate(u.lastLoginAt)}</td>
                 <td className="px-1.5 py-1 whitespace-nowrap">

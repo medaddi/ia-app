@@ -5,7 +5,7 @@ import copy
 from sqlalchemy.orm import Session
 
 from .config import settings as env
-from .strategies._pairs import PAIRS
+from .market.pairs import PAIRS
 from .models import Setting
 
 DEFAULTS: dict[str, dict] = {

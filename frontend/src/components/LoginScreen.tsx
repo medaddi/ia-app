@@ -313,7 +313,7 @@ export function LoginScreen({ onLoginSuccess, sessionEnded = false, lang, setLan
                 <ArrowRight className={`w-3.5 h-3.5 ${isAr ? 'rotate-180' : ''}`} aria-hidden="true" />
               </button>
               {mode === 'signup' && (
-                <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">{t('New accounts are approved by the admin before they see the signals.', 'Chaque nouveau compte est validé par l’admin avant d’accéder aux signaux.', 'كل حساب جديد كيوافق عليه الأدمين قبل ما يشوف الإشارات.')}</p>
+                <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">{t('New accounts are approved by the admin before they open the app.', 'Chaque nouveau compte est validé par l’admin avant d’accéder à l’app.', 'كل حساب جديد كيوافق عليه الأدمين قبل ما يدخل للتطبيق.')}</p>
               )}
             </div>
           </motion.form>

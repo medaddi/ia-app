@@ -115,7 +115,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
                   <Button onClick={connectBot} disabled={busy || token.trim().length < 20}>{t('Connect', 'Connecter', 'ربط')}</Button>
                 </div>
               </Field>
-              <Field label={t('Admin chat id (always receives signals)', 'Chat id admin (reçoit toujours)', 'معرف محادثة المشرف')}>
+              <Field label={t('Admin chat id', 'Chat id admin', 'معرف محادثة المشرف')}>
                 <div className="flex gap-2">
                   <input value={cfg?.chatId ?? ''} onChange={e => cfg && setCfg({ ...cfg, chatId: e.target.value })} className={inputCls(isLight)} />
                   <Button variant="ghost" onClick={() => save({ chatId: cfg?.chatId ?? '' })} disabled={busy}>{t('Save', 'Enregistrer', 'حفظ')}</Button>
@@ -128,31 +128,11 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({ is
                 if (!r.success) throw new Error(r.error);
                 return t('Test message sent', 'Message test envoyé', 'تم إرسال رسالة الاختبار');
               })}><Send className="w-3.5 h-3.5" />{t('Send test', 'Envoyer un test', 'رسالة اختبار')}</Button>
-              <Button variant="ghost" disabled={busy || !cfg?.hasBotToken} onClick={() => run(async () => {
-                const r = await apiJson('/api/telegram/dispatch-now', { method: 'POST', body: '{}' });
-                const lines = Object.entries(r.results as Record<string, { success: boolean; error?: string }>).map(([s, x]) => `${s}: ${x.success ? 'sent' : x.error}`);
-                if (!r.success) throw new Error(lines.join(' · '));
-                return lines.join(' · ');
-              })}><Zap className="w-3.5 h-3.5" />{t('Send current signal now', 'Envoyer le signal actuel', 'إرسال الإشارة الحالية')}</Button>
-            </div>
-          </Card>
-
-          <Card isLight={isLight} icon={<ShieldCheck className="w-4 h-4" />} title={t('Delivery and protection', 'Envoi et protection', 'الإرسال والحماية')}>
-            {toggle('enabled', t('Send strategy signals automatically at candle close', 'Envoyer les signaux automatiquement à la clôture', 'إرسال الإشارات تلقائياً عند إغلاق الشمعة'))}
-            {toggle('protectContent', t('Block forwarding / copying of signal messages', 'Bloquer le transfert / la copie', 'منع إعادة التوجيه والنسخ'))}
-            {toggle('personalOffsets', t('Personal micro-offset + reference code per subscriber (anti copy-trading)', 'Micro-décalage personnel + code de référence (anti copy-trading)', 'إزاحة شخصية + رمز مرجعي لكل مشترك'))}
-            <div className="flex gap-4 pt-2 text-xs">
-              {ASSETS.map(a => (
-                <label key={a} className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                  <input type="checkbox" className="accent-gold-500" checked={!!cfg?.assets.includes(a)}
-                    onChange={e => cfg && save({ assets: e.target.checked ? [...cfg.assets, a] : cfg.assets.filter(x => x !== a) })} />{a}
-                </label>
-              ))}
             </div>
           </Card>
 
           <Card isLight={isLight} icon={<Users className="w-4 h-4" />} title={t('Accounts linked to Telegram', 'Comptes liés à Telegram', 'الحسابات المربوطة بتيليغرام')}
-            right={<span className="text-xs text-slate-500">{subs.filter(s => s.active).length} {t('receive the signals', 'reçoivent les signaux', 'كيتوصلو بالإشارات')}</span>}>
+            right={<span className="text-xs text-slate-500">{subs.filter(s => s.active).length} {t('linked', 'liés', 'مربوطين')}</span>}>
             <div className="grid sm:grid-cols-2 gap-1.5 text-xs">
               {subs.map(s => (
                 <div key={s.chatId} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 ${isLight ? 'border-paper-line' : 'border-line'}`}>
