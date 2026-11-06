@@ -1,0 +1,53 @@
+{
+  "pair": "AUDCHF",
+  "symbol": "AUD/CHF",
+  "decimals": 5,
+  "pip": 0.0001,
+  "point": 1e-05,
+  "contract_size": 100000,
+  "pip_value_usd_per_lot": 12.5,
+  "spread_pips": 2.0,
+  "slippage_pips": 0.3,
+  "commission_usd_per_lot": 0.0,
+  "s3_min_asia_range_atr": 1.0,
+  "notes": [
+    "Risk-on (AUD) vs safe haven (CHF): a risk-sentiment filter is an open experiment (no equity data here).",
+    "Low Asian volume: S3 needs an Asian range of at least 1 H1 ATR (HYPOTHESIS).",
+    "Pip value in USD depends on USD/CHF (about 12.5 per lot here): verify with the broker."
+  ],
+  "min_stop_cost_ratio": 5.0,
+  "sessions_utc": {
+    "asia": [
+      0,
+      6
+    ],
+    "london": [
+      7,
+      10
+    ],
+    "newyork": [
+      12,
+      15
+    ],
+    "trade": [
+      7,
+      16
+    ]
+  },
+  "sessions_note": "SCRIPT values in UTC, not shifted for DST (the script gives UTC). London opens 07:00 UTC in winter, 06:00 UTC in summer: testing DST-shifted killzones is an open experiment.",
+  "news_window_min": 15,
+  "risk_pct": 1.0,
+  "split": {
+    "in_sample": 0.6,
+    "out_of_sample": 0.4
+  },
+  "timeframes": {
+    "htf": "H1",
+    "ltf": "M5",
+    "context": [
+      "D1",
+      "H4 (from H1)",
+      "M15"
+    ]
+  }
+}

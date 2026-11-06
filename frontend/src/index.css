@@ -1,0 +1,513 @@
+@import "tailwindcss";
+
+/* The app toggles a .dark class on <html>; make dark: follow it instead of the OS setting */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── LiquidityDissection Design System: OLED dark terminal + metallic gold brand ──
+   Every color in components resolves to one of these tokens. Neutral scales
+   (slate / zinc / gray / neutral) are unified so mixed usages render identically. */
+@theme {
+  --font-sans: 'Inter', 'Cairo', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Surfaces (dark, darkest → most elevated) */
+  --color-canvas: #07090D;
+  /* Glass: see-through tints over the app's moving gold-on-black background (the login look) */
+  --color-surface: rgb(12 15 21 / 0.58);
+  --color-surface-2: rgb(20 24 33 / 0.6);
+  --color-surface-3: rgb(30 35 46 / 0.7);
+  --color-line: rgb(255 255 255 / 0.07);
+  --color-line-2: rgb(255 255 255 / 0.12);
+
+  /* Light theme surfaces */
+  --color-paper: #F7F6F2;
+  --color-paper-line: #ECE8DF;
+  --color-paper-line-2: #DDD6C8;
+  --color-ink-strong: #14161B;
+
+  /* Brand gold */
+  --color-gold-100: #F7EBC8;
+  --color-gold-200: #EFD99A;
+  --color-gold-300: #E3C374;
+  --color-gold-400: #D6AE57;
+  --color-gold-500: #C9A04A;
+  --color-gold-600: #A8843A;
+  --color-gold-700: #7F632A;
+  --color-gold-800: #4A3A1A;
+
+  /* Unified cool neutral scale */
+  --color-slate-50: #F6F7F9;
+  --color-slate-100: #ECEEF2;
+  --color-slate-200: #D8DCE3;
+  --color-slate-300: #B6BDC9;
+  --color-slate-400: #8D96A6;
+  --color-slate-500: #6A7385;
+  --color-slate-600: #4D5566;
+  --color-slate-700: #353B48;
+  --color-slate-800: #222731;
+  --color-slate-900: #151920;
+  --color-slate-950: #0A0C11;
+
+  --color-zinc-50: var(--color-slate-50);
+  --color-zinc-100: var(--color-slate-100);
+  --color-zinc-200: var(--color-slate-200);
+  --color-zinc-300: var(--color-slate-300);
+  --color-zinc-400: var(--color-slate-400);
+  --color-zinc-500: var(--color-slate-500);
+  --color-zinc-600: var(--color-slate-600);
+  --color-zinc-700: var(--color-slate-700);
+  --color-zinc-800: var(--color-slate-800);
+  --color-zinc-900: var(--color-slate-900);
+  --color-zinc-950: var(--color-slate-950);
+
+  --color-gray-50: var(--color-slate-50);
+  --color-gray-100: var(--color-slate-100);
+  --color-gray-200: var(--color-slate-200);
+  --color-gray-300: var(--color-slate-300);
+  --color-gray-400: var(--color-slate-400);
+  --color-gray-500: var(--color-slate-500);
+  --color-gray-600: var(--color-slate-600);
+  --color-gray-700: var(--color-slate-700);
+  --color-gray-800: var(--color-slate-800);
+  --color-gray-900: var(--color-slate-900);
+  --color-gray-950: var(--color-slate-950);
+
+  --color-neutral-50: var(--color-slate-50);
+  --color-neutral-100: var(--color-slate-100);
+  --color-neutral-200: var(--color-slate-200);
+  --color-neutral-300: var(--color-slate-300);
+  --color-neutral-400: var(--color-slate-400);
+  --color-neutral-500: var(--color-slate-500);
+  --color-neutral-600: var(--color-slate-600);
+  --color-neutral-700: var(--color-slate-700);
+  --color-neutral-800: var(--color-slate-800);
+  --color-neutral-900: var(--color-slate-900);
+  --color-neutral-950: var(--color-slate-950);
+
+  /* Restrained accents: cyan / sky / blue share one steel "info" scale,
+     purple / violet / indigo / fuchsia share one muted violet scale */
+  --color-cyan-50: #EEF5FB;
+  --color-cyan-100: #D9E8F5;
+  --color-cyan-200: #B5D1EA;
+  --color-cyan-300: #8AB6DC;
+  --color-cyan-400: #6A9FCF;
+  --color-cyan-500: #4B85B8;
+  --color-cyan-600: #386A99;
+  --color-cyan-700: #2C5379;
+  --color-cyan-800: #22405D;
+  --color-cyan-900: #1A3047;
+  --color-cyan-950: #101D2B;
+  --color-sky-50: var(--color-cyan-50);
+  --color-sky-100: var(--color-cyan-100);
+  --color-sky-200: var(--color-cyan-200);
+  --color-sky-300: var(--color-cyan-300);
+  --color-sky-400: var(--color-cyan-400);
+  --color-sky-500: var(--color-cyan-500);
+  --color-sky-600: var(--color-cyan-600);
+  --color-sky-700: var(--color-cyan-700);
+  --color-sky-800: var(--color-cyan-800);
+  --color-sky-900: var(--color-cyan-900);
+  --color-sky-950: var(--color-cyan-950);
+  --color-blue-50: var(--color-cyan-50);
+  --color-blue-100: var(--color-cyan-100);
+  --color-blue-200: var(--color-cyan-200);
+  --color-blue-300: var(--color-cyan-300);
+  --color-blue-400: var(--color-cyan-400);
+  --color-blue-500: var(--color-cyan-500);
+  --color-blue-600: var(--color-cyan-600);
+  --color-blue-700: var(--color-cyan-700);
+  --color-blue-800: var(--color-cyan-800);
+  --color-blue-900: var(--color-cyan-900);
+  --color-blue-950: var(--color-cyan-950);
+
+  --color-purple-50: #F3F1FA;
+  --color-purple-100: #E6E2F5;
+  --color-purple-200: #CEC6EC;
+  --color-purple-300: #B0A3DE;
+  --color-purple-400: #9584CF;
+  --color-purple-500: #7C69BC;
+  --color-purple-600: #64539D;
+  --color-purple-700: #4F427C;
+  --color-purple-800: #3D3460;
+  --color-purple-900: #2E284A;
+  --color-purple-950: #1C182E;
+  --color-violet-50: var(--color-purple-50);
+  --color-violet-100: var(--color-purple-100);
+  --color-violet-200: var(--color-purple-200);
+  --color-violet-300: var(--color-purple-300);
+  --color-violet-400: var(--color-purple-400);
+  --color-violet-500: var(--color-purple-500);
+  --color-violet-600: var(--color-purple-600);
+  --color-violet-700: var(--color-purple-700);
+  --color-violet-800: var(--color-purple-800);
+  --color-violet-900: var(--color-purple-900);
+  --color-violet-950: var(--color-purple-950);
+  --color-indigo-50: var(--color-purple-50);
+  --color-indigo-100: var(--color-purple-100);
+  --color-indigo-200: var(--color-purple-200);
+  --color-indigo-300: var(--color-purple-300);
+  --color-indigo-400: var(--color-purple-400);
+  --color-indigo-500: var(--color-purple-500);
+  --color-indigo-600: var(--color-purple-600);
+  --color-indigo-700: var(--color-purple-700);
+  --color-indigo-800: var(--color-purple-800);
+  --color-indigo-900: var(--color-purple-900);
+  --color-indigo-950: var(--color-purple-950);
+  --color-fuchsia-300: var(--color-purple-300);
+  --color-fuchsia-400: var(--color-purple-400);
+  --color-fuchsia-500: var(--color-purple-500);
+
+  /* Market semantics */
+  --color-bull: #16C784;
+  --color-bear: #EA3943;
+
+  --radius-card: 14px;
+  --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.7);
+  --shadow-float: 0 24px 48px -16px rgb(0 0 0 / 0.85), 0 0 0 1px rgb(201 160 74 / 0.18);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  html:not(.dark) {
+    color-scheme: light;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    overflow-x: hidden;
+    background-color: var(--color-paper);
+    color: var(--color-ink-strong);
+    transition: background-color 0.2s ease-out, color 0.2s ease-out;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .dark body {
+    background-color: var(--color-canvas);
+    color: var(--color-slate-100);
+  }
+
+  /* Numbers line up in every price, P&L and table cell */
+  .font-mono,
+  [class*="font-mono"] {
+    font-variant-numeric: tabular-nums slashed-zero;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  select,
+  summary {
+    cursor: pointer;
+  }
+
+  /* Keyboard focus is always visible, never on mouse click */
+  :focus-visible {
+    outline: 2px solid var(--color-gold-400);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: rgb(201 160 74 / 0.35);
+    color: inherit;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Safe Area Inset Support for modern mobile screens (iPhone notch / home bar) */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  /* Landscape iPhone / Android with a notch or camera hole: keep content clear of the sides */
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Custom sleek scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-paper-line-2);
+    border-radius: 9999px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: var(--color-line-2);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gold-600);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gold-600);
+  }
+}
+
+.font-mono-numbers {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Luxury Gold & Ivory Utilities */
+.bg-ivory-canvas {
+  background-color: var(--color-paper);
+}
+
+.bg-ivory-card {
+  background-color: #FFFFFF;
+}
+
+.border-ivory-border {
+  border-color: var(--color-paper-line-2);
+}
+
+.text-gold-primary {
+  color: var(--color-gold-500);
+}
+
+.text-gold-dark {
+  color: var(--color-gold-700);
+}
+
+.bg-gold-gradient {
+  background: linear-gradient(135deg, var(--color-gold-200) 0%, var(--color-gold-500) 55%, var(--color-gold-600) 100%);
+}
+
+.bg-gold-gradient-hover:hover {
+  background: linear-gradient(135deg, var(--color-gold-100) 0%, var(--color-gold-400) 55%, var(--color-gold-500) 100%);
+}
+
+.border-gold-accent {
+  border-color: rgba(197, 160, 89, 0.35);
+}
+
+.shadow-gold-glow {
+  box-shadow: 0 4px 20px -2px rgba(197, 160, 89, 0.22);
+}
+
+.shadow-gold-subtle {
+  box-shadow: 0 2px 10px rgba(197, 160, 89, 0.12);
+}
+
+/* Glassmorphism & Glow Utilities */
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-paper-line-2);
+}
+
+.glass-panel-dark {
+  background: rgb(13 16 22 / 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--color-line);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.15);
+}
+
+.glow-gold {
+  box-shadow: 0 0 22px -3px rgba(197, 160, 89, 0.25);
+}
+
+.glow-rose {
+  box-shadow: 0 0 20px -3px rgba(225, 29, 72, 0.15);
+}
+
+/* Subtle Animated Gradient Border */
+@keyframes pulseGold {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-gold {
+  animation: pulseGold 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Shimmer Effect for Live Badges */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s infinite;
+}
+
+/* Hide scrollbars for slick mobile horizontal scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Mobile viewport bottom spacing to never obscure controls under the bottom nav bar */
+@media (max-width: 1024px) {
+  .pb-mobile-nav {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 16px));
+  }
+  /* Main content clears the bottom bar and the home indicator */
+  .pb-mobile-main {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Strict Mobile Tap Targets & Horizontal Overflow Immunity */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Like a native app once installed (home screen / "Install app"): the page itself never bounces or zooms, only the
+   app's own scroll areas move; the screens are pinned to the full screen (app-screen) instead of 100dvh, which iOS
+   measures short in a home-screen app and leaves an empty strip at the bottom */
+html, body, #root {
+  height: 100%;
+  overscroll-behavior: none;
+}
+.app-screen {
+  position: fixed;
+  inset: 0;
+}
+/* iOS zooms into any field whose text is under 16 px when it gets the focus (and stays zoomed): never on a touch screen */
+@media (pointer: coarse) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+.tap-target-44 {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Smooth tactile touch feedback on mobile buttons */
+@media (hover: none) and (pointer: coarse) {
+  button:active, a:active {
+    opacity: 0.88;
+    transform: scale(0.97);
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+}
+
+/* Icons: one family (lucide), one stroke width across the app */
+svg.lucide { stroke-width: 1.75; }
+/* Icon tile: an icon on a small rounded plate (menu items, card headers) */
+.icon-tile { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 0.75rem;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.05); }
+.icon-tile-gold { background: linear-gradient(180deg, var(--color-gold-300), var(--color-gold-600)); color: var(--color-ink-strong);
+  box-shadow: 0 6px 16px -6px rgba(214,174,87,0.75), inset 0 1px 0 rgba(255,255,255,0.35); }
+
+/* Login: the background gradient drifts slowly (gold on black), the glows float */
+.login-gradient {
+  background: linear-gradient(135deg, #07090D 0%, #120F09 30%, #2A1F0C 52%, #0D1016 76%, #07090D 100%);
+  background-size: 260% 260%;
+  animation: login-drift 16s ease-in-out infinite alternate;
+}
+@keyframes login-drift { 0% { background-position: 0% 40%; } 100% { background-position: 100% 60%; } }
+.login-orb { animation: login-float 14s ease-in-out infinite alternate; }
+.login-orb-2 { animation: login-float 18s ease-in-out infinite alternate-reverse; }
+@keyframes login-float { 0% { transform: translate3d(0, 0, 0) scale(1); } 100% { transform: translate3d(60px, 40px, 0) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .login-gradient, .login-orb, .login-orb-2 { animation: none; } }
+
+/* Login intro: the emblem pops in, the name rises, then (2 s) the block glides up and the form comes in part by part */
+.intro-brand { transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
+.intro-pop { animation: intro-pop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.intro-glow { animation: intro-glow 2.4s ease-in-out infinite alternate; }
+.intro-rise { animation: intro-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.intro-form:not(.is-open) > * { opacity: 0; }
+.intro-form.is-open > * { animation: intro-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.intro-form.is-open > *:nth-child(1) { animation-delay: 0.25s; }
+.intro-form.is-open > *:nth-child(2) { animation-delay: 0.35s; }
+.intro-form.is-open > *:nth-child(3) { animation-delay: 0.45s; }
+.intro-form.is-open > *:nth-child(4) { animation-delay: 0.55s; }
+.intro-form.is-open > *:nth-child(5) { animation-delay: 0.65s; }
+.intro-form.is-open > *:nth-child(6) { animation-delay: 0.75s; }
+.intro-form.is-open > *:nth-child(7) { animation-delay: 0.85s; }
+@keyframes intro-pop { 0% { opacity: 0; transform: scale(0.3) rotate(-25deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes intro-rise { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: none; } }
+@keyframes intro-glow { 0% { opacity: 0.55; transform: scale(0.92); } 100% { opacity: 1; transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) {
+  .intro-brand { transition: none; }
+  .intro-pop, .intro-glow, .intro-rise, .intro-form.is-open > * { animation: none; }
+}
+
+/* Frosted glass: a panel that blurs the gradient behind it (sidebar, navbar, cards, chart, panels) */
+.glass {
+  background-color: rgb(14 17 24 / 0.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  backdrop-filter: blur(18px) saturate(1.3);
+  border-color: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 60px -30px rgb(0 0 0 / 0.85);
+}
+/* Floating glass (menus, pop-ups, dialogs): more opaque so its text stays easy to read */
+.glass-strong {
+  background-color: rgb(16 19 26 / 0.82);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  backdrop-filter: blur(22px) saturate(1.35);
+  border-color: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07), 0 28px 60px -20px rgb(0 0 0 / 0.9);
+}
+/* Phones without backdrop blur: a solid enough tint instead */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background-color: rgb(14 17 24 / 0.9); }
+  .glass-strong { background-color: rgb(16 19 26 / 0.97); }
+}
+
+/* Sidebar and navbar: the login glass, lighter and gold-edged, so the moving background shows through */
+.glass-nav {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.075) 0%, rgb(255 255 255 / 0.025) 45%, rgb(214 174 87 / 0.045) 100%);
+  -webkit-backdrop-filter: blur(26px) saturate(1.45);
+  backdrop-filter: blur(26px) saturate(1.45);
+  border-color: rgb(214 174 87 / 0.16);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), inset 0 0 0 1px rgb(255 255 255 / 0.03), 0 30px 70px -30px rgb(0 0 0 / 0.9), 0 0 40px -18px rgb(214 174 87 / 0.25);
+}
+/* a thin light line along the top edge, like the reflection on glass */
+.glass-nav::before {
+  content: ""; position: absolute; inset: 0 12% auto; height: 1px; border-radius: 999px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(249 229 182 / 0.55), transparent);
+}
+/* the item of the page you are on: a small glass pill with a gold glow */
+.glass-pill {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.11), rgb(255 255 255 / 0.04));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), inset 0 0 0 1px rgb(214 174 87 / 0.22), 0 8px 24px -12px rgb(214 174 87 / 0.45);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-nav { background: rgb(18 21 29 / 0.94); }
+}

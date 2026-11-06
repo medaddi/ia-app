@@ -1,99 +1,189 @@
-# EXUNU — the two strategies
+# LiquidityDissection — the 4 autonomous pair agents
 
-The app runs **exactly two** rule-based strategies, one per instrument. Nothing else creates
-signals or sends Telegram messages. Every rule below is code; every parameter lives in the
-strategy's config file. Same closed candles → same result, every time.
+Each instrument is run by **its own agent** (`backend/app/agents/`) with **its own deterministic strategy** and **its own
+chart**. Nothing else creates signals. Same closed candles → same result. Every session time is **UTC+1 (Morocco time)**,
+a fixed offset (`core/quant_primitives.py`, `TZ_OFFSET_SEC`).
 
-| | XAUUSD (Gold) | EURUSD |
+Each agent runs the plan its pair's behaviour favours, chosen for a **high win rate that still makes money**: tuned on the
+first 60 % of 2 years of H1 / H4 (win ≥ 55 %, expectancy ≥ +0.08R per trade, ≥ 40 trades), kept only if it **also won
+≥ 55 % and made money on the last 40 % it never saw**, stayed positive with double costs, and most of its neighbouring
+settings agreed (the pair's spread + slippage, the stop counted first, one trade at a time).
+
+| Pair | Agent | Plan | Target | App replay (~2 years) | Unseen 40 % |
+|---|---|---|---|---|---|
+| XAU/USD | `XAUUSD_FastIntraday_Agent` | **Fast, every trade closed within 3 h** (3 H1 candles). Asian breakout 00–06 GMT: H1 close beyond the 40-candle channel in the EMA50 / EMA200 trend · SL 1.5 ATR · 1.5R. London dip 07–11 GMT: H1 close beyond the 5-candle range against the EMA200 side, faded in the trend · SL 1 ATR · 1.25R | 1.25–1.5R | 210 trades · **60.0 %** · +41.9R · PF 1.75 · DD 3.9R | 84 trades · 61.9 % · +18.6R |
+| EUR/USD | `EURUSD_AsianFade_Agent` | H1 fade of the 10-hour channel, 00–06 GMT, ADX < 35 · SL 2 ATR · 48 candles | 1R | 212 trades · **57.1 %** · +21.6R · PF 1.23 · DD 6.7R | 90 trades · 56.7 % · +6.1R |
+| GBP/USD | `GBPUSD_TrendPullback_Agent` | H1 fade of the 40-hour channel in the trend's direction (EMA200), ADX < 35 · SL 1.5 ATR · 48 candles | 1.25R | 75 trades · **60.0 %** · +21.6R · PF 1.68 · DD 3.8R | 29 trades · 65.5 % · +11.1R |
+| EUR/CHF | `EURCHF_AsianFade_Agent` | H1 fade of the 10-hour channel, 00–06 GMT · SL 1 ATR · 24 candles | 0.75R | 131 trades · **67.9 %** · +17.4R · PF 1.39 · DD 3.9R | 64 trades · 79.7 % · +15.0R |
+| AUD/CAD | `AUDCAD_RangeFade_Agent` | H1 fade of the 40-hour channel · SL 1 ATR · 48 candles | 0.75R | 376 trades · **67.0 %** · +48.7R · PF 1.37 · DD 7.6R | 165 trades · 70.9 % · +21.5R |
+| AUD/CHF | `AUDCHF_RangeFade_Agent` | H1 fade of the 40-hour channel, ADX < 35 · SL 1.5 ATR · 48 candles | 0.75R | 250 trades · **70.0 %** · +49.9R · PF 1.65 · DD 7.2R | 106 trades · 73.6 % · +20.0R |
+
+**The trade-off:** a closer target wins more often and earns less per win; a loss always costs 1R. So a 70 % win rate at
+0.75R is worth about +0.2R per trade, not a sure thing. No strategy guarantees profit: these are the plans that held
+up on history they were never tuned on. Past results do not guarantee future results.
+
+USD/CAD, NZD/USD and NZD/CAD: no plan won ≥ 55 % and made money on the unseen part, so they are not traded.
+
+## 1. Instrument normalisation (`core/instrument_specs.py`)
+
+| Symbol | Pip | Decimals | Max spread |
+|---|---|---|---|
+| EURUSD | 0.0001 | 5 | 1.5 pips |
+| GBPUSD | 0.0001 | 5 | 2.2 pips |
+| AUDCHF | 0.0001 | 5 | 3.0 pips |
+| XAUUSD | 0.10 ($1.00 = 10 pips) | 2 | 3.5 pips |
+
+`pips_to_price(symbol, pips)` and `price_to_pips(symbol, diff)` are used for every stop, buffer and zone width.
+
+## 2. Quantitative primitives (`core/quant_primitives.py`)
+
+- **5-bar fractal**: swing high at `[-3]` when `High[-3]` is above `High[-5]`, `High[-4]`, `High[-2]`, `High[-1]` (low: mirror). Known 2 candles after the pivot.
+- **FVG** on `[-3] [-2] [-1]`: bullish `Low[-1] > High[-3]` (bottom `High[-3]`, top `Low[-1]`), bearish `High[-1] < Low[-3]`; `ce_50` = middle; min 2.5 pips forex, 6 pips ($0.60) gold.
+- **Order block**: bullish MSS → the lowest bearish candle of the 10 before the break; bearish MSS → the highest bullish candle. `OB_Mean = (Open + Close) / 2`.
+- **OTE** of a displacement leg: 0.618, 0.705 (sweet spot), 0.786 retracements.
+- Wilder RSI / ATR / ADX (14).
+
+## 3. The agents (`agents/channel.py`, `agents/plans.py`)
+
+Each agent works like a disciplined trader: it **reads the market** first (the trend by EMA50 vs EMA200, the volatility
+against its usual level, the session, the channel it watches and how far price is from it), **acts only on its edge**,
+takes **one trade at a time** (while a trade runs it manages it and takes no other), and **plans the exit first**: stop at
+an ATR multiple, one target (its plan's R), closed at market at the plan's time limit. No partials, no break-even.
+States: `IDLE` (outside its hours) · `ARMED` (watching the channel) · `COOLDOWN` (a strong trend for a fade) · `IN_TRADE`.
+
+- **Gold** is traded fast: every trade is closed within 3 hours (its stop, its target, or at market after 3 H1 candles).
+  Two legs, one trade at a time: in the **Asian hours (00–06 GMT)** it buys a close above its 40-hour high in an uptrend
+  (sells the mirror), never against the trend; at the **London open (07–11 GMT)** it buys a close below its 5-hour low
+  above EMA200 (sells a close above its 5-hour high below it): the first push often overshoots and comes back. The
+  afternoon and New York hours had no fast edge on gold, so it does not trade them. Search: breakout and fade, channels
+  5–40, stops 0.5–1.5 ATR, targets 0.5–1.5R, held 2, 3 or 4 hours, in 6 session windows (21,600 combinations); both
+  legs and every one-step neighbour of their settings were positive on the tuned and the unseen part, and with double
+  costs (+37.4R). The 2-year test is on H1: free M5 / M15 history only goes back ~60 days, too short to prove a plan.
+- **EUR/USD, EUR/CHF** fade a close beyond their 10-hour channel in the quiet Asian hours (00–06 GMT), when the move has
+  no volume behind it.
+- **GBP/USD** buys a close below its 40-hour low only above EMA200 (a dip in an uptrend), sells a close above its 40-hour
+  high only below it, and stands aside when ADX ≥ 35.
+- **AUD/CAD, AUD/CHF** (commodity / safe-haven crosses that swing in ranges) fade a close beyond their 40-hour channel at
+  any hour; AUD/CHF only while ADX < 35.
+
+Draws (every agent): the channel high / low it watches, the broken level and the `BREAKOUT` / `FADE` marker at the
+signal, and the trade box.
+
+### The SMC view (Exunu's method, `agents/smc.py`) — context, never a signal
+
+The app's original Exunu engine traded Smart Money Concepts, but most of its checks were hard-coded to pass (a sweep was
+"verified" even when none happened, missing order blocks and FVGs were invented, entry was always the current price), so it
+emitted a trade at almost every refresh. Rebuilt with every check real — structure by confirmed 3-bar swings, a sweep of
+the last swing low (high) closed back inside in that trend, the order block before it, entry at market or at the OB, stop
+beyond, target 1R–2R — it **lost on every pair** on 2 years of H1 / H4 (unseen part: gold −6.1R, EUR/USD −7.6R, GBP/USD
+−7.5R, EUR/CHF −17.7R, AUD/CAD −1.5R, AUD/CHF −18.4R; 80 variants per pair, none profitable on both parts).
+
+So the signals stay with the pair agents above, and Exunu's read is drawn on every chart as its own layer
+("SMC view"): swing labels HH / HL / LH / LL, the latest BOS or CHoCH, the untaken buy-side (BSL) and sell-side (SSL)
+liquidity, the order block behind the latest break and the latest unfilled FVG.
+
+## 4. The chart contract
+
+Every agent emits an `AgentChartOverlayState` (`frontend/src/agentOverlay.ts`): `fsmState`, `statusBannerText` (top-left
+of its chart), `metrics` (spread, ATR, session, confluence tag), `zones`, `priceLines`, `markers` and
+`tradeExecutionBox`. It is in every strategy result (`overlay`) and at `GET /api/agents/overlay?symbol=`. A chart renders
+only its own agent's state, in the single view and in the 4-chart split screen.
+
+## 4b. The Analyse button (`analysis/engine.py` `analyse_all`, `GET /api/analyze`)
+
+Each pair has **one Analyse button**. Pressed, it checks every strategy on the latest closed candles: the proven plans
+of the library (`analysis/library.py`) **and** the SMC strategies below. It picks the one that applies now (a proven
+plan's SETUP first, else an SMC setup CONFIRMED by its rules and the 7 questions) and **draws it on the pair's chart**
+(`analysis/drawing.py` → `frontend/src/analysisDrawing.ts`): the trade box (entry, stop, target), the level that was
+crossed or swept, the Asian range / previous day high-low, the entry FVG or OB, the H1 50 %. Any other setup can be
+drawn with its own "Draw on chart" button; "Clear" removes it.
+
+**The pair's agent answers.** The button belongs to the pair's agent: it reads the market at that moment (trend, volatility,
+H1 structure, last BOS / CHoCH, premium / discount), goes through its strategies and gives **one** confirmed setup, or
+says there is none and what its **radar** is watching (the closest SMC setup forming, a plan that fired late). Every
+strategy's detail is one click away. The radar (`GET /api/agents/radar`, asked every second: the agent re-reads the whole market
+at each M5 close, H1 / H4 closes included, and checks the live price against its setup's entry zone at every call) shows
+on each dashboard card and on the chart page, and a setup it confirms is drawn on the chart by itself. It never sends a
+Telegram signal: those still come from the pair agents' proven plans only.
+
+**Prices every second.** `GET /api/market/prices` gives every pair's price in one request; the screens ask it every
+second (paused while the tab is hidden) and the chart's forming candle follows it. The server asks each provider at most
+once a second whatever the number of viewers. The free sources themselves move less often (gold-api, Yahoo: from a few
+seconds to a minute between two prices, slower in quiet hours): only a paid real-time feed would tick faster. With the
+app closed, the server's cron still runs the pair agents every minute (Vercel's shortest schedule), which sees every
+closed candle.
+
+**The approximate range.** Price does not have to reach the exact level: an SMC limit sits at the near edge of an entry
+zone of ± 10 % of the stop distance (at least the spread) around the ideal level, and an OB / flip zone counts as tapped
+within 10 % of its height. On the ~59 days of M5 it fills about as often and at a slightly worse price: all SMC
+strategies −26.2R at the exact level, −28.3R with ± 10 %, −31.7R with ± 25 %.
+
+The SMC strategies (`analysis/smc_setups.py`): the Smart Money Concepts course coded mechanically on closed M5 /
+H1 candles (no lookahead). Swings by the **valid pullback** rule (the leg's "mother" candle becomes a swing only when a
+later candle trades beyond its other end; inside bars are pauses), BOS / CHoCH on a **body close**, a **wick** beyond a
+level is a sweep (the level moves to the wick tip), FVG, OB with its 4 conditions, IDM, premium / discount.
+
+| | Strategy | Entry |
 |---|---|---|
-| Name | Liquidity Sweep + MSS + FVG | Trend Pullback + London Breakout Filter |
-| Code | `server/strategies/xauusd/strategy.ts` | `server/strategies/eurusd/strategy.ts` |
-| Config | `server/strategies/xauusd/config.ts` | `server/strategies/eurusd/config.ts` |
-| Timeframes | Bias H4 + H1 · Setup M15 · Entry M5 | Bias D1 + H4 · Zones H1 · Entry M15 |
-| Order | LIMIT (FVG / OB 50%) | MARKET (close of the confirmation candle) |
+| A | Trend continuation: H1 break → IDM swept → fresh H1 OB tapped in discount / premium → M5 sweep + CHoCH + FVG | limit at the M5 FVG, TP the H1 external high / low |
+| B | PDH / PDL wick sweep → M5 CHoCH + FVG in premium / discount | limit at the FVG, TP the previous day's 50 % |
+| C | Supply → demand flip (S2D / D2S) on H1 → M5 inducement swept | limit at the flip zone, TP the push's extreme |
+| D | Asian range (00–06 UTC) swept in the London (07–10) / New York (12–15) killzone → M5 CHoCH + FVG | limit at the FVG, TP the other side of Asia |
+| E | Single candle OB: one H1 candle sweeps a swing with its wick and closes strongly the other way | limit at its 50 % where an M5 FVG sits |
 
-## Shared definitions (`server/strategies/shared/`)
+A setup is **CONFIRMED** only when its strategy's rules **and the 7-question master checklist** pass (H1 bias by a body
+close in the trade's direction · IDM / liquidity swept · discount for buys, premium for sells · fresh FVG / OB · LTF
+CHoCH with displacement · London / New York hours, not Friday evening or Monday morning, no high-impact news within 15
+minutes · reward ≥ 3R). One "no" shows **CHECKLIST: NO** with the failing questions. Every order: limit valid 1 h (4 h
+for C), stop first when both levels sit in one candle, closed at market after 4 h, no partials / break-even in the test.
 
-- **Swing high/low**: fractal with 3 candles on each side, strictly higher/lower; confirmed only after the 3 right-side candles close. Labelled HH / LH / HL / LL against the previous swing of the same kind.
-- **BOS**: a candle **close** beyond the last confirmed swing, in the trend direction.
-- **CHoCH / MSS**: the first candle **close** beyond the last confirmed swing **against** the current trend.
-- **Liquidity sweep**: the first candle that trades beyond a key level wicks through it and **closes back inside**. A close beyond it is a break, not a sweep.
-- **Key levels**: PDH/PDL and PWH/PWL (trading day rolls at 17:00 New York), Asian high/low (00:00–06:00 London), previous session high/low, equal highs/lows within 0.1 × ATR ("$$$"), and for gold $10 / $50 round numbers.
-- **FVG**: candle 1 high < candle 3 low (bullish) or candle 1 low > candle 3 high (bearish); ignored below 0.25 × ATR(14); mitigated once 50% is filled.
-- **Order block**: the last opposite-coloured candle before the displacement that caused a BOS/CHoCH; valid only if the displacement body > 1.5 × the 20-candle average body.
-- **Sessions**: defined in Europe/London and America/New_York local time and converted to UTC with the real DST offset of each date (tests cover the March and October clock changes).
-- **Score**: weighted checklist 0–100. **≥ 75 = SIGNAL** (sent to Telegram once), **60–74 = WATCH** (chart only), **< 60 = ignored**. Any failed *required* rule = **NO TRADE**.
+**Test (the M5 history the free feed gives, ~59 trading days, 4 Nov 2026):** all five, 6 pairs: 144 trades, 34.7 % won,
+−19.5R. Only E made money (+4.8R; gold +13.0R on 16 trades). With the 7 questions only 10 setups passed in those days
+and the 5 that filled all lost (−6.3R): far too few to judge either way. The AUD crosses' and EUR/CHF's M5 feed has
+overlapping wicks, so FVGs (and these entries) almost never form there. The SMC button is a rule check, not a proven
+edge: the pair agents (section 3) stay the ones that send the automatic signals.
 
-## Strategy 1 — XAUUSD "Liquidity Sweep + MSS + FVG"
+## 4c. The trader skill on each pair (`trader/`, `api/trader.py`)
 
-1. **Bias (H4 + H1)** — bullish if the H1 close is above EMA 200 (H1) **and** the last H4 structure break is bullish; bearish is the mirror. If H4 and H1 disagree → **NO TRADE**.
-2. **Kill zones** — London 08:00–11:00 (London time) and New York 08:30–11:30 (New York time). Outside them: no new signals. The Asian session only builds the Asian range.
-3. **Sequence on M5 (all required, in this order)**
-   1. A sweep of a key level **against** the bias. Buys: Asian low, PDL, PWL, London low, sell-side equal lows, round number. Sells: the mirror.
-   2. Within **6 M5 candles**: an M5 MSS/CHoCH in the bias direction with displacement (body > 1.5 × average body). The sweep extreme must not be broken before the MSS.
-   3. The displacement leaves an **FVG** (if none, the **order block**).
-   4. **LIMIT entry** at the FVG 50% (or OB 50%).
-4. **Risk**
-   - SL = sweep wick ± (0.2 × ATR(14, M5) + spread). Must be **$2–$8**, else skip.
-   - TP1 = 1R → close 50%, move SL to breakeven. TP2 = nearest opposing liquidity (Asian high/low, session high/low, PDH/PDL, PWH/PWL, EQH/EQL); R:R to TP2 must be ≥ 1:2, else skip. TP3 = next H1 swing beyond TP2, or 3R.
-   - Pending order cancelled after **45 minutes**, or if price reaches TP1 before the fill.
-5. **Filters** — no trade 30 minutes before/after high-impact USD news (CPI, NFP, FOMC, Fed Chair, PCE, GDP); spread ≤ $0.40; ATR(14, H1) between 50% and 250% of its 20-day average; max 2 trades per day; stop after 2 losses.
-6. **Score weights** — bias 15, kill zone 10, sweep quality 15, displacement 15, FVG/OB quality 15, R:R 15, room to the next H1 level 10, volatility 5.
+The method of [trader-skill](https://github.com/Jakeschincariol/trader-skill) (MIT, credit kept in
+`backend/app/trader/LICENSE-trader-skill.txt`), adapted to gold and forex and added to every pair's Analyse panel:
 
-## Strategy 2 — EURUSD "Trend Pullback + London Breakout Filter"
+| Skill | Here |
+|---|---|
+| copycat | The big players' side from the weekly **CFTC Commitments of Traders** (large speculators' net % on gold, EUR, GBP, CHF, AUD, CAD futures; a cross is the difference of its two currencies). More than 10 % net long → BUY, more than 10 % net short → SELL. Crowded = their 3-year extreme. It is also a context point of the scenarios, and the panel says whether the setup / each scenario is **with** or **against** them |
+| budget | The lots that make the setup's own stop lose your risk % of the balance (My account), rounded down, capped |
+| risk | PASS / BLOCK: risk per trade and in total, margin, lots, US dollar exposure, high-impact news within 30 min, market closed, duplicates, orders per day |
+| broker | A ticket READY only if this exact order passed today; your explicit yes recorded word for word ("yes to all", "ok", a yes with a doubt or another size are refused). The app never places an order |
 
-1. **Bias (H4, with a Daily filter)** — bullish if the H4 close > EMA 200, EMA 50 > EMA 200, and the H4 swings are HH/HL; bearish is the mirror. Daily filter: no buy within 15 pips of daily resistance / PWH (no sell within 15 pips of daily support / PWL).
-2. **Windows** — London 07:00–10:30 and the London/NY overlap 13:00–16:00 (London time). No new trades on Friday after 14:00 London.
-3. **Setup A — trend pullback (main)**
-   1. Trend confirmed (bias above).
-   2. Pullback into **at least 2 of 3**: H1 order block, Fib 50–61.8% of the last H1 impulse leg, EMA 50 (M15).
-   3. RSI(14, M15) at the pullback between 40–50 for buys, 50–60 for sells.
-   4. Confirmation candle on M15: engulfing, pin bar (wick ≥ 2 × body), or M15 CHoCH.
-   5. **MARKET entry** at the close of the confirmation candle.
-4. **Setup B — Asian range false breakout (secondary)**
-   1. Asian range 00:00–06:00 London, between 12 and 40 pips.
-   2. In the London window, a candle breaks one side and **closes back inside**.
-   3. Trade toward the other side **only if it matches the H4 bias**. TP2 = the opposite side of the range (R:R ≥ 1:2, else skip).
-5. **Risk**
-   - SL beyond the zone/swing + 3 pips, or 1.5 × ATR(14, M15), **whichever is wider**; must be **8–25 pips**.
-   - TP1 = 1R (close 50%, SL to breakeven). TP2 = next H1 level at ≥ 2R, else 2R. TP3 = trail behind confirmed M15 swings (3R shown as a reference). Minimum R:R 1:2.
-6. **Filters** — no trade 30 minutes around high-impact EUR/USD news (ECB, Lagarde, EU/US CPI, NFP, FOMC); spread ≤ 1.5 pips; max 3 trades per day; stop after 2 losses.
-7. **Score weights** — bias 15, window 10, zone confluence 20, trigger 15, momentum (RSI) 10, R:R 15, room to the next H1 level 10, volatility 5.
+COT is weekly (as of Tuesday, published Friday): positioning, not a signal. Not financial advice.
 
-## Risk (both)
+## 5. Risk notes (`core/risk_guard.py`) — nothing blocks a setup
 
-1% of equity per trade. Lot = (equity × risk%) / (SL distance × contract size), rounded **down**
-to the lot step (gold = 100 oz per lot, EURUSD = 100,000 units). If even 0.01 lot would risk
-more than 1%, the lot shows 0.
+Every fresh setup an agent sees is sent. **Each trader controls their own risk**: their $ or % per trade on their
+account (and `/risk` on Telegram) sizes their lot. The lot table of a signal is for 1 % of the balance.
 
-## On the chart (`src/chart-overlays/drawingsPrimitive.ts`)
+With each order the trader gets notes, never a veto: the agent's rules re-checked and fresh data, the limit still
+valid / a market entry not chased, red news of the pair's currencies within ±30 min, the spread, the other open
+same-direction USD trades not yet at break-even (EURUSD, GBPUSD and XAUUSD share the dollar), the orders open on the desk
+and today's result. A pending limit keeps its own expiry (12 M5 bars, 90 min for GBP/USD), even with news ahead.
 
-Drawn on the chart canvas (a Lightweight Charts series primitive), toggleable by layer:
-session shading (Asia / London / NY), Asian range box, PDH/PDL/PWH/PWL dashed lines, BOS
-(solid) and CHoCH (dashed) from the broken swing to the breaking candle, HH/HL/LH/LL labels,
-liquidity lines and "$$$" equal highs/lows, ✕ Sweep markers, FVG boxes with a dotted 50% line
-(faded once mitigated), demand/supply OBs (faded once mitigated), Fib 0.5 / 0.618 with the
-shaded zone (EURUSD), EMA 50 / 200, and the TradingView-style position box (red SL zone,
-green TP zone, Entry / TP1 / TP3 lines, R:R and lot size). The entry candle has an arrow;
-hovering it shows the score and checklist. Clicking any drawing asks the agent to explain it.
-Higher-timeframe objects stay visible on lower timeframes and are labelled ("H1 OB").
-Overlapping zones keep only the newest, max 5 per type.
+## 6. Trade-management agents (`agents/trade_manager.py`) and delivery
 
-## The agent (`server/agent/`)
+The setup agents only look for setups and keep scanning while their earlier trades run: **every setup becomes an
+order**, several can run at once on a pair. Next to each setup agent a **trade-management agent** runs every trade
+that was sent: at each tick it replays the trade on the latest candles and tells the traders, once per step, on Telegram
+and on the app (Web Push): 🟡 order filled · 🎯 TP1 hit (close 50 % / move the SL to break-even, +2 pips on gold) ·
+📈 +1R · ⚠️ near SL · 📰 news in N min · ⌛ order expires soon · and how the trade ended (TP / SL / BE / cancelled).
 
-- `systemPrompt.ts` — both strategies' rules, generated from the config files.
-- `context.ts` — the JSON the agent reads (detector output only).
-- `validator.ts` — re-checks every signal before Telegram; it can only lower the score or reject.
-- `agent.ts` — answers in Darija / French / English with Bias → Key levels → Setup checklist → Plan (or NO TRADE + the missing rule) → Risk. With `GEMINI_API_KEY`, Gemini writes the answer and any reply quoting a price not in the data is discarded; without a key, the answer is generated from the data directly.
+Delivery of a new setup, at the candle close where it completes:
+1. the trade is **recorded first** (the trade-management agent and the app follow it from there, Telegram on or off);
+2. Telegram and the app's Web Push are sent **independently** (one failing never stops the other);
+3. a Telegram attempt that reached nobody is **retried at each tick** for 15 minutes; a push that failed is retried too.
 
-## Backtest (`npm run backtest`)
+On Vercel the tick is the cron `/api/cron/tick` every minute (`backend/vercel.json`, Vercel Pro).
 
-`server/backtest/engine.ts` replays the same strategy code bar by bar (`server/strategies/replay.ts`)
-with the config's spread and slippage, and writes `backtest-reports/XAUUSD.md` / `EURUSD.md`.
-Limits: Yahoo provides ~60 days of 5m/15m history, past news is not in the free calendar, and
-spread is a fixed value. A real 2–3 year test needs broker (MT5) history.
+## 7. Testing
 
-## Review mode
-
-Open the app with `?asOf=<unix seconds>` to see any past moment exactly as the strategy saw it.
-Example: the EURUSD sell signal of 2026-09-29 08:00 UTC → `/?asOf=1790668920`.
+`backend/tests/test_four_agents.py` builds each agent's setup by hand and checks the order, the lifecycle and the chart
+overlay; the replay (`strategies/replay.py`) runs the same code bar by bar. `GET /api/backtest?symbol=` replays the
+agent on the feed's history (60 days of M5, 2 years of H1). Losses happen; nothing here is a guaranteed result.

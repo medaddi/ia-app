@@ -1,0 +1,32 @@
+{
+  "H1": {
+    "rows": 17352,
+    "flat": 0.0079,
+    "jumps": 0.0123,
+    "medianRangePips": 17.4,
+    "verdict": "SUSPECT",
+    "why": [
+      "range above EUR/USD (9.2)"
+    ]
+  },
+  "M15": {
+    "rows": 5648,
+    "flat": 0.0048,
+    "jumps": 0.0182,
+    "medianRangePips": 12.4,
+    "verdict": "SUSPECT",
+    "why": [
+      "range above EUR/USD (3.8)"
+    ]
+  },
+  "M5": {
+    "rows": 16932,
+    "flat": 0.0044,
+    "jumps": 0.0089,
+    "medianRangePips": 10.6,
+    "verdict": "SUSPECT",
+    "why": [
+      "range above EUR/USD (1.3)"
+    ]
+  }
+}
