@@ -95,3 +95,21 @@
   halves** (27 trades, +9.68R without the rule: the 5 removed were at a release). Gold 13 trades 31 % −4.7R, GBP/USD
   sweep 74 trades 50 % −2.1R, AUD/CHF 61 trades 43 % −12.8R, the others too few. All: 178 trades, 48 %, −11.34R.
 - Parameter changes after seeing results: **none.**
+
+## v0.7 · 2026-11-07 · the guide's algorithm summary applied
+- News: the guide's red-folder pause for EVERY pair: US CPI, NFP, FOMC, BoE, RBA, BoC, SNB (`playbook.red_folder`) +
+  the EIA crude oil inventories every Wednesday 10:30 New York (`eia_times`); live, in the test and in the manager.
+- Correlation: EUR/USD + GBP/USD the same way → 0.5 % each (the alert halves the lot and says to cut the other);
+  AUD/CAD + AUD/CHF the same way → blocked. EUR/CHF + AUD/CHF is no longer capped (not in the summary).
+- ADR rescaling: ADR5 / ADR20 < 0.70 cuts the sweep / trend targets to that share (it blocked them before);
+  > 1.40 still stops the mean reversion.
+- EUR/CHF: daily pivots (P, S1, S2, R1, R2) as levels next to the 3-touch levels; EUR/CHF and AUD/CAD: the RSI
+  divergence trigger at the level next to the BB 3σ close.
+- AUD/CHF: the 3-pillar macro gate (S&P 500 up, VIX calm, iron ore up, from Yahoo daily closes: `tools/fetch_macro.py`,
+  live cached 6 h) and the risk-off exit (VIX +10 % or S&P −1.5 % on a day: the long is closed at 22:00 UTC).
+- CHF pip value: 10 CHF in dollars at the live USD/CHF (12.19 today), not a fixed 12.5.
+- Fixed in the test: two trades could be open on one pair at once; now one per pair at a time (the app's rule).
+- Result (`PLAYBOOK.md`, one year, costs in): all strategies 142 trades, win 53 %, **+6.40R**. EUR/USD SnapBack 27 tr,
+  70 %, +9.68R; AUD/CAD 17 tr, 59 %, +5.94R (both positive in both halves); EUR/CHF 10 tr, 50 %, +1.77R; GBP/USD sweep
+  70 tr, 53 %, −0.58R; gold 10 tr, 30 %, −3.16R; AUD/CHF 7 tr, 14 %, −6.13R.
+- Parameter changes after seeing results: **none** (every new rule is the summary's; choices marked CHOICE).

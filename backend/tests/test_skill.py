@@ -29,9 +29,10 @@ def test_the_guide_correlation_cap():
     chk = portfolio.check("AUD/CHF", {"direction": "BUY"}, sent, NOW)
     assert chk["verdict"] == "BLOCK" and chk["reasons"][0].startswith("correlation: AUD/CAD BUY (+0.66)")
     assert portfolio.check("AUD/CHF", {"direction": "SELL"}, sent, NOW)["verdict"] == "PASS"  # the other way is a hedge, not a double
-    assert portfolio.check("EUR/CHF", {"direction": "BUY"}, sent, NOW)["verdict"] == "PASS"  # not correlated with AUD/CAD
-    eu = [setup("EUR/USD", "SELL")]
-    assert any(r.startswith("correlation") for r in portfolio.check("GBP/USD", {"direction": "SELL"}, eu, NOW)["reasons"])
+    assert portfolio.check("EUR/CHF", {"direction": "BUY"}, sent, NOW)["verdict"] == "PASS"  # not in the guide's pairs
+    eu = portfolio.check("GBP/USD", {"direction": "SELL"}, [setup("EUR/USD", "SELL")], NOW)
+    assert eu["verdict"] == "PASS" and eu["riskPct"] == 0.5 and eu["notes"][0].startswith("correlation: EUR/USD SELL")  # split, not blocked
+    assert portfolio.check("GBP/USD", {"direction": "BUY"}, [setup("EUR/USD", "SELL")], NOW)["riskPct"] == 1.0
 
 
 def test_a_trade_stays_live_until_its_live_until():

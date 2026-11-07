@@ -29,7 +29,7 @@ def test_each_team_trades_only_its_pair_strategies_from_the_guide():
             assert row["name"] == playbook.NAMES[k][row["id"]] and row["claimed"] == playbook.CLAIMED[(k, row["id"])]
             assert row["status"] in ("SIGNAL", "BLOCKED", "WATCHING", "IDLE")
         for s in t["signals"]:  # a signal passed its rules AND the guide's checklist
-            assert s["pass"] and len(s["checklist"]) == 6 and all(q["ok"] for q in s["checklist"])
+            assert s["pass"] and len(s["checklist"]) == 6 and all(q["ok"] for q in s["checklist"])  # a 7th (busy) only on a skipped one
         ch = t["chart"]  # the chart shows the pair's strategy: its lines and windows, never the old S1-S4 boxes
         assert set(ch) >= {"boxes", "segments", "labels", "lines", "windows", "trade", "trend", "premium"}
         assert not any(b["label"].endswith("Order Block") for b in ch["boxes"])

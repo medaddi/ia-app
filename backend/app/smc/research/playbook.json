@@ -10,31 +10,31 @@
     "claimed": "75-80 % in ICT studies (not guaranteed); R:R 1:2 to 1:4",
     "setups": 49,
     "states": {
-     "WIN": 17,
-     "LOSS": 13,
-     "MISSED": 9,
-     "EXPIRED": 10
+     "WIN": 16,
+     "LOSS": 11,
+     "MISSED": 6,
+     "EXPIRED": 16
     },
     "all": {
-     "trades": 13,
-     "wins": 4,
-     "winRate": 31,
-     "totalR": -4.68,
-     "expectancyR": -0.36
+     "trades": 10,
+     "wins": 3,
+     "winRate": 30,
+     "totalR": -3.16,
+     "expectancyR": -0.316
     },
     "in": {
-     "trades": 8,
+     "trades": 7,
      "wins": 2,
-     "winRate": 25,
-     "totalR": -3.71,
-     "expectancyR": -0.464
+     "winRate": 29,
+     "totalR": -2.71,
+     "expectancyR": -0.387
     },
     "out": {
-     "trades": 5,
-     "wins": 2,
-     "winRate": 40,
-     "totalR": -0.96,
-     "expectancyR": -0.192
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -0.46,
+     "expectancyR": -0.152
     },
     "withoutNewsRule": {
      "trades": 13,
@@ -47,9 +47,10 @@
    }
   },
   "news": {
-   "events": 154,
+   "events": 144,
    "file": "smc/news/high_impact.csv"
-  }
+  },
+  "macro": true
  },
  "EURUSD": {
   "source": "dukascopy",
@@ -64,15 +65,15 @@
     "states": {
      "MISSED": 4,
      "WIN": 17,
-     "EXPIRED": 1,
-     "LOSS": 11
+     "LOSS": 11,
+     "EXPIRED": 1
     },
     "all": {
-     "trades": 2,
-     "wins": 1,
-     "winRate": 50,
-     "totalR": 0.99,
-     "expectancyR": 0.495
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.12,
+     "expectancyR": -1.118
     },
     "in": {
      "trades": 0,
@@ -82,18 +83,18 @@
      "expectancyR": null
     },
     "out": {
-     "trades": 2,
-     "wins": 1,
-     "winRate": 50,
-     "totalR": 0.99,
-     "expectancyR": 0.495
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.12,
+     "expectancyR": -1.118
     },
     "withoutNewsRule": {
-     "trades": 2,
-     "wins": 1,
-     "winRate": 50,
-     "totalR": 0.99,
-     "expectancyR": 0.495
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.12,
+     "expectancyR": -1.118
     },
     "openThroughNews": 0
    },
@@ -106,25 +107,25 @@
      "LOSS": 10
     },
     "all": {
-     "trades": 22,
-     "wins": 15,
-     "winRate": 68,
-     "totalR": 6.94,
-     "expectancyR": 0.315
+     "trades": 27,
+     "wins": 19,
+     "winRate": 70,
+     "totalR": 9.68,
+     "expectancyR": 0.358
     },
     "in": {
-     "trades": 10,
-     "wins": 7,
-     "winRate": 70,
-     "totalR": 3.51,
-     "expectancyR": 0.351
+     "trades": 14,
+     "wins": 10,
+     "winRate": 71,
+     "totalR": 5.31,
+     "expectancyR": 0.379
     },
     "out": {
-     "trades": 12,
-     "wins": 8,
-     "winRate": 67,
-     "totalR": 3.43,
-     "expectancyR": 0.285
+     "trades": 13,
+     "wins": 9,
+     "winRate": 69,
+     "totalR": 4.37,
+     "expectancyR": 0.336
     },
     "withoutNewsRule": {
      "trades": 27,
@@ -133,13 +134,14 @@
      "totalR": 9.68,
      "expectancyR": 0.358
     },
-    "openThroughNews": 2
+    "openThroughNews": 4
    }
   },
   "news": {
-   "events": 176,
+   "events": 144,
    "file": "smc/news/high_impact.csv"
-  }
+  },
+  "macro": true
  },
  "GBPUSD": {
   "source": "dukascopy",
@@ -152,40 +154,40 @@
     "claimed": "no win rate given; R:R 1:2 to 1:3",
     "setups": 86,
     "states": {
-     "WIN": 37,
-     "EXPIRED": 12,
-     "LOSS": 35,
+     "WIN": 39,
+     "LOSS": 36,
+     "EXPIRED": 9,
      "BE": 2
     },
     "all": {
-     "trades": 74,
+     "trades": 70,
      "wins": 37,
-     "winRate": 50,
-     "totalR": -2.12,
-     "expectancyR": -0.029
+     "winRate": 53,
+     "totalR": -0.58,
+     "expectancyR": -0.008
     },
     "in": {
-     "trades": 42,
+     "trades": 40,
      "wins": 22,
-     "winRate": 52,
-     "totalR": 0.03,
-     "expectancyR": 0.001
+     "winRate": 55,
+     "totalR": 0.16,
+     "expectancyR": 0.004
     },
     "out": {
-     "trades": 32,
+     "trades": 30,
      "wins": 15,
-     "winRate": 47,
-     "totalR": -2.15,
-     "expectancyR": -0.067
+     "winRate": 50,
+     "totalR": -0.74,
+     "expectancyR": -0.025
     },
     "withoutNewsRule": {
-     "trades": 78,
-     "wins": 39,
-     "winRate": 50,
-     "totalR": -2.07,
-     "expectancyR": -0.027
+     "trades": 72,
+     "wins": 38,
+     "winRate": 53,
+     "totalR": 0.3,
+     "expectancyR": 0.004
     },
-    "openThroughNews": 24
+    "openThroughNews": 14
    },
    "P2": {
     "name": "EMA 20/50/200 trend pullback",
@@ -224,9 +226,10 @@
    }
   },
   "news": {
-   "events": 233,
+   "events": 144,
    "file": "smc/news/high_impact.csv"
-  }
+  },
+  "macro": true
  },
  "EURCHF": {
   "source": "dukascopy",
@@ -237,46 +240,47 @@
    "P": {
     "name": "Time-filtered 3\u03c3 mean reversion",
     "claimed": "~60 %+ in ranges (from the 3\u03c3 model); R:R 1:1 to 1:1.5",
-    "setups": 3,
+    "setups": 45,
     "states": {
-     "WIN": 2,
-     "LOSS": 1
+     "LOSS": 12,
+     "WIN": 33
     },
     "all": {
-     "trades": 3,
-     "wins": 2,
-     "winRate": 67,
-     "totalR": 0.89,
-     "expectancyR": 0.297
+     "trades": 10,
+     "wins": 5,
+     "winRate": 50,
+     "totalR": 1.77,
+     "expectancyR": 0.177
     },
     "in": {
-     "trades": 3,
-     "wins": 2,
-     "winRate": 67,
-     "totalR": 0.89,
-     "expectancyR": 0.297
+     "trades": 9,
+     "wins": 5,
+     "winRate": 56,
+     "totalR": 2.87,
+     "expectancyR": 0.319
     },
     "out": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "winRate": 0,
+     "totalR": -1.1,
+     "expectancyR": -1.098
     },
     "withoutNewsRule": {
-     "trades": 3,
-     "wins": 2,
-     "winRate": 67,
-     "totalR": 0.89,
-     "expectancyR": 0.297
+     "trades": 10,
+     "wins": 5,
+     "winRate": 50,
+     "totalR": 1.77,
+     "expectancyR": 0.177
     },
-    "openThroughNews": 0
+    "openThroughNews": 5
    }
   },
   "news": {
-   "events": 34,
+   "events": 144,
    "file": "smc/news/high_impact.csv"
-  }
+  },
+  "macro": true
  },
  "AUDCAD": {
   "source": "dukascopy",
@@ -287,46 +291,47 @@
    "P": {
     "name": "Commodity range reversion",
     "claimed": "~60 %+ in calm sessions; R:R 1:1.5 to 1:2",
-    "setups": 3,
+    "setups": 25,
     "states": {
-     "LOSS": 2,
-     "WIN": 1
+     "WIN": 12,
+     "LOSS": 13
     },
     "all": {
-     "trades": 3,
-     "wins": 1,
-     "winRate": 33,
-     "totalR": -0.52,
-     "expectancyR": -0.173
+     "trades": 17,
+     "wins": 10,
+     "winRate": 59,
+     "totalR": 5.94,
+     "expectancyR": 0.349
     },
     "in": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -1.06,
-     "expectancyR": -1.059
+     "trades": 6,
+     "wins": 4,
+     "winRate": 67,
+     "totalR": 2.19,
+     "expectancyR": 0.364
     },
     "out": {
-     "trades": 2,
-     "wins": 1,
-     "winRate": 50,
-     "totalR": 0.54,
-     "expectancyR": 0.27
+     "trades": 11,
+     "wins": 6,
+     "winRate": 55,
+     "totalR": 3.75,
+     "expectancyR": 0.341
     },
     "withoutNewsRule": {
-     "trades": 3,
-     "wins": 1,
-     "winRate": 33,
-     "totalR": -0.52,
-     "expectancyR": -0.173
+     "trades": 17,
+     "wins": 10,
+     "winRate": 59,
+     "totalR": 5.94,
+     "expectancyR": 0.349
     },
-    "openThroughNews": 0
+    "openThroughNews": 5
    }
   },
   "news": {
-   "events": 110,
+   "events": 144,
    "file": "smc/news/high_impact.csv"
-  }
+  },
+  "macro": true
  },
  "AUDCHF": {
   "source": "dukascopy",
@@ -339,43 +344,44 @@
     "claimed": "high when VIX, iron ore and rates agree (no number); R:R 1:2.5 to 1:3",
     "setups": 61,
     "states": {
-     "WIN": 26,
-     "LOSS": 35
+     "WIN": 27,
+     "LOSS": 34
     },
     "all": {
-     "trades": 61,
-     "wins": 26,
-     "winRate": 43,
-     "totalR": -12.84,
-     "expectancyR": -0.21
+     "trades": 7,
+     "wins": 1,
+     "winRate": 14,
+     "totalR": -6.13,
+     "expectancyR": -0.875
     },
     "in": {
-     "trades": 27,
-     "wins": 11,
-     "winRate": 41,
-     "totalR": -4.69,
-     "expectancyR": -0.174
+     "trades": 6,
+     "wins": 1,
+     "winRate": 17,
+     "totalR": -5.02,
+     "expectancyR": -0.837
     },
     "out": {
-     "trades": 34,
-     "wins": 15,
-     "winRate": 44,
-     "totalR": -8.15,
-     "expectancyR": -0.24
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.1,
+     "expectancyR": -1.102
     },
     "withoutNewsRule": {
-     "trades": 61,
-     "wins": 26,
-     "winRate": 43,
-     "totalR": -12.84,
-     "expectancyR": -0.21
+     "trades": 7,
+     "wins": 1,
+     "winRate": 14,
+     "totalR": -6.13,
+     "expectancyR": -0.875
     },
-    "openThroughNews": 27
+    "openThroughNews": 2
    }
   },
   "news": {
-   "events": 65,
+   "events": 144,
    "file": "smc/news/high_impact.csv"
-  }
+  },
+  "macro": true
  }
 }

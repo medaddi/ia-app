@@ -30,6 +30,7 @@ DONE = {"WIN", "LOSS", "BE", "TIME", "EXPIRED", "MISSED", "CLOSED"}
 WORDS = {
     "FILLED": ("✅ Filled", "the limit was reached: the trade is on"),
     "PARTIAL_1_3": ("💰 1:3 reached", "close 50 % of the position now"),
+    "RISK_OFF": ("🚨 Risk-off: close the buy", "VIX jumped or the S&P 500 fell: the guide closes the AUD/CHF long at once"),
     "TP1": ("💰 TP1 reached", "close the planned part now and move the stop to the entry"),
     "BE": ("🛡 Stop to break-even", "an M5 BOS in your favour: move the stop to the entry"),
     "TRAIL": ("📈 Trail the stop", "a new M5 swing confirmed in your favour: move the stop"),
@@ -53,7 +54,7 @@ def _index_of(m5, t_close: int) -> int | None:
     return None
 
 
-def follow(pair: str, p: dict, m5, st5, cost: float, news: list[int] | None = None) -> tuple[list[tuple], dict]:
+def follow(pair: str, p: dict, m5, st5, cost: float, news: list[int] | None = None, exits: list[int] | None = None) -> tuple[list[tuple], dict]:
     """The steps of one sent setup so far (index, kind, price) and its state, from the candles."""
     d = 1 if p["direction"] == "BUY" else -1
     k0 = _index_of(m5, p["time"])
@@ -63,7 +64,8 @@ def follow(pair: str, p: dict, m5, st5, cost: float, news: list[int] | None = No
         events: list[tuple] = []
         out = playbook.run(m5, k0, d, p["entry"], p["sl"], p.get("tp1"), p["tp"], p.get("part", 1.0), bool(p.get("market")),
                            int(p.get("expiry") or 0), int(p.get("holdUntil") or p["time"] + 86400), cost, events,
-                           sorted(news) if news else None)  # the same news rule as the team: a pending limit pulled around a release
+                           sorted(news) if news else None,  # the same news rule as the team: a pending limit pulled around a release
+                           exits if pair == "AUD/CHF" else None)  # the macro risk-off close
         return events, out
     sid = engine.STRATEGY_OF.get(p["strategy"], "A")
     res = engine.simulate(m5, k0, d, p["entry"], p["sl"], p["tp"], engine.EXPIRY[sid], cost)
@@ -85,7 +87,7 @@ def message(pair: str, p: dict, kind: str, price: float, out: dict) -> str:
         line += f"\nNew stop: <code>{price:.{dec}f}</code>"
     if kind == "TP1" and p.get("part"):
         line += f"\nClose {round(p['part'] * 100)} % at <code>{price:.{dec}f}</code>"
-    if kind in ("TP", "STOP", "BE_STOP", "TRAIL_STOP", "TIME") and "r" in out:
+    if kind in ("TP", "STOP", "BE_STOP", "TRAIL_STOP", "TIME", "RISK_OFF") and "r" in out:
         line += f"\nResult: <b>{out['r']:+.2f}R</b> (after costs)"
     return line + "\n<i>Research, not advice.</i>"
 
@@ -103,11 +105,12 @@ async def manage_all(send) -> dict:
             continue
         m5, st5, cost = live
         try:
-            from .desk import _news
-            nl = await _news(pair)
+            from .desk import _macro, _pause
+            nl = await _pause(now)
+            mv = await _macro() if pair == "AUD/CHF" else None
         except Exception:
-            nl = None
-        events, out = follow(pair, p, m5, st5, cost, [e["time"] for e in nl] if nl else None)
+            nl, mv = None, None
+        events, out = follow(pair, p, m5, st5, cost, nl, (mv or {}).get("exits"))
         done = set(params.get("events") or [])
         new = []
         for j, kind, price in events:

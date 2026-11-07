@@ -44,7 +44,8 @@ def message(s: dict, pair: str, dec: int) -> str:
             f"{bot.LINE}\n"
             f"{entry}SL <code>{_f(s['sl'], dec)}</code>\n{tp1}TP <code>{_f(s['tp'], dec)}</code>\n"
             f"{rr} · {n}/{n} questions ✅\n"
-            f"1 % risk: {s['lots']['1000']} lot per $1,000 · {s['lots']['10000']} per $10,000\n\n"
+            f"{s.get('riskPct', 1.0):g} % risk: {s['lots']['1000']} lot per $1,000 · {s['lots']['10000']} per $10,000\n"
+            + (f"⚖️ {html.escape(s['riskNote'])}\n" if s.get("riskNote") else "") + "\n"
             "<i>Research setup, not financial advice. Check it on the chart before any trade.</i>")
 
 
@@ -131,6 +132,9 @@ async def tick() -> dict:
                 _claim(pair, {**s, "portfolio": chk}, state="BLOCKED")
                 sent.append(f"{s['strategy']} {s['direction']} BLOCKED by the risk check: {'; '.join(chk['reasons'])}")
                 continue
+            if chk.get("riskPct", 1.0) < 1.0:  # the guide's split (EUR/USD + GBP/USD): this one at 0.5 %, the lot halved
+                s = {**s, "riskPct": chk["riskPct"], "riskNote": "; ".join(chk.get("notes") or []),
+                     "lots": {k: int(v * chk["riskPct"] * 100 + 1e-6) / 100 for k, v in s["lots"].items()}}
             if _claim(pair, {**s, "portfolio": chk}):
                 out = await _send(pair, s)
                 sent.append(f"{s['strategy']} {s['direction']} → telegram {out['telegram']} · push {out['push']}")

@@ -5,9 +5,10 @@ playbook claims. Writes smc/PLAYBOOK.md and backend/app/smc/research/playbook.js
 
   python -m smc.tools.playbook_test dukascopy
 
-The news rule is applied with the stored calendar smc/news/high_impact.csv (ForexFactory high-impact events for USD, EUR,
-GBP, CHF, AUD, CAD, Nov 2025 - Nov 2026, read from its month pages): a signal within 15 min of one of the pair's releases
-is not taken, and a pending limit is pulled 15 min before a release. Each pair counts its own currencies (gold: USD).
+The news rule is the guide's red-folder pause, for every pair: US CPI, NFP, FOMC, BoE, RBA, BoC, SNB (their times from the
+stored calendar smc/news/high_impact.csv, ForexFactory, Nov 2025 - Nov 2026) and the EIA crude oil inventories (Wednesdays
+10:30 New York): no signal within 15 min of one, and a pending limit is pulled 15 min before one. The AUD/CHF macro gate
+reads smc/macro/*.csv (S&P 500, VIX, iron ore daily closes, tools/fetch_macro.py).
 The result WITHOUT the news rule is shown next to it, and how many kept trades were still open through a release.
 The correlation cap is not applied here (each pair alone). VERIFIED from the candles.
 """
@@ -47,6 +48,26 @@ def load_news() -> dict[str, list[int]]:
     return {k: sorted(set(v)) for k, v in out.items()}
 
 
+def load_events() -> list[dict]:
+    f = ROOT / "news" / "high_impact.csv"
+    if not f.exists():
+        return []
+    out = []
+    for line in f.read_text(encoding="utf-8").splitlines()[1:]:
+        t, cur, name = line.split(",", 2)
+        out.append({"time": int(t), "currency": cur, "title": name})
+    return out
+
+
+def load_macro() -> dict | None:
+    d = ROOT / "macro"
+    try:
+        rd = lambda n: [(int(a), float(b)) for a, b in (ln.split(",") for ln in (d / f"{n}.csv").read_text().splitlines()[1:])]  # noqa: E731
+        return playbook.macro_view(rd("SPX"), rd("VIX"), rd("IRON"))
+    except OSError:
+        return None
+
+
 def pair_news(news: dict[str, list[int]], pair: str) -> list[int]:
     cur = {"USD"} if pair == "XAUUSD" else {pair[:3], pair[3:]}
     return sorted({t for c in cur for t in news.get(c, [])})
@@ -56,6 +77,8 @@ def main(source: str) -> None:
     out = {}
     eur = None
     NEWS = load_news()
+    EVENTS = load_events()
+    MACRO = load_macro()
     for p in PAIRS:
         base = ROOT / "pairs" / p
         dd = base / "data" / source if source else base / "data"
@@ -65,12 +88,12 @@ def main(source: str) -> None:
             eur = m5
         cost = (cfg["spread_pips"] + cfg["slippage_pips"]) * cfg["pip"]
         d1 = playbook.resample(m5, playbook.DAY)
-        nw = pair_news(NEWS, p)
-        setups, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, nw if NEWS else None, None, d1)
-        plain, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, None, None, d1)  # the same without the news rule
+        nw = sorted(playbook.red_folder(EVENTS) + playbook.eia_times(m5[0].time, m5[-1].time)) if EVENTS else []
+        setups, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, nw if EVENTS else None, None, d1, MACRO)
+        plain, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, None, None, d1, MACRO)  # the same without the news rule
         split = m5[0].time + int((m5[-1].time - m5[0].time) * 0.6)
         out[p] = {"source": source or "yahoo", "from": m5[0].time, "split": split, "to": m5[-1].time, "strategies": {},
-                  "news": {"events": len(nw), "file": "smc/news/high_impact.csv" if NEWS else None}}
+                  "news": {"events": len(nw), "file": "smc/news/high_impact.csv" if NEWS else None}, "macro": bool(MACRO)}
 
         def kept(ss):
             return [s for s in ss if s["pass"] and "r" in s["result"] and abs(s["entry"] - s["sl"]) >= cfg["min_stop_cost_ratio"] * cost]
@@ -102,8 +125,9 @@ def main(source: str) -> None:
              f"VERIFIED from the {(source or 'yahoo').capitalize()} candles, {d(first['from'])} → {d(first['to'])} (split {d(first['split'])}). "
              "Every trade followed on M5, the stop before the target inside a candle, spread + slippage included. "
              "1R = the risk of one trade (1 % of the account). A trade counts only when its checklist passed.", "",
-             "News: the stored ForexFactory calendar (high impact, the pair's currencies): no signal within 15 min of a release, "
-             "a pending limit pulled 15 min before one.", "",
+             "News: the guide's red-folder pause for every pair (US CPI, NFP, FOMC, BoE, RBA, BoC, SNB from the stored ForexFactory "
+             "calendar + the EIA Wednesdays): no signal within 15 min of one, a pending limit pulled 15 min before one. "
+             "Targets cut when ADR5 / ADR20 < 0.70. AUD/CHF: the S&P 500 / VIX / iron ore gate and its risk-off exit.", "",
              "| pair | strategy | the guide says | trades | win rate | result | first 60 % | last 40 % | without the news rule | kept trades open through a release |",
              "|---|---|---|---|---|---|---|---|---|---|"]
     n = w = 0

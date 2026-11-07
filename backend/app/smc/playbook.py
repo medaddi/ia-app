@@ -67,6 +67,69 @@ MEAN_REVERSION = {("EURUSD", "P2"), ("EURCHF", "P"), ("AUDCAD", "P")}
 NEWS_MIN = 15  # CHOICE: no red-folder release from 15 min before to 15 min after the entry (the guide: wait 10-15 min)
 
 
+# The guide's red-folder pause (global risk rule 3): the EA pauses 15 min before and after THESE releases, for every pair:
+# US CPI, NFP, FOMC, BoE, RBA, BoC, SNB, and the EIA crude oil inventories (every Wednesday). Matched on the calendar's names.
+RED_FOLDER = {
+    "USD": ("CPI m/m", "CPI y/y", "Core CPI m/m", "Core CPI y/y", "Non-Farm Employment Change", "Federal Funds Rate", "FOMC Statement",
+            "FOMC Press Conference", "FOMC Economic Projections"),
+    "GBP": ("Official Bank Rate", "Monetary Policy Summary", "MPC Official Bank Rate Votes", "BOE Monetary Policy Report"),
+    "AUD": ("Cash Rate", "RBA Rate Statement", "RBA Monetary Policy Statement", "RBA Press Conference"),
+    "CAD": ("Overnight Rate", "BOC Rate Statement", "BOC Monetary Policy Report", "BOC Press Conference"),
+    "CHF": ("SNB Policy Rate", "SNB Monetary Policy Assessment", "SNB Press Conference"),
+}
+
+
+def red_folder(events) -> list[int]:
+    """The release times of the guide's list among calendar events ({time, currency, title}) — every pair pauses on them."""
+    return sorted({int(e["time"]) for e in events if e.get("title") in RED_FOLDER.get(e.get("currency"), ())})
+
+
+def eia_times(t0: int, t1: int) -> list[int]:
+    """The EIA weekly crude oil inventories: Wednesdays 10:30 New York (the guide writes 14:30 UTC, which is 10:30 in New
+    York's summer time; CHOICE: New York time all year). Holiday shifts are not known here (CHOICE)."""
+    out, d = [], datetime.fromtimestamp(t0, NY).date()
+    end = datetime.fromtimestamp(t1, NY).date()
+    while d <= end:
+        if d.weekday() == 2:
+            out.append(ny(d, 10, 30))
+        d += timedelta(days=1)
+    return out
+
+
+def macro_view(spx: list[tuple[int, float]], vix: list[tuple[int, float]], iron: list[tuple[int, float]]) -> dict:
+    """The AUD/CHF 3-pillar gate from daily closes (time = the UTC day). A day's close is known from 22:00 UTC (after the
+    US close and past the 21:00-22:00 rollover the guide forbids). For each UTC day D the gate uses the closes up to D-1:
+      S&P 500 in an uptrend   close > SMA 20 and SMA 20 above its value 5 days before          (CHOICE)
+      VIX falling or stable   close <= 1.05 × the close 5 days before, and under 25            (CHOICE)
+      iron ore rising         close > SMA 20                                                     (CHOICE)
+    Risk-off (the guide: "VIX jumps or stocks fall: close the buys at once"): a day where VIX rises more than 10 % or the
+    S&P 500 falls more than 1.5 % (CHOICE): every AUD/CHF long is closed at 22:00 UTC that day.
+    Returns {"gate": {day: (open, detail)}, "exits": [times]}."""
+    def sma(v, i, n):
+        return sum(x for _, x in v[i - n + 1:i + 1]) / n if i >= n - 1 else None
+
+    def at(v, day):  # index of the last close BEFORE `day`
+        return bisect_left([t for t, _ in v], day) - 1
+
+    gate, exits = {}, []
+    days = sorted({t for t, _ in spx} | {t for t, _ in vix})
+    for D in (range(days[0], days[-1] + 2 * DAY, DAY) if days else []):  # every calendar day (FX trades on US holidays too)
+        i, j, k = at(spx, D), at(vix, D), at(iron, D)
+        if min(i, j, k) < 25:
+            continue
+        s20, s20b, i20 = sma(spx, i, 20), sma(spx, i - 5, 20), sma(iron, k, 20)
+        up = spx[i][1] > s20 and s20 > s20b
+        calm = vix[j][1] <= 1.05 * vix[j - 5][1] and vix[j][1] < 25
+        ore = iron[k][1] > i20
+        gate[D] = (up and calm and ore, f"S&P 500 {'up' if up else 'not up'} · VIX {vix[j][1]:.1f} {'calm' if calm else 'rising / high'} · iron ore {'rising' if ore else 'not rising'}")
+    for v, lim, name in ((vix, 0.10, "VIX"), (spx, -0.015, "SPX")):
+        for a, b in zip(v, v[1:]):
+            ch = b[1] / a[1] - 1
+            if (name == "VIX" and ch > lim) or (name == "SPX" and ch < lim):
+                exits.append(b[0] + 22 * H1S)
+    return {"gate": gate, "exits": sorted(set(exits))}
+
+
 def team_name(key: str) -> str:
     return " + ".join(NAMES[key].values())
 
@@ -193,7 +256,8 @@ def m5_index_at_close(m5_times: list[int], t_close: int) -> Optional[int]:
 
 # ---------------------------------------------------------------- the trade, followed on M5
 def run(m5, k0: int, d: int, entry: float, sl: float, tp1: Optional[float], tp: float, part: float, market: bool,
-        expiry: int, hold_until: int, cost: float, events: Optional[list] = None, news: Optional[list[int]] = None) -> dict:
+        expiry: int, hold_until: int, cost: float, events: Optional[list] = None, news: Optional[list[int]] = None,
+        exits: Optional[list[int]] = None) -> dict:
     """A limit (or a market order at the close of candle k0) followed candle by candle on M5:
     PENDING → FILLED → TP1 (close `part`, stop to entry) → TP / STOP / BE_STOP / TIME, or EXPIRED / MISSED (target first).
     `hold_until`: unix time the rest is closed at market. Returns state, fill, at, r (in R, cost included)."""
@@ -228,8 +292,14 @@ def run(m5, k0: int, d: int, entry: float, sl: float, tp1: Optional[float], tp: 
         log.append((fill, "FILLED", entry))
         start = fill
     stop, banked, left = sl, 0.0, 1.0
+    t_fill = m5[fill].time + M5S
+    nxt = next((e for e in (exits or []) if e >= t_fill), None)  # a macro risk-off close after the fill (AUD/CHF)
     for j in range(start, n):
         x = m5[j]
+        if nxt is not None and x.time >= nxt:
+            r = banked + left * (x.open - entry) / risk * d - cost / risk
+            log.append((j, "RISK_OFF", x.open))
+            return {"state": "WIN" if r > 0.05 else "LOSS" if r < -0.05 else "BE", "fill": fill, "at": j, "r": r, "riskOff": True}
         if x.time >= hold_until:
             r = banked + left * (x.open - entry) / risk * d - cost / risk
             log.append((j, "TIME", x.open))
@@ -337,8 +407,7 @@ def _regime(daily: "Daily", t: int, mr: bool) -> tuple[bool, str]:
     if mr:
         ok = a5 / a20 <= 1.40 and (a250 is None or a20 / a250 < 1.40)
         return ok, f"ADR5/20 {a5 / a20:.2f}" + (f" · ADR20/250 {a20 / a250:.2f}" if a250 else "") + (" (mean reversion allowed)" if ok else " (expansion: mean reversion off)")
-    ok = a5 / a20 >= 0.60
-    return ok, f"ADR5/20 {a5 / a20:.2f}" + ("" if ok else " (compressed: targets unlikely)")
+    return True, f"ADR5/20 {a5 / a20:.2f}" + (" (compressed: targets cut)" if a5 / a20 < 0.70 else "")
 
 
 # ---------------------------------------------------------------- XAU/USD · ICT Silver Bullet / NY killzone
@@ -721,9 +790,12 @@ def mean_reversion(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> t
     over 40). Level: a 3-touch H4 swing level (support for a buy, resistance for a sell). Signal: an H1 candle reaching the
     level (within the tolerance) closes outside Bollinger (16, 3.0) with RSI 14 under 30 (buy) / over 70 (sell), its close
     in the pair's window: EUR/CHF 07:00-13:00 or 15:30-18:00 UTC, AUD/CAD 00:00-11:00 UTC; never 14:00 or 21:00-23:00 UTC.
-    (The guide's other trigger, an RSI divergence at the level, is not coded: CHOICE.) Entry at the close. Stop 0.5 ×
-    ADR20 from the entry and beyond the level. Target: EUR/CHF the mean (the band's middle line, 1:1 to 1:1.5), AUD/CAD
-    0.8 × ADR20. Held 24 hours (CHOICE)."""
+    The other trigger: an RSI divergence AT the level (the guide: in the middle of the range it is noise): two H1 swing
+    lows 5-40 candles apart, the second as low or lower while RSI 14 is higher (the mirror for highs), taken at the close
+    of the candle that confirms the second swing (2 candles after it). EUR/CHF levels also include the daily pivots
+    (P, S1, S2, R1, R2 from the previous day: the guide's "or Daily Pivots"). Entry at the close. Stop 0.5 × ADR20 from
+    the entry and beyond the level. Target: EUR/CHF the mean (the band's middle line, 1:1 to 1:1.5), AUD/CAD 0.8 × ADR20.
+    Held 24 hours (CHOICE)."""
     out, watch = [], []
     if len(h1) < 60:
         return out, watch
@@ -733,6 +805,17 @@ def mean_reversion(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> t
     h4 = resample(h1, H4S)
     t4 = [x.time for x in h4]
     m5_times = [x.time for x in m5]
+    hi_f, lo_f = fractals(h1)
+    d1 = resample(h1, DAY)
+    t1 = [x.time for x in d1]
+
+    def pivots(t: int) -> list[float]:
+        k = bisect_left(t1, t - t % DAY) - 1  # the previous (closed) day
+        if key != "EURCHF" or k < 0:
+            return []
+        H, L, C = d1[k].high, d1[k].low, d1[k].close
+        P = (H + L + C) / 3
+        return [P, 2 * P - L, 2 * P - H, P + (H - L), P - (H - L)]
 
     def window(t: int) -> bool:
         m = (t % DAY) // 60  # minutes after 00:00 UTC of the close
@@ -747,6 +830,19 @@ def mean_reversion(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> t
             continue
         up, lo = mid[i] + 3 * sd[i], mid[i] - 3 * sd[i]
         d = 1 if (x.close < lo and r[i] < 30) else -1 if (x.close > up and r[i] > 70) else 0
+        trig, ext = "bands", (x.low if d > 0 else x.high)
+        if not d:  # the other trigger: an RSI divergence whose second swing is confirmed by this candle
+            j2 = i - 2
+            for dd in (1, -1):
+                if j2 < 1 or not (lo_f[j2] if dd > 0 else hi_f[j2]) or r[j2] is None:
+                    continue
+                j1 = next((j for j in range(j2 - 5, max(j2 - 40, 0), -1) if (lo_f[j] if dd > 0 else hi_f[j]) and r[j] is not None), None)
+                if j1 is None:
+                    continue
+                p1, p2 = (h1[j1].low, h1[j2].low) if dd > 0 else (h1[j1].high, h1[j2].high)
+                if ((p2 <= p1 and r[j2] > r[j1]) if dd > 0 else (p2 >= p1 and r[j2] < r[j1])):
+                    d, trig, ext = dd, f"RSI divergence ({r[j1]:.0f} → {r[j2]:.0f})", p2
+                    break
         if not d:
             continue
         a20 = daily.adr(t_close, 20)
@@ -755,12 +851,14 @@ def mean_reversion(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> t
         tol = 0.1 * a20
         j4 = bisect_right(t4, t_close - H4S)
         levels = three_touch(h4, j4, d, tol)
-        ext = x.low if d > 0 else x.high
-        lvl = next((v for v in levels if abs(ext - v) <= tol or ((ext < v) if d > 0 else (ext > v)) and abs(x.close - v) <= 2 * tol), None)
+        piv = pivots(t_close)
+        lvl = next((v for v in levels + piv if abs(ext - v) <= tol or ((ext < v) if d > 0 else (ext > v)) and abs(x.close - v) <= 2 * tol), None)
+        kind = "daily pivot" if lvl is not None and lvl in piv and lvl not in levels else "3-touch H4 level"
         reg_ok, reg = _regime(daily, t_close, True)
         steps = [(f"ADX {a[i]:.0f} < 30 (no strong trend)", a[i] < 30, ""), (f"Regime: {reg}", reg_ok, ""),
-                 (f"At a 3-touch H4 {'support' if d > 0 else 'resistance'}", lvl is not None, f"{lvl:.5f}" if lvl else f"{len(levels)} level(s), none here"),
-                 (f"H1 close {'under' if d > 0 else 'over'} Bollinger (16, 3.0) + RSI {r[i]:.0f}", True, "")]
+                 (f"At a {'support' if d > 0 else 'resistance'} ({kind})", lvl is not None,
+                  f"{lvl:.5f}" if lvl else f"{len(levels)} level(s)" + (" + pivots" if piv else "") + ", none here"),
+                 (f"Trigger: H1 close {'under' if d > 0 else 'over'} Bollinger (16, 3.0) + RSI {r[i]:.0f}" if trig == "bands" else f"Trigger: {trig}", True, "")]
         if not (a[i] < 30 and lvl is not None):
             watch.append({"time": t_close, "dir": d, "steps": steps})
             continue
@@ -780,14 +878,15 @@ def mean_reversion(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> t
 
 
 # ---------------------------------------------------------------- AUD/CHF · risk-on carry swing
-def carry_swing(m5, h1, daily: Daily, pip: float, cost: float) -> tuple[list, list]:
-    """Longs only (the guide's preferred side; the sell side needs its macro gate, not available). On H4 and H1 price
+def carry_swing(m5, h1, daily: Daily, pip: float, cost: float, macro: Optional[dict] = None) -> tuple[list, list]:
+    """LONG ONLY (the guide's 3-pillar macro gate: S&P 500 up, VIX falling / stable, iron ore rising: macro_view). On H4 and H1 price
     is above EMA 200 and EMA 200 is rising (over 5 candles, CHOICE). An H1 candle pulls back to the EMA 20 / EMA 50 zone
     (its low between EMA 50 - 0.2 ATR and EMA 20, CHOICE) on a higher low (above the last confirmed H1 swing low) and
     closes as a bullish reversal (pin bar or engulfing, above EMA 20), its close in 06:00-15:00 UTC (never 21:00-22:00):
     buy at the close. Stop 0.7 × ADR20 from the entry (the guide: 0.6-0.8), or 2 pips under the pullback low if that is
     lower. TP1 1.0 × ADR20 (half, stop to entry, CHOICE: the half), TP2 2.0 × ADR20. Held 5 days (CHOICE).
-    The guide's 3-pillar macro gate (S&P 500 up, VIX down, iron ore up) is NOT checked: no such data in the app."""
+    The macro gate must be open on the signal's day; a risk-off day (VIX jump / S&P drop) closes the long at once.
+    Without macro data the gate is "not checked" and question 6 says no (the guide: long ONLY when the gate is open)."""
     out, watch = [], []
     if len(h1) < 260:
         return out, watch
@@ -820,10 +919,11 @@ def carry_swing(m5, h1, daily: Daily, pip: float, cost: float) -> tuple[list, li
         pin = min(x.open, x.close) - x.low >= 2 * body(x)
         engulf = x.close > x.open and prev.close < prev.open and x.close > prev.open
         rev = (pin or engulf) and x.close > e20[i]
+        g = (macro or {}).get("gate", {}).get(t_close - t_close % DAY)
         steps = [("H4 and H1 above a rising EMA 200", True, ""), ("Pullback into EMA 20 / 50", True, f"{e50[i]:.5f} - {e20[i]:.5f}"),
                  ("On a higher low", higher, f"last swing low {last_low:.5f}" if last_low else "none"),
                  ("Bullish reversal candle closing above EMA 20", rev, ""),
-                 ("Macro gate (S&P 500, VIX, iron ore)", True, "not checked: no such data in the app (HYPOTHESIS)")]
+                 ("Macro gate open (S&P 500 up, VIX calm, iron ore up)", bool(g and g[0]), g[1] if g else "not checked: no macro data")]
         if not (higher and rev):
             if higher:
                 watch.append({"time": t_close, "dir": 1, "steps": steps})
@@ -837,6 +937,7 @@ def carry_swing(m5, h1, daily: Daily, pip: float, cost: float) -> tuple[list, li
         s = _make("AUDCHF", "P", 1, m5, k0, entry, sl, entry + 1.0 * a20, entry + 2.0 * a20, 0.5, True, 0, t_close + 5 * DAY, steps,
                   {"emas": True}, cost)
         if s:
+            s["macroOpen"] = bool(g and g[0])
             out.append(s)
     return out, watch
 
@@ -851,18 +952,22 @@ def checklist(key: str, s: dict, news: Optional[list[int]], daily: Optional[Dail
     hm = lambda n: datetime.fromtimestamp(n, timezone.utc).strftime("%H:%M")  # noqa: E731
     return [
         ("1 · This pair's strategy from the guide", True, NAMES[key][sid]),
-        (f"2 · No red-folder news {NEWS_MIN} min around the entry", not near,
+        (f"2 · Red-folder pause: no CPI / NFP / FOMC / BoE / RBA / BoC / SNB / EIA {NEWS_MIN} min around the entry", not near,
          "not checked (no news history)" if news is None else ("news at " + ", ".join(hm(n) for n in near) + " UTC" if near else "none")),
         (f"3 · Reward >= 1:{need:g}", s["rr"] >= need - 1e-9, f"1:{s['rr']:.2f}"),
         ("4 · Lot sized for 1 % risk", True, "risk / (stop pips × pip value)"),
-        ("5 · Correlation cap (no full-risk twin trade the same way)", True, "checked across the six teams before any alert"),
-        (f"6 · Volatility regime ({'mean reversion' if mr else 'sweep / trend'})", reg_ok, reg),
+        ("5 · Correlation cap (EUR/USD + GBP/USD: 0.5 % each · AUD/CAD + AUD/CHF: not both)", True, "checked across the six teams before any alert"),
+        (f"6 · Volatility regime ({'mean reversion' if mr else 'sweep / trend'})" + (" + the macro gate" if key == "AUDCHF" else ""),
+         reg_ok and (key != "AUDCHF" or bool(s.get("macroOpen"))), reg + (" · macro gate " + ("open" if s.get("macroOpen") else "closed / not checked") if key == "AUDCHF" else "")
+         + (f" · targets cut to {s['cut'] * 100:.0f} % (compressed range)" if s.get("cut") else "")),
     ]
 
 
-def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = None, eur_m5=None, d1=None) -> tuple[list, list]:
-    """The pair's strategies on its candles: (setups with their result and checklist, what is forming). `d1`: daily candles
-    for the ADR (built from H1 when not given)."""
+def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = None, eur_m5=None, d1=None,
+         macro: Optional[dict] = None) -> tuple[list, list]:
+    """The pair's strategies on its candles: (setups with their result and checklist, what is forming). `news`: the
+    red-folder pause times (red_folder + eia_times); `d1`: daily candles for the ADR (built from H1 when not given);
+    `macro`: macro_view() for the AUD/CHF gate and its risk-off exits."""
     daily = Daily(d1 if d1 else resample(h1, DAY))
     if key == "XAUUSD":
         parts = [xau(m5, h1, daily, pip, cost)]
@@ -873,7 +978,7 @@ def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = 
     elif key in ("EURCHF", "AUDCAD"):
         parts = [mean_reversion(m5, h1, daily, key, pip, cost)]
     elif key == "AUDCHF":
-        parts = [carry_swing(m5, h1, daily, pip, cost)]
+        parts = [carry_swing(m5, h1, daily, pip, cost, macro)]
     else:
         return [], []
     s = sorted((x for p in parts for x in p[0]), key=lambda x: x["time"])
@@ -881,11 +986,36 @@ def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = 
     seen = set()
     s = [x for x in s if not ((x["sid"], x["time"], x["dir"]) in seen or seen.add((x["sid"], x["time"], x["dir"])))]
     nw = sorted(news) if news else None
+    exits = (macro or {}).get("exits") if key == "AUDCHF" else None
     for x in s:
-        if nw and not x["market"]:  # the limit is followed again with the news rule (pulled around a release)
-            x["result"] = run(m5, x["index"], x["dir"], x["entry"], x["sl"], x["tp1"], x["tp"], x["part"], False, x["expiry"], x["holdUntil"], cost, None, nw)
+        a5, a20 = daily.adr(x["time"], 5), daily.adr(x["time"], 20)
+        again = bool(nw and not x["market"]) or bool(exits)
+        if (key, x["sid"]) not in MEAN_REVERSION and a5 and a20 and a5 / a20 < 0.70:
+            # the guide's rescaling: a compressed range (ADR5 / ADR20 under 0.70) cuts the targets to the same share (CHOICE)
+            f = a5 / a20
+            x["cut"] = f
+            x["tp"] = x["entry"] + (x["tp"] - x["entry"]) * f
+            if x["tp1"] is not None:
+                x["tp1"] = x["entry"] + (x["tp1"] - x["entry"]) * f
+            x["rr"] = abs(x["tp"] - x["entry"]) / abs(x["entry"] - x["sl"])
+            again = True
+        if again:  # followed again with the news pause, the cut targets and the macro exits
+            x["result"] = run(m5, x["index"], x["dir"], x["entry"], x["sl"], x["tp1"], x["tp"], x["part"], x["market"], x["expiry"],
+                              x["holdUntil"], cost, None, nw if not x["market"] else None, exits)
         x["checklist"] = checklist(key, x, news, daily)
         x["pass"] = all(ok for _, ok, _ in x["checklist"])
+    # one trade per pair at a time (the portfolio check's rule, no stacking): a setup while the pair's last taken one is
+    # still pending or open is not taken
+    busy = 0
+    for x in s:
+        if not x["pass"]:
+            continue
+        if x["time"] < busy:
+            x["pass"] = False
+            x["checklist"].append(("7 · One trade per pair at a time", False, "the pair's previous setup is still pending or open"))
+            continue
+        r = x["result"]
+        busy = m5[r["at"]].time + M5S if "at" in r else 1 << 62
     for x in w:
         x.setdefault("sid", "P")
     return s, w

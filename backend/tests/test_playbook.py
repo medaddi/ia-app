@@ -50,7 +50,7 @@ def test_new_york_times_follow_daylight_saving():
 
 def test_the_correlated_twins_follow_the_guide():
     from app.smc.skill import portfolio
-    assert portfolio.twins("AUD/CHF") == {"AUD/CAD": 0.66, "EUR/CHF": 0.53} and portfolio.twins("XAU/USD") == {}
+    assert portfolio.twins("AUD/CHF") == {"AUD/CAD": 0.66} and portfolio.twins("XAU/USD") == {}
 
 
 def test_no_look_ahead_on_stored_candles():
@@ -87,3 +87,30 @@ def test_the_stored_news_calendar_is_read_by_pair():
     gold, eur = pair_news(nw, "XAUUSD"), pair_news(nw, "EURUSD")
     assert set(gold) <= set(eur) and len(eur) > len(gold)  # gold counts the dollar only, EUR/USD both currencies
     assert 1765393200 in gold  # FOMC 2025-12-10 19:00 UTC (14:00 New York)
+
+
+def test_the_red_folder_list_and_the_eia_wednesdays():
+    ev = [{"time": 1, "currency": "USD", "title": "Non-Farm Employment Change"}, {"time": 2, "currency": "EUR", "title": "Main Refinancing Rate"},
+          {"time": 3, "currency": "USD", "title": "ISM Services PMI"}, {"time": 4, "currency": "CHF", "title": "SNB Policy Rate"}]
+    assert playbook.red_folder(ev) == [1, 4]  # only the guide's list: NFP and SNB yes, ECB and ISM not in it
+    from datetime import date
+    w = playbook.eia_times(playbook.ny(date(2026, 7, 6), 0), playbook.ny(date(2026, 7, 12), 23))
+    assert w == [playbook.ny(date(2026, 7, 8), 10, 30)] and w[0] % 86400 == 14 * 3600 + 1800  # Wednesday 10:30 NY = 14:30 UTC in summer
+
+
+def test_the_macro_gate_and_the_risk_off_days():
+    D = 86400
+    up = [(T0 + k * D, 100 + k) for k in range(40)]  # S&P rising
+    calm = [(T0 + k * D, 15.0) for k in range(40)]
+    ore = [(T0 + k * D, 90 + 0.5 * k) for k in range(40)]
+    v = playbook.macro_view(up, calm, ore)
+    assert v["gate"][T0 + 39 * D][0] and not v["exits"]
+    jump = calm[:30] + [(T0 + 30 * D, 18.0)] + calm[31:]  # VIX +20 % on day 30
+    v = playbook.macro_view(up, jump, ore)
+    assert v["exits"] == [T0 + 30 * D + 22 * 3600] and not v["gate"][T0 + 31 * D][0]
+
+
+def test_a_risk_off_closes_the_trade_at_once():
+    m5 = bars([(100, 100, 100, 100), (100, 100.5, 99.8, 100.3), (100.3, 100.6, 100.1, 100.4), (100.4, 103.5, 100.2, 103.2)])
+    out = run(m5, 0, 1, 100.0, 99.0, None, 103.0, 1.0, True, 0, T0 + 86400, 0.0, None, None, [m5[2].time])
+    assert out["state"] == "WIN" and out["riskOff"] and abs(out["r"] - 0.3) < 1e-9  # closed at the open of candle 2, not at TP

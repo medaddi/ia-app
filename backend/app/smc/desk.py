@@ -17,7 +17,7 @@ import asyncio
 import json
 import time
 from pathlib import Path
-from ..market.data import fetch_candle_series, market_session_status
+from ..market.data import fetch_candle_series, fetch_live_price, market_session_status
 from . import engine, playbook
 from .agents import team_agents
 from .chart import analysis
@@ -117,14 +117,17 @@ def _play_json(pair: str, cfg: dict, s: dict) -> dict:
 
 
 def read_team(pair: str, cfg: dict, m5, h1, now: int, cot: dict | None = None, sent: list[dict] | None = None,
-              news: list[dict] | None = None, d1=None) -> dict:
+              news: list[dict] | None = None, d1=None, pause: list[int] | None = None, macro: dict | None = None) -> dict:
     """The team's answer from candles (sync: configure + scan run together, nothing else can change the engine's config)."""
     engine.configure(cfg, [e["time"] for e in (news or [])])  # question 6: no entry 15 min around this pair's high-impact news
     cost = (cfg["spread_pips"] + cfg["slippage_pips"]) * cfg["pip"]
     res = engine.scan_all(m5, h1, cost, cfg["decimals"])
     LIVE[pair] = (m5, res["_st5"], cost)  # the candles and the M5 structure the trade manager follows the sent setups with
     key = pair.replace("/", "")
-    setups, watch = playbook.scan(key, m5, h1, cfg["pip"], cost, None if news is None else [e["time"] for e in news], None, d1)
+    # the guide's red-folder pause (CPI, NFP, FOMC, BoE, RBA, BoC, SNB, EIA) for every pair; the AUD/CHF macro gate
+    if pause is None and news is not None:
+        pause = sorted(playbook.red_folder(news) + playbook.eia_times(now - 7 * 86400, now + 7 * 86400))
+    setups, watch = playbook.scan(key, m5, h1, cfg["pip"], cost, pause, None, d1, macro)
     pr = (PLAY_RESULTS.get(key) or {}).get("strategies", {})
     strategies, raw_shown = [], None
     for sid in playbook.STRATEGIES[key]:
@@ -169,6 +172,56 @@ def pair_currencies(pair: str) -> set[str]:
     """The currencies whose news moves the pair (gold: the dollar)."""
     a, b = pair.split("/")
     return {"USD"} if a == "XAU" else {a, b}
+
+
+async def _pause(now: int) -> list[int] | None:
+    """The red-folder pause times (every pair): the guide's listed releases in this week's calendar + the EIA Wednesdays."""
+    from ..market.news import load_news_calendar
+    try:
+        cal = await asyncio.wait_for(load_news_calendar(), 6)
+    except Exception:
+        return None
+    if cal.get("source") == "none":
+        return None
+    return sorted(playbook.red_folder(cal["events"]) + playbook.eia_times(now - 7 * 86400, now + 7 * 86400))
+
+
+_macro_cache: dict = {"at": 0.0, "view": None}
+
+
+async def _macro() -> dict | None:
+    """The AUD/CHF macro gate's daily closes (S&P 500, VIX, iron ore 62 % Fe) from Yahoo, cached 6 hours."""
+    if _macro_cache["view"] is not None and _macro_cache["at"] > time.time():
+        return _macro_cache["view"]
+    import httpx
+    out = {}
+    try:
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "Mozilla/5.0 (LiquidityDissection macro gate)"}) as client:
+            for name, t in (("spx", "^GSPC"), ("vix", "^VIX"), ("iron", "TIO=F")):
+                r = await client.get(f"https://query2.finance.yahoo.com/v8/finance/chart/{t}", params={"interval": "1d", "range": "3mo"})
+                res = r.json()["chart"]["result"][0]
+                out[name] = [(int(ts) - int(ts) % 86400, c) for ts, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"]) if c is not None]
+        view = playbook.macro_view(out["spx"], out["vix"], out["iron"])
+    except Exception:
+        return _macro_cache["view"]  # the last good read, or None (then the gate is "not checked" and says no)
+    _macro_cache.update(at=time.time() + 6 * 3600, view=view)
+    return view
+
+
+async def _pip_value(pair: str, cfg: dict) -> dict:
+    """The guide's pip values: CHF-quoted pairs (EUR/CHF, AUD/CHF) are 10 CHF per pip per lot, in dollars at the live
+    USD/CHF (= EUR/CHF / EUR/USD); the config's value when a price is missing. Others: the config (USD 10, gold 10, AUD/CAD
+    10 CAD at the config's USD/CAD)."""
+    if not pair.endswith("/CHF"):
+        return cfg
+    try:
+        ec, eu = await asyncio.gather(fetch_live_price("EUR/CHF"), fetch_live_price("EUR/USD"))
+        usdchf = ec["price"] / eu["price"]
+        if 0.5 < usdchf < 1.5:
+            return {**cfg, "pip_value_usd_per_lot": round(10 / usdchf, 2)}
+    except Exception:
+        pass
+    return cfg
 
 
 async def _news(pair: str) -> list[dict] | None:
@@ -228,7 +281,8 @@ async def team(pair: str, fresh: bool = False) -> dict:
                 sent = sent_setups()
             except Exception:  # no database (tests, a cold start): the risk check counts nothing live
                 sent = []
-            out = read_team(pair, cfg, m5, h1, now, cot, sent, await _news(pair), d1)
+            out = read_team(pair, await _pip_value(pair, cfg), m5, h1, now, cot, sent, await _news(pair), d1, await _pause(now),
+                            await _macro() if pair == "AUD/CHF" else None)
             out["marketOpen"] = market_session_status(pair)["isOpen"]
             out["source"] = m5s["source"]
         _cache[pair] = (time.time() + TTL, out)
