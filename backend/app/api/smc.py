@@ -18,6 +18,14 @@ async def smc_team(symbol: str = "XAU/USD", _=Depends(current_user)):
     return await team(sym)
 
 
+@router.get("/smc/results")
+def smc_results(_=Depends(current_user)):
+    """The teams' real results: every setup sent, followed by the trade manager to its end (win rate, R, per pair)."""
+    from ..smc.manager import results
+
+    return {"success": True, **results()}
+
+
 @router.get("/smc/signals")
 def smc_signals(_=Depends(current_user)):
     return {"success": True, "signals": recent()}

@@ -1,8 +1,8 @@
 {
   "H1": {
-    "rows": 17295,
+    "rows": 17294,
     "flat": 0.0051,
-    "jumps": 0.0158,
+    "jumps": 0.0157,
     "medianRangePips": 10.9,
     "verdict": "SUSPECT",
     "why": [
@@ -10,9 +10,9 @@
     ]
   },
   "M15": {
-    "rows": 5649,
-    "flat": 0.0039,
-    "jumps": 0.0135,
+    "rows": 5644,
+    "flat": 0.0035,
+    "jumps": 0.0131,
     "medianRangePips": 7.2,
     "verdict": "SUSPECT",
     "why": [
@@ -20,9 +20,9 @@
     ]
   },
   "M5": {
-    "rows": 16943,
-    "flat": 0.0042,
-    "jumps": 0.0202,
+    "rows": 16928,
+    "flat": 0.0039,
+    "jumps": 0.0204,
     "medianRangePips": 5.9,
     "verdict": "SUSPECT",
     "why": [

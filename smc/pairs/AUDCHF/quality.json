@@ -10,7 +10,7 @@
     ]
   },
   "M15": {
-    "rows": 5655,
+    "rows": 5657,
     "flat": 0.0046,
     "jumps": 0.0244,
     "medianRangePips": 9.4,
@@ -20,7 +20,7 @@
     ]
   },
   "M5": {
-    "rows": 16939,
+    "rows": 16944,
     "flat": 0.0043,
     "jumps": 0.0135,
     "medianRangePips": 8.1,

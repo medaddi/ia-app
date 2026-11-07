@@ -2,7 +2,7 @@
   "H1": {
     "rows": 17352,
     "flat": 0.0079,
-    "jumps": 0.0123,
+    "jumps": 0.0124,
     "medianRangePips": 17.4,
     "verdict": "SUSPECT",
     "why": [
@@ -10,7 +10,7 @@
     ]
   },
   "M15": {
-    "rows": 5648,
+    "rows": 5650,
     "flat": 0.0048,
     "jumps": 0.0182,
     "medianRangePips": 12.4,
@@ -20,7 +20,7 @@
     ]
   },
   "M5": {
-    "rows": 16932,
+    "rows": 16937,
     "flat": 0.0044,
     "jumps": 0.0089,
     "medianRangePips": 10.6,

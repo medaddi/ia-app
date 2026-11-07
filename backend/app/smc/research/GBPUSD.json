@@ -1,8 +1,8 @@
 {
  "pair": "GBPUSD",
- "m5From": 1786662000,
- "m5To": 1793890800,
- "split": 1790999280,
+ "m5From": 1786921200,
+ "m5To": 1793973000,
+ "split": 1791152280,
  "data": {
   "H1": {
    "verdict": "FIT",
@@ -23,7 +23,7 @@
  },
  "strategies": {
   "S1": {
-   "setups": 1,
+   "setups": 3,
    "gatedIn": {
     "trades": 0
    },
@@ -31,84 +31,84 @@
     "trades": 0
    },
    "allIn": {
+    "trades": 1,
+    "winRate": 100.0,
+    "avgWinR": 0.72,
+    "expectancyR": 0.724,
+    "totalR": 0.72,
+    "profitFactor": null,
+    "maxDrawdownR": 0.0,
+    "longestLosingStreak": 0,
+    "weak": true
+   },
+   "allOut": {
     "trades": 0
+   },
+   "baselineOut": null
+  },
+  "S2": {
+   "setups": 9,
+   "gatedIn": {
+    "trades": 0
+   },
+   "gatedOut": {
+    "trades": 0
+   },
+   "allIn": {
+    "trades": 3,
+    "winRate": 66.7,
+    "avgWinR": 0.98,
+    "expectancyR": 0.252,
+    "totalR": 0.76,
+    "profitFactor": 1.63,
+    "maxDrawdownR": 1.2,
+    "longestLosingStreak": 1,
+    "weak": true
+   },
+   "allOut": {
+    "trades": 5,
+    "winRate": 40.0,
+    "avgWinR": 1.17,
+    "expectancyR": -0.063,
+    "totalR": -0.31,
+    "profitFactor": 0.88,
+    "maxDrawdownR": 2.29,
+    "longestLosingStreak": 2,
+    "weak": true
+   },
+   "baselineOut": -0.005
+  },
+  "S3": {
+   "setups": 3,
+   "gatedIn": {
+    "trades": 0
+   },
+   "gatedOut": {
+    "trades": 0
+   },
+   "allIn": {
+    "trades": 1,
+    "winRate": 100.0,
+    "avgWinR": 0.41,
+    "expectancyR": 0.414,
+    "totalR": 0.41,
+    "profitFactor": null,
+    "maxDrawdownR": 0.0,
+    "longestLosingStreak": 0,
+    "weak": true
    },
    "allOut": {
     "trades": 1,
     "winRate": 0.0,
     "avgWinR": 0,
-    "expectancyR": -1.185,
-    "totalR": -1.18,
+    "expectancyR": -1.189,
+    "totalR": -1.19,
     "profitFactor": 0.0,
-    "maxDrawdownR": 1.18,
+    "maxDrawdownR": 1.19,
     "longestLosingStreak": 1,
     "weak": true
    },
-   "baselineOut": 1.21
-  },
-  "S2": {
-   "setups": 16,
-   "gatedIn": {
-    "trades": 0
-   },
-   "gatedOut": {
-    "trades": 0
-   },
-   "allIn": {
-    "trades": 5,
-    "winRate": 40.0,
-    "avgWinR": 0.98,
-    "expectancyR": -0.311,
-    "totalR": -1.55,
-    "profitFactor": 0.56,
-    "maxDrawdownR": 2.34,
-    "longestLosingStreak": 2,
-    "weak": true
-   },
-   "allOut": {
-    "trades": 8,
-    "winRate": 50.0,
-    "avgWinR": 0.79,
-    "expectancyR": -0.077,
-    "totalR": -0.62,
-    "profitFactor": 0.84,
-    "maxDrawdownR": 1.92,
-    "longestLosingStreak": 1,
-    "weak": true
-   },
-   "baselineOut": 0.004
-  },
-  "S3": {
-   "setups": 16,
-   "gatedIn": {
-    "trades": 0
-   },
-   "gatedOut": {
-    "trades": 0
-   },
-   "allIn": {
-    "trades": 10,
-    "winRate": 60.0,
-    "avgWinR": 1.14,
-    "expectancyR": 0.246,
-    "totalR": 2.46,
-    "profitFactor": 1.57,
-    "maxDrawdownR": 2.04,
-    "longestLosingStreak": 2,
-    "weak": true
-   },
-   "allOut": {
-    "trades": 4,
-    "winRate": 50.0,
-    "avgWinR": 0.28,
-    "expectancyR": -0.43,
-    "totalR": -1.72,
-    "profitFactor": 0.24,
-    "maxDrawdownR": 2.27,
-    "longestLosingStreak": 2,
-    "weak": true
-   },
-   "baselineOut": -0.061
+   "baselineOut": -1.189
   },
   "S4": {
    "setups": 33,

@@ -3,7 +3,7 @@ import { markDataReady } from '../splash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { PriceChart, type ChartLevel, type PriceCandle } from './PriceChart';
 import { TeamCard } from './TeamCard';
-import { useSmcTeam } from '../smcTeam';
+import { prefetchTeams, useSmcTeam } from '../smcTeam';
 import type { Language } from '../types';
 import { useLivePrice } from '../livePrices';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
@@ -12,7 +12,7 @@ import { useDragScroll } from '../useDragScroll';
 import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, PAIR_DECIMALS, TIMEFRAMES, marketOpenNow, type InstrumentSymbol } from '../instruments';
 
 /**
- * The live chart of each pair: its candles, its live price, and its team (SMC S1–S4) with the setup it found drawn on the chart.
+ * The live chart of each pair: its candles, its live price, and its team (the pair playbook strategy) with the setup it found drawn on the chart.
  */
 interface ExunuTerminalViewProps {
   initialSymbol?: InstrumentSymbol;
@@ -24,6 +24,21 @@ const PROVIDER_TF: Record<string, string> = { M5: '5M', M15: '15M', M30: '30M', 
 const NO_CANDLES: PriceCandle[] = [];
 const LIVE_MS = 5000; // candles every 5 s; the price every second (livePrices.ts)
 const DEFAULT_TF = 'H1';
+
+// Each pair's last candles, per pair AND timeframe, with the price info that came with them: a switch shows that pair's
+// own last candles at once (never another pair's), and the fresh ones replace them a moment later
+interface CandleEntry { key: string; list: PriceCandle[]; quote: { time: number; source: string } | null; at: number }
+const candleCache = new Map<string, CandleEntry>();
+const EMPTY_ENTRY: CandleEntry = { key: '', list: [], quote: null, at: 0 };
+
+async function fetchCandles(sym: string, tf: string, signal?: AbortSignal): Promise<CandleEntry | null> {
+  const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400`, { cache: 'no-store', signal });
+  const json = await res.json();
+  if (!json.success || !Array.isArray(json.candles) || json.symbol !== sym) return null;  // an answer for another pair: dropped
+  const entry = { key: `${sym}_${tf}`, list: json.candles, quote: json.quoteTime ? { time: json.quoteTime, source: json.priceSource || '' } : null, at: Date.now() };
+  candleCache.set(entry.key, entry);
+  return entry;
+}
 
 // Each pair remembers the timeframe it was last viewed on
 const tfKey = (s: string) => `ld_chart_tf_${s}`;
@@ -40,12 +55,14 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   useEffect(() => { if (initialSymbol !== symbol) { setSymbolState(initialSymbol); setTimeframeState(savedTf(initialSymbol)); } }, [initialSymbol]);
 
   // The candles are kept under the key of the pair and timeframe they belong to: the chart only gets the pair on screen
-  const [candleStore, setCandleStore] = useState<{ key: string; list: PriceCandle[] }>({ key: '', list: [] });
-  const [quote, setQuote] = useState<{ time: number; source: string } | null>(null);
-  const [updatedAt, setUpdatedAt] = useState(0);
+  const [candleStore, setCandleStore] = useState<CandleEntry>(() => candleCache.get(`${initialSymbol}_${savedTf(initialSymbol)}`) ?? EMPTY_ENTRY);
   const tvChart = useChartingLibrary();  // TradingView Advanced Charts when its files are served (docs/TRADINGVIEW.md)
   const pairKey = `${symbol}_${timeframe}`;
-  const candles = candleStore.key === pairKey ? candleStore.list : NO_CANDLES;
+  // everything the chart gets belongs to the pair and timeframe on screen: its candles, its price age and source, its time
+  const mineCandles = candleStore.key === pairKey ? candleStore : candleCache.get(pairKey) ?? EMPTY_ENTRY;
+  const candles = mineCandles.key === pairKey ? mineCandles.list : NO_CANDLES;
+  const quote = mineCandles.key === pairKey ? mineCandles.quote : null;
+  const updatedAt = mineCandles.key === pairKey ? mineCandles.at : 0;
   const live = useLivePrice(symbol);
   const team = useSmcTeam(symbol);  // THIS pair's team
   const abortRef = useRef<AbortController | null>(null);
@@ -54,22 +71,36 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const loadCandles = useCallback(async (sym: string, tf: string) => {
     try {
-      const res = await apiFetch(`/api/exunu/candles?symbol=${encodeURIComponent(sym)}&timeframe=${PROVIDER_TF[tf]}&count=400`, { cache: 'no-store', signal: abortRef.current?.signal });
-      const json = await res.json();
-      if (viewRef.current.symbol !== sym || viewRef.current.timeframe !== tf) return;  // an answer for the old pair: dropped
-      if (json.success && Array.isArray(json.candles)) {
-        setCandleStore({ key: `${sym}_${tf}`, list: json.candles });
-        setQuote(json.quoteTime ? { time: json.quoteTime, source: json.priceSource || '' } : null);
-        setUpdatedAt(Date.now());
-        markDataReady();
-      }
+      const entry = await fetchCandles(sym, tf, abortRef.current?.signal);
+      if (!entry || viewRef.current.symbol !== sym || viewRef.current.timeframe !== tf) return;  // an answer for the old pair: dropped
+      setCandleStore(entry);
+      markDataReady();
     } catch {
       // keep the last good candles
     }
   }, []);
 
-  // A switch: the old pair's pending request is aborted before the new pair loads
-  useEffect(() => { abortRef.current?.abort(); abortRef.current = new AbortController(); loadCandles(symbol, timeframe); }, [symbol, timeframe]);
+  // A switch: the old pair's pending request is aborted, the new pair shows its own last candles (if any) and loads fresh ones
+  useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    setCandleStore(candleCache.get(`${symbol}_${timeframe}`) ?? EMPTY_ENTRY);
+    loadCandles(symbol, timeframe);
+  }, [symbol, timeframe]);
+
+  // Once the page is open: the other pairs' candles (their saved timeframe) and teams load quietly, one by one, so a switch is instant
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      for (const s of INSTRUMENT_SYMBOLS) {
+        if (ctrl.signal.aborted) return;
+        const tf = savedTf(s);
+        if (!candleCache.has(`${s}_${tf}`)) { try { await fetchCandles(s, tf, ctrl.signal); } catch { /* loads when opened */ } }
+      }
+      await prefetchTeams(INSTRUMENT_SYMBOLS, ctrl.signal);
+    }, 2500);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, []);
   // Live loop: the candles every 5 s, paused while the tab is hidden
   useEffect(() => {
     let busy = false;
@@ -88,7 +119,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const lastClose = candles.length ? candles[candles.length - 1].close : null;
   const shown = live?.price ?? lastClose;
   const open = marketOpenNow();
-  // What THIS pair's team draws: its analysis (levels, zones, BOS / CHoCH / sweeps) and its setup when one passed the 7 questions
+  // What THIS pair's team draws: its analysis (levels, zones, BOS / CHoCH / sweeps) and its setup when one passed the guide's checklist
   const mine = team?.success && team.symbol === symbol ? team : null;
   const sig = mine ? mine.signals[mine.signals.length - 1] : undefined;
   const ch = mine?.chart;
@@ -96,7 +127,9 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const levels: ChartLevel[] = (sig ? [{ price: sig.entry, label: `${sig.strategy} ${sig.direction}`, kind: 'entry' as const },
     { price: sig.sl, label: 'SL', kind: 'sl' as const }, { price: sig.tp, label: 'TP', kind: 'tp' as const }] : []).filter(l => near(l.price));
   const drawing = ch ? { boxes: ch.boxes.filter(b => near(b.top) && near(b.bottom)), segments: ch.segments.filter(x => near(x.price)),
-    labels: ch.labels.filter(x => near(x.price)), trade: ch.trade && near(ch.trade.entry) ? ch.trade : null } : null;
+    labels: ch.labels.filter(x => near(x.price)), trade: ch.trade && near(ch.trade.entry) ? ch.trade : null,
+    // the strategy's own indicator lines (Bollinger 3σ, EMA 20/50/200) and its time windows (Silver Bullet, killzones…)
+    lines: (ch.lines ?? []).map(l => ({ ...l, points: l.points.filter(([, v]) => near(v)) })), windows: ch.windows ?? [] } : null;
 
   return (
     <div className="flex flex-col gap-4 w-full">

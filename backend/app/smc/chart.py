@@ -99,7 +99,7 @@ def analysis(m5, h1v, decimals: int, now: int, setup: dict | None = None) -> dic
     if setup:
         t0 = setup["time"]
         t1 = max(setup["validUntil"] + 4 * H1S, end)
-        trade = {"from": t0, "to": t1, "entry": setup["entry"], "sl": setup["sl"], "tp": setup["tp"], "dir": 1 if setup["direction"] == "BUY" else -1,
+        trade = {"from": t0, "to": t1, "entry": setup["entry"], "zone": setup.get("zone"), "sl": setup["sl"], "tp": setup["tp"], "dir": 1 if setup["direction"] == "BUY" else -1,
                  "label": f"{setup['strategy']} {setup['direction']} · 1:{setup['rr']}"}
     return {"trend": {1: "BULLISH", -1: "BEARISH"}.get(st.trend[i], "UNDEFINED"), "premium": bool(rng and price > rng[1]),
             "boxes": boxes, "segments": segments, "labels": labels, "trade": trade}

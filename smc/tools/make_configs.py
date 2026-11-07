@@ -45,7 +45,9 @@ pairs = {
                          "Pip value in USD depends on USD/CHF (about 12.5 per lot here): verify with the broker."]},
 }
 for k, v in pairs.items():
-    cfg = {"pair": k, **v, "min_stop_cost_ratio": 5.0, **common}
+    # which strategies this pair's team trades: all four until a choice made on in-sample data holds up out-of-sample
+    # (smc/tools/perpair.py; on the ~70 days of M5 Yahoo gives, no choice could be confirmed: v0.3)
+    cfg = {"pair": k, **v, "min_stop_cost_ratio": 5.0, "enabled_strategies": ["S1", "S2", "S3", "S4"], **common}
     (root / "pairs" / k).mkdir(parents=True, exist_ok=True)
     text = json.dumps(cfg, indent=2, ensure_ascii=False) + "\n"
     (root / "pairs" / k / "config.json").write_text(text, encoding="utf-8")

@@ -1,8 +1,8 @@
 {
  "pair": "AUDCHF",
  "m5From": 1786921200,
- "m5To": 1793971500,
- "split": 1791151380,
+ "m5To": 1793973000,
+ "split": 1791152280,
  "data": {
   "H1": {
    "verdict": "SUSPECT",
@@ -41,7 +41,7 @@
    "baselineOut": null
   },
   "S2": {
-   "setups": 2,
+   "setups": 1,
    "gatedIn": {
     "trades": 0
    },
@@ -60,17 +60,9 @@
     "weak": true
    },
    "allOut": {
-    "trades": 1,
-    "winRate": 0.0,
-    "avgWinR": 0,
-    "expectancyR": -1.156,
-    "totalR": -1.16,
-    "profitFactor": 0.0,
-    "maxDrawdownR": 1.16,
-    "longestLosingStreak": 1,
-    "weak": true
+    "trades": 0
    },
-   "baselineOut": -0.399
+   "baselineOut": null
   },
   "S3": {
    "setups": 1,

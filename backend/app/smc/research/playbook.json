@@ -1,0 +1,381 @@
+{
+ "XAUUSD": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "strategies": {
+   "P": {
+    "name": "ICT Silver Bullet / NY killzone sweep + FVG / OTE",
+    "claimed": "75-80 % in ICT studies (not guaranteed); R:R 1:2 to 1:4",
+    "setups": 49,
+    "states": {
+     "WIN": 17,
+     "LOSS": 13,
+     "MISSED": 9,
+     "EXPIRED": 10
+    },
+    "all": {
+     "trades": 13,
+     "wins": 4,
+     "winRate": 31,
+     "totalR": -4.68,
+     "expectancyR": -0.36
+    },
+    "in": {
+     "trades": 8,
+     "wins": 2,
+     "winRate": 25,
+     "totalR": -3.71,
+     "expectancyR": -0.464
+    },
+    "out": {
+     "trades": 5,
+     "wins": 2,
+     "winRate": 40,
+     "totalR": -0.96,
+     "expectancyR": -0.192
+    },
+    "withoutNewsRule": {
+     "trades": 13,
+     "wins": 4,
+     "winRate": 31,
+     "totalR": -4.68,
+     "expectancyR": -0.36
+    },
+    "openThroughNews": 1
+   }
+  },
+  "news": {
+   "events": 154,
+   "file": "smc/news/high_impact.csv"
+  }
+ },
+ "EURUSD": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "strategies": {
+   "P1": {
+    "name": "London Judas swing",
+    "claimed": "no win rate given; R:R 1:2 (up to 1:3)",
+    "setups": 33,
+    "states": {
+     "MISSED": 4,
+     "WIN": 17,
+     "EXPIRED": 1,
+     "LOSS": 11
+    },
+    "all": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 0.99,
+     "expectancyR": 0.495
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 0.99,
+     "expectancyR": 0.495
+    },
+    "withoutNewsRule": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 0.99,
+     "expectancyR": 0.495
+    },
+    "openThroughNews": 0
+   },
+   "P2": {
+    "name": "SnapBack 3\u03c3 mean reversion",
+    "claimed": "62.0 % (SteadyPips, 79 trades, 1:1, Jan 2024 - Mar 2026)",
+    "setups": 29,
+    "states": {
+     "WIN": 19,
+     "LOSS": 10
+    },
+    "all": {
+     "trades": 22,
+     "wins": 15,
+     "winRate": 68,
+     "totalR": 6.94,
+     "expectancyR": 0.315
+    },
+    "in": {
+     "trades": 10,
+     "wins": 7,
+     "winRate": 70,
+     "totalR": 3.51,
+     "expectancyR": 0.351
+    },
+    "out": {
+     "trades": 12,
+     "wins": 8,
+     "winRate": 67,
+     "totalR": 3.43,
+     "expectancyR": 0.285
+    },
+    "withoutNewsRule": {
+     "trades": 27,
+     "wins": 19,
+     "winRate": 70,
+     "totalR": 9.68,
+     "expectancyR": 0.358
+    },
+    "openThroughNews": 2
+   }
+  },
+  "news": {
+   "events": 176,
+   "file": "smc/news/high_impact.csv"
+  }
+ },
+ "GBPUSD": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "strategies": {
+   "P1": {
+    "name": "London / NY overlap liquidity sweep",
+    "claimed": "no win rate given; R:R 1:2 to 1:3",
+    "setups": 86,
+    "states": {
+     "WIN": 37,
+     "EXPIRED": 12,
+     "LOSS": 35,
+     "BE": 2
+    },
+    "all": {
+     "trades": 74,
+     "wins": 37,
+     "winRate": 50,
+     "totalR": -2.12,
+     "expectancyR": -0.029
+    },
+    "in": {
+     "trades": 42,
+     "wins": 22,
+     "winRate": 52,
+     "totalR": 0.03,
+     "expectancyR": 0.001
+    },
+    "out": {
+     "trades": 32,
+     "wins": 15,
+     "winRate": 47,
+     "totalR": -2.15,
+     "expectancyR": -0.067
+    },
+    "withoutNewsRule": {
+     "trades": 78,
+     "wins": 39,
+     "winRate": 50,
+     "totalR": -2.07,
+     "expectancyR": -0.027
+    },
+    "openThroughNews": 24
+   },
+   "P2": {
+    "name": "EMA 20/50/200 trend pullback",
+    "claimed": "no win rate given (plain EMA crossovers: 26.2 %); R:R 1:2",
+    "setups": 0,
+    "states": {},
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   }
+  },
+  "news": {
+   "events": 233,
+   "file": "smc/news/high_impact.csv"
+  }
+ },
+ "EURCHF": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "strategies": {
+   "P": {
+    "name": "Time-filtered 3\u03c3 mean reversion",
+    "claimed": "~60 %+ in ranges (from the 3\u03c3 model); R:R 1:1 to 1:1.5",
+    "setups": 3,
+    "states": {
+     "WIN": 2,
+     "LOSS": 1
+    },
+    "all": {
+     "trades": 3,
+     "wins": 2,
+     "winRate": 67,
+     "totalR": 0.89,
+     "expectancyR": 0.297
+    },
+    "in": {
+     "trades": 3,
+     "wins": 2,
+     "winRate": 67,
+     "totalR": 0.89,
+     "expectancyR": 0.297
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 3,
+     "wins": 2,
+     "winRate": 67,
+     "totalR": 0.89,
+     "expectancyR": 0.297
+    },
+    "openThroughNews": 0
+   }
+  },
+  "news": {
+   "events": 34,
+   "file": "smc/news/high_impact.csv"
+  }
+ },
+ "AUDCAD": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "strategies": {
+   "P": {
+    "name": "Commodity range reversion",
+    "claimed": "~60 %+ in calm sessions; R:R 1:1.5 to 1:2",
+    "setups": 3,
+    "states": {
+     "LOSS": 2,
+     "WIN": 1
+    },
+    "all": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -0.52,
+     "expectancyR": -0.173
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.06,
+     "expectancyR": -1.059
+    },
+    "out": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 0.54,
+     "expectancyR": 0.27
+    },
+    "withoutNewsRule": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -0.52,
+     "expectancyR": -0.173
+    },
+    "openThroughNews": 0
+   }
+  },
+  "news": {
+   "events": 110,
+   "file": "smc/news/high_impact.csv"
+  }
+ },
+ "AUDCHF": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "strategies": {
+   "P": {
+    "name": "Risk-on carry swing pullback",
+    "claimed": "high when VIX, iron ore and rates agree (no number); R:R 1:2.5 to 1:3",
+    "setups": 61,
+    "states": {
+     "WIN": 26,
+     "LOSS": 35
+    },
+    "all": {
+     "trades": 61,
+     "wins": 26,
+     "winRate": 43,
+     "totalR": -12.84,
+     "expectancyR": -0.21
+    },
+    "in": {
+     "trades": 27,
+     "wins": 11,
+     "winRate": 41,
+     "totalR": -4.69,
+     "expectancyR": -0.174
+    },
+    "out": {
+     "trades": 34,
+     "wins": 15,
+     "winRate": 44,
+     "totalR": -8.15,
+     "expectancyR": -0.24
+    },
+    "withoutNewsRule": {
+     "trades": 61,
+     "wins": 26,
+     "winRate": 43,
+     "totalR": -12.84,
+     "expectancyR": -0.21
+    },
+    "openThroughNews": 27
+   }
+  },
+  "news": {
+   "events": 65,
+   "file": "smc/news/high_impact.csv"
+  }
+ }
+}

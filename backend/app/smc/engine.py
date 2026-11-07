@@ -161,6 +161,35 @@ def fvgs(c) -> list[Optional[tuple]]:
     return out
 
 
+SWEEP_BACK = 3  # M5 candles (15 min) for a sweep to close back inside its level; beyond that it is a breakout (Team interpretation)
+
+
+def closed_back(c, i: int, level: float, side: int) -> Optional[int]:
+    """MASTER BRIEF (S2, S3): a wick sweep of a level that CLOSES BACK INSIDE. From the first candle beyond the level (i), the
+    first candle within SWEEP_BACK that closes back inside it (below a high, above a low); None = a breakout, not a sweep."""
+    for j in range(i, min(len(c), i + SWEEP_BACK)):
+        if (side > 0 and c[j].close < level) or (side < 0 and c[j].close > level):
+            return j
+    return None
+
+
+def ltf_idm(st: Structure, k0: int, d: int, entry: float, window: int) -> Optional[int]:
+    """MASTER BRIEF (S1): the LTF IDM after the LTF CHoCH: the first M5 pullback swing (a low for a buy) formed after the
+    break and confirmed within `window` candles, sitting in front of the entry (above it for a buy), so price must take it
+    to reach the limit. Returns the candle that confirms it (the moment the setup is known), or None."""
+    lst = st.swing_lows_after if d > 0 else st.swing_highs_after
+    for j in lst:
+        if j < k0:
+            continue
+        at = st.confirmed_at.get(j, j)
+        if at > k0 + window:
+            return None
+        lvl = st.c[j].low if d > 0 else st.c[j].high
+        if (d > 0 and lvl > entry) or (d < 0 and lvl < entry):
+            return at
+    return None
+
+
 def ltf_confirm(st: Structure, fv, s: int, d: int, window: int) -> Optional[tuple[int, tuple]]:
     """After a sweep at s: a structure break in direction d within `window` candles, with an FVG of the same direction
     formed in that displacement. Returns (the candle it is all known at, the FVG)."""
@@ -206,12 +235,48 @@ def simulate(c, k0: int, d: int, entry: float, sl: float, tp: float, expiry: int
 
 
 # ---------------------------------------------------------------- the H1 context seen from an M5 candle
+class _Bar:
+    __slots__ = ("time", "open", "high", "low", "close")
+
+    def __init__(self, time, open_, high, low, close):
+        self.time, self.open, self.high, self.low, self.close = time, open_, high, low, close
+
+
+def h4_from_h1(h1) -> list:
+    """H4 candles built from H1 (UTC 00/04/08/12/16/20 slots); a slot is a candle once its last H1 hour is in."""
+    out, cur = [], None
+    for x in h1:
+        slot = x.time - x.time % (4 * H1S)
+        if cur is None or cur.time != slot:
+            cur = _Bar(slot, x.open, x.high, x.low, x.close)
+            out.append(cur)
+        else:
+            cur.high, cur.low, cur.close = max(cur.high, x.high), min(cur.low, x.low), x.close
+    return out
+
+
 class H1View:
     def __init__(self, h1):
         self.c = h1
         self.st = Structure(h1)
         self.fv = fvgs(h1)
         self.times = [x.time for x in h1]
+        # the HTF bias of question 1: H4 structure (MASTER BRIEF: "HTF bias (4H or 1H)"). An internal H1 pullback (the IDM
+        # taken on the way to an OB) does not flip H4; a break of a larger, external swing does (v0.2, Team interpretation)
+        self.h4 = h4_from_h1(h1)
+        self.st4 = Structure(self.h4)
+        self.t4 = [x.time for x in self.h4]
+
+    def h4_trend(self, t_close: int) -> int:
+        """H4 trend from the H4 candles CLOSED at t_close (a forming H4 candle is never used)."""
+        lo, hi = 0, len(self.t4)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if self.t4[mid] + 4 * H1S <= t_close:
+                lo = mid + 1
+            else:
+                hi = mid
+        return self.st4.trend[lo - 1] if lo > 0 else 0
 
     def closed_at(self, t_close: int) -> int:
         """Index of the last H1 candle closed at time t_close (−1 if none)."""
@@ -298,18 +363,23 @@ def strategy_d(m5, st5, fv5, h1v: H1View, cost: float, fmt) -> tuple[list, list]
                     continue
                 taken[side] = True
                 d = -side  # a sweep of the Asian high sells, of the low buys
+                back = closed_back(m5, i, level, side)
+                if back is None:  # it stayed beyond the level: a breakout, not a sweep
+                    watch.append({"time": x.time, "dir": d, "steps": [("Asian range marked (00:00–06:00 UTC)", True, f"high {fmt(ah)} · low {fmt(al)}"),
+                                  (f"{zone} killzone sweep of the Asian {'high' if side > 0 else 'low'} closing back inside", False, "it closed beyond: a breakout")]})
+                    continue
                 hv = h1v.closed_at(x.time + M5S)
                 rng = h1v.range_mid(hv)
                 ext = x.high if side > 0 else x.low
                 poi = bool(rng and ((d < 0 and ext > rng[1]) or (d > 0 and ext < rng[1])))
                 steps = [("Asian range marked (00:00–06:00 UTC)", True, f"high {fmt(ah)} · low {fmt(al)}"),
-                         (f"{zone} killzone sweep of the Asian {'high' if side > 0 else 'low'}", True, f"wick to {fmt(ext)} at {_hm(x.time)} UTC"),
+                         (f"{zone} killzone sweep of the Asian {'high' if side > 0 else 'low'} closing back inside", True, f"wick to {fmt(ext)} at {_hm(x.time)} UTC, back inside at {_hm(m5[back].time)}"),
                          ("Into an HTF POI: H1 " + ("premium" if d < 0 else "discount"), poi,
                           f"H1 range {fmt(rng[0])} – {fmt(rng[2])}, 50 % at {fmt(rng[1])}" if rng else "no H1 range yet")]
                 if not poi:
                     watch.append({"time": x.time, "steps": steps + [("M5 CHoCH + FVG", False, "—")], "dir": d})
                     continue
-                conf = ltf_confirm(st5, fv5, i, d, 12)
+                conf = ltf_confirm(st5, fv5, back, d, 12)
                 if not conf:
                     watch.append({"time": x.time, "steps": steps + [("M5 CHoCH + FVG within 1 hour", False, "waiting for the M5 break with a gap"
                                                                      if len(m5) - 1 - i < 12 else "no break with a gap: no trade")], "dir": d})
@@ -350,9 +420,14 @@ def strategy_b(m5, st5, fv5, cost: float, fmt) -> tuple[list, list]:
                     continue
                 taken[side] = True
                 d = -side
+                back = closed_back(m5, i, level, side)
                 steps = [("Previous day high / low marked", True, f"PDH {fmt(pdh)} · PDL {fmt(pdl)} · EQ {fmt(eq)}"),
-                         (f"Wick sweep of the {'PDH' if side > 0 else 'PDL'}", True, f"to {fmt(x.high if side > 0 else x.low)} at {_hm(x.time)} UTC")]
-                conf = ltf_confirm(st5, fv5, i, d, 12)
+                         (f"Wick sweep of the {'PDH' if side > 0 else 'PDL'} closing back inside", back is not None,
+                          f"to {fmt(x.high if side > 0 else x.low)} at {_hm(x.time)} UTC" + (f", back inside at {_hm(m5[back].time)}" if back is not None else ": it closed beyond, a breakout"))]
+                if back is None:
+                    watch.append({"time": x.time, "dir": d, "steps": steps})
+                    continue
+                conf = ltf_confirm(st5, fv5, back, d, 12)
                 if not conf:
                     watch.append({"time": x.time, "dir": d, "steps": steps + [("M5 CHoCH + FVG within 1 hour", False, "waiting for the M5 break with a gap"
                                                                                 if len(m5) - 1 - i < 12 else "no break with a gap: no trade")]})
@@ -469,25 +544,24 @@ def strategy_ac(sid: str, m5, st5, fv5, h1v: H1View, cost: float, fmt) -> tuple[
             steps2 = steps + [st_idm, (f"Price taps the fresh OB in {disc}", in_zone, f"tap at {_hm(m5[tap].time)} UTC · 50 % {fmt(p['mid'])}")]
             if not in_zone:
                 continue
-            # M5: a sweep inside the POI, then CHoCH + FVG (within 2 hours of the tap)
-            sw = next((i for i in range(tap, min(len(m5), tap + 24)) if st5.swept(i, -d)), None)
-            if sw is None:
-                watch.append({"time": m5[tap].time, "dir": d, "alive": len(m5) - tap < 24,
-                              "steps": steps2 + [("M5 liquidity sweep inside the OB", False, "waiting" if len(m5) - tap < 24 else "none: no trade")]})
-                continue
-            conf = ltf_confirm(st5, fv5, sw, d, 24)
-            st_sw = ("M5 liquidity sweep inside the OB", True, f"at {_hm(m5[sw].time)} UTC")
+            # M5 (MASTER BRIEF, S1): the LTF CHoCH with an FVG within 2 hours of the tap, then the LTF IDM in front of the entry
+            conf = ltf_confirm(st5, fv5, tap, d, 24)
             if not conf:
-                watch.append({"time": m5[sw].time, "dir": d, "alive": len(m5) - sw < 24,
-                              "steps": steps2 + [st_sw, ("M5 CHoCH + FVG", False, "waiting" if len(m5) - sw < 24 else "none: no trade")]})
+                watch.append({"time": m5[tap].time, "dir": d, "alive": len(m5) - tap < 24,
+                              "steps": steps2 + [("M5 CHoCH + FVG", False, "waiting" if len(m5) - tap < 24 else "none: no trade")]})
                 continue
             k0, g = conf
             entry = g[2] if d > 0 else g[1]
-            swing = min(m5[j].low for j in range(tap, k0 + 1)) if d > 0 else max(m5[j].high for j in range(tap, k0 + 1))
+            st_ch = ("M5 CHoCH with an FVG", True, f"gap {fmt(g[1])} – {fmt(g[2])} at {_hm(m5[k0].time)} UTC")
+            known = ltf_idm(st5, k0, d, entry, 24)
+            if known is None:
+                watch.append({"time": m5[k0].time, "dir": d, "alive": len(m5) - k0 < 24,
+                              "steps": steps2 + [st_ch, ("M5 IDM in front of the entry", False, "waiting for the first M5 pullback" if len(m5) - k0 < 24 else "none: no trade")]})
+                continue
+            swing = min(m5[j].low for j in range(tap, known + 1)) if d > 0 else max(m5[j].high for j in range(tap, known + 1))
             sl = swing - cost if d > 0 else swing + cost
-            s = _setup("A", d, k0, m5, entry, sl, p["ext"], steps2 + [st_sw, ("M5 CHoCH with an FVG", True, f"gap {fmt(g[1])} – {fmt(g[2])}")], cost,
-                       {"geo": {"ob": (zone[1], zone[0], h1v.c[p["ob"]].time), "sweep": (m5[sw].low if d > 0 else m5[sw].high, m5[sw].time),
-                                "gap": (g[1], g[2], m5[tap].time)}})
+            s = _setup("A", d, known, m5, entry, sl, p["ext"], steps2 + [st_ch, ("M5 IDM in front of the entry", True, f"confirmed at {_hm(m5[known].time)} UTC")], cost,
+                       {"geo": {"ob": (zone[1], zone[0], h1v.c[p["ob"]].time), "gap": (g[1], g[2], m5[tap].time)}})
             if s:
                 setups.append(s)
         else:
@@ -573,7 +647,7 @@ def master_checklist(s: dict, h1v: H1View, fmt) -> list[tuple[str, bool, str]]:
     """The 7 questions (news only when a calendar is loaded: smc/news/high_impact.csv)."""
     d, t, entry = s["dir"], s["time"], s["entry"]
     hv = h1v.closed_at(t)
-    tr = h1v.st.trend[hv] if hv >= 0 else 0
+    tr = h1v.h4_trend(t)  # question 1 reads the HTF (H4) bias, not the internal H1 swings
     rng = h1v.range_mid(hv)
     swept = [a for a, ok, _ in s["steps"] if ok and ("sweep" in a.lower() or "swept" in a.lower())]
     tod, wd = t % DAY, weekday(t)
@@ -585,8 +659,8 @@ def master_checklist(s: dict, h1v: H1View, fmt) -> list[tuple[str, bool, str]]:
     ltf = {"C": "H1 flip with an FVG (the push through supply / demand)", "E": "one H1 candle = an LTF CHoCH, M5 FVG"}.get(s["strategy"], "M5 CHoCH with an FVG")
     side = "discount" if d > 0 else "premium"
     return [
-        ("1 · H1 bias by a body-close break in the trade's direction", tr == d,
-         f"H1 structure {'bullish' if tr > 0 else 'bearish' if tr < 0 else 'undefined'}"),
+        ("1 · HTF (H4) bias by a body-close break in the trade's direction", tr == d,
+         f"H4 structure {'bullish' if tr > 0 else 'bearish' if tr < 0 else 'undefined'}"),
         ("2 · IDM or external liquidity swept", bool(swept), swept[0] if swept else "no sweep"),
         (f"3 · Entry in {side} of the H1 range", bool(rng) and ((d > 0 and entry < rng[1]) or (d < 0 and entry > rng[1])),
          f"entry {fmt(entry)} vs 50 % {fmt(rng[1])}" if rng else "no H1 range"),
@@ -617,6 +691,8 @@ def scan_all(m5, h1, cost: float, decimals: int) -> dict:
     for sid, fn in run.items():
         s, w = fn()
         s.sort(key=lambda x: x["time"])
+        seen: set = set()  # two zones leading to the same entry are ONE setup (counted and sent once)
+        s = [x for x in s if not ((x["time"], x["dir"], round(x["entry"], 8)) in seen or seen.add((x["time"], x["dir"], round(x["entry"], 8))))]
         for x in s:
             x["sid"] = sid
             x["checklist"] = master_checklist(x, h1v, fmt)

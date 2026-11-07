@@ -17,6 +17,12 @@
     "Pip value in USD depends on USD/CHF (about 12.5 per lot here): verify with the broker."
   ],
   "min_stop_cost_ratio": 5.0,
+  "enabled_strategies": [
+    "S1",
+    "S2",
+    "S3",
+    "S4"
+  ],
   "sessions_utc": {
     "asia": [
       0,

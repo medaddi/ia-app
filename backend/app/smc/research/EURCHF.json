@@ -1,8 +1,8 @@
 {
  "pair": "EURCHF",
- "m5From": 1786662000,
- "m5To": 1793890800,
- "split": 1790999280,
+ "m5From": 1786921200,
+ "m5To": 1793973000,
+ "split": 1791152280,
  "data": {
   "H1": {
    "verdict": "SUSPECT",
@@ -65,7 +65,7 @@
    "baselineOut": null
   },
   "S3": {
-   "setups": 1,
+   "setups": 2,
    "gatedIn": {
     "trades": 0
    },
@@ -76,17 +76,17 @@
     "trades": 0
    },
    "allOut": {
-    "trades": 1,
-    "winRate": 0.0,
-    "avgWinR": 0,
-    "expectancyR": -1.13,
-    "totalR": -1.13,
-    "profitFactor": 0.0,
+    "trades": 2,
+    "winRate": 50.0,
+    "avgWinR": 0.24,
+    "expectancyR": -0.445,
+    "totalR": -0.89,
+    "profitFactor": 0.21,
     "maxDrawdownR": 1.13,
     "longestLosingStreak": 1,
     "weak": true
    },
-   "baselineOut": -0.14
+   "baselineOut": -0.093
   },
   "S4": {
    "setups": 0,

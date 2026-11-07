@@ -229,7 +229,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
 
   // The team's analysis: boxes, segments, labels and the trade, placed by time on this timeframe's candles
   useEffect(() => {
-    drawRef.current?.update(showTeam ? drawing : (drawing ? { boxes: [], segments: [], labels: [], trade: drawing.trade } : null), bars.map(b => b.time), tfSec, theme);
+    drawRef.current?.update(showTeam ? drawing : (drawing ? { boxes: [], segments: [], labels: [], lines: [], windows: [], trade: drawing.trade } : null), bars.map(b => b.time), tfSec, theme);
   }, [drawing, showTeam, bars, tfSec, theme]);
 
   // A new pair / timeframe: forget the old crosshair

@@ -1,6 +1,6 @@
 {
   "H1": {
-    "rows": 17289,
+    "rows": 17288,
     "flat": 0.0082,
     "jumps": 0.0401,
     "medianRangePips": 11.4,
@@ -8,9 +8,9 @@
     "why": []
   },
   "M15": {
-    "rows": 5649,
-    "flat": 0.0044,
-    "jumps": 0.0933,
+    "rows": 5644,
+    "flat": 0.0041,
+    "jumps": 0.0943,
     "medianRangePips": 4.2,
     "verdict": "NOT FIT",
     "why": [
@@ -18,9 +18,9 @@
     ]
   },
   "M5": {
-    "rows": 16945,
-    "flat": 0.0052,
-    "jumps": 0.3409,
+    "rows": 16930,
+    "flat": 0.0048,
+    "jumps": 0.3418,
     "medianRangePips": 1.8,
     "verdict": "NOT FIT",
     "why": [

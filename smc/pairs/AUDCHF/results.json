@@ -2,8 +2,8 @@
   "pair": "AUDCHF",
   "symbol": "AUD/CHF",
   "m5From": 1786921200,
-  "m5To": 1793971500,
-  "split": 1791151380,
+  "m5To": 1793973000,
+  "split": 1791152280,
   "cost": 0.00022999999999999998,
   "strategies": {
     "S1": {
@@ -56,7 +56,7 @@
     },
     "S2": {
       "name": "PDH / PDL & external liquidity sweep reversal",
-      "setups": 2,
+      "setups": 1,
       "gated_in": {
         "plain": {
           "trades": 0
@@ -136,58 +136,14 @@
       },
       "all_out": {
         "plain": {
-          "trades": 1,
-          "winRate": 0.0,
-          "avgWinR": 0,
-          "expectancyR": -1.156,
-          "totalR": -1.16,
-          "profitFactor": 0.0,
-          "maxDrawdownR": 1.16,
-          "longestLosingStreak": 1,
-          "weak": true
+          "trades": 0
         },
         "managed": {
-          "trades": 1,
-          "winRate": 0.0,
-          "avgWinR": 0,
-          "expectancyR": -1.156,
-          "totalR": -1.16,
-          "profitFactor": 0.0,
-          "maxDrawdownR": 1.16,
-          "longestLosingStreak": 1,
-          "weak": true
+          "trades": 0
         },
-        "baseline": {
-          "runs": 500,
-          "expectancyR": -0.399,
-          "p95": 0.463
-        },
-        "bySession": {
-          "Asia": {
-            "trades": 1,
-            "winRate": 0.0,
-            "avgWinR": 0,
-            "expectancyR": -1.156,
-            "totalR": -1.16,
-            "profitFactor": 0.0,
-            "maxDrawdownR": 1.16,
-            "longestLosingStreak": 1,
-            "weak": true
-          }
-        },
-        "byMonth": {
-          "2026-11": {
-            "trades": 1,
-            "winRate": 0.0,
-            "avgWinR": 0,
-            "expectancyR": -1.156,
-            "totalR": -1.16,
-            "profitFactor": 0.0,
-            "maxDrawdownR": 1.16,
-            "longestLosingStreak": 1,
-            "weak": true
-          }
-        }
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
       }
     },
     "S3": {

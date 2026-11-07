@@ -2,6 +2,8 @@
 Economic calendar filter.
 Source: ForexFactory weekly calendar JSON (faireconomy mirror) merged with an optional local
 file data/news_calendar.json ([{ "time": "2026-10-28T12:30:00Z", "currency": "USD", "title": "CPI m/m", "impact": "High" }]).
+The source limits how often it may be read (it answers 429 "Rate Limited"): the last good week is kept in the database
+and used while the source refuses (if it is still this week), and a refused read waits 30 minutes before asking again.
 """
 
 import json
@@ -61,5 +63,39 @@ async def load_news_calendar() -> dict:
             sources.append("data/news_calendar.json")
     except (ValueError, OSError):
         pass  # malformed local file is ignored
-    _cache.update(events=events, expires=time.time() + (60 if sources else 5) * 60, source=" + ".join(sources) or "none")
+    if "ForexFactory calendar" in sources:
+        _save_week(events)
+    else:
+        kept = _load_week()  # the source refused (rate limit) or is down: the last good week, if it is still this week
+        if kept:
+            events = kept + events
+            sources.insert(0, "ForexFactory calendar (kept copy)")
+    _cache.update(events=events, expires=time.time() + (60 if sources else 30) * 60, source=" + ".join(sources) or "none")
     return {"events": events, "source": _cache["source"]}
+
+
+WEEK = 7 * 86400
+
+
+def _save_week(events: list[dict]) -> None:
+    try:
+        from ..db import SessionLocal
+        from ..store import set_setting
+        with SessionLocal() as db:
+            set_setting(db, "newsWeek", {"savedAt": int(time.time()), "events": events})
+    except Exception as err:  # keeping a copy never breaks the read
+        print(f"[news] could not keep the calendar: {err!r}")
+
+
+def _load_week() -> list[dict]:
+    try:
+        from ..db import SessionLocal
+        from ..store import get_setting
+        with SessionLocal() as db:
+            kept = get_setting(db, "newsWeek")
+    except Exception:
+        return []
+    evs = kept.get("events") or []
+    if not evs or time.time() - (kept.get("savedAt") or 0) > WEEK or max(e["time"] for e in evs) < time.time() - WEEK:
+        return []
+    return evs

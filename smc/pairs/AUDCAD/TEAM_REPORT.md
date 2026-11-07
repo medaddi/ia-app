@@ -33,7 +33,7 @@ The team's seven agents run live in the app on this pair (backend `app/smc/agent
 | Role | Owns | Sign-off for v0.1 |
 |---|---|---|
 | Lead Strategist | decision, rule book, `CHANGELOG.md` | published v0.1; a setup is published only when its rules and all 7 questions pass |
-| Structure Analyst | H1 swings, IDM, BOS / CHoCH, dealing range | signs when the H1 bias and range are defined |
+| Structure Analyst | H4 bias (question 1), H1 swings, IDM, BOS / CHoCH, dealing range | signs when the H4 bias and range are defined |
 | Liquidity & Session Analyst | PDH / PDL, Asian range, killzones, DST, news | objects: DST unverified, no news calendar |
 | Entry Specialist | OB / FVG validity, LTF confirmation | signs a setup's zone; otherwise reports what each strategy waits for |
 | Risk Manager | 1 % sizing, stop vs cost, BE, partials | signs only RR ≥ 1:3 and stop ≥ 5 × cost |
@@ -70,7 +70,7 @@ Managed (50 % at 1:3, BE after an M5 BOS), same trades:
 
 Why setups were not taken (the 7 questions, across all 1 setups; one setup can fail several):
 
-- H1 bias by a body-close break in the trade's direction: 1
+- HTF (H4) bias by a body-close break in the trade's direction: 1
 - Entry in discount of the H1 range: 1
 - Reward ≥ 3R: 1
 

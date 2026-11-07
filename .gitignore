@@ -24,3 +24,6 @@ __pycache__/
 # TradingView Advanced Charts (licensed, never in a public repo: docs/TRADINGVIEW.md)
 frontend/public/charting_library/
 frontend/public/datafeeds/
+
+# Dukascopy research candles (rebuilt by smc/tools/fetch_dukascopy.py)
+smc/pairs/*/data/dukascopy/

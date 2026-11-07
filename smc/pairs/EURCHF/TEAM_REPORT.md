@@ -4,8 +4,8 @@ Educational research. Not financial advice, not a signal service, no guarantee. 
 
 ## 1. Executive summary
 
-- **Data:** Yahoo Finance; LTF (M5) 2026-08-13 → 2026-11-05 (about 84 days), H1 2024-01-19 → 2026-11-05. M5 data verdict: **SUSPECT** (range above EUR/USD (1.3)). See `../../DATA_QUALITY.md`.
-- **Sample:** 2 setups across S1–S4; **0 passed all 7 questions** (the trades the playbook takes). Every strategy is far below 100 trades: **statistically weak, no conclusion possible.**
+- **Data:** Yahoo Finance; LTF (M5) 2026-08-16 → 2026-11-06 (about 82 days), H1 2024-01-22 → 2026-11-06. M5 data verdict: **SUSPECT** (range above EUR/USD (1.3)). See `../../DATA_QUALITY.md`.
+- **Sample:** 3 setups across S1–S4; **0 passed all 7 questions** (the trades the playbook takes). Every strategy is far below 100 trades: **statistically weak, no conclusion possible.**
 - **What works:** not known. No strategy has enough trades, in sample or out of sample, to say it has an edge. The M5 candles also fail the data check, so even these few results are **NOT VALID**.
 - **What does not work:** not known either, for the same reason.
 - **Key risks:** tiny sample; a single fixed cost (1.5 + 0.2 pips) that under-states news and rollover spreads; no news calendar for the test period; the source script was not available, so every rule is the brief's summary or a team interpretation.
@@ -33,7 +33,7 @@ The team's seven agents run live in the app on this pair (backend `app/smc/agent
 | Role | Owns | Sign-off for v0.1 |
 |---|---|---|
 | Lead Strategist | decision, rule book, `CHANGELOG.md` | published v0.1; a setup is published only when its rules and all 7 questions pass |
-| Structure Analyst | H1 swings, IDM, BOS / CHoCH, dealing range | signs when the H1 bias and range are defined |
+| Structure Analyst | H4 bias (question 1), H1 swings, IDM, BOS / CHoCH, dealing range | signs when the H4 bias and range are defined |
 | Liquidity & Session Analyst | PDH / PDL, Asian range, killzones, DST, news | objects: DST unverified, no news calendar |
 | Entry Specialist | OB / FVG validity, LTF confirmation | signs a setup's zone; otherwise reports what each strategy waits for |
 | Risk Manager | 1 % sizing, stop vs cost, BE, partials | signs only RR ≥ 1:3 and stop ≥ 5 × cost |
@@ -48,7 +48,7 @@ The sign-offs are the code's checks, run on every read; no human has reviewed th
 
 ## 4. Backtest
 
-In-sample: first 60 % of the M5 period (to 2026-10-03); out-of-sample: the rest. Rules were fixed before the run; 0 tuning passes. Results in R after costs. "Gated" = strategy rules + 7 questions (the trades taken); "all" = every setup of the strategy (checklist ignored, a bigger but untradeable sample). Baseline = random direction at the same moments with the same stop and target (500 runs).
+In-sample: first 60 % of the M5 period (to 2026-10-04); out-of-sample: the rest. Rules were fixed before the run; 0 tuning passes. Results in R after costs. "Gated" = strategy rules + 7 questions (the trades taken); "all" = every setup of the strategy (checklist ignored, a bigger but untradeable sample). Baseline = random direction at the same moments with the same stop and target (500 runs).
 
 **Data verdict NOT FIT: the numbers below are kept for transparency only. They are NOT VALID.**
 
@@ -56,7 +56,7 @@ In-sample: first 60 % of the M5 period (to 2026-10-03); out-of-sample: the rest.
 |---|---|---|---|---|---|---|
 | S1 HTF trend continuation | 0 | 0 trades | 0 trades | 0 trades | 0 trades | — |
 | S2 PDH / PDL & external liquidity sweep reversal | 1 | 0 trades | 0 trades | 1 tr · win 0.0 % · exp -1.08R · PF 0.0 · DD 1.08R · streak 1 | 0 trades | — |
-| S3 Asian range sweep + killzone (Power of 3 / Judas swing) | 1 | 0 trades | 0 trades | 0 trades | 1 tr · win 0.0 % · exp -1.13R · PF 0.0 · DD 1.13R · streak 1 | -0.14R |
+| S3 Asian range sweep + killzone (Power of 3 / Judas swing) | 2 | 0 trades | 0 trades | 0 trades | 2 tr · win 50.0 % · exp -0.45R · PF 0.21 · DD 1.13R · streak 1 | -0.09R |
 | S4 Single-candle OB & wick mitigation | 0 | 0 trades | 0 trades | 0 trades | 0 trades | — |
 
 Managed (50 % at 1:3, BE after an M5 BOS), same trades:
@@ -65,14 +65,14 @@ Managed (50 % at 1:3, BE after an M5 BOS), same trades:
 |---|---|---|
 | S1 | 0 trades | 0 trades |
 | S2 | 0 trades | 0 trades |
-| S3 | 0 trades | 1 tr · win 0.0 % · exp -0.13R · PF 0.0 · DD 0.13R · streak 1 |
+| S3 | 0 trades | 2 tr · win 0.0 % · exp -0.12R · PF 0.0 · DD 0.23R · streak 2 |
 | S4 | 0 trades | 0 trades |
 
-Why setups were not taken (the 7 questions, across all 2 setups; one setup can fail several):
+Why setups were not taken (the 7 questions, across all 3 setups; one setup can fail several):
 
-- H1 bias by a body-close break in the trade's direction: 2
+- HTF (H4) bias by a body-close break in the trade's direction: 3
+- Reward ≥ 3R: 2
 - London / New York hours, no Friday evening or Monday morning, no high-impact news within the window: 1
-- Reward ≥ 3R: 1
 
 Trades: `trades.csv` (every setup, its checklist answers and why it failed, its plain and managed result).
 

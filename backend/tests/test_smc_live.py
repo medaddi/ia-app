@@ -16,15 +16,23 @@ def candles(pair: str, tf: str) -> list[Candle]:
                 for r in csv.DictReader(f)]
 
 
-def test_the_desk_reads_every_strategy_of_a_pair():
-    m5, h1 = candles("XAUUSD", "M5"), candles("XAUUSD", "H1")
-    if not m5:
-        return
-    t = desk.read_team("XAU/USD", desk.BY_SYMBOL["XAU/USD"], m5, h1, m5[-1].time + 300)
-    assert t["success"] and [s["id"] for s in t["strategies"]] == ["S1", "S2", "S3", "S4"]
-    assert all(s["status"] in ("SIGNAL", "BLOCKED", "WATCHING", "IDLE") for s in t["strategies"])
-    for s in t["signals"]:  # a signal passed its rules AND the 7 questions
-        assert s["pass"] and len(s["checklist"]) == 7 and all(q["ok"] for q in s["checklist"])
+def test_each_team_trades_only_its_pair_strategies_from_the_guide():
+    from app.smc import playbook
+    for pair in ("XAU/USD", "EUR/USD", "EUR/CHF"):
+        k = pair.replace("/", "")
+        m5, h1 = candles(k, "M5"), candles(k, "H1")
+        if not m5:
+            continue
+        t = desk.read_team(pair, desk.BY_SYMBOL[pair], m5, h1, m5[-1].time + 300)
+        assert t["success"] and [s["id"] for s in t["strategies"]] == playbook.STRATEGIES[k]
+        for row in t["strategies"]:
+            assert row["name"] == playbook.NAMES[k][row["id"]] and row["claimed"] == playbook.CLAIMED[(k, row["id"])]
+            assert row["status"] in ("SIGNAL", "BLOCKED", "WATCHING", "IDLE")
+        for s in t["signals"]:  # a signal passed its rules AND the guide's checklist
+            assert s["pass"] and len(s["checklist"]) == 6 and all(q["ok"] for q in s["checklist"])
+        ch = t["chart"]  # the chart shows the pair's strategy: its lines and windows, never the old S1-S4 boxes
+        assert set(ch) >= {"boxes", "segments", "labels", "lines", "windows", "trade", "trend", "premium"}
+        assert not any(b["label"].endswith("Order Block") for b in ch["boxes"])
 
 
 def test_the_chart_analysis_uses_only_closed_candles_and_stays_still():
@@ -89,4 +97,4 @@ def test_a_new_setup_is_sent_once(monkeypatch):
     assert sent == [("EUR/USD", sig["id"])] and "telegram 1" in first["EUR/USD"] and second["EUR/USD"] == "signal already sent"
     assert any(x["id"] == sig["id"] for x in notify.recent())
     text = notify.message(sig, "EUR/USD", 5)
-    assert "BUY EUR/USD" in text and "Limit <code>1.10000</code>" in text and "not financial advice" in text
+    assert "BUY EUR/USD" in text and "Buy zone <code>1.10000" in text and "limit at <code>1.10000</code>" in text and "not financial advice" in text

@@ -1,4 +1,4 @@
-# Definitions (v0.1)
+# Definitions (v0.2)
 
 **Source note.** The brief names a 10-episode Darija SMC masterclass script as the authority. **That script was not
 provided to the team.** Every definition below comes from the brief's own summary of the script (marked **SCRIPT
@@ -13,7 +13,7 @@ All times are UTC. A candle's time is its OPEN; it is "known" only at its close.
 | Term | Operational definition (what the code does) | Source |
 |---|---|---|
 | Body close | The candle's close price. Only a close beyond a level breaks it. | SCRIPT (brief) |
-| Wick sweep / liquidity sweep | High above a level (or low below) **and** close back on the other side. Not a BOS. After a sweep the level moves to the wick tip: only a close beyond the tip breaks structure. | SCRIPT (brief); the level moving to the tip is Team interpretation |
+| Wick sweep / liquidity sweep | High above a level (or low below) **and** close back on the other side (S2 / S3: within 3 M5 candles of the first candle beyond it, else it is a breakout; v0.2). Not a BOS. After a sweep the level moves to the wick tip: only a close beyond the tip breaks structure. | SCRIPT (brief); the level moving to the tip is Team interpretation |
 | Mother candle | In an up leg, the candle with the highest high so far (mirror: lowest low in a down leg). | SCRIPT (brief) |
 | Inside bar | A candle whose high and low are both inside the mother candle's range. It never confirms a swing. | SCRIPT (brief) |
 | Valid pullback | A later candle trades below the mother candle's LOW (up leg; mirror for a down leg), by wick or body. | SCRIPT (brief); "wick or body" is Team interpretation |
@@ -49,4 +49,6 @@ All times are UTC. A candle's time is its OPEN; it is "known" only at its close.
 | Break-even | Stop to entry only after an M5 BOS (body close) in favour after the fill. Tested in the "managed" results only. | SCRIPT (brief) |
 | Partials | 50 % at 1:3 (the brief says 25–50 %). Tested in the "managed" results only. | SCRIPT (brief); 50 % is Team interpretation |
 | Trailing | **Not implemented** (the managed result keeps the rest to TP). | Open item |
+| HTF bias (question 1) | The trend of H4 structure built from H1 (UTC 4-hour slots), from the H4 candles closed at the entry time (v0.2). | SCRIPT (brief: "HTF bias (4H or 1H)"); H4 is Team interpretation |
+| LTF IDM (S1) | The first M5 pullback swing (a low for a buy) confirmed within 24 M5 candles after the M5 CHoCH, sitting in front of the entry (v0.2). | SCRIPT (brief); window is Team interpretation |
 | Master checklist | 7 yes / no questions, all must pass. See `RULEBOOK.md`. | SCRIPT (brief, Episode 10); exact wording unverified |

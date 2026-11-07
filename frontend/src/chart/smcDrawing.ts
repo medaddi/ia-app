@@ -1,5 +1,6 @@
 /**
- * The pair team's analysis drawn on the chart (backend smc/chart.py): order blocks and FVGs as labelled boxes, BOS / CHoCH /
+ * The pair's strategy drawn on the chart (backend smc/playbook.py draw()): its indicator lines (Bollinger 3σ, EMA 20/50/200),
+ * its time windows (Silver Bullet, killzones, reversion hours) as shaded bands, its levels, and the setup's zones. Also: order blocks and FVGs as labelled boxes, BOS / CHoCH /
  * IDM / liquidity as short labelled segments from the candle they start on to the candle they end on, "Liquidity Sweep"
  * at the wick tip, and the setup's trade as TP / SL areas. A lightweight-charts series primitive: every object is placed
  * by TIME (interpolated between bars, so an H1 object sits right on an M5 or a D1 chart) and redrawn with the view.
@@ -10,8 +11,12 @@ import type { IChartApi, IPrimitivePaneRenderer, IPrimitivePaneView, ISeriesApi,
 export interface DrawBox { from: number; to: number; top: number; bottom: number; kind: 'ob' | 'fvg'; dir: number; label: string }
 export interface DrawSegment { from: number; to: number; price: number; kind: 'bos' | 'choch' | 'sweep' | 'idm' | 'eq' | 'liquidity' | 'session'; dir: number; label: string }
 export interface DrawLabel { time: number; price: number; text: string; above: boolean; kind: string }
-export interface DrawTrade { from: number; to: number; entry: number; sl: number; tp: number; dir: number; label: string }
-export interface SmcDrawing { boxes: DrawBox[]; segments: DrawSegment[]; labels: DrawLabel[]; trade: DrawTrade | null }
+export interface DrawTrade { from: number; to: number; entry: number; zone?: [number, number] | null; sl: number; tp: number; dir: number; label: string }
+/** An indicator line: [time, value] points, drawn as a polyline. */
+export interface DrawLine { points: [number, number][]; color: string; label: string; dash?: boolean }
+/** A time window of the strategy (e.g. the Silver Bullet hour): a shaded band over the whole height. */
+export interface DrawWindow { from: number; to: number; label: string }
+export interface SmcDrawing { boxes: DrawBox[]; segments: DrawSegment[]; labels: DrawLabel[]; trade: DrawTrade | null; lines?: DrawLine[]; windows?: DrawWindow[] }
 
 type Theme = 'dark' | 'light';
 const BULL = '#16C784', BEAR = '#EA3943';
@@ -90,6 +95,33 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
       ctx.textBaseline = 'middle';
       const clampX = (x: number) => Math.max(0, Math.min(W, x));
 
+      // 0. the strategy's time windows (shaded bands, label at the top) and its indicator lines
+      (d.windows ?? []).forEach((w, wi) => {
+        const x0 = this.x(w.from), x1 = this.x(w.to);
+        if (x0 === null || x1 === null) return;
+        const a = clampX(x0), b = clampX(x1);
+        if (b - a < 2) return;
+        ctx.fillStyle = dark ? 'rgba(212,175,55,0.07)' : 'rgba(212,175,55,0.10)';
+        ctx.fillRect(a, 0, b - a, mediaSize.height);
+        ctx.fillStyle = dark ? 'rgba(212,175,55,0.85)' : 'rgba(146,112,12,0.95)';
+        ctx.textAlign = 'left';
+        ctx.fillText(w.label, Math.max(4, Math.min(a + 4, W - ctx.measureText(w.label).width - 64)), 12 + 14 * wi);  // kept clear of the price scale  // one row per window: overlapping windows never cover each other's name
+      });
+      for (const l of d.lines ?? []) {
+        ctx.strokeStyle = l.color; ctx.lineWidth = 1.25; ctx.setLineDash(l.dash ? [5, 4] : []);
+        ctx.beginPath();
+        let started = false, lx = 0, ly = 0;
+        for (const [t, v] of l.points) {
+          const x = this.x(t), y = this.y(v);
+          if (x === null || y === null) { started = false; continue; }
+          if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+          lx = x; ly = y;
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (started && l.label && lx > 0 && lx <= W) this.tag(ctx, Math.min(lx, W) - 6, ly - 9, l.label, l.color, 'right');  // inside, above its line's end
+      }
+
       // 1. the trade: TP area and SL area from the signal on
       if (d.trade) {
         const t = d.trade;
@@ -98,6 +130,11 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
           const a = clampX(x0), b = clampX(x1);
           ctx.fillStyle = 'rgba(22,199,132,0.16)'; ctx.fillRect(a, Math.min(ye, yt), b - a, Math.abs(yt - ye));
           ctx.fillStyle = 'rgba(234,57,67,0.16)'; ctx.fillRect(a, Math.min(ye, ys), b - a, Math.abs(ys - ye));
+          // the entry ZONE (a band, not one price): the limit is its near edge, the trade is on once price is inside
+          const zt = t.zone ? this.y(t.zone[1]) : null, zb = t.zone ? this.y(t.zone[0]) : null;
+          if (zt !== null && zb !== null) {
+            ctx.fillStyle = 'rgba(212,175,55,0.22)'; ctx.fillRect(a, Math.min(zt, zb), b - a, Math.max(2, Math.abs(zb - zt)));
+          }
           ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
           ctx.beginPath(); ctx.moveTo(a, ye); ctx.lineTo(b, ye); ctx.stroke();
           this.tag(ctx, a + 6, ye + (t.dir > 0 ? 10 : -10), t.label, '#D4AF37', 'left');

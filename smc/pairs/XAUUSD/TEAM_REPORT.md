@@ -4,8 +4,8 @@ Educational research. Not financial advice, not a signal service, no guarantee. 
 
 ## 1. Executive summary
 
-- **Data:** Yahoo Finance; LTF (M5) 2026-08-27 → 2026-11-05 (about 70 days), H1 2024-06-14 → 2026-11-05. M5 data verdict: **FIT**. See `../../DATA_QUALITY.md`.
-- **Sample:** 46 setups across S1–S4; **0 passed all 7 questions** (the trades the playbook takes). Every strategy is far below 100 trades: **statistically weak, no conclusion possible.**
+- **Data:** Yahoo Finance; LTF (M5) 2026-08-28 → 2026-11-06 (about 70 days), H1 2024-06-16 → 2026-11-06. M5 data verdict: **FIT**. See `../../DATA_QUALITY.md`.
+- **Sample:** 41 setups across S1–S4; **4 passed all 7 questions** (the trades the playbook takes). Every strategy is far below 100 trades: **statistically weak, no conclusion possible.**
 - **What works:** not known. No strategy has enough trades, in sample or out of sample, to say it has an edge.
 - **What does not work:** not known either, for the same reason.
 - **Key risks:** tiny sample; a single fixed cost (2.5 + 0.5 pips) that under-states news and rollover spreads; no news calendar for the test period; the source script was not available, so every rule is the brief's summary or a team interpretation.
@@ -33,7 +33,7 @@ The team's seven agents run live in the app on this pair (backend `app/smc/agent
 | Role | Owns | Sign-off for v0.1 |
 |---|---|---|
 | Lead Strategist | decision, rule book, `CHANGELOG.md` | published v0.1; a setup is published only when its rules and all 7 questions pass |
-| Structure Analyst | H1 swings, IDM, BOS / CHoCH, dealing range | signs when the H1 bias and range are defined |
+| Structure Analyst | H4 bias (question 1), H1 swings, IDM, BOS / CHoCH, dealing range | signs when the H4 bias and range are defined |
 | Liquidity & Session Analyst | PDH / PDL, Asian range, killzones, DST, news | objects: DST unverified, no news calendar |
 | Entry Specialist | OB / FVG validity, LTF confirmation | signs a setup's zone; otherwise reports what each strategy waits for |
 | Risk Manager | 1 % sizing, stop vs cost, BE, partials | signs only RR ≥ 1:3 and stop ≥ 5 × cost |
@@ -48,33 +48,32 @@ The sign-offs are the code's checks, run on every read; no human has reviewed th
 
 ## 4. Backtest
 
-In-sample: first 60 % of the M5 period (to 2026-10-08); out-of-sample: the rest. Rules were fixed before the run; 0 tuning passes. Results in R after costs. "Gated" = strategy rules + 7 questions (the trades taken); "all" = every setup of the strategy (checklist ignored, a bigger but untradeable sample). Baseline = random direction at the same moments with the same stop and target (500 runs).
+In-sample: first 60 % of the M5 period (to 2026-10-09); out-of-sample: the rest. Rules were fixed before the run; 0 tuning passes. Results in R after costs. "Gated" = strategy rules + 7 questions (the trades taken); "all" = every setup of the strategy (checklist ignored, a bigger but untradeable sample). Baseline = random direction at the same moments with the same stop and target (500 runs).
 
 **Data verdict FIT for M5, but the sample is far too small: statistically weak.**
 
 | Strategy | setups | gated · in-sample | gated · out-of-sample | all · in-sample | all · out-of-sample | baseline (all, OOS) |
 |---|---|---|---|---|---|---|
-| S1 HTF trend continuation | 0 | 0 trades | 0 trades | 0 trades | 0 trades | — |
-| S2 PDH / PDL & external liquidity sweep reversal | 7 | 0 trades | 0 trades | 2 tr · win 0.0 % · exp -1.04R · PF 0.0 · DD 2.07R · streak 2 | 5 tr · win 40.0 % · exp +0.21R · PF 1.33 · DD 3.13R · streak 3 | +0.43R |
-| S3 Asian range sweep + killzone (Power of 3 / Judas swing) | 11 | 0 trades | 0 trades | 4 tr · win 25.0 % · exp -0.20R · PF 0.74 · DD 3.13R · streak 3 | 5 tr · win 0.0 % · exp -0.92R · PF 0.0 · DD 4.6R · streak 5 | -0.73R |
-| S4 Single-candle OB & wick mitigation | 28 | 0 trades | 0 trades | 10 tr · win 40.0 % · exp +0.28R · PF 1.51 · DD 4.56R · streak 3 | 5 tr · win 60.0 % · exp +0.91R · PF 3.2 · DD 1.04R · streak 1 | +0.16R |
+| S1 HTF trend continuation | 3 | 0 trades | 0 trades | 1 tr · win 0.0 % · exp -1.03R · PF 0.0 · DD 1.03R · streak 1 | 0 trades | — |
+| S2 PDH / PDL & external liquidity sweep reversal | 3 | 0 trades | 0 trades | 1 tr · win 0.0 % · exp -1.03R · PF 0.0 · DD 1.03R · streak 1 | 2 tr · win 50.0 % · exp +0.81R · PF 2.53 · DD 1.06R · streak 1 | +0.79R |
+| S3 Asian range sweep + killzone (Power of 3 / Judas swing) | 9 | 2 tr · win 0.0 % · exp -1.05R · PF 0.0 · DD 2.09R · streak 2 | 0 trades | 3 tr · win 33.3 % · exp +0.08R · PF 1.11 · DD 2.09R · streak 2 | 5 tr · win 0.0 % · exp -0.92R · PF 0.0 · DD 4.6R · streak 5 | -0.73R |
+| S4 Single-candle OB & wick mitigation | 26 | 2 tr · win 50.0 % · exp +1.20R · PF 8.7 · DD 0.31R · streak 1 | 0 trades | 8 tr · win 50.0 % · exp +0.61R · PF 2.43 · DD 3.12R · streak 3 | 5 tr · win 60.0 % · exp +0.91R · PF 3.2 · DD 1.04R · streak 1 | +0.16R |
 
 Managed (50 % at 1:3, BE after an M5 BOS), same trades:
 
 | Strategy | gated · OOS | all · OOS |
 |---|---|---|
 | S1 | 0 trades | 0 trades |
-| S2 | 0 trades | 5 tr · win 40.0 % · exp +0.61R · PF 3.68 · DD 1.13R · streak 3 |
+| S2 | 0 trades | 2 tr · win 50.0 % · exp +0.52R · PF 1.98 · DD 1.06R · streak 1 |
 | S3 | 0 trades | 5 tr · win 0.0 % · exp -0.64R · PF 0.0 · DD 3.17R · streak 5 |
-| S4 | 0 trades | 5 tr · win 40.0 % · exp +0.82R · PF 4.68 · DD 1.04R · streak 2 |
+| S4 | 0 trades | 5 tr · win 60.0 % · exp +1.16R · PF 6.38 · DD 1.04R · streak 1 |
 
-Why setups were not taken (the 7 questions, across all 46 setups; one setup can fail several):
+Why setups were not taken (the 7 questions, across all 41 setups; one setup can fail several):
 
-- H1 bias by a body-close break in the trade's direction: 39
-- London / New York hours, no Friday evening or Monday morning, no high-impact news within the window: 23
-- Reward ≥ 3R: 22
-- Entry in discount of the H1 range: 4
-- Entry in premium of the H1 range: 1
+- HTF (H4) bias by a body-close break in the trade's direction: 26
+- London / New York hours, no Friday evening or Monday morning, no high-impact news within the window: 20
+- Reward ≥ 3R: 19
+- Entry in discount of the H1 range: 3
 
 Trades: `trades.csv` (every setup, its checklist answers and why it failed, its plain and managed result).
 

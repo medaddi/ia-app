@@ -70,6 +70,7 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
   const [assets, setAssets] = useState<MarketAsset[] | null>(null);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [sent, setSent] = useState<TeamSetup[]>([]);
+  const [results, setResults] = useState<{ trades: number; wins: number; losses: number; breakeven: number; winRate: number | null; totalR: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
 
@@ -80,6 +81,8 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
       try {
         const [a, n, g] = await Promise.all([apiJson<{ assets: MarketAsset[] }>('/api/market/assets'), apiJson<{ news: NewsItem[] }>('/api/news').catch(() => ({ news: [] as NewsItem[] })),
           apiJson<{ signals: TeamSetup[] }>('/api/smc/signals').catch(() => ({ signals: [] as TeamSetup[] }))]);
+        apiJson<{ all: { trades: number; wins: number; losses: number; breakeven: number; winRate: number | null; totalR: number } }>('/api/smc/results')
+          .then(x => { if (!stop) setResults(x.all); }).catch(() => {});
         if (stop) return;
         setAssets(a.assets);
         setNews(n.news);
@@ -158,7 +161,22 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
       <Reveal i={2}>
         <Panel icon={<Users className="w-4 h-4" />} title={t('Team setups', 'Setups des équipes', 'سيتابات الفرق')}
           right={<span className="text-[11px] text-slate-500">{t('research, not advice', 'recherche, pas un conseil', 'بحث، ماشي نصيحة')}</span>}>
-          {sent.length === 0 ? <p className="text-xs text-slate-500">{t('No setup has passed the 7 questions yet.', 'Aucun setup n’a encore passé les 7 questions.', 'حتى سيتاب ما دوز الأسئلة 7 باقي.')}</p> : (
+          {/* the teams' REAL results: each setup sent, followed by the trade manager to its end */}
+          <div className="mb-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+            {[
+              [t('Closed trades', 'Trades clôturés', 'صفقات سدات'), results ? String(results.trades) : '—', 'text-white'],
+              [t('Win rate', 'Taux de réussite', 'نسبة الربح'), results?.winRate != null ? `${results.winRate} %` : '—', 'text-gold-200'],
+              [t('Won · BE · lost', 'Gagnés · BE · perdus', 'ربح · BE · خسارة'), results ? `${results.wins} · ${results.breakeven} · ${results.losses}` : '—', 'text-slate-200'],
+              [t('Result', 'Résultat', 'النتيجة'), results ? `${results.totalR >= 0 ? '+' : ''}${results.totalR}R` : '—', results && results.totalR < 0 ? 'text-rose-300' : 'text-emerald-300'],
+            ].map(([label, value, tone]) => (
+              <div key={label} className="rounded-xl bg-surface border border-line p-2.5">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+                <div className={`mt-1 font-mono text-sm font-semibold ${tone}`}>{value}</div>
+              </div>
+            ))}
+          </div>
+          {results && results.trades < 30 && <p className="mb-2 text-[11px] text-slate-500">{t('Fewer than 30 closed trades: too few to judge the teams.', 'Moins de 30 trades clôturés : trop peu pour juger les équipes.', 'أقل من 30 صفقة سدات: قليل بزاف باش نحكمو على الفرق.')}</p>}
+          {sent.length === 0 ? <p className="text-xs text-slate-500">{t('No setup has passed its questions yet.', 'Aucun setup n’a encore passé ses questions.', 'حتى سيتاب ما دوز الأسئلة ديالو باقي.')}</p> : (
             <ul className="space-y-1.5">
               {sent.slice(0, 8).map(x => {
                 const dec = x.symbol === 'XAU/USD' ? 2 : 5;
@@ -170,6 +188,10 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
                       <span className="text-gold-300">{x.strategy}</span>
                       <span className={x.direction === 'BUY' ? 'text-emerald-300' : 'text-rose-300'}>{x.direction} {x.entry.toFixed(dec)}</span>
                       <span className="text-slate-400">SL {x.sl.toFixed(dec)} · TP {x.tp.toFixed(dec)} · 1:{x.rr}</span>
+                      <span className={`ms-auto ${x.outcome === 'WIN' ? 'text-emerald-300' : x.outcome === 'LOSS' ? 'text-rose-300' : x.status === 'OPEN' ? 'text-sky-300' : 'text-slate-400'}`}>
+                        {x.status === 'CLOSED' ? `${x.outcome === 'WIN' ? t('won', 'gagné', 'ربح') : x.outcome === 'LOSS' ? t('lost', 'perdu', 'خسارة') : 'BE'} ${x.resultR != null ? `${x.resultR >= 0 ? '+' : ''}${x.resultR.toFixed(2)}R` : ''}`
+                          : x.status === 'OPEN' ? t('in trade', 'en cours', 'خدامة') : x.status === 'EXPIRED' ? t('expired', 'expiré', 'سالا') : x.status === 'MISSED' ? t('missed', 'raté', 'فاتت') : t('pending', 'en attente', 'كتسنا')}
+                      </span>
                     </button>
                   </li>
                 );
