@@ -88,6 +88,13 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
           <p className="text-[11px] uppercase tracking-wider text-slate-500">{t('This pair’s strategies (your guide)', 'Les stratégies de cette paire (votre guide)', 'الاستراتيجيات ديال هاد الزوج (الدليل ديالك)')}</p>
         </div>
       )}
+      {team?.success && team.strategies.length === 0 && (
+        <p className="mt-1.5 rounded-lg border border-line bg-white/[0.02] px-3 py-2 text-xs text-slate-400">
+          {t('No strategy passed the one-year test for this pair (win rate ≥ 55 % and profit in both halves): the team keeps its analysis and sends no setup.',
+            'Aucune stratégie n’a passé le test d’un an pour cette paire (réussite ≥ 55 % et gain sur les deux moitiés) : l’équipe garde son analyse et n’envoie aucun setup.',
+            'حتى استراتيجية ما دوزات التيست ديال عام ف هاد الزوج (ربح ≥ 55 % ومربحة ف جوج الأجزاء): الفريق كيخلي التحليل وما كيصيفط حتى سيتاب.')}
+        </p>
+      )}
       {team?.success && (
         <ul className="mt-1.5 space-y-1.5">
           {team.strategies.map(s => {

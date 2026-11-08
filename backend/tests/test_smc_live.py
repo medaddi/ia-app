@@ -18,7 +18,7 @@ def candles(pair: str, tf: str) -> list[Candle]:
 
 def test_each_team_trades_only_its_pair_strategies_from_the_guide():
     from app.smc import playbook
-    for pair in ("XAU/USD", "EUR/USD", "EUR/CHF"):
+    for pair in ("XAU/USD", "EUR/USD", "EUR/CHF", "AUD/CAD"):
         k = pair.replace("/", "")
         m5, h1 = candles(k, "M5"), candles(k, "H1")
         if not m5:

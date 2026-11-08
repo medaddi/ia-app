@@ -140,3 +140,14 @@
   nothing to judge). Switched on only: 77 trades, win 61 %, +30.79R — chosen on the same year, so optimistic.
 - Note: with gold S4 off, gold S1 takes one more trade (6), and its second half is −0.59R; not re-filtered (no
   repeated selection on the same data).
+
+## v0.9 · 2026-11-08 · only the profitable, high-win-rate strategies stay (the user's request)
+- EUR/USD INST-AMD re-coded by the spec's own logic first (no displacement asked for EUR/USD, the sweep's EXTREME must
+  reach VWAP ∓ 1.5σ / an H1 FVG, distribution: TP1 the daily VWAP, TP2 the opposite session extreme): S1 2 trades
+  −0.69R, S2 0, S3 17 trades 24 % (second half a loss), S4 −2.39R. Still no profit: removed.
+- Removed from the code (git history keeps them): GOLD-QUANT S1–S4, INST-AMD S1–S4, CABLE-RAID S1–S4, SWISS-REV S1 and
+  S3, RISK-REGIME S1–S4. The rule: kept = win rate >= 55 % and profit in both halves of the one-year test.
+- Kept: EUR/USD SnapBack 3σ (27 tr, 70 %, +9.68R), EUR/CHF SWISS-REV S2 (11 tr, 64 %, +6.31R), AUD/CAD range
+  reversion (17 tr, 59 %, +5.94R). Together 55 trades, 65 %, +21.93R — selected on the same year: optimistic.
+- XAU/USD, GBP/USD and AUD/CHF have no strategy that passed: their teams keep the analysis (charts, badges, agents,
+  data checks) and send nothing; the card says so.

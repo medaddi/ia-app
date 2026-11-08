@@ -42,40 +42,21 @@ from zoneinfo import ZoneInfo
 M5S, M15S, H1S, H4S, DAY = 300, 900, 3600, 14400, 86400
 NY = ZoneInfo("America/New_York")
 
-# The pair profiles (the master spec, 2026-11-08). Kept from the earlier guide, by the user's rule (win rate >= 55 % and
-# profitable in both halves of the year test): EUR/USD SnapBack 3σ (SB) and AUD/CAD range reversion (P).
-STRATEGIES = {"XAUUSD": ["S1", "S2", "S3", "S4"], "EURUSD": ["S1", "S2", "S3", "S4", "SB"], "GBPUSD": ["S1", "S2", "S3", "S4"],
-              "EURCHF": ["S1", "S2", "S3"], "AUDCAD": ["P"], "AUDCHF": ["S1", "S2", "S3", "S4"]}
-FAMILY = {"XAUUSD": "GOLD-QUANT S1–S4", "EURUSD": "INST-AMD S1–S4 + SnapBack", "GBPUSD": "CABLE-RAID S1–S4", "EURCHF": "SWISS-REV S1–S3",
-          "AUDCAD": "Commodity range reversion", "AUDCHF": "RISK-REGIME S1–S4"}
-NAMES = {
-    "XAUUSD": {"S1": "Bullish Asian / London low sweep + M5 displacement & FVG", "S2": "Bearish Asian / London high sweep + M5 displacement & FVG",
-               "S3": "NY COMEX momentum continuation pullback", "S4": "PDH / PDL rejection + M15 MSS"},
-    "EURUSD": {"S1": "Bullish London / NY Judas into discount POI", "S2": "Bearish London / NY Judas into premium POI",
-               "S3": "NY raid of the London extremes + OTE", "S4": "Daily VWAP rotation", "SB": "SnapBack 3σ mean reversion (kept)"},
-    "GBPUSD": {"S1": "Bullish deep sweep + M15 reclaim + M5 breaker", "S2": "Bearish deep sweep + M15 reclaim + M5 breaker",
-               "S3": "London open volatility squeeze", "S4": "NY overlap pullback to the H1 order block"},
-    "EURCHF": {"S1": "Bullish extreme discount fade (Z <= -2.2)", "S2": "Bearish extreme premium fade (Z >= +2.2)",
-               "S3": "VWAP ± 2.5σ European exhaustion"},
-    "AUDCAD": {"P": "Commodity range reversion (kept)"},
-    "AUDCHF": {"S1": "Risk-on trend pullback (OTE + H1 OB + M15 BOS)", "S2": "Risk-off trend pullback (OTE + H1 OB + M15 BOS)",
-               "S3": "Bullish quiet-regime range fade", "S4": "Bearish quiet-regime range fade"},
-}
-CLAIMED = {(k, sid): "the spec gives no win rate: measured here" for k, v in STRATEGIES.items() for sid in v}
-CLAIMED.update({("EURUSD", "SB"): "62.0 % (SteadyPips, 79 trades, 1:1); 70 % on our 1-year test", ("AUDCAD", "P"): "~60 %+; 59 % on our 1-year test",
-                ("XAUUSD", "S1"): "spec example: 61.9 % on 42 setups (90 days)", ("EURCHF", "S1"): "spec example: 68.4 % on 2.2σ fades"})
-MIN_RR = {**{("XAUUSD", s): 2.2 for s in ("S1", "S2", "S3")}, ("XAUUSD", "S4"): 2.0,
-          **{("EURUSD", s): 2.0 for s in ("S1", "S2", "S3", "S4")}, ("EURUSD", "SB"): 1.0,
-          **{("GBPUSD", s): 2.5 for s in ("S1", "S2", "S3", "S4")},
-          **{("EURCHF", s): 1.8 for s in ("S1", "S2", "S3")}, ("AUDCAD", "P"): 1.5,
-          ("AUDCHF", "S1"): 2.0, ("AUDCHF", "S2"): 2.0, ("AUDCHF", "S3"): 1.5, ("AUDCHF", "S4"): 1.5}
-# Turned off on 2026-11-08 at the user's request ("Yes, turn them off"): the sub-strategies that LOST in the one-year
-# Dukascopy test (net R <= 0, or a loss in either half). They are still measured by smc/tools/playbook_test.py, never sent.
-# CAUTION: chosen on the same data they are measured on; strategies with no trade in the year stay on (nothing to judge).
-DISABLED = {("XAUUSD", "S2"), ("XAUUSD", "S3"), ("XAUUSD", "S4"), ("EURUSD", "S3"), ("EURUSD", "S4"), ("GBPUSD", "S1"),
-            ("GBPUSD", "S3"), ("GBPUSD", "S4"), ("EURCHF", "S1"), ("EURCHF", "S3")}
-RISK_PCT = {**{("XAUUSD", s): 0.75 for s in ("S1", "S2", "S3", "S4")}}  # the spec: gold at most 0.75 %; the others 1 %
-MEAN_REVERSION = {("EURUSD", "SB"), ("EURCHF", "S1"), ("EURCHF", "S2"), ("EURCHF", "S3"), ("AUDCAD", "P"), ("AUDCHF", "S3"), ("AUDCHF", "S4")}
+# The strategies the teams trade (2026-11-08, the user: "remove the strategies without profit, keep only those with a
+# high win rate"; written: win rate >= 55 % and profitable in both halves of the one-year Dukascopy test). A pair with
+# no strategy that passed keeps its team's analysis and sends nothing.
+STRATEGIES = {"XAUUSD": [], "EURUSD": ["SB"], "GBPUSD": [], "EURCHF": ["S2"], "AUDCAD": ["P"], "AUDCHF": []}
+FAMILY = {"XAUUSD": "no proven strategy (analysis only)", "EURUSD": "SnapBack 3σ", "GBPUSD": "no proven strategy (analysis only)",
+          "EURCHF": "SWISS-REV S2", "AUDCAD": "Commodity range reversion", "AUDCHF": "no proven strategy (analysis only)"}
+NAMES = {"XAUUSD": {}, "EURUSD": {"SB": "SnapBack 3σ mean reversion"}, "GBPUSD": {},
+         "EURCHF": {"S2": "Bearish extreme premium fade (Z >= +2.2)"}, "AUDCAD": {"P": "Commodity range reversion"}, "AUDCHF": {}}
+CLAIMED = {("EURUSD", "SB"): "62.0 % (SteadyPips, 79 trades, 1:1); 70 % on our 1-year test",
+           ("EURCHF", "S2"): "spec example: 68.4 % on 2.2σ fades; 64 % on our 1-year test",
+           ("AUDCAD", "P"): "~60 %+; 59 % on our 1-year test"}
+MIN_RR = {("EURUSD", "SB"): 1.0, ("EURCHF", "S2"): 1.8, ("AUDCAD", "P"): 1.5}
+DISABLED: set = set()  # nothing switched off any more: the losing strategies were removed (2026-11-08)
+RISK_PCT: dict = {}  # 1 % for every strategy (the spec's 0.75 % was for gold, removed)
+MEAN_REVERSION = {("EURUSD", "SB"), ("EURCHF", "S2"), ("AUDCAD", "P")}
 NEWS_MIN = 15  # CHOICE: no red-folder release from 15 min before to 15 min after the entry (the guide: wait 10-15 min)
 
 
@@ -623,22 +604,15 @@ def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = 
     red-folder pause times (red_folder + eia_times); `d1`: daily candles for the ADR (built from H1 when not given);
     `macro`: macro_view() for the AUD/CHF gate and its risk-off exits."""
     daily = Daily(d1 if d1 else resample(h1, DAY))
-    from . import engines  # the master spec's engines (engines.py)
-    cx = engines.Ctx(m5, h1, daily) if key != "AUDCAD" else None
-    if key == "XAUUSD":
-        parts = [engines.gold(cx, pip, cost)]
-    elif key == "EURUSD":
-        parts = [engines.amd(cx, pip, cost), snapback(m5, h1, daily, key, pip, cost)]
-    elif key == "GBPUSD":
-        parts = [engines.cable(cx, pip, cost)]
+    from . import engines  # what is left of the master spec's engines (engines.py)
+    if key == "EURUSD":
+        parts = [snapback(m5, h1, daily, key, pip, cost)]
     elif key == "EURCHF":
-        parts = [engines.swiss(cx, pip, cost, swiss_shock)]
+        parts = [engines.swiss(engines.Ctx(m5, h1, daily), pip, cost, swiss_shock)]
     elif key == "AUDCAD":
         parts = [mean_reversion(m5, h1, daily, key, pip, cost)]
-    elif key == "AUDCHF":
-        parts = [engines.risk_regime(cx, pip, cost)]
     else:
-        return [], []
+        return [], []  # no strategy passed the user's rule for this pair
     s = sorted((x for p in parts for x in p[0]), key=lambda x: x["time"])
     w = sorted((x for p in parts for x in p[1]), key=lambda x: x["time"])
     seen = set()

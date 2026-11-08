@@ -262,6 +262,9 @@ def team_agents(pair: str, cfg: dict, m5, h1v, strategies: list[dict], chart: di
         no = next((why.get(q["q"].split(" · ", 1)[0], "the checklist says no") for q in blocked["checklist"] if not q["ok"]), "the checklist says no")
         decision = f"I pass on the {blocked['direction'].lower()}: {no}"
         status = "wait"
+    elif not strategies:
+        decision = "No proven strategy for this pair: I keep the analysis and send nothing"
+        status = "wait"
     else:
         decision = f"No trade: I wait for my setup ({playbook.team_name(key) if key in playbook.NAMES else 'the pair strategy'})"
         status = "wait"
@@ -318,19 +321,18 @@ def _profile(key: str, out: list[dict], c: dict, strategies: list[dict], pb: dic
         regime = "range mean-rev" if adx_ is not None and adx_ < 28 else "trend breakout warning" if adx_ is not None else "?"
         say("structure", f"H1 {regime} · Z {z:+.1f}σ · {zone}" if z is not None and zone else a["structure"]["finding"],
             f"VERIFIED · Z-score (EMA 50) {z:+.2f}σ · ADX {adx_:.1f} · mean {f(c['ema50'])}" if z is not None and adx_ and c.get("ema50") else "")
-        need = "≤ -2.2σ" if (z or 0) < 0 else "≥ +2.2σ"
-        if not signal:
-            say("lead", f"WAITING · Z-score at {z:+.1f}σ (needs {need} extreme)" if z is not None else a["lead"]["finding"])
+        if not signal:  # S2 only (the bearish fade): it waits for the premium extreme
+            say("lead", f"WAITING · Z-score at {z:+.1f}σ (S2 needs ≥ +2.2σ)" if z is not None else a["lead"]["finding"])
         if adx_ is not None and adx_ > 32:
             say("devil", "REGIME BREAK VETO: ADX over 32, mean reversion is off", status="warn")
     elif key == "AUDCHF":
         mode = c.get("regime", "?")
         say("structure", f"{mode} · ADX {adx_:.0f} · ER {er:.2f} · {zone}" if adx_ is not None and er is not None and zone else a["structure"]["finding"],
             "SCRIPT · TREND_PULLBACK: ADX >= 25 and ER30 >= 0.35 · RANGE_FADE: ADX < 22 and ER30 < 0.25 · else wait")
-        if not signal:
+        if not signal and strategies:
             say("lead", f"REGIME: {mode.replace('_', ' ')} · " + ("waiting for the H1 OTE pullback" if mode == "TREND_PULLBACK"
                 else "waiting for a 15 % / 85 % range extreme" if mode == "RANGE_FADE" else "no trade until the regime is clear"))
-    if not signal and miss and key != "EURCHF" and key != "AUDCHF":
+    if not signal and miss and key != "EURCHF" and key != "AUDCHF" and strategies:
         say("lead", f"ARMED · waiting for: {miss}")
 
     # Backtest Engineer: N, win rate, expectancy and the data fitness of each strategy (the spec's part 3)
@@ -346,7 +348,8 @@ def _profile(key: str, out: list[dict], c: dict, strategies: list[dict], pb: dic
         fit_all = data_fitness(max((y["all"]["trades"] for y in pb["strategies"].values()), default=0), feed)
         a["backtest"]["lines"] = rows + [l for l in a["backtest"]["lines"] if not l.startswith("VERIFIED · S") and not l.startswith("VERIFIED · P") and not l.startswith("HYPOTHESIS")]
         a["backtest"]["finding"] = (f"Data {best[2]} · {best[0]} N={best[1]['trades']} · win {best[1]['winRate']} % · EV {best[1]['expectancyR']:+.2f}R"
-                                    if best else f"Data {fit_all} · no strategy positive in both halves yet")
+                                    if best else (f"Data {fit_all} · no strategy positive in both halves yet" if pb["strategies"]
+                                                  else "No strategy passed the one-year test for this pair (win >= 55 % and profit in both halves)"))
         a["backtest"]["status"] = "ok" if best and best[2] == "FIT" else "warn"
 
     # Devil's Advocate: the live feed check replaces the old "NOT FIT" verdict (sweeps / FVGs on a gap are ignored, not trusted)

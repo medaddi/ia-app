@@ -34,13 +34,15 @@ def test_the_trade_is_closed_at_its_time():
 
 
 def test_each_strategy_asks_its_own_reward_and_news_blocks():
-    s = {"time": T0, "rr": 2.0, "sid": "S1"}
-    assert not playbook.checklist("XAUUSD", s, None)[2][1]  # GOLD-QUANT: 1:2.2
-    assert playbook.checklist("EURCHF", s, None)[2][1]  # SWISS-REV: 1:1.8
-    assert playbook.checklist("EURUSD", {**s, "rr": 1.0, "sid": "SB"}, None)[2][1]  # SnapBack (kept): 1:1 by design
-    near = playbook.checklist("EURUSD", {"time": T0, "rr": 3, "sid": "S1"}, [T0 + 10 * 60])
+    assert not playbook.checklist("EURCHF", {"time": T0, "rr": 1.5, "sid": "S2"}, None)[2][1]  # SWISS-REV S2: 1:1.8
+    assert playbook.checklist("EURCHF", {"time": T0, "rr": 2.0, "sid": "S2"}, None)[2][1]
+    assert playbook.checklist("EURUSD", {"time": T0, "rr": 1.0, "sid": "SB"}, None)[2][1]  # SnapBack: 1:1 by design
+    near = playbook.checklist("AUDCAD", {"time": T0, "rr": 3, "sid": "P"}, [T0 + 10 * 60])
     assert not near[1][1] and near[2][1]  # red news 10 minutes away: no
-    assert "0.75 %" in playbook.checklist("XAUUSD", s, None)[3][0]  # gold risks 0.75 %
+
+
+def test_only_the_strategies_that_passed_are_traded():
+    assert playbook.STRATEGIES == {"XAUUSD": [], "EURUSD": ["SB"], "GBPUSD": [], "EURCHF": ["S2"], "AUDCAD": ["P"], "AUDCHF": []}
 
 
 def test_new_york_times_follow_daylight_saving():
@@ -145,15 +147,3 @@ def test_zscore_efficiency_and_the_regime():
     ok = {"share": 0.0, "recentGap": False}
     assert data_fitness(42, ok) == "FIT" and data_fitness(20, ok) == "LIMITED SAMPLE" and data_fitness(10, ok) == "NOT FIT"
     assert data_fitness(42, {"share": 0.0, "recentGap": True}) == "NOT FIT"
-
-
-def test_a_strategy_turned_off_never_signals():
-    from tests.test_smc_live import candles
-    from app.smc import desk
-    m5, h1 = candles("GBPUSD", "M5"), candles("GBPUSD", "H1")
-    if not m5:
-        return
-    t = desk.read_team("GBP/USD", desk.BY_SYMBOL["GBP/USD"], m5, h1, m5[-1].time + 300)
-    st = {s["id"]: s["status"] for s in t["strategies"]}
-    assert st["S1"] == st["S3"] == st["S4"] == "OFF" and st["S2"] != "OFF"
-    assert all(s["strategy"] == "S2" for s in t["signals"])
