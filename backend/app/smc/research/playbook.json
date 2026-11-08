@@ -5,43 +5,164 @@
   "split": 1781274060,
   "to": 1793922900,
   "strategies": {
-   "P": {
-    "name": "ICT Silver Bullet / NY killzone sweep + FVG / OTE",
-    "claimed": "75-80 % in ICT studies (not guaranteed); R:R 1:2 to 1:4",
-    "setups": 49,
+   "S1": {
+    "name": "Bullish Asian / London low sweep + M5 displacement & FVG",
+    "claimed": "spec example: 61.9 % on 42 setups (90 days)",
+    "setups": 16,
+    "off": false,
     "states": {
-     "WIN": 16,
-     "LOSS": 11,
-     "MISSED": 6,
-     "EXPIRED": 16
+     "WIN": 5,
+     "LOSS": 7,
+     "EXPIRED": 3,
+     "MISSED": 1
     },
     "all": {
-     "trades": 10,
+     "trades": 6,
      "wins": 3,
-     "winRate": 30,
-     "totalR": -3.16,
-     "expectancyR": -0.316
+     "winRate": 50,
+     "totalR": 0.95,
+     "expectancyR": 0.159
     },
     "in": {
-     "trades": 7,
+     "trades": 4,
      "wins": 2,
-     "winRate": 29,
-     "totalR": -2.71,
-     "expectancyR": -0.387
+     "winRate": 50,
+     "totalR": 1.54,
+     "expectancyR": 0.385
     },
     "out": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.59,
+     "expectancyR": -0.293
+    },
+    "withoutNewsRule": {
+     "trades": 6,
+     "wins": 3,
+     "winRate": 50,
+     "totalR": 0.95,
+     "expectancyR": 0.159
+    },
+    "openThroughNews": 0
+   },
+   "S2": {
+    "name": "Bearish Asian / London high sweep + M5 displacement & FVG",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 13,
+    "off": true,
+    "states": {
+     "LOSS": 7,
+     "EXPIRED": 2,
+     "WIN": 3,
+     "MISSED": 1
+    },
+    "all": {
+     "trades": 6,
+     "wins": 2,
+     "winRate": 33,
+     "totalR": -3.55,
+     "expectancyR": -0.591
+    },
+    "in": {
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -2.61,
+     "expectancyR": -0.651
+    },
+    "out": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.94,
+     "expectancyR": -0.47
+    },
+    "withoutNewsRule": {
+     "trades": 7,
+     "wins": 3,
+     "winRate": 43,
+     "totalR": -3.41,
+     "expectancyR": -0.487
+    },
+    "openThroughNews": 0
+   },
+   "S3": {
+    "name": "NY COMEX momentum continuation pullback",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 6,
+    "off": true,
+    "states": {
+     "LOSS": 4,
+     "WIN": 2
+    },
+    "all": {
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -0.89,
+     "expectancyR": -0.221
+    },
+    "in": {
      "trades": 3,
      "wins": 1,
      "winRate": 33,
-     "totalR": -0.46,
-     "expectancyR": -0.152
+     "totalR": 0.15,
+     "expectancyR": 0.049
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.03,
+     "expectancyR": -1.034
     },
     "withoutNewsRule": {
-     "trades": 13,
-     "wins": 4,
-     "winRate": 31,
-     "totalR": -4.68,
-     "expectancyR": -0.36
+     "trades": 5,
+     "wins": 2,
+     "winRate": 40,
+     "totalR": 1.3,
+     "expectancyR": 0.259
+    },
+    "openThroughNews": 0
+   },
+   "S4": {
+    "name": "PDH / PDL rejection + M15 MSS",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 39,
+    "off": true,
+    "states": {
+     "BE": 3,
+     "WIN": 19,
+     "LOSS": 17
+    },
+    "all": {
+     "trades": 21,
+     "wins": 8,
+     "winRate": 38,
+     "totalR": 0.89,
+     "expectancyR": 0.042
+    },
+    "in": {
+     "trades": 11,
+     "wins": 5,
+     "winRate": 45,
+     "totalR": 3.09,
+     "expectancyR": 0.281
+    },
+    "out": {
+     "trades": 10,
+     "wins": 3,
+     "winRate": 30,
+     "totalR": -2.21,
+     "expectancyR": -0.221
+    },
+    "withoutNewsRule": {
+     "trades": 21,
+     "wins": 8,
+     "winRate": 38,
+     "totalR": 0.89,
+     "expectancyR": 0.042
     },
     "openThroughNews": 1
    }
@@ -58,22 +179,21 @@
   "split": 1781274060,
   "to": 1793922900,
   "strategies": {
-   "P1": {
-    "name": "London Judas swing",
-    "claimed": "no win rate given; R:R 1:2 (up to 1:3)",
-    "setups": 33,
+   "S1": {
+    "name": "Bullish London / NY Judas into discount POI",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 3,
+    "off": false,
     "states": {
-     "MISSED": 4,
-     "WIN": 17,
-     "LOSS": 11,
-     "EXPIRED": 1
+     "LOSS": 1,
+     "MISSED": 2
     },
     "all": {
-     "trades": 1,
+     "trades": 0,
      "wins": 0,
-     "winRate": 0,
-     "totalR": -1.12,
-     "expectancyR": -1.118
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "in": {
      "trades": 0,
@@ -83,25 +203,144 @@
      "expectancyR": null
     },
     "out": {
-     "trades": 1,
+     "trades": 0,
      "wins": 0,
-     "winRate": 0,
-     "totalR": -1.12,
-     "expectancyR": -1.118
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "withoutNewsRule": {
-     "trades": 1,
+     "trades": 0,
      "wins": 0,
-     "winRate": 0,
-     "totalR": -1.12,
-     "expectancyR": -1.118
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "openThroughNews": 0
    },
-   "P2": {
-    "name": "SnapBack 3\u03c3 mean reversion",
-    "claimed": "62.0 % (SteadyPips, 79 trades, 1:1, Jan 2024 - Mar 2026)",
+   "S2": {
+    "name": "Bearish London / NY Judas into premium POI",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 2,
+    "off": false,
+    "states": {
+     "LOSS": 2
+    },
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   },
+   "S3": {
+    "name": "NY raid of the London extremes + OTE",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 25,
+    "off": true,
+    "states": {
+     "LOSS": 5,
+     "EXPIRED": 7,
+     "MISSED": 10,
+     "WIN": 3
+    },
+    "all": {
+     "trades": 5,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -5.74,
+     "expectancyR": -1.148
+    },
+    "in": {
+     "trades": 4,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -4.56,
+     "expectancyR": -1.141
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.18,
+     "expectancyR": -1.178
+    },
+    "withoutNewsRule": {
+     "trades": 6,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -6.83,
+     "expectancyR": -1.138
+    },
+    "openThroughNews": 0
+   },
+   "S4": {
+    "name": "Daily VWAP rotation",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 10,
+    "off": true,
+    "states": {
+     "WIN": 3,
+     "LOSS": 7
+    },
+    "all": {
+     "trades": 7,
+     "wins": 2,
+     "winRate": 29,
+     "totalR": -2.39,
+     "expectancyR": -0.342
+    },
+    "in": {
+     "trades": 4,
+     "wins": 2,
+     "winRate": 50,
+     "totalR": 1.02,
+     "expectancyR": 0.255
+    },
+    "out": {
+     "trades": 3,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -3.41,
+     "expectancyR": -1.138
+    },
+    "withoutNewsRule": {
+     "trades": 9,
+     "wins": 3,
+     "winRate": 33,
+     "totalR": -2.44,
+     "expectancyR": -0.271
+    },
+    "openThroughNews": 0
+   },
+   "SB": {
+    "name": "SnapBack 3\u03c3 mean reversion (kept)",
+    "claimed": "62.0 % (SteadyPips, 79 trades, 1:1); 70 % on our 1-year test",
     "setups": 29,
+    "off": false,
     "states": {
      "WIN": 19,
      "LOSS": 10
@@ -149,80 +388,167 @@
   "split": 1781274060,
   "to": 1793922900,
   "strategies": {
-   "P1": {
-    "name": "London / NY overlap liquidity sweep",
-    "claimed": "no win rate given; R:R 1:2 to 1:3",
-    "setups": 86,
+   "S1": {
+    "name": "Bullish deep sweep + M15 reclaim + M5 breaker",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 27,
+    "off": true,
     "states": {
-     "WIN": 39,
-     "LOSS": 36,
-     "EXPIRED": 9,
-     "BE": 2
+     "EXPIRED": 6,
+     "MISSED": 3,
+     "LOSS": 14,
+     "WIN": 4
     },
     "all": {
-     "trades": 70,
-     "wins": 37,
-     "winRate": 53,
-     "totalR": -0.58,
-     "expectancyR": -0.008
+     "trades": 15,
+     "wins": 3,
+     "winRate": 20,
+     "totalR": -6.83,
+     "expectancyR": -0.455
     },
     "in": {
-     "trades": 40,
-     "wins": 22,
-     "winRate": 55,
-     "totalR": 0.16,
-     "expectancyR": 0.004
+     "trades": 10,
+     "wins": 2,
+     "winRate": 20,
+     "totalR": -5.07,
+     "expectancyR": -0.507
     },
     "out": {
-     "trades": 30,
-     "wins": 15,
-     "winRate": 50,
-     "totalR": -0.74,
-     "expectancyR": -0.025
+     "trades": 5,
+     "wins": 1,
+     "winRate": 20,
+     "totalR": -1.76,
+     "expectancyR": -0.351
     },
     "withoutNewsRule": {
-     "trades": 72,
-     "wins": 38,
-     "winRate": 53,
-     "totalR": 0.3,
-     "expectancyR": 0.004
+     "trades": 16,
+     "wins": 3,
+     "winRate": 19,
+     "totalR": -7.91,
+     "expectancyR": -0.495
     },
-    "openThroughNews": 14
+    "openThroughNews": 3
    },
-   "P2": {
-    "name": "EMA 20/50/200 trend pullback",
-    "claimed": "no win rate given (plain EMA crossovers: 26.2 %); R:R 1:2",
-    "setups": 0,
-    "states": {},
+   "S2": {
+    "name": "Bearish deep sweep + M15 reclaim + M5 breaker",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 36,
+    "off": false,
+    "states": {
+     "LOSS": 12,
+     "WIN": 10,
+     "EXPIRED": 8,
+     "MISSED": 6
+    },
     "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "trades": 16,
+     "wins": 8,
+     "winRate": 50,
+     "totalR": 7.91,
+     "expectancyR": 0.495
     },
     "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "trades": 9,
+     "wins": 4,
+     "winRate": 44,
+     "totalR": 6.19,
+     "expectancyR": 0.687
     },
     "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "trades": 7,
+     "wins": 4,
+     "winRate": 57,
+     "totalR": 1.72,
+     "expectancyR": 0.246
     },
     "withoutNewsRule": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "trades": 16,
+     "wins": 8,
+     "winRate": 50,
+     "totalR": 7.91,
+     "expectancyR": 0.495
     },
-    "openThroughNews": 0
+    "openThroughNews": 3
+   },
+   "S3": {
+    "name": "London open volatility squeeze",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 24,
+    "off": true,
+    "states": {
+     "WIN": 5,
+     "EXPIRED": 4,
+     "LOSS": 12,
+     "MISSED": 3
+    },
+    "all": {
+     "trades": 15,
+     "wins": 5,
+     "winRate": 33,
+     "totalR": -0.1,
+     "expectancyR": -0.007
+    },
+    "in": {
+     "trades": 11,
+     "wins": 3,
+     "winRate": 27,
+     "totalR": -0.84,
+     "expectancyR": -0.076
+    },
+    "out": {
+     "trades": 4,
+     "wins": 2,
+     "winRate": 50,
+     "totalR": 0.74,
+     "expectancyR": 0.184
+    },
+    "withoutNewsRule": {
+     "trades": 15,
+     "wins": 5,
+     "winRate": 33,
+     "totalR": -0.1,
+     "expectancyR": -0.007
+    },
+    "openThroughNews": 2
+   },
+   "S4": {
+    "name": "NY overlap pullback to the H1 order block",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 15,
+    "off": true,
+    "states": {
+     "LOSS": 10,
+     "WIN": 5
+    },
+    "all": {
+     "trades": 15,
+     "wins": 5,
+     "winRate": 33,
+     "totalR": -6.67,
+     "expectancyR": -0.444
+    },
+    "in": {
+     "trades": 9,
+     "wins": 4,
+     "winRate": 44,
+     "totalR": -3.04,
+     "expectancyR": -0.337
+    },
+    "out": {
+     "trades": 6,
+     "wins": 1,
+     "winRate": 17,
+     "totalR": -3.63,
+     "expectancyR": -0.605
+    },
+    "withoutNewsRule": {
+     "trades": 15,
+     "wins": 5,
+     "winRate": 33,
+     "totalR": -6.67,
+     "expectancyR": -0.444
+    },
+    "openThroughNews": 3
    }
   },
   "news": {
@@ -237,43 +563,122 @@
   "split": 1781274060,
   "to": 1793922900,
   "strategies": {
-   "P": {
-    "name": "Time-filtered 3\u03c3 mean reversion",
-    "claimed": "~60 %+ in ranges (from the 3\u03c3 model); R:R 1:1 to 1:1.5",
-    "setups": 45,
+   "S1": {
+    "name": "Bullish extreme discount fade (Z <= -2.2)",
+    "claimed": "spec example: 68.4 % on 2.2\u03c3 fades",
+    "setups": 15,
+    "off": true,
     "states": {
-     "LOSS": 12,
-     "WIN": 33
+     "LOSS": 13,
+     "WIN": 2
     },
     "all": {
-     "trades": 10,
-     "wins": 5,
-     "winRate": 50,
-     "totalR": 1.77,
-     "expectancyR": 0.177
+     "trades": 8,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -10.14,
+     "expectancyR": -1.268
+    },
+    "in": {
+     "trades": 6,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -7.87,
+     "expectancyR": -1.312
+    },
+    "out": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.27,
+     "expectancyR": -1.135
+    },
+    "withoutNewsRule": {
+     "trades": 9,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -11.27,
+     "expectancyR": -1.252
+    },
+    "openThroughNews": 3
+   },
+   "S2": {
+    "name": "Bearish extreme premium fade (Z >= +2.2)",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 24,
+    "off": false,
+    "states": {
+     "WIN": 17,
+     "LOSS": 7
+    },
+    "all": {
+     "trades": 11,
+     "wins": 7,
+     "winRate": 64,
+     "totalR": 6.31,
+     "expectancyR": 0.573
     },
     "in": {
      "trades": 9,
      "wins": 5,
      "winRate": 56,
-     "totalR": 2.87,
-     "expectancyR": 0.319
+     "totalR": 2.82,
+     "expectancyR": 0.314
+    },
+    "out": {
+     "trades": 2,
+     "wins": 2,
+     "winRate": 100,
+     "totalR": 3.48,
+     "expectancyR": 1.741
+    },
+    "withoutNewsRule": {
+     "trades": 11,
+     "wins": 7,
+     "winRate": 64,
+     "totalR": 6.31,
+     "expectancyR": 0.573
+    },
+    "openThroughNews": 2
+   },
+   "S3": {
+    "name": "VWAP \u00b1 2.5\u03c3 European exhaustion",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 231,
+    "off": true,
+    "states": {
+     "WIN": 138,
+     "LOSS": 93
+    },
+    "all": {
+     "trades": 13,
+     "wins": 4,
+     "winRate": 31,
+     "totalR": -7.81,
+     "expectancyR": -0.601
+    },
+    "in": {
+     "trades": 12,
+     "wins": 3,
+     "winRate": 25,
+     "totalR": -9.54,
+     "expectancyR": -0.795
     },
     "out": {
      "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -1.1,
-     "expectancyR": -1.098
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 1.74,
+     "expectancyR": 1.735
     },
     "withoutNewsRule": {
-     "trades": 10,
-     "wins": 5,
-     "winRate": 50,
-     "totalR": 1.77,
-     "expectancyR": 0.177
+     "trades": 14,
+     "wins": 4,
+     "winRate": 29,
+     "totalR": -8.93,
+     "expectancyR": -0.638
     },
-    "openThroughNews": 5
+    "openThroughNews": 2
    }
   },
   "news": {
@@ -289,9 +694,10 @@
   "to": 1793922900,
   "strategies": {
    "P": {
-    "name": "Commodity range reversion",
-    "claimed": "~60 %+ in calm sessions; R:R 1:1.5 to 1:2",
+    "name": "Commodity range reversion (kept)",
+    "claimed": "~60 %+; 59 % on our 1-year test",
     "setups": 25,
+    "off": false,
     "states": {
      "WIN": 12,
      "LOSS": 13
@@ -339,43 +745,151 @@
   "split": 1781274060,
   "to": 1793922900,
   "strategies": {
-   "P": {
-    "name": "Risk-on carry swing pullback",
-    "claimed": "high when VIX, iron ore and rates agree (no number); R:R 1:2.5 to 1:3",
-    "setups": 61,
-    "states": {
-     "WIN": 27,
-     "LOSS": 34
-    },
+   "S1": {
+    "name": "Risk-on trend pullback (OTE + H1 OB + M15 BOS)",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 0,
+    "off": false,
+    "states": {},
     "all": {
-     "trades": 7,
-     "wins": 1,
-     "winRate": 14,
-     "totalR": -6.13,
-     "expectancyR": -0.875
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "in": {
-     "trades": 6,
-     "wins": 1,
-     "winRate": 17,
-     "totalR": -5.02,
-     "expectancyR": -0.837
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "out": {
-     "trades": 1,
+     "trades": 0,
      "wins": 0,
-     "winRate": 0,
-     "totalR": -1.1,
-     "expectancyR": -1.102
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "withoutNewsRule": {
-     "trades": 7,
-     "wins": 1,
-     "winRate": 14,
-     "totalR": -6.13,
-     "expectancyR": -0.875
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
-    "openThroughNews": 2
+    "openThroughNews": 0
+   },
+   "S2": {
+    "name": "Risk-off trend pullback (OTE + H1 OB + M15 BOS)",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 0,
+    "off": false,
+    "states": {},
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   },
+   "S3": {
+    "name": "Bullish quiet-regime range fade",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 0,
+    "off": false,
+    "states": {},
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   },
+   "S4": {
+    "name": "Bearish quiet-regime range fade",
+    "claimed": "the spec gives no win rate: measured here",
+    "setups": 1,
+    "off": false,
+    "states": {
+     "WIN": 1
+    },
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
    }
   },
   "news": {

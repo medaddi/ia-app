@@ -34,12 +34,13 @@ def test_the_trade_is_closed_at_its_time():
 
 
 def test_each_strategy_asks_its_own_reward_and_news_blocks():
-    s = {"time": T0, "rr": 1.2, "sid": "P"}
-    assert not playbook.checklist("XAUUSD", s, None)[2][1]  # Silver Bullet: 1:2
-    assert playbook.checklist("EURCHF", s, None)[2][1]  # mean reversion: 1:1
-    assert playbook.checklist("EURUSD", {**s, "sid": "P2"}, None)[2][1]  # SnapBack: 1:1 by design
-    near = playbook.checklist("EURUSD", {"time": T0, "rr": 3, "sid": "P1"}, [T0 + 10 * 60])
+    s = {"time": T0, "rr": 2.0, "sid": "S1"}
+    assert not playbook.checklist("XAUUSD", s, None)[2][1]  # GOLD-QUANT: 1:2.2
+    assert playbook.checklist("EURCHF", s, None)[2][1]  # SWISS-REV: 1:1.8
+    assert playbook.checklist("EURUSD", {**s, "rr": 1.0, "sid": "SB"}, None)[2][1]  # SnapBack (kept): 1:1 by design
+    near = playbook.checklist("EURUSD", {"time": T0, "rr": 3, "sid": "S1"}, [T0 + 10 * 60])
     assert not near[1][1] and near[2][1]  # red news 10 minutes away: no
+    assert "0.75 %" in playbook.checklist("XAUUSD", s, None)[3][0]  # gold risks 0.75 %
 
 
 def test_new_york_times_follow_daylight_saving():
@@ -114,3 +115,45 @@ def test_a_risk_off_closes_the_trade_at_once():
     m5 = bars([(100, 100, 100, 100), (100, 100.5, 99.8, 100.3), (100.3, 100.6, 100.1, 100.4), (100.4, 103.5, 100.2, 103.2)])
     out = run(m5, 0, 1, 100.0, 99.0, None, 103.0, 1.0, True, 0, T0 + 86400, 0.0, None, None, [m5[2].time])
     assert out["state"] == "WIN" and out["riskOff"] and abs(out["r"] - 0.3) < 1e-9  # closed at the open of candle 2, not at TP
+
+
+
+def test_a_feed_gap_is_not_a_fair_value_gap():
+    from app.smc.engines import true_fvg
+    c = bars([(100, 100.2, 99.9, 100.1), (100.1, 101.5, 100.1, 101.4), (101.4, 102.0, 101.0, 101.8)])
+    assert true_fvg(c, 2, 300, 1.0) == (1, 100.2, 101.0)
+    gap = c[:2] + [playbook._Bar(c[2].time + 300, *(101.4, 102.0, 101.0, 101.8))]  # a missing M5 bar before the 3rd
+    assert true_fvg(gap, 2, 300, 1.0) is None
+    jump = c[:2] + [playbook._Bar(c[2].time, 101.9, 102.0, 101.0, 101.8)]  # opens 0.5 ATR away from the previous close
+    assert true_fvg(jump, 2, 300, 1.0) is None
+
+
+def test_rollover_sweeps_and_bad_ticks_are_ignored():
+    from app.smc.engines import true_sweep
+    roll = playbook._Bar(T0 + 22 * 3600, 1, 1.2, 0.9, 1)  # 22:00 UTC: inside 21:50-22:15
+    assert not true_sweep(roll, 1.0)
+    assert true_sweep(playbook._Bar(T0 + 10 * 3600, 1, 1.2, 0.9, 1), 1.0)
+    assert not true_sweep(playbook._Bar(T0 + 10 * 3600, 1, 5.0, 0.9, 1), 1.0)  # a 4-ATR spike
+
+
+def test_zscore_efficiency_and_the_regime():
+    from app.smc.engines import data_fitness, efficiency, zscore
+    trend = [100 + k for k in range(60)]
+    assert efficiency(trend, 30)[-1] == 1.0 and zscore(trend, 50)[0][-1] > 1.5  # a straight line: ER 1, far above its mean
+    chop = [100 + (1 if k % 2 else -1) for k in range(60)]
+    assert efficiency(chop, 30)[-1] < 0.1
+    ok = {"share": 0.0, "recentGap": False}
+    assert data_fitness(42, ok) == "FIT" and data_fitness(20, ok) == "LIMITED SAMPLE" and data_fitness(10, ok) == "NOT FIT"
+    assert data_fitness(42, {"share": 0.0, "recentGap": True}) == "NOT FIT"
+
+
+def test_a_strategy_turned_off_never_signals():
+    from tests.test_smc_live import candles
+    from app.smc import desk
+    m5, h1 = candles("GBPUSD", "M5"), candles("GBPUSD", "H1")
+    if not m5:
+        return
+    t = desk.read_team("GBP/USD", desk.BY_SYMBOL["GBP/USD"], m5, h1, m5[-1].time + 300)
+    st = {s["id"]: s["status"] for s in t["strategies"]}
+    assert st["S1"] == st["S3"] == st["S4"] == "OFF" and st["S2"] != "OFF"
+    assert all(s["strategy"] == "S2" for s in t["signals"])

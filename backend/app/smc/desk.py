@@ -81,6 +81,20 @@ def _setup_json(pair: str, cfg: dict, s: dict) -> dict:
             "draw": _draw(s)}
 
 
+def _badge(key: str, chart: dict, c: dict) -> str:
+    """The header's H1 badge in the spec's form, per pair (e.g. EUR/CHF: "H1 range · Z -1.8σ · discount 18 %")."""
+    rp = c.get("rangePct")
+    zone = "" if rp is None else f" · {'discount' if rp < 50 else 'premium'} {rp:.0f} %"
+    trend = {"BULLISH": "bullish", "BEARISH": "bearish"}.get(chart.get("trend"), "undefined")
+    if key == "EURCHF" and c.get("z") is not None:
+        return f"H1 {'range' if (c.get('adx') or 99) < 28 else 'trending'} · Z {c['z']:+.1f}σ{zone}"
+    if key == "AUDCHF":
+        return f"H1 {c.get('regime', '?').replace('_', ' ').lower()}{zone}"
+    if key == "EURUSD" and c.get("amd"):
+        return f"H1 {trend}{zone} · {c['amd'].split(' (')[0].split(' /')[0].lower()}"
+    return f"H1 {trend}{zone}"
+
+
 def _play_draw(s: dict) -> dict:
     """The playbook setup on the chart: its zones (Asian range, FVG, OB, S&D zone, Fib zone) and its levels."""
     g = s.get("geo") or {}
@@ -106,14 +120,15 @@ def _play_draw(s: dict) -> dict:
 def _play_json(pair: str, cfg: dict, s: dict) -> dict:
     dec = cfg["decimals"]
     rd = lambda v: None if v is None else round(v, dec)  # noqa: E731
-    lots = {"1000": lots_for(cfg, s["entry"], s["sl"], 1000), "10000": lots_for(cfg, s["entry"], s["sl"], 10000)}
+    rk = playbook.RISK_PCT.get((pair.replace("/", ""), s["sid"]), 1.0)  # the spec: gold 0.75 %, the others 1 %
+    lots = {"1000": lots_for(cfg, s["entry"], s["sl"], 1000, rk), "10000": lots_for(cfg, s["entry"], s["sl"], 10000, rk)}
     chk = [(q, ok, f"{lots['1000']} lot / $1,000 · {lots['10000']} / $10,000" if q.startswith("4 ·") else det) for q, ok, det in s["checklist"]]
     return {"id": setup_id(pair, s), "strategy": s["sid"], "name": playbook.NAMES[pair.replace("/", "")][s["sid"]], "direction": "BUY" if s["dir"] > 0 else "SELL",
             "time": s["time"], "entry": rd(s["entry"]), "sl": rd(s["sl"]), "tp": rd(s["tp"]), "tp1": rd(s["tp1"]), "part": s["part"],
             "market": s["market"], "zone": [rd(min(s["zone"])), rd(max(s["zone"]))], "rr": round(s["rr"], 2), "rrBest": round(s["rr"], 2),
             "validUntil": s["time"] + s["expiry"] * engine.M5S, "liveUntil": s["holdUntil"], "expiry": s["expiry"], "holdUntil": s["holdUntil"],
             "state": s["result"]["state"], "pass": s["pass"], "checklist": [{"q": a, "ok": ok, "detail": det} for a, ok, det in chk],
-            "steps": [{"step": a, "ok": ok, "detail": det} for a, ok, det in s["steps"]], "lots": lots, "draw": _play_draw(s)}
+            "steps": [{"step": a, "ok": ok, "detail": det} for a, ok, det in s["steps"]], "lots": lots, "riskPct": rk, "draw": _play_draw(s)}
 
 
 def read_team(pair: str, cfg: dict, m5, h1, now: int, cot: dict | None = None, sent: list[dict] | None = None,
@@ -129,6 +144,8 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, cot: dict | None = None, s
         pause = sorted(playbook.red_folder(news) + playbook.eia_times(now - 7 * 86400, now + 7 * 86400))
     setups, watch = playbook.scan(key, m5, h1, cfg["pip"], cost, pause, None, d1, macro)
     pr = (PLAY_RESULTS.get(key) or {}).get("strategies", {})
+    from .engines import context as pair_context
+    pctx = pair_context(key, m5, h1, playbook.Daily(d1 if d1 else playbook.resample(h1, 86400)), now)
     strategies, raw_shown = [], None
     for sid in playbook.STRATEGIES[key]:
         mine = [s for s in setups if s["sid"] == sid]
@@ -136,6 +153,10 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, cot: dict | None = None, s
         row = {"id": sid, "name": playbook.NAMES[key][sid], "status": "IDLE", "setup": None, "watch": None,
                "claimed": playbook.CLAIMED[(key, sid)], "measured": (pr.get(sid) or {}).get("all")}
         good = [s for s in live if s["pass"] and abs(s["entry"] - s["sl"]) >= cfg["min_stop_cost_ratio"] * cost]
+        if (key, sid) in playbook.DISABLED:  # turned off: it lost in the one-year test (still measured)
+            row["status"] = "OFF"
+            strategies.append(row)
+            continue
         if good:
             row.update(status="SIGNAL", setup=_play_json(pair, cfg, good[-1]))
             raw_shown = raw_shown or good[-1]
@@ -165,7 +186,8 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, cot: dict | None = None, s
             "signals": [r["setup"] for r in strategies if r["status"] == "SIGNAL"], "chart": chart,
             "playbook": {"name": playbook.team_name(key), "source": (PLAY_RESULTS.get(key) or {}).get("source"),
                          "from": (PLAY_RESULTS.get(key) or {}).get("from"), "to": (PLAY_RESULTS.get(key) or {}).get("to")},
-            "cot": cot, "news": news, "agents": team_agents(pair, cfg, m5, res["_h1v"], strategies, ctx, now, cot, sent or [], news)}  # the team's seven role agents
+            "badge": _badge(key, chart, pctx), "context": {k: v for k, v in pctx.items() if k != "asia"},
+            "cot": cot, "news": news, "agents": team_agents(pair, cfg, m5, res["_h1v"], strategies, ctx, now, cot, sent or [], news, pctx)}  # the team's seven role agents
 
 
 def pair_currencies(pair: str) -> set[str]:

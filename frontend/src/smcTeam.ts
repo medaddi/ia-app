@@ -10,7 +10,7 @@ export interface Check { q: string; ok: boolean; detail: string }
 export interface Step { step: string; ok: boolean; detail: string }
 export interface TeamSetup {
   id: string; strategy: string; name: string; direction: 'BUY' | 'SELL'; time: number; entry: number; sl: number; tp: number;
-  rr: number; zone?: [number, number]; rrBest?: number; validUntil: number; tp1?: number | null; part?: number; market?: boolean; liveUntil?: number; state: string; pass: boolean; checklist: Check[]; steps: Step[]; lots: { '1000': number; '10000': number };
+  rr: number; zone?: [number, number]; rrBest?: number; riskPct?: number; validUntil: number; tp1?: number | null; part?: number; market?: boolean; liveUntil?: number; state: string; pass: boolean; checklist: Check[]; steps: Step[]; lots: { '1000': number; '10000': number };
   draw: { entry: number; sl: number; tp: number; zones: { label: string; top: number; bottom: number; from: number }[]; from: number };
   symbol?: string; sentAt?: string | null;
   // set once sent, by the trade manager (backend smc/manager.py)
@@ -26,7 +26,8 @@ export interface TeamAgent { key: 'lead' | 'structure' | 'liquidity' | 'entry' |
 /** The pair's strategies from the guide; each row of `strategies` carries what the guide claims and what the test measured (smc/PLAYBOOK.md). */
 export interface TeamPlaybook { name: string; source?: string | null; from?: number | null; to?: number | null }
 export interface Team { success: boolean; symbol: string; at: number; lastCandle: number | null; marketOpen?: boolean; source?: string; error?: string;
-  strategies: TeamStrategy[]; signals: TeamSetup[]; chart?: TeamChart; agents?: TeamAgent[]; playbook?: TeamPlaybook }
+  strategies: TeamStrategy[]; signals: TeamSetup[]; chart?: TeamChart; agents?: TeamAgent[]; playbook?: TeamPlaybook;
+  /** the pair profile's H1 badge (e.g. "H1 range · Z -1.8σ · discount 18 %") */ badge?: string }
 
 // Each pair's last good team read, kept for the whole session: a switch shows THAT pair's last read at once (never another
 // pair's: the key is the pair, and the read carries its own symbol), and the fresh read replaces it a moment later.

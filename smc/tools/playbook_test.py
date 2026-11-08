@@ -89,14 +89,18 @@ def main(source: str) -> None:
         cost = (cfg["spread_pips"] + cfg["slippage_pips"]) * cfg["pip"]
         d1 = playbook.resample(m5, playbook.DAY)
         nw = sorted(playbook.red_folder(EVENTS) + playbook.eia_times(m5[0].time, m5[-1].time)) if EVENTS else []
-        setups, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, nw if EVENTS else None, None, d1, MACRO)
-        plain, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, None, None, d1, MACRO)  # the same without the news rule
+        shock = sorted({e["time"] for e in EVENTS if e["currency"] in ("EUR", "CHF") and any(w in e["title"] for w in ("Refinancing", "ECB", "SNB", "Monetary Policy Statement"))})
+        setups, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, nw if EVENTS else None, None, d1, MACRO, shock)
+        plain, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, None, None, d1, MACRO, shock)  # the same without the news rule
         split = m5[0].time + int((m5[-1].time - m5[0].time) * 0.6)
         out[p] = {"source": source or "yahoo", "from": m5[0].time, "split": split, "to": m5[-1].time, "strategies": {},
                   "news": {"events": len(nw), "file": "smc/news/high_impact.csv" if NEWS else None}, "macro": bool(MACRO)}
 
+        def ok_but_off(x):  # measured as if switched on: the OFF mark is the only failing line
+            return x["pass"] or (all(o for q, o, _ in x["checklist"] if not q.startswith("0 ·")) and (p, x["sid"]) in playbook.DISABLED)
+
         def kept(ss):
-            return [s for s in ss if s["pass"] and "r" in s["result"] and abs(s["entry"] - s["sl"]) >= cfg["min_stop_cost_ratio"] * cost]
+            return [s for s in ss if ok_but_off(s) and "r" in s["result"] and abs(s["entry"] - s["sl"]) >= cfg["min_stop_cost_ratio"] * cost]
 
         for sid in playbook.STRATEGIES[p]:
             parts = {"in": [], "out": [], "all": []}
@@ -115,6 +119,7 @@ def main(source: str) -> None:
                     through += 1
             before = agg([s["result"]["r"] for s in kept([x for x in plain if x["sid"] == sid])])
             out[p]["strategies"][sid] = {"name": playbook.NAMES[p][sid], "claimed": playbook.CLAIMED[(p, sid)], "setups": len(mine),
+                                         "off": (p, sid) in playbook.DISABLED,
                                          "states": states, "all": agg(parts["all"]), "in": agg(parts["in"]), "out": agg(parts["out"]),
                                          "withoutNewsRule": before, "openThroughNews": through}
             print(p, sid, out[p]["strategies"][sid]["all"], "| without the news rule", before, flush=True)
@@ -136,9 +141,13 @@ def main(source: str) -> None:
         for sid, y in x["strategies"].items():
             a = y["all"]
             n, w, tot = n + a["trades"], w + a["wins"], tot + a["totalR"]
-            lines.append(f"| {p} | {sid} {y['name']} | {y['claimed']} | {a['trades']} | {str(a['winRate']) + ' %' if a['trades'] else '—'} | "
+            lines.append(f"| {p} | {sid} {y['name']}{' · **OFF**' if y.get('off') else ''} | {y['claimed']} | {a['trades']} | {str(a['winRate']) + ' %' if a['trades'] else '—'} | "
                          f"{a['totalR']:+}R | {f(y['in'])} | {f(y['out'])} | {f(y['withoutNewsRule'])} | {y['openThroughNews']} |")
-    lines += ["", f"All: {n} trades, win rate {round(100 * w / n) if n else 0} %, {tot:+.2f}R.", "",
+    on = [y["all"] for x in out.values() for y in x["strategies"].values() if not y.get("off")]
+    n_on, w_on, r_on = sum(a["trades"] for a in on), sum(a["wins"] for a in on), sum(a["totalR"] for a in on)
+    lines += ["", f"Every strategy, each measured as if switched on: {n} trades, win rate {round(100 * w / n) if n else 0} %, {tot:+.2f}R.",
+              f"Switched on only: {n_on} trades, win rate {round(100 * w_on / n_on) if n_on else 0} %, {r_on:+.2f}R "
+              "(chosen on this same year: an optimistic number, not a forecast).", "",
               "Not applied here: the correlation cap (each pair alone). "
               "Under 30 trades a win rate can still be luck."]
     (ROOT / "PLAYBOOK.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

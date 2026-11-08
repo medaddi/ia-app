@@ -28,7 +28,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
       : <p className="mt-0.5 text-[11px] text-slate-400">{t(`Limit at ${f(s.entry)}, the near edge: price only has to come into the zone, not touch one exact price.`,
         `Limite à ${f(s.entry)}, le bord proche : le prix doit seulement entrer dans la zone, pas toucher un prix exact.`,
         `الليميت ف ${f(s.entry)}، الطرف القريب: الثمن خاصو غير يدخل للمنطقة، ماشي يقيس نقطة بالضبط.`)}</p>}
-      <p className="mt-0.5 text-[11px] text-slate-500">{!s.market && <>{t('valid until', 'valable jusqu’à', 'صالح حتى')} {hm(s.validUntil)} UTC · </>}1 % : {s.lots['1000']} lot / $1,000</p>
+      <p className="mt-0.5 text-[11px] text-slate-500">{!s.market && <>{t('valid until', 'valable jusqu’à', 'صالح حتى')} {hm(s.validUntil)} UTC · </>}{s.riskPct ?? 1} % : {s.lots['1000']} lot / $1,000</p>
       <ul className="mt-1.5 grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
         {s.checklist.map(c => (
           <li key={c.q} className="flex items-start gap-1 text-[11px]" title={c.detail}>
@@ -49,7 +49,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
         <div className="flex flex-wrap items-center gap-2">
           {team?.success && team.chart && (
             <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-semibold ring-1 ring-inset ${team.chart.trend === 'BULLISH' ? 'bg-emerald-500/10 text-emerald-200 ring-emerald-500/25' : team.chart.trend === 'BEARISH' ? 'bg-rose-500/10 text-rose-200 ring-rose-500/25' : 'bg-white/[0.03] text-slate-400 ring-line'}`}>
-              H1 {team.chart.trend === 'BULLISH' ? t('bullish', 'haussier', 'صاعد') : team.chart.trend === 'BEARISH' ? t('bearish', 'baissier', 'هابط') : t('undefined', 'indéfini', 'غير محدد')} · {team.chart.premium ? 'premium' : 'discount'}
+              {team.badge ?? <>H1 {team.chart.trend === 'BULLISH' ? t('bullish', 'haussier', 'صاعد') : team.chart.trend === 'BEARISH' ? t('bearish', 'baissier', 'هابط') : t('undefined', 'indéfini', 'غير محدد')} · {team.chart.premium ? 'premium' : 'discount'}</>}
             </span>
           )}
           {team?.success && team.lastCandle && <span className="text-[11px] font-mono text-slate-500">{t('last M5 close', 'dernière clôture M5', 'آخر إغلاق M5')} {hm(team.lastCandle + 300)} UTC</span>}

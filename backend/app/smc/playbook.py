@@ -42,28 +42,40 @@ from zoneinfo import ZoneInfo
 M5S, M15S, H1S, H4S, DAY = 300, 900, 3600, 14400, 86400
 NY = ZoneInfo("America/New_York")
 
-STRATEGIES = {"XAUUSD": ["P"], "EURUSD": ["P1", "P2"], "GBPUSD": ["P1", "P2"], "EURCHF": ["P"], "AUDCAD": ["P"], "AUDCHF": ["P"]}
+# The pair profiles (the master spec, 2026-11-08). Kept from the earlier guide, by the user's rule (win rate >= 55 % and
+# profitable in both halves of the year test): EUR/USD SnapBack 3σ (SB) and AUD/CAD range reversion (P).
+STRATEGIES = {"XAUUSD": ["S1", "S2", "S3", "S4"], "EURUSD": ["S1", "S2", "S3", "S4", "SB"], "GBPUSD": ["S1", "S2", "S3", "S4"],
+              "EURCHF": ["S1", "S2", "S3"], "AUDCAD": ["P"], "AUDCHF": ["S1", "S2", "S3", "S4"]}
+FAMILY = {"XAUUSD": "GOLD-QUANT S1–S4", "EURUSD": "INST-AMD S1–S4 + SnapBack", "GBPUSD": "CABLE-RAID S1–S4", "EURCHF": "SWISS-REV S1–S3",
+          "AUDCAD": "Commodity range reversion", "AUDCHF": "RISK-REGIME S1–S4"}
 NAMES = {
-    "XAUUSD": {"P": "ICT Silver Bullet / NY killzone sweep + FVG / OTE"},
-    "EURUSD": {"P1": "London Judas swing", "P2": "SnapBack 3σ mean reversion"},
-    "GBPUSD": {"P1": "London / NY overlap liquidity sweep", "P2": "EMA 20/50/200 trend pullback"},
-    "EURCHF": {"P": "Time-filtered 3σ mean reversion"},
-    "AUDCAD": {"P": "Commodity range reversion"},
-    "AUDCHF": {"P": "Risk-on carry swing pullback"},
+    "XAUUSD": {"S1": "Bullish Asian / London low sweep + M5 displacement & FVG", "S2": "Bearish Asian / London high sweep + M5 displacement & FVG",
+               "S3": "NY COMEX momentum continuation pullback", "S4": "PDH / PDL rejection + M15 MSS"},
+    "EURUSD": {"S1": "Bullish London / NY Judas into discount POI", "S2": "Bearish London / NY Judas into premium POI",
+               "S3": "NY raid of the London extremes + OTE", "S4": "Daily VWAP rotation", "SB": "SnapBack 3σ mean reversion (kept)"},
+    "GBPUSD": {"S1": "Bullish deep sweep + M15 reclaim + M5 breaker", "S2": "Bearish deep sweep + M15 reclaim + M5 breaker",
+               "S3": "London open volatility squeeze", "S4": "NY overlap pullback to the H1 order block"},
+    "EURCHF": {"S1": "Bullish extreme discount fade (Z <= -2.2)", "S2": "Bearish extreme premium fade (Z >= +2.2)",
+               "S3": "VWAP ± 2.5σ European exhaustion"},
+    "AUDCAD": {"P": "Commodity range reversion (kept)"},
+    "AUDCHF": {"S1": "Risk-on trend pullback (OTE + H1 OB + M15 BOS)", "S2": "Risk-off trend pullback (OTE + H1 OB + M15 BOS)",
+               "S3": "Bullish quiet-regime range fade", "S4": "Bearish quiet-regime range fade"},
 }
-CLAIMED = {  # what the guide says, word for word in substance (HYPOTHESIS until measured)
-    ("XAUUSD", "P"): "75-80 % in ICT studies (not guaranteed); R:R 1:2 to 1:4",
-    ("EURUSD", "P1"): "no win rate given; R:R 1:2 (up to 1:3)",
-    ("EURUSD", "P2"): "62.0 % (SteadyPips, 79 trades, 1:1, Jan 2024 - Mar 2026)",
-    ("GBPUSD", "P1"): "no win rate given; R:R 1:2 to 1:3",
-    ("GBPUSD", "P2"): "no win rate given (plain EMA crossovers: 26.2 %); R:R 1:2",
-    ("EURCHF", "P"): "~60 %+ in ranges (from the 3σ model); R:R 1:1 to 1:1.5",
-    ("AUDCAD", "P"): "~60 %+ in calm sessions; R:R 1:1.5 to 1:2",
-    ("AUDCHF", "P"): "high when VIX, iron ore and rates agree (no number); R:R 1:2.5 to 1:3",
-}
-MIN_RR = {("XAUUSD", "P"): 2.0, ("EURUSD", "P1"): 2.0, ("EURUSD", "P2"): 1.0, ("GBPUSD", "P1"): 2.0, ("GBPUSD", "P2"): 2.0,
-          ("EURCHF", "P"): 1.0, ("AUDCAD", "P"): 1.5, ("AUDCHF", "P"): 2.0}
-MEAN_REVERSION = {("EURUSD", "P2"), ("EURCHF", "P"), ("AUDCAD", "P")}
+CLAIMED = {(k, sid): "the spec gives no win rate: measured here" for k, v in STRATEGIES.items() for sid in v}
+CLAIMED.update({("EURUSD", "SB"): "62.0 % (SteadyPips, 79 trades, 1:1); 70 % on our 1-year test", ("AUDCAD", "P"): "~60 %+; 59 % on our 1-year test",
+                ("XAUUSD", "S1"): "spec example: 61.9 % on 42 setups (90 days)", ("EURCHF", "S1"): "spec example: 68.4 % on 2.2σ fades"})
+MIN_RR = {**{("XAUUSD", s): 2.2 for s in ("S1", "S2", "S3")}, ("XAUUSD", "S4"): 2.0,
+          **{("EURUSD", s): 2.0 for s in ("S1", "S2", "S3", "S4")}, ("EURUSD", "SB"): 1.0,
+          **{("GBPUSD", s): 2.5 for s in ("S1", "S2", "S3", "S4")},
+          **{("EURCHF", s): 1.8 for s in ("S1", "S2", "S3")}, ("AUDCAD", "P"): 1.5,
+          ("AUDCHF", "S1"): 2.0, ("AUDCHF", "S2"): 2.0, ("AUDCHF", "S3"): 1.5, ("AUDCHF", "S4"): 1.5}
+# Turned off on 2026-11-08 at the user's request ("Yes, turn them off"): the sub-strategies that LOST in the one-year
+# Dukascopy test (net R <= 0, or a loss in either half). They are still measured by smc/tools/playbook_test.py, never sent.
+# CAUTION: chosen on the same data they are measured on; strategies with no trade in the year stay on (nothing to judge).
+DISABLED = {("XAUUSD", "S2"), ("XAUUSD", "S3"), ("XAUUSD", "S4"), ("EURUSD", "S3"), ("EURUSD", "S4"), ("GBPUSD", "S1"),
+            ("GBPUSD", "S3"), ("GBPUSD", "S4"), ("EURCHF", "S1"), ("EURCHF", "S3")}
+RISK_PCT = {**{("XAUUSD", s): 0.75 for s in ("S1", "S2", "S3", "S4")}}  # the spec: gold at most 0.75 %; the others 1 %
+MEAN_REVERSION = {("EURUSD", "SB"), ("EURCHF", "S1"), ("EURCHF", "S2"), ("EURCHF", "S3"), ("AUDCAD", "P"), ("AUDCHF", "S3"), ("AUDCHF", "S4")}
 NEWS_MIN = 15  # CHOICE: no red-folder release from 15 min before to 15 min after the entry (the guide: wait 10-15 min)
 
 
@@ -131,7 +143,7 @@ def macro_view(spx: list[tuple[int, float]], vix: list[tuple[int, float]], iron:
 
 
 def team_name(key: str) -> str:
-    return " + ".join(NAMES[key].values())
+    return FAMILY[key]
 
 
 # ---------------------------------------------------------------- indicators (each value uses candles up to i only)
@@ -410,99 +422,7 @@ def _regime(daily: "Daily", t: int, mr: bool) -> tuple[bool, str]:
     return True, f"ADR5/20 {a5 / a20:.2f}" + (" (compressed: targets cut)" if a5 / a20 < 0.70 else "")
 
 
-# ---------------------------------------------------------------- XAU/USD · ICT Silver Bullet / NY killzone
-def xau(m5, h1, daily: Daily, pip: float, cost: float) -> tuple[list, list]:
-    """Levels before 10:00 NY: the Asian range (20:00-00:00 NY, CHOICE: ICT's Asian range), the London killzone range
-    (02:00-05:00 NY) and the 9:30 equity-open range (09:30-10:00 NY; CHOICE: its first half hour). Sweep: 09:30-10:15 NY,
-    a candle trades beyond one of them (the 9:30 range only from 10:00). MSS on M5 with displacement, by 11:00 NY. FVG:
-    3-candle, its 3rd candle inside 10:00-11:00 NY. Entry: limit at the FVG's start, valid until 11:00 NY (never extended).
-    Stop: $1.00 beyond the sweep extreme (CHOICE: the guide's worked example, 2,342.50 → 2,343.50). Target: the nearest
-    opposite level (Asian / London / 9:30 range) giving at least 1:2, else the nearest (then question 3 says no).
-    OTE (62-79 % of the displacement leg) is preferred by the guide, not required: shown as a step. Closed at 16:00 NY."""
-    out, watch = [], []
-    if len(m5) < 300:
-        return out, watch
-    times = [x.time for x in m5]
-    hi_f, lo_f = fractals(m5)
-    for D in ny_dates(m5):
-        if D.weekday() > 4:
-            continue
-        prev = D - timedelta(days=1)
-        asia = hilo(span(m5, times, ny(prev, 20), ny(D, 0)))
-        lon = hilo(span(m5, times, ny(D, 2), ny(D, 5)))
-        eq = hilo(span(m5, times, ny(D, 9, 30), ny(D, 10)))
-        t930, t1000, t1015, t1100, t1600 = ny(D, 9, 30), ny(D, 10), ny(D, 10, 15), ny(D, 11), ny(D, 16)
-        if not asia or not lon:
-            continue
-        ks, ke = bisect_left(times, t930), bisect_left(times, t1100)
-        if ke - ks < 6:
-            continue
-        for d in (-1, 1):  # -1: buy-side liquidity taken (highs) → sell · +1: sell-side taken (lows) → buy
-            lv = {"Asian high": asia[0], "London high": lon[0]} if d < 0 else {"Asian low": asia[1], "London low": lon[1]}
-            k_sw, name = None, None
-            for k in range(ks, ke):
-                x = m5[k]
-                if x.time >= t1015:
-                    break
-                cand = dict(lv)
-                if eq and x.time >= t1000:
-                    cand["9:30 high" if d < 0 else "9:30 low"] = eq[0] if d < 0 else eq[1]
-                hit = [n for n, v in cand.items() if (x.high > v if d < 0 else x.low < v)]
-                if hit:
-                    k_sw, name = k, hit[0]
-                    break
-            if k_sw is None:
-                continue
-            steps = [(f"Sweep 09:30-10:15 NY of the {name}", True, f"{cand[name]:.2f}")]
-            ext_k = k_sw
-            for k in range(k_sw, ke):  # the sweep's extreme until the MSS
-                if (d < 0 and m5[k].high > m5[ext_k].high) or (d > 0 and m5[k].low < m5[ext_k].low):
-                    ext_k = k
-                k_m, lvl, kf, fvg = _mss_fvg(m5, k, k + 1, d, ext_k, lo_f, hi_f, t1000, t1100)
-                if k_m is not None:
-                    break
-            else:
-                k_m = None
-            if k_m is None:
-                watch.append({"time": m5[k_sw].time + M5S, "dir": d, "steps": steps + [("M5 MSS with displacement by 11:00 NY", False, "waiting")]})
-                continue
-            steps.append(("M5 MSS: body close beyond the swing, with displacement", True, f"{lvl:.2f}"))
-            if fvg is None:
-                watch.append({"time": m5[k_m].time + M5S, "dir": d, "steps": steps + [("FVG formed 10:00-11:00 NY", False, "none in the move")]})
-                continue
-            sx = m5[ext_k].high if d < 0 else m5[ext_k].low
-            k0 = max(k_m, kf)
-            t_set = m5[k0].time + M5S
-            if t_set >= t1100:
-                continue
-            entry = fvg[0] if d < 0 else fvg[1]  # the FVG's start: the edge price reaches first on the way back
-            sl = sx + 1.0 if d < 0 else sx - 1.0
-            move = m5[k0].low if d < 0 else m5[k0].high
-            leg = abs(sx - move)
-            ote = (sx - 0.79 * leg, sx - 0.62 * leg) if d < 0 else (sx + 0.62 * leg, sx + 0.79 * leg)
-            in_ote = min(fvg) <= max(ote) and max(fvg) >= min(ote)
-            opp = {"Asian low": asia[1], "London low": lon[1]} if d < 0 else {"Asian high": asia[0], "London high": lon[0]}
-            if eq:
-                opp["9:30 low" if d < 0 else "9:30 high"] = eq[1] if d < 0 else eq[0]
-            risk = abs(entry - sl)
-            tgt = sorted(((n, v) for n, v in opp.items() if (v < entry if d < 0 else v > entry)), key=lambda nv: abs(nv[1] - entry))
-            if not tgt:
-                continue
-            good = [nv for nv in tgt if abs(nv[1] - entry) >= 2 * risk]
-            tn, tp = (good or tgt)[0]
-            steps += [("FVG formed 10:00-11:00 NY", True, f"{fvg[0]:.2f} - {fvg[1]:.2f}"),
-                      ("FVG inside the OTE 62-79 % (preferred, not required)", in_ote, f"{min(ote):.2f} - {max(ote):.2f}"),
-                      (f"Target: the {tn}", True, f"{tp:.2f}")]
-            s = _make("XAUUSD", "P", d, m5, k0, entry, sl, None, tp, 1.0, False,
-                      max(1, (t1100 - t_set) // M5S), t1600, steps,
-                      {"levels": {**lv, **opp}, "window": (t1000, t1100), "fvg": (fvg[0], fvg[1], m5[kf - 2].time),
-                       "sweep": (sx, m5[ext_k].time), "mss": (lvl, m5[k_m].time), "ote": ote}, cost, zone=fvg)
-            if s:
-                out.append(s)
-    return out, watch
-
-
-# ---------------------------------------------------------------- EUR/USD P1 · London Judas swing
+# ---------------------------------------------------------------- the H1 bias (used by the engines)
 def _h1_bias(h1, h1_times: list[int], hhi, hlo, t: int) -> int:
     """H1 structure at time t: +1 higher highs AND higher lows (the last two confirmed swings), -1 the mirror, 0 neither."""
     i = bisect_right(h1_times, t - H1S) - 1  # the last H1 candle closed at t
@@ -517,75 +437,7 @@ def _h1_bias(h1, h1_times: list[int], hhi, hlo, t: int) -> int:
     return 0
 
 
-def judas(m5, h1, pip: float, cost: float) -> tuple[list, list]:
-    """H1 bias (higher highs / lows) at 02:00 NY. Levels: the NY midnight open (open of the 00:00 NY candle) and the Asian
-    range (20:00-00:00 NY, CHOICE as gold). London killzone 02:00-05:00 NY: bullish bias → price trades below the midnight
-    open AND below the Asian low (the false move); then on M5 it closes back inside the range and breaks the last minor
-    swing high with displacement, leaving an FVG: limit at the FVG's start (CHOICE: the FVG, not the OB), valid until
-    07:00 NY (CHOICE). Stop 2 pips beyond the false move's extreme (the guide's example: 1.0842 → 1.0840). Target: the
-    Asian range's opposite side. The mirror for a bearish bias. Closed at 12:00 NY (CHOICE)."""
-    out, watch = [], []
-    if len(m5) < 300 or len(h1) < 60:
-        return out, watch
-    times = [x.time for x in m5]
-    hi_f, lo_f = fractals(m5)
-    hhi, hlo = fractals(h1)
-    h1_times = [x.time for x in h1]
-    for D in ny_dates(m5):
-        if D.weekday() > 4:
-            continue
-        prev = D - timedelta(days=1)
-        asia = hilo(span(m5, times, ny(prev, 20), ny(D, 0)))
-        k_mo = bisect_left(times, ny(D, 0))
-        if not asia or k_mo >= len(m5) or abs(m5[k_mo].time - ny(D, 0)) > 600:
-            continue
-        mo = m5[k_mo].open
-        t2, t5, t7, t12 = ny(D, 2), ny(D, 5), ny(D, 7), ny(D, 12)
-        bias = _h1_bias(h1, h1_times, hhi, hlo, t2)
-        if bias == 0:
-            continue
-        d = bias
-        level = asia[1] if d > 0 else asia[0]
-        ks, ke = bisect_left(times, t2), bisect_left(times, t5)
-        k_sw = next((k for k in range(ks, ke) if ((m5[k].low < level and m5[k].low < mo) if d > 0 else (m5[k].high > level and m5[k].high > mo))), None)
-        steps = [("H1 bias bullish (higher highs and lows)" if d > 0 else "H1 bias bearish (lower highs and lows)", True, ""),
-                 (f"NY midnight open {mo:.5f} · Asian range {asia[1]:.5f} - {asia[0]:.5f}", True, "")]
-        if k_sw is None:
-            continue
-        steps.append((f"Judas swing: false move {'below' if d > 0 else 'above'} the open and the Asian {'low' if d > 0 else 'high'}", True, f"{level:.5f}"))
-        ext_k, k_m = k_sw, None
-        for k in range(k_sw, ke):
-            if (d > 0 and m5[k].low < m5[ext_k].low) or (d < 0 and m5[k].high > m5[ext_k].high):
-                ext_k = k
-            back = (m5[k].close > level) if d > 0 else (m5[k].close < level)
-            if not back:
-                continue
-            k_m, lvl, kf, fvg = _mss_fvg(m5, k, k + 1, d, ext_k, lo_f, hi_f)
-            if k_m is not None:
-                break
-        if k_m is None:
-            watch.append({"time": m5[k_sw].time + M5S, "dir": d, "steps": steps + [("Back inside + M5 MSS", False, "waiting")]})
-            continue
-        steps.append(("Back inside the range + M5 MSS with displacement", True, f"{lvl:.5f}"))
-        if fvg is None:
-            watch.append({"time": m5[k_m].time + M5S, "dir": d, "steps": steps + [("FVG in the move", False, "none")]})
-            continue
-        k0 = max(k_m, kf)
-        t_set = m5[k0].time + M5S
-        sx = m5[ext_k].low if d > 0 else m5[ext_k].high
-        entry = fvg[1] if d > 0 else fvg[0]
-        sl = sx - 2 * pip if d > 0 else sx + 2 * pip
-        tp = asia[0] if d > 0 else asia[1]
-        steps += [("FVG left by the move", True, f"{fvg[0]:.5f} - {fvg[1]:.5f}"), (f"Target: the Asian {'high' if d > 0 else 'low'}", True, f"{tp:.5f}")]
-        s = _make("EURUSD", "P1", d, m5, k0, entry, sl, None, tp, 1.0, False, max(1, (t7 - t_set) // M5S), t12, steps,
-                  {"levels": {"Asian high": asia[0], "Asian low": asia[1], "NY midnight open": mo}, "window": (t2, t5),
-                   "fvg": (fvg[0], fvg[1], m5[kf - 2].time), "sweep": (sx, m5[ext_k].time), "mss": (lvl, m5[k_m].time)}, cost, zone=fvg)
-        if s:
-            out.append(s)
-    return out, watch
-
-
-# ---------------------------------------------------------------- EUR/USD P2 · SnapBack 3σ
+# ---------------------------------------------------------------- EUR/USD SB · SnapBack 3σ (kept)
 def snapback(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> tuple[list, list]:
     """H1: a candle closes below the lower Bollinger band (16, 3.0) with RSI 14 under 30 → buy at that close; above the
     upper band with RSI over 70 → sell. SL and TP both 2.0 × ATR 14 (1:1). One trade at a time: no new signal while the
@@ -615,7 +467,7 @@ def snapback(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> tuple[l
         entry = m5[k0].close
         steps = [(f"H1 close {'under' if d > 0 else 'over'} Bollinger (16, 3.0)", True, f"{lo if d > 0 else up:.5f}"),
                  (f"RSI 14 {r[i]:.0f} {'< 30' if d > 0 else '> 70'}", True, ""), (f"SL = TP = 2.0 × ATR 14 ({2 * at[i] / pip:.1f} pips)", True, "")]
-        s = _make(key, "P2", d, m5, k0, entry, entry - d * 2 * at[i], None, entry + d * 2 * at[i], 1.0, True, 0, t_close + 5 * DAY, steps,
+        s = _make(key, "SB", d, m5, k0, entry, entry - d * 2 * at[i], None, entry + d * 2 * at[i], 1.0, True, 0, t_close + 5 * DAY, steps,
                   {"bands": True}, cost)
         if s:
             out.append(s)
@@ -624,139 +476,7 @@ def snapback(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> tuple[l
     return out, watch
 
 
-# ---------------------------------------------------------------- GBP/USD P1 · London / NY overlap sweep
-def gbp_sweep(m5, daily: Daily, pip: float, cost: float) -> tuple[list, list]:
-    """The Asian range (00:00-07:00 UTC, CHOICE: up to London's open). In 07:00-09:00 or 12:00-14:00 UTC price takes the
-    Asian high or low; then the M5 MSS with displacement inside the window, with an FVG: limit at its start, valid 2 hours
-    (CHOICE). Stop 2 pips beyond the sweep wick, and at least 0.45 × ADR20 from the entry (the guide: 0.4-0.5). Target
-    1.0 × ADR20 (the guide: 0.8-1.0). Closed at 20:00 UTC (CHOICE)."""
-    out, watch = [], []
-    if len(m5) < 300:
-        return out, watch
-    times = [x.time for x in m5]
-    hi_f, lo_f = fractals(m5)
-    for day in sorted({x.time - x.time % DAY for x in m5}):
-        if datetime.fromtimestamp(day, timezone.utc).weekday() > 4:
-            continue
-        asia = hilo(span(m5, times, day, day + 7 * H1S))
-        a20 = daily.adr(day + 7 * H1S, 20)
-        if not asia or not a20:
-            continue
-        taken = set()
-        for w0, w1 in ((day + 7 * H1S, day + 9 * H1S), (day + 12 * H1S, day + 14 * H1S)):
-            ks, ke = bisect_left(times, w0), bisect_left(times, w1)
-            for d in (1, -1):  # +1: the Asian LOW taken → buy · -1: the HIGH taken → sell
-                if d in taken:
-                    continue
-                level = asia[1] if d > 0 else asia[0]
-                k_sw = next((k for k in range(ks, ke) if (m5[k].low < level if d > 0 else m5[k].high > level)), None)
-                if k_sw is None:
-                    continue
-                taken.add(d)
-                steps = [(f"Asian {'low' if d > 0 else 'high'} taken in the {'London open' if w0 % DAY == 7 * H1S else 'NY overlap'} window", True, f"{level:.5f}")]
-                ext_k, k_m = k_sw, None
-                for k in range(k_sw, ke):
-                    if (d > 0 and m5[k].low < m5[ext_k].low) or (d < 0 and m5[k].high > m5[ext_k].high):
-                        ext_k = k
-                    k_m, lvl, kf, fvg = _mss_fvg(m5, k, k + 1, d, ext_k, lo_f, hi_f)
-                    if k_m is not None:
-                        break
-                if k_m is None:
-                    watch.append({"time": m5[k_sw].time + M5S, "dir": d, "steps": steps + [("M5 MSS with displacement", False, "waiting")]})
-                    continue
-                steps.append(("M5 MSS with displacement", True, f"{lvl:.5f}"))
-                if fvg is None:
-                    watch.append({"time": m5[k_m].time + M5S, "dir": d, "steps": steps + [("FVG in the move", False, "none")]})
-                    continue
-                k0 = max(k_m, kf)
-                t_set = m5[k0].time + M5S
-                sx = m5[ext_k].low if d > 0 else m5[ext_k].high
-                entry = fvg[1] if d > 0 else fvg[0]
-                sl = min(sx - 2 * pip, entry - 0.45 * a20) if d > 0 else max(sx + 2 * pip, entry + 0.45 * a20)
-                tp = entry + d * 1.0 * a20
-                steps += [("FVG left by the move", True, f"{fvg[0]:.5f} - {fvg[1]:.5f}"),
-                          (f"Stop >= 0.45 ADR20, target 1.0 ADR20 (ADR20 {a20 / pip:.0f} pips)", True, "")]
-                s = _make("GBPUSD", "P1", d, m5, k0, entry, sl, None, tp, 1.0, False, 24, day + 20 * H1S, steps,
-                          {"levels": {"Asian high": asia[0], "Asian low": asia[1]}, "window": (w0, w1), "fvg": (fvg[0], fvg[1], m5[kf - 2].time),
-                           "sweep": (sx, m5[ext_k].time), "mss": (lvl, m5[k_m].time)}, cost, zone=fvg)
-                if s:
-                    out.append(s)
-    return out, watch
-
-
-# ---------------------------------------------------------------- GBP/USD P2 · EMA 20/50/200 trend pullback
-def ema_pullback(m5, h1, daily: Daily, pip: float, cost: float) -> tuple[list, list]:
-    """BUY: on H1 and on H4 (built from H1) price > EMA 20 > EMA 50 > EMA 200, each EMA rising (over 5 candles, CHOICE),
-    and ADX 14 (H1) over 25. The H1 candle pulls back to EMA 20 or EMA 50 (its low reaches EMA 20) at a swing high that
-    price had broken (the flip: within 0.3 ATR, CHOICE), RSI 14 back in the middle (40-60, CHOICE), and closes as a reversal
-    (pin bar or bullish engulfing) above EMA 20, its close between 08:00 and 15:00 UTC: buy at the close. Stop 2 pips under
-    the pullback low and at least 0.45 × ADR20 away; target 1.0 × ADR20. The mirror for a SELL. Held 48 hours (CHOICE)."""
-    out, watch = [], []
-    if len(h1) < 260:
-        return out, watch
-    cl = [x.close for x in h1]
-    e20, e50, e200 = ema(cl, 20), ema(cl, 50), ema(cl, 200)
-    a = adx(h1, 14)
-    r, at = rsi(cl, 14), atr(h1, 14)
-    h4 = resample(h1, H4S)
-    c4 = [x.close for x in h4]
-    f20, f50, f200 = ema(c4, 20), ema(c4, 50), ema(c4, 200)
-    t4 = [x.time for x in h4]
-    hhi, hlo = fractals(h1)
-    m5_times = [x.time for x in m5]
-
-    def aligned(v, a20, a50, a200, i, d):
-        if None in (a20[i], a50[i], a200[i], a20[i - 5], a50[i - 5], a200[i - 5]):
-            return False
-        order = (v > a20[i] > a50[i] > a200[i]) if d > 0 else (v < a20[i] < a50[i] < a200[i])
-        rising = all(((s[i] - s[i - 5]) * d) > 0 for s in (a20, a50, a200))
-        return order and rising
-
-    for i in range(210, len(h1)):
-        x = h1[i]
-        t_close = x.time + H1S
-        if not (8 * H1S < t_close % DAY <= 15 * H1S) or None in (a[i], r[i], at[i]):
-            continue
-        j4 = bisect_right(t4, t_close - H4S) - 1  # the last CLOSED H4 candle
-        if j4 < 205:
-            continue
-        for d in (1, -1):
-            if not aligned(h1[i - 1].close, e20, e50, e200, i - 1, d) or not aligned(h4[j4].close, f20, f50, f200, j4, d) or a[i] <= 25:
-                continue
-            touch = (x.low <= e20[i]) if d > 0 else (x.high >= e20[i])
-            if not touch:
-                continue
-            flips = [j for j in range(i - 3, max(i - 80, 0), -1) if (hhi[j] if d > 0 else hlo[j]) and j + 2 <= i]
-            lvl = next((h1[j].high if d > 0 else h1[j].low for j in flips
-                        if abs((h1[j].high if d > 0 else h1[j].low) - (x.low if d > 0 else x.high)) <= 0.3 * at[i]
-                        and any(((h1[q].close - (h1[j].high if d > 0 else h1[j].low)) * d) > 0 for q in range(j + 1, i))), None)
-            prev = h1[i - 1]
-            pin = (min(x.open, x.close) - x.low >= 2 * body(x)) if d > 0 else (x.high - max(x.open, x.close) >= 2 * body(x))
-            engulf = (x.close > x.open and prev.close < prev.open and x.close > prev.open) if d > 0 else (x.close < x.open and prev.close > prev.open and x.close < prev.open)
-            close_ok = (x.close > e20[i]) if d > 0 else (x.close < e20[i])
-            mid_rsi = 40 <= r[i] <= 60
-            steps = [("H1 and H4: price > EMA 20 > 50 > 200, all rising" if d > 0 else "H1 and H4: price < EMA 20 < 50 < 200, all falling", True, ""),
-                     (f"ADX {a[i]:.0f} > 25", True, ""), ("Pullback to EMA 20 / 50", True, f"{e20[i]:.5f}"),
-                     ("At a flipped swing (old high now support)" if d > 0 else "At a flipped swing (old low now resistance)", lvl is not None, f"{lvl:.5f}" if lvl else "none"),
-                     (f"RSI {r[i]:.0f} back to the middle (40-60)", mid_rsi, ""), ("Reversal candle closing beyond EMA 20", (pin or engulf) and close_ok, "")]
-            if not (lvl is not None and mid_rsi and (pin or engulf) and close_ok):
-                if lvl is not None:
-                    watch.append({"time": t_close, "dir": d, "steps": steps})
-                continue
-            a20 = daily.adr(t_close, 20)
-            k0 = m5_index_at_close(m5_times, t_close)
-            if not a20 or k0 is None or m5[k0].time + M5S != t_close:
-                continue
-            entry = m5[k0].close
-            sl = min(x.low - 2 * pip, entry - 0.45 * a20) if d > 0 else max(x.high + 2 * pip, entry + 0.45 * a20)
-            s = _make("GBPUSD", "P2", d, m5, k0, entry, sl, None, entry + d * a20, 1.0, True, 0, t_close + 48 * H1S, steps,
-                      {"emas": True, "flip": (lvl, x.time)}, cost)
-            if s:
-                out.append(s)
-    return out, watch
-
-
-# ---------------------------------------------------------------- EUR/CHF and AUD/CAD · time-filtered 3σ mean reversion
+# ---------------------------------------------------------------- AUD/CAD · time-filtered 3σ mean reversion (kept)
 def three_touch(h4, upto: int, d: int, tol: float, back: int = 120) -> list[float]:
     """The guide's mechanical swing levels: H4 swing lows (d=+1) or highs (d=-1), N = 2 each side, confirmed before
     candle `upto`; a level is 3 or more of them within `tol` of each other (CHOICE: 0.1 ADR20, the last 120 H4 = 20 days).
@@ -877,71 +597,6 @@ def mean_reversion(m5, h1, daily: Daily, key: str, pip: float, cost: float) -> t
     return out, watch
 
 
-# ---------------------------------------------------------------- AUD/CHF · risk-on carry swing
-def carry_swing(m5, h1, daily: Daily, pip: float, cost: float, macro: Optional[dict] = None) -> tuple[list, list]:
-    """LONG ONLY (the guide's 3-pillar macro gate: S&P 500 up, VIX falling / stable, iron ore rising: macro_view). On H4 and H1 price
-    is above EMA 200 and EMA 200 is rising (over 5 candles, CHOICE). An H1 candle pulls back to the EMA 20 / EMA 50 zone
-    (its low between EMA 50 - 0.2 ATR and EMA 20, CHOICE) on a higher low (above the last confirmed H1 swing low) and
-    closes as a bullish reversal (pin bar or engulfing, above EMA 20), its close in 06:00-15:00 UTC (never 21:00-22:00):
-    buy at the close. Stop 0.7 × ADR20 from the entry (the guide: 0.6-0.8), or 2 pips under the pullback low if that is
-    lower. TP1 1.0 × ADR20 (half, stop to entry, CHOICE: the half), TP2 2.0 × ADR20. Held 5 days (CHOICE).
-    The macro gate must be open on the signal's day; a risk-off day (VIX jump / S&P drop) closes the long at once.
-    Without macro data the gate is "not checked" and question 6 says no (the guide: long ONLY when the gate is open)."""
-    out, watch = [], []
-    if len(h1) < 260:
-        return out, watch
-    cl = [x.close for x in h1]
-    e20, e50, e200 = ema(cl, 20), ema(cl, 50), ema(cl, 200)
-    at = atr(h1, 14)
-    h4 = resample(h1, H4S)
-    c4 = [x.close for x in h4]
-    f200 = ema(c4, 200)
-    t4 = [x.time for x in h4]
-    hhi, hlo = fractals(h1)
-    m5_times = [x.time for x in m5]
-    for i in range(210, len(h1)):
-        x = h1[i]
-        t_close = x.time + H1S
-        if not (6 * H1S < t_close % DAY <= 15 * H1S) or None in (e20[i], e50[i], e200[i], e200[i - 5], at[i]):
-            continue
-        j4 = bisect_right(t4, t_close - H4S) - 1
-        if j4 < 206 or f200[j4] is None or f200[j4 - 5] is None:
-            continue
-        trend = x.close > e200[i] and e200[i] > e200[i - 5] and h4[j4].close > f200[j4] and f200[j4] > f200[j4 - 5]
-        if not trend:
-            continue
-        zone_ok = e50[i] - 0.2 * at[i] <= x.low <= e20[i]
-        if not zone_ok:
-            continue
-        last_low = next((h1[j].low for j in range(i - 3, max(i - 100, 0), -1) if hlo[j] and j + 2 <= i), None)
-        higher = last_low is not None and x.low > last_low
-        prev = h1[i - 1]
-        pin = min(x.open, x.close) - x.low >= 2 * body(x)
-        engulf = x.close > x.open and prev.close < prev.open and x.close > prev.open
-        rev = (pin or engulf) and x.close > e20[i]
-        g = (macro or {}).get("gate", {}).get(t_close - t_close % DAY)
-        steps = [("H4 and H1 above a rising EMA 200", True, ""), ("Pullback into EMA 20 / 50", True, f"{e50[i]:.5f} - {e20[i]:.5f}"),
-                 ("On a higher low", higher, f"last swing low {last_low:.5f}" if last_low else "none"),
-                 ("Bullish reversal candle closing above EMA 20", rev, ""),
-                 ("Macro gate open (S&P 500 up, VIX calm, iron ore up)", bool(g and g[0]), g[1] if g else "not checked: no macro data")]
-        if not (higher and rev):
-            if higher:
-                watch.append({"time": t_close, "dir": 1, "steps": steps})
-            continue
-        a20 = daily.adr(t_close, 20)
-        k0 = m5_index_at_close(m5_times, t_close)
-        if not a20 or k0 is None or m5[k0].time + M5S != t_close:
-            continue
-        entry = m5[k0].close
-        sl = min(entry - 0.7 * a20, x.low - 2 * pip)
-        s = _make("AUDCHF", "P", 1, m5, k0, entry, sl, entry + 1.0 * a20, entry + 2.0 * a20, 0.5, True, 0, t_close + 5 * DAY, steps,
-                  {"emas": True}, cost)
-        if s:
-            s["macroOpen"] = bool(g and g[0])
-            out.append(s)
-    return out, watch
-
-
 # ---------------------------------------------------------------- the checklist (the guide's section 6b) and the entry point
 def checklist(key: str, s: dict, news: Optional[list[int]], daily: Optional[Daily] = None) -> list[tuple[str, bool, str]]:
     t, sid = s["time"], s["sid"]
@@ -955,30 +610,33 @@ def checklist(key: str, s: dict, news: Optional[list[int]], daily: Optional[Dail
         (f"2 · Red-folder pause: no CPI / NFP / FOMC / BoE / RBA / BoC / SNB / EIA {NEWS_MIN} min around the entry", not near,
          "not checked (no news history)" if news is None else ("news at " + ", ".join(hm(n) for n in near) + " UTC" if near else "none")),
         (f"3 · Reward >= 1:{need:g}", s["rr"] >= need - 1e-9, f"1:{s['rr']:.2f}"),
-        ("4 · Lot sized for 1 % risk", True, "risk / (stop pips × pip value)"),
+        (f"4 · Lot sized for {RISK_PCT.get((key, sid), 1.0):g} % risk", True, "risk / (stop pips × pip value)"),
         ("5 · Correlation cap (EUR/USD + GBP/USD: 0.5 % each · AUD/CAD + AUD/CHF: not both)", True, "checked across the six teams before any alert"),
-        (f"6 · Volatility regime ({'mean reversion' if mr else 'sweep / trend'})" + (" + the macro gate" if key == "AUDCHF" else ""),
-         reg_ok and (key != "AUDCHF" or bool(s.get("macroOpen"))), reg + (" · macro gate " + ("open" if s.get("macroOpen") else "closed / not checked") if key == "AUDCHF" else "")
-         + (f" · targets cut to {s['cut'] * 100:.0f} % (compressed range)" if s.get("cut") else "")),
+        (f"6 · Volatility regime ({'mean reversion' if mr else 'sweep / trend'})", reg_ok,
+         reg + (f" · targets cut to {s['cut'] * 100:.0f} % (compressed range)" if s.get("cut") else "")),
     ]
 
 
 def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = None, eur_m5=None, d1=None,
-         macro: Optional[dict] = None) -> tuple[list, list]:
+         macro: Optional[dict] = None, swiss_shock: Optional[list[int]] = None) -> tuple[list, list]:
     """The pair's strategies on its candles: (setups with their result and checklist, what is forming). `news`: the
     red-folder pause times (red_folder + eia_times); `d1`: daily candles for the ADR (built from H1 when not given);
     `macro`: macro_view() for the AUD/CHF gate and its risk-off exits."""
     daily = Daily(d1 if d1 else resample(h1, DAY))
+    from . import engines  # the master spec's engines (engines.py)
+    cx = engines.Ctx(m5, h1, daily) if key != "AUDCAD" else None
     if key == "XAUUSD":
-        parts = [xau(m5, h1, daily, pip, cost)]
+        parts = [engines.gold(cx, pip, cost)]
     elif key == "EURUSD":
-        parts = [judas(m5, h1, pip, cost), snapback(m5, h1, daily, key, pip, cost)]
+        parts = [engines.amd(cx, pip, cost), snapback(m5, h1, daily, key, pip, cost)]
     elif key == "GBPUSD":
-        parts = [gbp_sweep(m5, daily, pip, cost), ema_pullback(m5, h1, daily, pip, cost)]
-    elif key in ("EURCHF", "AUDCAD"):
+        parts = [engines.cable(cx, pip, cost)]
+    elif key == "EURCHF":
+        parts = [engines.swiss(cx, pip, cost, swiss_shock)]
+    elif key == "AUDCAD":
         parts = [mean_reversion(m5, h1, daily, key, pip, cost)]
     elif key == "AUDCHF":
-        parts = [carry_swing(m5, h1, daily, pip, cost, macro)]
+        parts = [engines.risk_regime(cx, pip, cost)]
     else:
         return [], []
     s = sorted((x for p in parts for x in p[0]), key=lambda x: x["time"])
@@ -986,7 +644,7 @@ def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = 
     seen = set()
     s = [x for x in s if not ((x["sid"], x["time"], x["dir"]) in seen or seen.add((x["sid"], x["time"], x["dir"])))]
     nw = sorted(news) if news else None
-    exits = (macro or {}).get("exits") if key == "AUDCHF" else None
+    exits = None  # the macro risk-off exit belonged to the replaced AUD/CHF carry swing
     for x in s:
         a5, a20 = daily.adr(x["time"], 5), daily.adr(x["time"], 20)
         again = bool(nw and not x["market"]) or bool(exits)
@@ -1004,6 +662,10 @@ def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = 
                               x["holdUntil"], cost, None, nw if not x["market"] else None, exits)
         x["checklist"] = checklist(key, x, news, daily)
         x["pass"] = all(ok for _, ok, _ in x["checklist"])
+    for x in s:  # a strategy turned off never passes (still measured)
+        if (key, x["sid"]) in DISABLED:
+            x["pass"] = False
+            x["checklist"].append(("0 · Strategy switched on", False, "turned off: it lost in the one-year test"))
     # one trade per pair at a time (the portfolio check's rule, no stacking): a setup while the pair's last taken one is
     # still pending or open is not taken
     busy = 0
@@ -1056,41 +718,70 @@ def draw(key: str, m5, h1, now: int, shown: Optional[dict], decimals: int, d1=No
         for n in which:
             lines.append(_line(h1, ema(cl, n), 150, col[n], f"EMA {n}", False, r))
 
-    if key in ("XAUUSD", "EURUSD"):
-        D = datetime.fromtimestamp(m5[-1].time, NY).date()
-        prev = D - timedelta(days=1)
-        a0 = ny(prev, 20)
-        asia = hilo(span(m5, times, a0, ny(D, 0)))
-        if asia:
-            seg(a0, end, asia[0], "session", 1, "Asian high")
-            seg(a0, end, asia[1], "session", -1, "Asian low")
-        if key == "XAUUSD":
-            lon = hilo(span(m5, times, ny(D, 2), ny(D, 5)))
-            eq = hilo(span(m5, times, ny(D, 9, 30), ny(D, 10)))
-            if lon:
-                seg(ny(D, 2), end, lon[0], "liquidity", 1, "London high")
-                seg(ny(D, 2), end, lon[1], "liquidity", -1, "London low")
-            if eq and end > ny(D, 10):
-                seg(ny(D, 9, 30), end, eq[0], "liquidity", 1, "9:30 high")
-                seg(ny(D, 9, 30), end, eq[1], "liquidity", -1, "9:30 low")
-            windows.append({"from": ny(D, 9, 30), "to": ny(D, 10, 15), "label": "sweep 09:30-10:15 NY"})
-            windows.append({"from": ny(D, 10), "to": ny(D, 11), "label": "Silver Bullet 10-11 NY"})
-        else:
-            k_mo = bisect_left(times, ny(D, 0))
-            if k_mo < len(m5):
-                seg(ny(D, 0), end, m5[k_mo].open, "eq", 0, "NY midnight open")
-            windows.append({"from": ny(D, 2), "to": ny(D, 5), "label": "London killzone (Judas)"})
-            bands()
+    day = m5[-1].time - m5[-1].time % DAY
+
+    def session(a0, a1, name, kind="session"):
+        hl = hilo(span(m5, times, a0, a1))
+        if hl:
+            seg(a0, end, hl[0], kind, 1, f"{name} high")
+            seg(a0, end, hl[1], kind, -1, f"{name} low")
+        return hl
+
+    def prev_day():
+        hl = hilo(span(m5, times, day - DAY, day)) or hilo(span(m5, times, day - 3 * DAY, day - 2 * DAY + 1))
+        if hl:
+            seg(day - DAY, end, hl[0], "liquidity", 1, "PDH")
+            seg(day - DAY, end, hl[1], "liquidity", -1, "PDL")
+
+    def vwap_lines(k_sig):
+        from .engines import vwap
+        vw, sd = vwap(m5)
+        k0 = bisect_left(times, day)
+        pts = range(k0, len(m5), 3)
+        for mult, lab in ((0, "daily VWAP"), (k_sig, f"VWAP ±{k_sig:g}σ"), (-k_sig, "")):
+            lines.append({"points": [[m5[k].time + M5S, r(vw[k] + mult * sd[k])] for k in pts if vw[k] is not None],
+                          "color": "#22D3EE", "label": lab, "dash": mult != 0})
+
+    def dealing(n, label="dealing range"):
+        if len(h1) >= n:
+            lo, hi = min(x.low for x in h1[-n:]), max(x.high for x in h1[-n:])
+            t0 = h1[-n].time
+            seg(t0, end, hi, "liquidity", 1, f"{label} high")
+            seg(t0, end, lo, "liquidity", -1, f"{label} low")
+            seg(t0, end, (hi + lo) / 2, "eq", 0, "EQ 50 %")
+            return lo, hi
+        return None
+
+    if key == "XAUUSD":
+        session(day, day + 6 * H1S, "Asian")
+        session(day + 7 * H1S, day + 10 * H1S + 1800, "London", "liquidity")
+        prev_day()
+        windows += [{"from": day + 7 * H1S, "to": day + 10 * H1S + 1800, "label": "London killzone"},
+                    {"from": day + 12 * H1S + 1800, "to": day + 16 * H1S, "label": "NY / COMEX killzone"}]
+    elif key == "EURUSD":
+        session(day, day + 7 * H1S, "Asian")
+        vwap_lines(1.5)
+        bands()
+        windows += [{"from": day, "to": day + 7 * H1S, "label": "Accumulation (Asia)"},
+                    {"from": day + 7 * H1S, "to": day + 9 * H1S + 1800, "label": "Manipulation: London Judas"},
+                    {"from": day + 12 * H1S, "to": day + 14 * H1S + 1800, "label": "Manipulation: NY Judas"}]
     elif key == "GBPUSD":
-        day = m5[-1].time - m5[-1].time % DAY
-        asia = hilo(span(m5, times, day, day + 7 * H1S))
-        if asia:
-            seg(day, end, asia[0], "session", 1, "Asian high")
-            seg(day, end, asia[1], "session", -1, "Asian low")
-        windows += [{"from": day + 7 * H1S, "to": day + 9 * H1S, "label": "London open sweep"},
-                    {"from": day + 12 * H1S, "to": day + 14 * H1S, "label": "NY overlap sweep"}]
-        emas()
-    elif key in ("EURCHF", "AUDCAD"):
+        session(day, day + 7 * H1S, "Asian")
+        prev_day()
+        windows += [{"from": day + 7 * H1S, "to": day + 10 * H1S, "label": "London raid"},
+                    {"from": day + 12 * H1S + 1800, "to": day + 15 * H1S + 1800, "label": "NY overlap raid"}]
+    elif key == "EURCHF":
+        from .engines import zscore
+        cl = [x.close for x in h1]
+        z, mu, sg = zscore(cl, 50)
+        n = min(150, len(h1))
+        for mult, lab in ((0, "EMA 50 (mean)"), (2.2, "Z ±2.2σ"), (-2.2, "")):
+            lines.append({"points": [[h1[i].time + H1S, r(mu[i] + mult * sg[i])] for i in range(len(h1) - n, len(h1)) if mu[i] is not None and sg[i] is not None],
+                          "color": "#A78BFA", "label": lab, "dash": mult != 0})
+        vwap_lines(2.5)
+        dealing(50, "50-candle range")
+        windows.append({"from": day + 6 * H1S + 1800, "to": day + 15 * H1S + 1800, "label": "European hours"})
+    elif key == "AUDCAD":
         bands()
         a20 = daily.adr(now, 20)
         if a20:
@@ -1098,14 +789,11 @@ def draw(key: str, m5, h1, now: int, shown: Optional[dict], decimals: int, d1=No
             for d in (1, -1):
                 for v in three_touch(h4, len(h4), d, 0.1 * a20):
                     seg(h4[max(0, len(h4) - 120)].time, end, v, "liquidity", -d, f"3-touch level ({'swing lows' if d > 0 else 'swing highs'})")
-        day = m5[-1].time - m5[-1].time % DAY
-        windows += ([{"from": day + 7 * H1S, "to": day + 13 * H1S, "label": "reversion window"},
-                     {"from": day + 15 * H1S + 1800, "to": day + 18 * H1S, "label": "reversion window"}] if key == "EURCHF"
-                    else [{"from": day, "to": day + 11 * H1S, "label": "reversion window (Tokyo / London)"}])
+        windows.append({"from": day, "to": day + 11 * H1S, "label": "reversion window (Tokyo / London)"})
     elif key == "AUDCHF":
-        emas()
-        day = m5[-1].time - m5[-1].time % DAY
-        windows.append({"from": day + 6 * H1S, "to": day + 15 * H1S, "label": "entry window 06-15 UTC"})
+        emas((20, 50, 200))
+        dealing(60, "60-candle range")
+        windows.append({"from": day + 6 * H1S, "to": day + 15 * H1S, "label": "execution window"})
 
     g = (shown or {}).get("geo") or {}
     d = (shown or {}).get("dir", 1)
@@ -1127,4 +815,10 @@ def draw(key: str, m5, h1, now: int, shown: Optional[dict], decimals: int, d1=No
     if g.get("level") and g["level"][0] is not None:
         p, t = g["level"]
         seg(t - 24 * H1S, end, p, "liquidity", -d, "the 3-touch level")
+    if g.get("ob"):
+        hi, lo, t = g["ob"]
+        boxes.append({"from": t, "to": end + 2 * H1S, "top": r(hi), "bottom": r(lo), "kind": "ob", "dir": d, "label": "Order block / breaker"})
+    if g.get("fib"):
+        o62, o79, _x, B, A, t = g["fib"]
+        boxes.append({"from": t, "to": end + 2 * H1S, "top": r(max(o62, o79)), "bottom": r(min(o62, o79)), "kind": "ob", "dir": d, "label": "OTE 61.8-78.6 %"})
     return {"boxes": boxes, "segments": segs, "labels": labels, "lines": lines, "windows": windows}

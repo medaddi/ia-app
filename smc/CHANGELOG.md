@@ -113,3 +113,30 @@
   70 %, +9.68R; AUD/CAD 17 tr, 59 %, +5.94R (both positive in both halves); EUR/CHF 10 tr, 50 %, +1.77R; GBP/USD sweep
   70 tr, 53 %, −0.58R; gold 10 tr, 30 %, −3.16R; AUD/CHF 7 tr, 14 %, −6.13R.
 - Parameter changes after seeing results: **none** (every new rule is the summary's; choices marked CHOICE).
+
+## v0.8 · 2026-11-08 · the master spec's pair engines (quantitative_trading_teams_claude_master_prompt.md)
+- The user's rule: strategies with a high win rate stay, the others are replaced (CHOICE, written: kept = win >= 55 % and
+  profitable in both halves). Kept: EUR/USD SnapBack 3σ (SB) and AUD/CAD range reversion (P). Replaced by the spec's
+  engines (`backend/app/smc/engines.py`): XAU/USD GOLD-QUANT S1–S4, EUR/USD INST-AMD S1–S4 (next to SB), GBP/USD
+  CABLE-RAID S1–S4, EUR/CHF SWISS-REV S1–S3, AUD/CHF RISK-REGIME S1–S4 (ADX + Kaufman ER regime switch).
+- The spec's indicators: daily VWAP ± σ (volume-weighted; a TWAP on a feed without volume), Z-score on EMA 50, Kaufman
+  ER 30, the dealing-range %, displacement (1.5 ATR, body 65 %), the true FVG (consecutive candles, opens within
+  0.35 ATR), the true sweep (not in 21:50-22:15 UTC rollover, not a 3-ATR spike), the live feed check (missing bars,
+  abnormal opens: FEED_GAP_IGNORED), the data fitness tiers FIT / LIMITED SAMPLE / NOT FIT (N >= 30 / 15-29 / < 15).
+- Agents per pair: the header badge (e.g. "H1 range · Z -1.8σ · discount 18 %"), the AMD phase, the regime, the Z-score
+  waits, REGIME BREAK VETO, Backtest Engineer N / win / EV / fitness per strategy, Devil's Advocate on the live feed
+  (the old "M5 NOT FIT: artefacts of the feed" verdict replaced by the measured gaps). Gold risks 0.75 %.
+- Charts per pair: VWAP ± σ, Z ±2.2σ bands, the dealing range + EQ, the killzones / AMD windows, OB / breaker / OTE boxes.
+- One year (`PLAYBOOK.md`): 175 trades, win 43 %, −2.60R. Positive in both halves: SB 27 tr 70 % +9.68R, AUD/CAD 17 tr
+  59 % +5.94R, EUR/CHF S2 11 tr 64 % +6.31R, GBP/USD S2 16 tr 50 % +7.91R, gold S1 5 tr 60 % +1.98R. Losing: GBP S1
+  (20 %, −6.8R), S4 (−6.7R), EUR/CHF S1 (0 %, −7.8R), S3, EUR/USD S3 (0 %, −5.7R), S4, gold S2, S3. No trade: EUR/USD
+  S1/S2 (RR never 1:2), AUD/CHF S1–S4 (the M15 CHoCH / OTE conditions).
+- Parameter changes after seeing results: **none.** Every rule the spec leaves open is marked CHOICE in the code.
+
+## v0.8.1 · 2026-11-08 · losing sub-strategies turned off (the user: "Yes, turn them off")
+- Off (net loss or a loss in either half, one-year test): gold S2, S3, S4 · EUR/USD S3, S4 · GBP/USD S1, S3, S4 ·
+  EUR/CHF S1, S3 (`playbook.DISABLED`: status OFF, never sent, still measured in `PLAYBOOK.md`).
+- On: gold S1 · EUR/USD S1, S2, SnapBack · GBP/USD S2 · EUR/CHF S2 · AUD/CAD · AUD/CHF S1–S4 (no trade in the year:
+  nothing to judge). Switched on only: 77 trades, win 61 %, +30.79R — chosen on the same year, so optimistic.
+- Note: with gold S4 off, gold S1 takes one more trade (6), and its second half is −0.59R; not re-filtered (no
+  repeated selection on the same data).

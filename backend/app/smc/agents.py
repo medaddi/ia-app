@@ -39,7 +39,9 @@ def _agent(key: str, status: str, finding: str, lines: list[str]) -> dict:
 
 
 def _session(t: int) -> str:
-    h = (t % engine.DAY) // 3600
+    wd, h = datetime.fromtimestamp(t, timezone.utc).weekday(), (t % engine.DAY) // 3600
+    if wd == 5 or (wd == 6 and h < 22) or (wd == 4 and h >= 22):  # Friday 22:00 to Sunday 22:00 UTC: forex is closed
+        return "market closed (weekend)"
     s = engine.SESSIONS
     if s["london"][0] <= h < s["london"][1]:
         return "London killzone"
@@ -51,7 +53,7 @@ def _session(t: int) -> str:
 
 
 def team_agents(pair: str, cfg: dict, m5, h1v, strategies: list[dict], chart: dict, now: int, cot: dict | None = None,
-                sent: list[dict] | None = None, news: list[dict] | None = None) -> list[dict]:
+                sent: list[dict] | None = None, news: list[dict] | None = None, pctx: dict | None = None) -> list[dict]:
     key = pair.replace("/", "")
     dec, pip = cfg["decimals"], cfg["pip"]
     f = lambda v: f"{v:.{dec}f}"  # noqa: E731
@@ -122,7 +124,8 @@ def team_agents(pair: str, cfg: dict, m5, h1v, strategies: list[dict], chart: di
         lines.append("VERIFIED · news (ForexFactory, high impact, this pair's currencies): "
                      + (f"{nxt['currency']} {nxt['title']} at {hm(nxt['time'])} UTC" + (" · INSIDE the 15-minute window: no entry" if near else "") if nxt else "none left this week"))
         killzone = sess.endswith("killzone")
-        say = ("Big news in the next 15 minutes: hands off" if near else
+        say = ("The market is closed for the weekend: nothing to trade" if sess.startswith("market closed") else
+               "Big news in the next 15 minutes: hands off" if near else
                f"{sess.split(' killzone')[0]} is open and no big news: good time to trade" if killzone else
                "Outside London and New York: I don't open trades now" if "outside" in sess else
                "Asian session: the market builds its range, I watch the highs and lows it leaves")
@@ -272,4 +275,90 @@ def team_agents(pair: str, cfg: dict, m5, h1v, strategies: list[dict], chart: di
              "SCRIPT · before any alert, the trader-skill risk check must PASS across all six teams",
              "research, not advice: demo before any live use; nothing here is guaranteed"]
     out.insert(0, _agent("lead", status, decision, lines))
+    if pctx:
+        _profile(key, out, pctx, strategies, pb, f)
     return out
+
+
+def _profile(key: str, out: list[dict], c: dict, strategies: list[dict], pb: dict | None, f) -> None:
+    """The master spec's per-pair outputs of the 7 agents (its badges), from the pair's live numbers (engines.context)."""
+    from .engines import data_fitness
+    a = {x["key"]: x for x in out}
+    feed = c["feed"]
+    rp, z, adx_, er = c.get("rangePct"), c.get("z"), c.get("adx"), c.get("er")
+    zone = None if rp is None else ("discount" if rp < 50 else "premium") + f" {rp:.0f} %"
+    signal = next((s for s in strategies if s["status"] == "SIGNAL"), None)
+    watch = next((s for s in strategies if s["status"] == "WATCHING"), None)
+    miss = next((x["step"] for x in watch["watch"]["steps"] if not x["ok"]), None) if watch else None
+
+    def say(k, finding, *lines, status=None):
+        a[k]["finding"] = finding
+        a[k]["lines"] = list(lines) + a[k]["lines"]
+        if status:
+            a[k]["status"] = status
+
+    vw = c.get("vwap")
+    vwd = None if not (vw and c.get("vwapSd")) else None
+    if key == "XAUUSD":
+        say("structure", f"H1 {a['structure']['finding'].split(':')[0].replace('H4 and H1 are both ', '')} · {zone}" if zone else a["structure"]["finding"],
+            f"VERIFIED · dealing range position (48 H1): {zone}", f"VERIFIED · ADX H1 {adx_:.1f}" if adx_ else "")
+        say("liquidity", ("Asian range compressed (<= 0.85 ATR daily)" if c.get("asiaCompressed") else "Asian range too wide: the day's move is spent")
+            + (f" · ADR used {c['adrUsed']:.0f} %" if c.get("adrUsed") is not None else ""),
+            "SCRIPT · killzones London 07:00-10:30, NY / COMEX 12:30-16:00 UTC; USD red news ±30 min = veto")
+    elif key == "EURUSD":
+        closed = a["liquidity"]["finding"].startswith("The market is closed")
+        say("liquidity", ("The market is closed for the weekend" if closed else f"AMD phase: {c.get('amd', '?')}") + (f" · {zone}" if zone else ""),
+            f"VERIFIED · daily VWAP {f(vw)}" if vw else "", "SCRIPT · buys only under 40 %, sells only over 60 % of the H1 dealing range")
+        if rp is not None and 40 <= rp <= 60:
+            a["devil"]["lines"].insert(0, "SCRIPT · price in the 40-60 % middle of the range: no AMD trade without a sweep")
+    elif key == "GBPUSD":
+        say("entry", (a["entry"]["finding"] if signal else "Waiting for an M15 close reclaim before arming the M5 breaker (never the first touch)"),
+            "SCRIPT · sweep depth 0.15-0.85 ATR H1, rejection wick >= 45 %, stop +0.30 ATR M15 for Cable's beta")
+    elif key == "EURCHF":
+        regime = "range mean-rev" if adx_ is not None and adx_ < 28 else "trend breakout warning" if adx_ is not None else "?"
+        say("structure", f"H1 {regime} · Z {z:+.1f}σ · {zone}" if z is not None and zone else a["structure"]["finding"],
+            f"VERIFIED · Z-score (EMA 50) {z:+.2f}σ · ADX {adx_:.1f} · mean {f(c['ema50'])}" if z is not None and adx_ and c.get("ema50") else "")
+        need = "≤ -2.2σ" if (z or 0) < 0 else "≥ +2.2σ"
+        if not signal:
+            say("lead", f"WAITING · Z-score at {z:+.1f}σ (needs {need} extreme)" if z is not None else a["lead"]["finding"])
+        if adx_ is not None and adx_ > 32:
+            say("devil", "REGIME BREAK VETO: ADX over 32, mean reversion is off", status="warn")
+    elif key == "AUDCHF":
+        mode = c.get("regime", "?")
+        say("structure", f"{mode} · ADX {adx_:.0f} · ER {er:.2f} · {zone}" if adx_ is not None and er is not None and zone else a["structure"]["finding"],
+            "SCRIPT · TREND_PULLBACK: ADX >= 25 and ER30 >= 0.35 · RANGE_FADE: ADX < 22 and ER30 < 0.25 · else wait")
+        if not signal:
+            say("lead", f"REGIME: {mode.replace('_', ' ')} · " + ("waiting for the H1 OTE pullback" if mode == "TREND_PULLBACK"
+                else "waiting for a 15 % / 85 % range extreme" if mode == "RANGE_FADE" else "no trade until the regime is clear"))
+    if not signal and miss and key != "EURCHF" and key != "AUDCHF":
+        say("lead", f"ARMED · waiting for: {miss}")
+
+    # Backtest Engineer: N, win rate, expectancy and the data fitness of each strategy (the spec's part 3)
+    if pb:
+        rows, best = [], None
+        for sid, y in pb["strategies"].items():
+            al = y["all"]
+            fit = data_fitness(al["trades"], feed)
+            rows.append(f"VERIFIED · {sid}: N={al['trades']} · win {al['winRate'] if al['trades'] else '—'} % · EV "
+                        f"{(al['expectancyR'] or 0):+.2f}R · {fit}")
+            if al["trades"] and y["in"]["totalR"] > 0 and y["out"]["totalR"] > 0 and (best is None or al["totalR"] > best[1]["totalR"]):
+                best = (sid, al, fit)
+        fit_all = data_fitness(max((y["all"]["trades"] for y in pb["strategies"].values()), default=0), feed)
+        a["backtest"]["lines"] = rows + [l for l in a["backtest"]["lines"] if not l.startswith("VERIFIED · S") and not l.startswith("VERIFIED · P") and not l.startswith("HYPOTHESIS")]
+        a["backtest"]["finding"] = (f"Data {best[2]} · {best[0]} N={best[1]['trades']} · win {best[1]['winRate']} % · EV {best[1]['expectancyR']:+.2f}R"
+                                    if best else f"Data {fit_all} · no strategy positive in both halves yet")
+        a["backtest"]["status"] = "ok" if best and best[2] == "FIT" else "warn"
+
+    # Devil's Advocate: the live feed check replaces the old "NOT FIT" verdict (sweeps / FVGs on a gap are ignored, not trusted)
+    d = a["devil"]
+    d["lines"] = [l for l in d["lines"] if "artefacts of the feed" not in l]
+    fl = (f"VERIFIED · live M5 feed, last {feed['bars']} candles: {feed['gaps']} missing, {feed['jumps']} abnormal opens "
+          f"({feed['share'] * 100:.1f} %) — FEED_GAP_IGNORED: FVGs / sweeps on those candles are not used")
+    d["lines"].insert(0, fl)
+    if "artefacts of the feed" in d["finding"] or d["finding"].startswith("My worry: the M5 candles"):
+        d["finding"] = ("CLEAR · feed verified (" if feed["share"] < 0.01 and not feed["recentGap"] else "My worry: the feed has gaps (") + \
+                       f"{feed['share'] * 100:.1f} % of recent candles)" + (f" · ADR used {c['adrUsed']:.0f} %" if c.get("adrUsed") is not None else "")
+    if key == "XAUUSD" and c.get("adrUsed") is not None and c["adrUsed"] > 120:
+        d["finding"], d["status"] = f"VETO · today's range is {c['adrUsed']:.0f} % of the ADR: the move is spent", "warn"
+    if key == "XAUUSD" and adx_ is not None and adx_ > 48:
+        d["finding"], d["status"] = f"VETO · parabolic ADX {adx_:.0f} > 48", "warn"
