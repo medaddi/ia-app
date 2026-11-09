@@ -34,7 +34,8 @@ def agg(rs: list[float]) -> dict:
     if not rs:
         return {"trades": 0, "wins": 0, "winRate": None, "totalR": 0.0, "expectancyR": None}
     w = sum(r > 0.05 for r in rs)
-    return {"trades": len(rs), "wins": w, "winRate": round(100 * w / len(rs)), "totalR": round(sum(rs), 2), "expectancyR": round(sum(rs) / len(rs), 3)}
+    return {"trades": len(rs), "wins": w, "winRate": round(100 * w / len(rs)), "totalR": round(sum(rs), 2), "expectancyR": round(sum(rs) / len(rs), 3),
+            "grossWinR": round(sum(r for r in rs if r > 0), 3), "grossLossR": round(-sum(r for r in rs if r < 0), 3)}
 
 
 def load_news() -> dict[str, list[int]]:
@@ -68,6 +69,15 @@ def load_macro() -> dict | None:
         return None
 
 
+def load_gold_macro() -> dict | None:
+    d = ROOT / "macro"
+    try:
+        rd = lambda n: [(int(a), float(b)) for a, b in (ln.split(",") for ln in (d / f"{n}.csv").read_text().splitlines()[1:])]  # noqa: E731
+        return {"dxy": rd("DXY"), "us10y": rd("US10Y")}
+    except OSError:
+        return None
+
+
 def pair_news(news: dict[str, list[int]], pair: str) -> list[int]:
     cur = {"USD"} if pair == "XAUUSD" else {pair[:3], pair[3:]}
     return sorted({t for c in cur for t in news.get(c, [])})
@@ -75,10 +85,11 @@ def pair_news(news: dict[str, list[int]], pair: str) -> list[int]:
 
 def main(source: str) -> None:
     out = {}
-    eur = None
+    eur = gbp = None
     NEWS = load_news()
     EVENTS = load_events()
     MACRO = load_macro()
+    GOLD_MACRO = load_gold_macro()
     for p in PAIRS:
         base = ROOT / "pairs" / p
         dd = base / "data" / source if source else base / "data"
@@ -90,8 +101,16 @@ def main(source: str) -> None:
         d1 = playbook.resample(m5, playbook.DAY)
         nw = sorted(playbook.red_folder(EVENTS) + playbook.eia_times(m5[0].time, m5[-1].time)) if EVENTS else []
         shock = sorted({e["time"] for e in EVENTS if e["currency"] in ("EUR", "CHF") and any(w in e["title"] for w in ("Refinancing", "ECB", "SNB", "Monetary Policy Statement"))})
-        setups, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, nw if EVENTS else None, None, d1, MACRO, shock)
-        plain, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, None, None, d1, MACRO, shock)  # the same without the news rule
+        mac = GOLD_MACRO if p == "XAUUSD" else MACRO
+        if p == "EURUSD" and gbp is None:  # EUR/USD's SMT needs GBP/USD
+            gbp = load((ROOT / "pairs" / "GBPUSD" / "data" / source if source else ROOT / "pairs" / "GBPUSD" / "data") / "M5.csv")
+        if p == "AUDCHF":  # the AUD/CHF Devil's cross check: AUD/CAD and EUR/CHF
+            twin = lambda q: load((ROOT / "pairs" / q / "data" / source if source else ROOT / "pairs" / q / "data") / "M5.csv")  # noqa: E731
+            em5 = (twin("AUDCAD"), twin("EURCHF"))
+        else:
+            em5 = eur if p == "GBPUSD" else gbp if p == "EURUSD" else None
+        setups, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, nw if EVENTS else None, em5, d1, mac, shock, EVENTS if EVENTS else None, None, cfg["spread_pips"])
+        plain, _ = playbook.scan(p, m5, h1, cfg["pip"], cost, None, em5, d1, mac, shock, None, None, cfg["spread_pips"])  # the same without the news rule
         split = m5[0].time + int((m5[-1].time - m5[0].time) * 0.6)
         out[p] = {"source": source or "yahoo", "from": m5[0].time, "split": split, "to": m5[-1].time, "strategies": {},
                   "news": {"events": len(nw), "file": "smc/news/high_impact.csv" if NEWS else None}, "macro": bool(MACRO)}

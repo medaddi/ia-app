@@ -13,7 +13,7 @@ from pathlib import Path
 import httpx
 
 ROOT = Path(__file__).resolve().parents[1]
-SERIES = {"SPX": "^GSPC", "VIX": "^VIX", "IRON": "TIO=F"}
+SERIES = {"SPX": "^GSPC", "VIX": "^VIX", "IRON": "TIO=F", "DXY": "DX-Y.NYB", "US10Y": "^TNX"}  # DXY / US10Y: the gold Devil's check
 UA = {"User-Agent": "Mozilla/5.0 (smc research; daily closes for a personal backtest)"}
 
 

@@ -53,19 +53,56 @@ def test_the_chart_analysis_uses_only_closed_candles_and_stays_still():
     assert {s["label"] for s in a["segments"] if s["kind"] in ("bos", "choch")} <= {"BOS", "CHoCH"}
 
 
-def test_each_team_has_its_seven_agents_and_the_lead_follows_the_gate():
+def test_gold_team_follows_its_spec():
     m5, h1 = candles("XAUUSD", "M5"), candles("XAUUSD", "H1")
     if not m5:
         return
     t = desk.read_team("XAU/USD", desk.BY_SYMBOL["XAU/USD"], m5, h1, m5[-1].time + 300)
-    keys = [a["key"] for a in t["agents"]]
-    assert keys == ["lead", "structure", "liquidity", "entry", "risk", "backtest", "devil"]
-    assert all(a["status"] in ("ok", "warn", "wait") and a["finding"] for a in t["agents"])
-    lead = t["agents"][0]
-    assert lead["finding"].startswith("SETUP") == bool(t["signals"])  # the lead publishes a setup only when one passed the 7 questions
-    assert any("not advice" in x for x in lead["lines"])
-    devil = next(a for a in t["agents"] if a["key"] == "devil")
-    assert any("100" in x for x in devil["lines"])  # the small sample is always raised
+    assert [a["key"] for a in t["agents"]] == ["lead", "structure", "liquidity", "entry", "risk", "backtest", "devil"]
+    assert all(a["status"] in ("ok", "warn", "wait", "veto") and len(a["finding"]) <= 55 for a in t["agents"])
+    rep = t["goldReport"]
+    assert rep["strategy_name"].startswith("London-NY Fix") and (rep["final_decision"] != "NO_TRADE") == bool(t["signals"])
+
+
+def test_eur_chf_team_follows_its_spec():
+    m5, h1 = candles("EURCHF", "M5"), candles("EURCHF", "H1")
+    if not m5:
+        return
+    t = desk.read_team("EUR/CHF", desk.BY_SYMBOL["EUR/CHF"], m5, h1, m5[-1].time + 300)
+    assert [a["key"] for a in t["agents"]] == ["lead", "structure", "liquidity", "entry", "risk", "backtest", "devil"]
+    assert all(a["status"] in ("ok", "warn", "wait", "veto") and len(a["finding"]) <= 55 for a in t["agents"])
+    rep = t["pairReport"]
+    assert rep["strategy_name"] == "Ornstein-Uhlenbeck Z-Score & Range Sweep Mean Reversion"
+    assert (rep["final_decision"] != "NO_TRADE") == bool(t["signals"])
+    assert rep["agents"]["devils_advocate"]["ui_badge_summary"].startswith("My worry: ")
+    assert "hurst_exponent" in rep["agents"]["structure_analyst"] and "half_life_bars" in rep["agents"]["backtest_engineer"]
+
+
+def test_aud_chf_team_follows_its_spec():
+    m5, h1 = candles("AUDCHF", "M5"), candles("AUDCHF", "H1")
+    if not m5:
+        return
+    t = desk.read_team("AUD/CHF", desk.BY_SYMBOL["AUD/CHF"], m5, h1, m5[-1].time + 300)
+    assert [a["key"] for a in t["agents"]] == ["lead", "structure", "liquidity", "entry", "risk", "backtest", "devil"]
+    assert all(a["status"] in ("ok", "warn", "wait", "veto") and len(a["finding"]) <= 55 for a in t["agents"])
+    rep = t["pairReport"]
+    assert rep["strategy_name"] == "Risk-Regime Trend Efficiency & Cross-Session Inducement Pullback"
+    assert (rep["final_decision"] != "NO_TRADE") == bool(t["signals"])
+    assert "efficiency_ratio_20" in rep["agents"]["structure_analyst"] and rep["agents"]["devils_advocate"]["ui_badge_summary"].startswith("My worry: ")
+
+
+def test_aud_cad_team_follows_its_spec():
+    m5, h1 = candles("AUDCAD", "M5"), candles("AUDCAD", "H1")
+    if not m5:
+        return
+    t = desk.read_team("AUD/CAD", desk.BY_SYMBOL["AUD/CAD"], m5, h1, m5[-1].time + 300)
+    assert [a["key"] for a in t["agents"]] == ["lead", "structure", "liquidity", "entry", "risk", "backtest", "devil"]
+    assert all(a["status"] in ("ok", "warn", "wait", "veto") and len(a["finding"]) <= 55 for a in t["agents"])
+    rep = t["pairReport"]
+    assert rep["strategy_name"] == "Cointegrated Regression Channel & VPOC Supply/Demand Reversion"
+    assert (rep["final_decision"] != "NO_TRADE") == bool(t["signals"])
+    s = rep["agents"]["structure_analyst"]
+    assert "channel_z_score" in s and "vpoc" in s and rep["agents"]["devils_advocate"]["ui_badge_summary"].startswith("My worry: ")
 
 
 def test_lots_follow_the_risk_formula():

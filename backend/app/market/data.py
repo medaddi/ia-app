@@ -16,7 +16,9 @@ from datetime import datetime, timezone
 
 import httpx
 
+from . import oanda
 from .pairs import CONVERSION_FEEDS, PAIRS
+from .sanitize import merge, sanitize
 from .jsnum import round_to
 from .types import Candle
 
@@ -143,6 +145,13 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
     if not fresh and hit and hit[1] > time.time():
         return hit[0]
     result = None
+    if oanda.enabled() and sym in oanda.INSTRUMENTS:  # the primary feed: OANDA mid price and its live spread
+        q = await oanda.price(sym, 5 if sym in FX_TICKERS else 2)
+        if q and q["price"] > 0:
+            result = {**_price_result(sym, q["price"], 0.0, q["price"], q["price"], oanda.SOURCE, q["time"]), "spread": q["spread"]}
+            prev = _last_known.get(sym)
+            if prev and prev.get("source") == oanda.SOURCE:  # the day's change / range stay those of the last full quote
+                result.update(change24h=prev.get("change24h", 0.0), high24h=max(prev.get("high24h") or 0, q["price"]), low24h=min(prev.get("low24h") or q["price"], q["price"]))
     if sym == "XAU/USD":
         try:
             r = await client().get("https://api.gold-api.com/price/XAU", timeout=3.5)
@@ -243,11 +252,40 @@ def aggregate(candles: list[Candle], bucket_sec: int) -> list[Candle]:
     return out
 
 
+def _integrity(rep: dict) -> dict:
+    """The sanitizer's report in the series: counts, the last missing slots, continuity."""
+    return {"bars": rep["bars"], "missing": len(rep["missing"]), "missingRecent": rep["missing"][-12:], "artifacts": rep["artifacts"][-12:],
+            "offGrid": rep["offGrid"], "duplicates": rep["duplicates"], "continuity": round(rep["continuity"], 5)}
+
+
+async def _oanda_series(sym: str, timeframe: str, limit: int, decimals: int, step: int) -> dict:
+    """OANDA mid candles, sanitized; missing slots in the window are backfilled once by a from / to request."""
+    raw = await oanda.candles(sym, timeframe, limit, decimals)
+    clean, rep = sanitize(raw, step)
+    filled = 0
+    if rep["missing"] and len(rep["missing"]) <= 300:
+        try:
+            extra = await oanda.candles(sym, timeframe, 0, decimals, frm=rep["missing"][0] - step, to=rep["missing"][-1] + 2 * step, ttl=60.0)
+            before = len(clean)
+            clean, rep = sanitize(merge(clean, extra), step)
+            filled = len(clean) - before
+        except RuntimeError:
+            pass
+    spread = next((c.spread for c in reversed(clean) if c.spread), 0.0)
+    return {"candles": clean[-limit:], "isSynthetic": False, "basis": 0, "fetchedAt": int(time.time() * 1000), "source": oanda.SOURCE,
+            "spread": spread, "integrity": {**_integrity(rep), "backfilled": filled}}
+
+
 async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", limit: int = 600, live_price: float | None = None, fresh: bool = False) -> dict:
     sym = canonical(symbol)
     euro = sym in FX_TICKERS  # any forex pair (no futures basis)
     decimals = 5 if euro else 2
     step = TIMEFRAME_SECONDS.get(timeframe, 900)
+    if oanda.enabled() and sym in oanda.INSTRUMENTS and timeframe in oanda.GRANULARITY:
+        try:
+            return await _oanda_series(sym, timeframe, limit, decimals, step)
+        except RuntimeError as err:
+            print(f"[market] {err}: Yahoo serves instead")
     spot = live_price if live_price and live_price > 0 else (await fetch_live_price(symbol))["price"]
     interval, rng = INTERVALS.get(timeframe, INTERVALS["15M"])
     ticker = FX_TICKERS[sym] if euro else "GC=F"
@@ -261,6 +299,7 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
             candles = await asyncio.to_thread(aggregate, candles, step)
         if len(candles) > 15:
             candles = [Candle(c.time, c.open, c.high, c.low, c.close, c.volume) for c in candles[-limit:]]
+            candles, rep = sanitize(candles, step) if step < 86400 else (candles, None)  # UTC grid, duplicates, bad ticks, gaps
             # Daily / weekly: Yahoo can add the live point as an extra bar stamped with the current time (e.g. Friday 21:29
             # after this week's Monday bar): fold it into the bar of its period instead of drawing a second candle
             if step >= 86400 and len(candles) > 1 and (candles[-1].time - candles[-2].time) % step:
@@ -302,7 +341,8 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
                 elif tail.time < bucket and now - bucket < step:
                     candles.append(Candle(bucket, tail.close, max(tail.close, spot), min(tail.close, spot), round_to(spot, decimals), 0))
             sign = "+" if basis >= 0 else ""
-            return {"candles": candles, "isSynthetic": False, "basis": basis, "fetchedAt": int(time.time() * 1000),
+            return {"candles": candles, "isSynthetic": False, "basis": basis, "fetchedAt": int(time.time() * 1000), "spread": 0.0,
+                    **({"integrity": _integrity(rep)} if rep else {}),
                     "source": f"Yahoo Finance {ticker}" if euro else f"COMEX GC=F adjusted to spot (basis {sign}{basis:g})"}
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as err:
         print(f"[market] candle feed unavailable for {symbol} {timeframe}: {err}")

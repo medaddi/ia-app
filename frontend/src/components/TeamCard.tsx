@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CandlestickChart, Check, ChevronDown, Crown, Droplets, FlaskConical, Hourglass, Shield, Swords, Target, Users, X } from 'lucide-react';
+import { AlertTriangle, CandlestickChart, Check, ChevronDown, Crown, Droplets, FlaskConical, Hourglass, OctagonX, Shield, Swords, Target, Users, X } from 'lucide-react';
 import { tr } from './ui';
 import type { Language } from '../types';
 import type { Team, TeamAgent, TeamSetup } from '../smcTeam';
@@ -69,6 +69,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
                   <span className={`shrink-0 text-xs font-semibold ${lead ? 'text-gold-100' : 'text-slate-200'}`}>{a.role}</span>
                   <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">{a.finding}</span>
                   {a.status === 'ok' ? <Check className="w-4 h-4 shrink-0 text-emerald-400" aria-label={t('signs off', 'valide', 'موافق')} />
+                    : a.status === 'veto' ? <OctagonX className="w-4 h-4 shrink-0 text-rose-400" aria-label={t('veto', 'veto', 'فيتو')} />
                     : a.status === 'warn' ? <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" aria-label={t('objection', 'objection', 'اعتراض')} />
                     : <Hourglass className="w-4 h-4 shrink-0 text-slate-500" aria-label={t('waiting', 'en attente', 'كيتسنا')} />}
                   <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${open === a.key ? 'rotate-180' : ''}`} aria-hidden="true" />

@@ -34,15 +34,15 @@ def test_the_trade_is_closed_at_its_time():
 
 
 def test_each_strategy_asks_its_own_reward_and_news_blocks():
-    assert not playbook.checklist("EURCHF", {"time": T0, "rr": 1.5, "sid": "S2"}, None)[2][1]  # SWISS-REV S2: 1:1.8
-    assert playbook.checklist("EURCHF", {"time": T0, "rr": 2.0, "sid": "S2"}, None)[2][1]
-    assert playbook.checklist("EURUSD", {"time": T0, "rr": 1.0, "sid": "SB"}, None)[2][1]  # SnapBack: 1:1 by design
-    near = playbook.checklist("AUDCAD", {"time": T0, "rr": 3, "sid": "P"}, [T0 + 10 * 60])
+    assert not playbook.checklist("EURCHF", {"time": T0, "rr": 1.8, "sid": "A"}, None)[2][1]  # EUR/CHF: 1.85 blended
+    assert playbook.checklist("EURCHF", {"time": T0, "rr": 2.0, "sid": "A"}, None)[2][1]
+    assert not playbook.checklist("EURUSD", {"time": T0, "rr": 2.5, "sid": "A"}, None)[2][1]  # EUR/USD A asks 2.8 R
+    near = playbook.checklist("AUDCAD", {"time": T0, "rr": 3, "sid": "A"}, [T0 + 10 * 60])
     assert not near[1][1] and near[2][1]  # red news 10 minutes away: no
 
 
 def test_only_the_strategies_that_passed_are_traded():
-    assert playbook.STRATEGIES == {"XAUUSD": [], "EURUSD": ["SB"], "GBPUSD": [], "EURCHF": ["S2"], "AUDCAD": ["P"], "AUDCHF": []}
+    assert playbook.STRATEGIES == {"XAUUSD": ["A", "B"], "EURUSD": ["A", "B"], "GBPUSD": ["A", "B", "C"], "EURCHF": ["A", "B"], "AUDCAD": ["A", "B"], "AUDCHF": ["A", "B", "C"]}
 
 
 def test_new_york_times_follow_daylight_saving():

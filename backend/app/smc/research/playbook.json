@@ -4,7 +4,88 @@
   "from": 1762300800,
   "split": 1781274060,
   "to": 1793922900,
-  "strategies": {},
+  "strategies": {
+   "A": {
+    "name": "Scenario A \u00b7 H1 trend continuation + killzone sweep",
+    "claimed": "spec benchmark: 58.4 % WR, +1.19R EV (N=418, 2023-2026)",
+    "setups": 1,
+    "off": false,
+    "states": {
+     "LOSS": 1
+    },
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.02,
+     "expectancyR": -1.023,
+     "grossWinR": 0,
+     "grossLossR": 1.023
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.02,
+     "expectancyR": -1.023,
+     "grossWinR": 0,
+     "grossLossR": 1.023
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.02,
+     "expectancyR": -1.023,
+     "grossWinR": 0,
+     "grossLossR": 1.023
+    },
+    "openThroughNews": 0
+   },
+   "B": {
+    "name": "Scenario B \u00b7 NY open Judas reversal at HTF liquidity",
+    "claimed": "spec benchmark: 49.4 % WR, +0.93R EV (N=164, 2023-2026)",
+    "setups": 0,
+    "off": false,
+    "states": {},
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   }
+  },
   "news": {
    "events": 144,
    "file": "smc/news/high_impact.csv"
@@ -17,44 +98,81 @@
   "split": 1781274060,
   "to": 1793922900,
   "strategies": {
-   "SB": {
-    "name": "SnapBack 3\u03c3 mean reversion",
-    "claimed": "62.0 % (SteadyPips, 79 trades, 1:1); 70 % on our 1-year test",
-    "setups": 29,
+   "A": {
+    "name": "Scenario A \u00b7 London manipulation sweep + VWAP-band OB",
+    "claimed": "spec benchmark: 61.2 % WR, +1.20R EV (N=382, 2023-2026)",
+    "setups": 1,
     "off": false,
     "states": {
-     "WIN": 19,
-     "LOSS": 10
+     "WIN": 1
     },
     "all": {
-     "trades": 27,
-     "wins": 19,
-     "winRate": 70,
-     "totalR": 9.68,
-     "expectancyR": 0.358
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "in": {
-     "trades": 14,
-     "wins": 10,
-     "winRate": 71,
-     "totalR": 5.31,
-     "expectancyR": 0.379
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "out": {
-     "trades": 13,
-     "wins": 9,
-     "winRate": 69,
-     "totalR": 4.37,
-     "expectancyR": 0.336
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "withoutNewsRule": {
-     "trades": 27,
-     "wins": 19,
-     "winRate": 70,
-     "totalR": 9.68,
-     "expectancyR": 0.358
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
-    "openThroughNews": 4
+    "openThroughNews": 0
+   },
+   "B": {
+    "name": "Scenario B \u00b7 NY overlap pullback to the session VWAP",
+    "claimed": "spec benchmark: 56.8 % WR, +0.96R EV (N=310, 2023-2026)",
+    "setups": 1,
+    "off": false,
+    "states": {
+     "WIN": 1
+    },
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
    }
   },
   "news": {
@@ -68,7 +186,128 @@
   "from": 1762300800,
   "split": 1781274060,
   "to": 1793922900,
-  "strategies": {},
+  "strategies": {
+   "A": {
+    "name": "Scenario A \u00b7 London Judas swing + Unicorn",
+    "claimed": "spec benchmark: 60.4 % WR, +1.32R EV (N=346, 2023-2026)",
+    "setups": 12,
+    "off": false,
+    "states": {
+     "WIN": 4,
+     "LOSS": 4,
+     "EXPIRED": 4
+    },
+    "all": {
+     "trades": 6,
+     "wins": 4,
+     "winRate": 67,
+     "totalR": 1.58,
+     "expectancyR": 0.263,
+     "grossWinR": 3.823,
+     "grossLossR": 2.243
+    },
+    "in": {
+     "trades": 5,
+     "wins": 3,
+     "winRate": 60,
+     "totalR": 0.73,
+     "expectancyR": 0.146,
+     "grossWinR": 2.975,
+     "grossLossR": 2.243
+    },
+    "out": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.85,
+     "expectancyR": 0.848,
+     "grossWinR": 0.848,
+     "grossLossR": 0
+    },
+    "withoutNewsRule": {
+     "trades": 7,
+     "wins": 4,
+     "winRate": 57,
+     "totalR": 0.45,
+     "expectancyR": 0.064,
+     "grossWinR": 3.823,
+     "grossLossR": 3.377
+    },
+    "openThroughNews": 1
+   },
+   "B": {
+    "name": "Scenario B \u00b7 NY continuation after the London expansion",
+    "claimed": "spec benchmark: 55.6 % WR, +0.89R EV (N=275, 2023-2026)",
+    "setups": 0,
+    "off": false,
+    "states": {},
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   },
+   "C": {
+    "name": "Scenario C \u00b7 ADR exhaustion reversal at the London close",
+    "claimed": "spec benchmark: 52.1 % WR, +0.62R EV (N=142, 2023-2026)",
+    "setups": 0,
+    "off": false,
+    "states": {},
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   }
+  },
   "news": {
    "events": 144,
    "file": "smc/news/high_impact.csv"
@@ -81,44 +320,82 @@
   "split": 1781274060,
   "to": 1793922900,
   "strategies": {
-   "S2": {
-    "name": "Bearish extreme premium fade (Z >= +2.2)",
-    "claimed": "spec example: 68.4 % on 2.2\u03c3 fades; 64 % on our 1-year test",
-    "setups": 24,
+   "A": {
+    "name": "Scenario A \u00b7 statistical extreme sweep back to the mean",
+    "claimed": "spec benchmark: 68.6 % WR, +1.02R EV (N=395, 2023-2026)",
+    "setups": 14,
     "off": false,
     "states": {
-     "WIN": 17,
-     "LOSS": 7
+     "LOSS": 9,
+     "WIN": 5
     },
     "all": {
-     "trades": 11,
-     "wins": 7,
-     "winRate": 64,
-     "totalR": 6.31,
-     "expectancyR": 0.573
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "in": {
-     "trades": 9,
-     "wins": 5,
-     "winRate": 56,
-     "totalR": 2.82,
-     "expectancyR": 0.314
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "out": {
-     "trades": 2,
-     "wins": 2,
-     "winRate": 100,
-     "totalR": 3.48,
-     "expectancyR": 1.741
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "withoutNewsRule": {
-     "trades": 11,
-     "wins": 7,
-     "winRate": 64,
-     "totalR": 6.31,
-     "expectancyR": 0.573
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
-    "openThroughNews": 2
+    "openThroughNews": 0
+   },
+   "B": {
+    "name": "Scenario B \u00b7 H4 channel boundary bounce + M15 OB",
+    "claimed": "spec benchmark: 63.3 % WR, +0.99R EV (N=218, 2023-2026)",
+    "setups": 1,
+    "off": false,
+    "states": {
+     "MISSED": 1
+    },
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
    }
   },
   "news": {
@@ -133,44 +410,86 @@
   "split": 1781274060,
   "to": 1793922900,
   "strategies": {
-   "P": {
-    "name": "Commodity range reversion",
-    "claimed": "~60 %+; 59 % on our 1-year test",
-    "setups": 25,
+   "A": {
+    "name": "Scenario A \u00b7 channel boundary sweep back to VPOC",
+    "claimed": "spec benchmark: 64.6 % WR, +1.10R EV (N=328, 2023-2026)",
+    "setups": 6,
     "off": false,
     "states": {
-     "WIN": 12,
-     "LOSS": 13
+     "WIN": 2,
+     "EXPIRED": 1,
+     "LOSS": 2,
+     "MISSED": 1
     },
     "all": {
-     "trades": 17,
-     "wins": 10,
-     "winRate": 59,
-     "totalR": 5.94,
-     "expectancyR": 0.349
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "in": {
-     "trades": 6,
-     "wins": 4,
-     "winRate": 67,
-     "totalR": 2.19,
-     "expectancyR": 0.364
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "out": {
-     "trades": 11,
-     "wins": 6,
-     "winRate": 55,
-     "totalR": 3.75,
-     "expectancyR": 0.341
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
     "withoutNewsRule": {
-     "trades": 17,
-     "wins": 10,
-     "winRate": 59,
-     "totalR": 5.94,
-     "expectancyR": 0.349
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
     },
-    "openThroughNews": 5
+    "openThroughNews": 0
+   },
+   "B": {
+    "name": "Scenario B \u00b7 sloping channel trend pullback",
+    "claimed": "spec benchmark: 59.8 % WR, +1.18R EV (N=244, 2023-2026)",
+    "setups": 8,
+    "off": false,
+    "states": {
+     "LOSS": 2,
+     "EXPIRED": 5,
+     "MISSED": 1
+    },
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
    }
   },
   "news": {
@@ -184,7 +503,119 @@
   "from": 1762300800,
   "split": 1781274060,
   "to": 1793922900,
-  "strategies": {},
+  "strategies": {
+   "A": {
+    "name": "Scenario A \u00b7 H1 trend IDM sweep + EMA ribbon OB",
+    "claimed": "spec benchmark: 57.7 % WR, +1.28R EV (N=312, 2023-2026)",
+    "setups": 0,
+    "off": false,
+    "states": {},
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   },
+   "B": {
+    "name": "Scenario B \u00b7 Asian squeeze \u2192 Zurich expansion FVG retest",
+    "claimed": "spec benchmark: 54.6 % WR, +1.02R EV (N=196, 2023-2026)",
+    "setups": 6,
+    "off": false,
+    "states": {
+     "LOSS": 5,
+     "WIN": 1
+    },
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   },
+   "C": {
+    "name": "Scenario C \u00b7 risk-off shock: short the H1 bearish OB",
+    "claimed": "the spec gives no benchmark",
+    "setups": 0,
+    "off": false,
+    "states": {},
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "withoutNewsRule": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "openThroughNews": 0
+   }
+  },
   "news": {
    "events": 144,
    "file": "smc/news/high_impact.csv"

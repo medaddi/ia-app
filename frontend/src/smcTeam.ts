@@ -22,7 +22,7 @@ export interface TeamStrategy { id: string; name: string; status: 'SIGNAL' | 'BL
   watch: { time: number; direction: string; steps: Step[] } | null }
 export interface TeamChart extends SmcDrawing { trend: 'BULLISH' | 'BEARISH' | 'UNDEFINED'; premium: boolean }
 /** One of the team's seven role agents (backend smc/agents.py): its finding, its sign-off, its detail lines. */
-export interface TeamAgent { key: 'lead' | 'structure' | 'liquidity' | 'entry' | 'risk' | 'backtest' | 'devil'; role: string; status: 'ok' | 'warn' | 'wait'; finding: string; lines: string[] }
+export interface TeamAgent { key: 'lead' | 'structure' | 'liquidity' | 'entry' | 'risk' | 'backtest' | 'devil'; role: string; status: 'ok' | 'warn' | 'wait' | 'veto'; finding: string; lines: string[] }
 /** The pair's strategies from the guide; each row of `strategies` carries what the guide claims and what the test measured (smc/PLAYBOOK.md). */
 export interface TeamPlaybook { name: string; source?: string | null; from?: number | null; to?: number | null }
 export interface Team { success: boolean; symbol: string; at: number; lastCandle: number | null; marketOpen?: boolean; source?: string; error?: string;

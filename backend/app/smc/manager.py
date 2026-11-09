@@ -65,7 +65,8 @@ def follow(pair: str, p: dict, m5, st5, cost: float, news: list[int] | None = No
         out = playbook.run(m5, k0, d, p["entry"], p["sl"], p.get("tp1"), p["tp"], p.get("part", 1.0), bool(p.get("market")),
                            int(p.get("expiry") or 0), int(p.get("holdUntil") or p["time"] + 86400), cost, events,
                            sorted(news) if news else None,  # the same news rule as the team: a pending limit pulled around a release
-                           exits if pair == "AUD/CHF" else None)  # the macro risk-off close
+                           exits if pair == "AUD/CHF" else None,  # the macro risk-off close
+                           (p["beOff"] if "beOff" in p else 0.0), p.get("missPx"), int(p.get("newsMin") or 0))  # BE offset (None: no BE), cancel price, news pull
         return events, out
     sid = engine.STRATEGY_OF.get(p["strategy"], "A")
     res = engine.simulate(m5, k0, d, p["entry"], p["sl"], p["tp"], engine.EXPIRY[sid], cost)

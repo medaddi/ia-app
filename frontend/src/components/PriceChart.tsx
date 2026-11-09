@@ -11,9 +11,10 @@ import {
   ISeriesApi,
   Time,
 } from 'lightweight-charts';
-import { Expand, Layers, Maximize2, Minimize2 } from 'lucide-react';
+import { Expand, Layers, Maximize2, Minimize2, Shapes } from 'lucide-react';
 import type { InstrumentSymbol } from '../instruments';
 import { SmcDrawingPrimitive, type SmcDrawing } from '../chart/smcDrawing';
+import { computeSmc } from '../chart/smcOverlay';
 
 /**
  * A pair's clean chart: candles, volume, the forming candle following the live price, a legend and the timeframe buttons.
@@ -37,11 +38,16 @@ interface PriceChartProps {
   lang?: string;
   levels?: ChartLevel[];  // the setup's entry / SL / TP, as axis labels
   drawing?: SmcDrawing | null;  // the team's analysis
+  tabValue?: string;  // the selected tab when it is not this chart's own timeframe (the H1 + M5 split view)
+  compact?: boolean;  // a shorter chart (one of two in the split view)
 }
 
-const TF_SEC: Record<string, number> = { M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800 };
+/** The timeframe tabs' names ("SPLIT" is the H1 + M5 split view). */
+export const TAB_LABEL = (tf: string) => (tf === 'SPLIT' ? 'H1 + M5' : tf);
+
+const TF_SEC: Record<string, number> = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800 };
 // Candles shown when a pair / timeframe opens (the rest of the history stays one scroll away)
-const VISIBLE_BARS: Record<string, number> = { M5: 160, M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
+const VISIBLE_BARS: Record<string, number> = { M1: 180, M5: 160, M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
 const PAL = {
   dark: { bg: 'rgba(9, 11, 16, 0.55)', grid: 'rgba(255,255,255,0.035)', text: '#8D96A6', border: '#1F2430', bull: '#16C784', bear: '#EA3943' },
   light: { bg: '#FFFFFF', grid: 'rgba(0,0,0,0.05)', text: '#4D5566', border: '#DDD6C8', bull: '#0E9F6E', bear: '#D92D3A' },
@@ -49,7 +55,7 @@ const PAL = {
 type Theme = keyof typeof PAL;
 const readTheme = (): Theme => (typeof document !== 'undefined' && !document.documentElement.classList.contains('dark') ? 'light' : 'dark');
 
-export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimals, timeframe, timeframes, onTimeframeChange, livePrice = null, quote = null, updatedAt, lang = 'en', levels = [], drawing = null }) => {
+export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimals, timeframe, timeframes, onTimeframeChange, livePrice = null, quote = null, updatedAt, lang = 'en', levels = [], drawing = null, tabValue, compact = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -60,6 +66,9 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
   // the team's analysis on / off, kept per browser
   const [showTeam, setShowTeam] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_team') !== '0'; } catch { return true; } });
   const toggleTeam = () => setShowTeam(v => { try { localStorage.setItem('ld_chart_team', v ? '0' : '1'); } catch { /* storage blocked */ } return !v; });
+  // the SMC overlays (premium / discount, BOS / CHoCH, sessions, BSL / SSL, FVGs) on / off, kept per browser
+  const [showSmc, setShowSmc] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_smc') !== '0'; } catch { return true; } });
+  const toggleSmc = () => setShowSmc(v => { try { localStorage.setItem('ld_chart_smc', v ? '0' : '1'); } catch { /* storage blocked */ } return !v; });
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [full, setFull] = useState(false);
   const [hover, setHover] = useState<PriceCandle | null>(null);
@@ -227,10 +236,13 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelKey, theme, decimals, symbol]);
 
-  // The team's analysis: boxes, segments, labels and the trade, placed by time on this timeframe's candles
+  // The SMC overlays of THIS timeframe's candles, and the team's analysis: placed by time on the candles shown
+  const smc = useMemo(() => (showSmc ? computeSmc(bars, tfSec) : null), [bars, tfSec, showSmc]);
   useEffect(() => {
-    drawRef.current?.update(showTeam ? drawing : (drawing ? { boxes: [], segments: [], labels: [], lines: [], windows: [], trade: drawing.trade } : null), bars.map(b => b.time), tfSec, theme);
-  }, [drawing, showTeam, bars, tfSec, theme]);
+    const team: SmcDrawing = showTeam && drawing ? drawing : { boxes: [], segments: [], labels: [], lines: [], windows: [], trade: drawing?.trade ?? null };
+    const merged: SmcDrawing = smc ? { ...team, pd: smc.pd, sessions: smc.sessions, boxes: [...smc.boxes, ...team.boxes], segments: [...smc.segments, ...team.segments] } : team;
+    drawRef.current?.update(merged, bars.map(b => b.time), tfSec, theme);
+  }, [drawing, showTeam, smc, bars, tfSec, theme]);
 
   // A new pair / timeframe: forget the old crosshair
   useEffect(() => { chartRef.current?.clearCrosshairPosition(); setHover(null); }, [symbol, timeframe]);
@@ -254,12 +266,16 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
         <div className="flex items-center gap-1.5">
           <div role="tablist" aria-label={t('Timeframe', 'Unité de temps', 'الفريم')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5">
             {timeframes.map(tf => (
-              <button key={tf} role="tab" aria-selected={tf === timeframe} onClick={() => onTimeframeChange(tf)}
-                className={`min-w-[38px] h-8 px-2 rounded-md font-mono text-xs cursor-pointer transition-colors ${tf === timeframe ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>
-                {tf}
+              <button key={tf} role="tab" aria-selected={tf === (tabValue ?? timeframe)} onClick={() => onTimeframeChange(tf)}
+                className={`min-w-[38px] h-8 px-2 rounded-md font-mono text-xs cursor-pointer transition-colors whitespace-nowrap ${tf === (tabValue ?? timeframe) ? 'bg-gold-500/15 text-gold-200' : 'text-slate-400 hover:text-slate-100'}`}>
+                {TAB_LABEL(tf)}
               </button>
             ))}
           </div>
+          <button onClick={toggleSmc} aria-pressed={showSmc} title={t('SMC overlays', 'Repères SMC', 'رسومات SMC')}
+            className={`h-9 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-xs cursor-pointer ${showSmc ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white hover:bg-surface-2'}`}>
+            <Shapes className="w-4 h-4" /><span className="hidden sm:inline">SMC</span>
+          </button>
           <button onClick={toggleTeam} aria-pressed={showTeam} title={t('The team analysis', 'L’analyse de l’équipe', 'التحليل ديال الفريق')}
             className={`h-9 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-xs cursor-pointer ${showTeam ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white hover:bg-surface-2'}`}>
             <Layers className="w-4 h-4" /><span className="hidden sm:inline">{t('Analysis', 'Analyse', 'التحليل')}</span>
@@ -277,7 +293,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
       </div>
 
       {/* Chart */}
-      <div className={`relative ${full ? 'flex-1' : 'h-[62vh] min-h-[380px] max-h-[720px]'}`}>
+      <div className={`relative ${full ? 'flex-1' : compact ? 'h-[46vh] min-h-[320px] max-h-[560px]' : 'h-[62vh] min-h-[380px] max-h-[720px]'}`}>
         <div ref={containerRef} className="absolute inset-0" />
         {ohlc && (
           <div className="absolute z-10 top-2 start-2 pointer-events-none font-mono text-[11px] leading-5 px-2 py-1 rounded-md bg-surface/70 backdrop-blur-sm" aria-hidden="true">

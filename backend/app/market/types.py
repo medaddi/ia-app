@@ -17,9 +17,11 @@ class Candle:
     low: float
     close: float
     volume: float = 0
+    spread: float = 0.0  # ask - bid at the close (OANDA); 0 when the feed gives no bid / ask
 
     def to_dict(self):
-        return {"time": self.time, "open": self.open, "high": self.high, "low": self.low, "close": self.close, "volume": self.volume}
+        return {"time": self.time, "open": self.open, "high": self.high, "low": self.low, "close": self.close, "volume": self.volume,
+                **({"spread": self.spread} if self.spread else {})}
 
 
 TF_SEC = {"M1": 60, "M5": 300, "M15": 900, "M30": 1800, "H1": 3600, "H4": 14400, "D1": 86400}

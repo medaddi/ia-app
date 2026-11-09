@@ -12,7 +12,8 @@ export const INSTRUMENT_LABELS: Record<InstrumentSymbol, string> = {
 export const isInstrument = (s: string | undefined | null): s is InstrumentSymbol => !!s && (INSTRUMENT_SYMBOLS as readonly string[]).includes(s);
 
 // The chart: every timeframe for every pair, and the price precision of each pair
-export const TIMEFRAMES = ['M5', 'M15', 'M30', 'H1', 'H4', 'D1'];
+// (the data feed spec: M1 | M5 | M15 | H1 | H4 | the H1 + M5 split view)
+export const TIMEFRAMES = ['M1', 'M5', 'M15', 'H1', 'H4', 'SPLIT'];
 export const PAIR_DECIMALS: Record<InstrumentSymbol, number> = {
   'XAU/USD': 2, 'EUR/USD': 5, 'GBP/USD': 5, 'EUR/CHF': 5, 'AUD/CAD': 5, 'AUD/CHF': 5,
 };

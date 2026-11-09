@@ -127,12 +127,13 @@ def _play_json(pair: str, cfg: dict, s: dict) -> dict:
             "time": s["time"], "entry": rd(s["entry"]), "sl": rd(s["sl"]), "tp": rd(s["tp"]), "tp1": rd(s["tp1"]), "part": s["part"],
             "market": s["market"], "zone": [rd(min(s["zone"])), rd(max(s["zone"]))], "rr": round(s["rr"], 2), "rrBest": round(s["rr"], 2),
             "validUntil": s["time"] + s["expiry"] * engine.M5S, "liveUntil": s["holdUntil"], "expiry": s["expiry"], "holdUntil": s["holdUntil"],
+            "beOff": s.get("beOff", 0.0), "missPx": rd(s.get("missPx")),
             "state": s["result"]["state"], "pass": s["pass"], "checklist": [{"q": a, "ok": ok, "detail": det} for a, ok, det in chk],
             "steps": [{"step": a, "ok": ok, "detail": det} for a, ok, det in s["steps"]], "lots": lots, "riskPct": rk, "draw": _play_draw(s)}
 
 
 def read_team(pair: str, cfg: dict, m5, h1, now: int, cot: dict | None = None, sent: list[dict] | None = None,
-              news: list[dict] | None = None, d1=None, pause: list[int] | None = None, macro: dict | None = None) -> dict:
+              news: list[dict] | None = None, d1=None, pause: list[int] | None = None, macro: dict | None = None, eur_m5=None) -> dict:
     """The team's answer from candles (sync: configure + scan run together, nothing else can change the engine's config)."""
     engine.configure(cfg, [e["time"] for e in (news or [])])  # question 6: no entry 15 min around this pair's high-impact news
     cost = (cfg["spread_pips"] + cfg["slippage_pips"]) * cfg["pip"]
@@ -142,8 +143,25 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, cot: dict | None = None, s
     # the guide's red-folder pause (CPI, NFP, FOMC, BoE, RBA, BoC, SNB, EIA) for every pair; the AUD/CHF macro gate
     if pause is None and news is not None:
         pause = sorted(playbook.red_folder(news) + playbook.eia_times(now - 7 * 86400, now + 7 * 86400))
-    setups, watch = playbook.scan(key, m5, h1, cfg["pip"], cost, pause, None, d1, macro)
+    setups, watch = playbook.scan(key, m5, h1, cfg["pip"], cost, pause, eur_m5, d1, macro, None, news, PLAY_RESULTS.get(key), cfg.get("spread_pips"))
     pr = (PLAY_RESULTS.get(key) or {}).get("strategies", {})
+    gold_rep = None
+    if key in ("XAUUSD", "GBPUSD", "EURUSD", "EURCHF", "AUDCHF", "AUDCAD"):  # their spec's 7 agents and the Lead decide what is sent
+        from . import aussie, cable, fiber, gold, loonie, swissy
+        gold_rep = (gold.report(m5, h1, now, setups, watch, PLAY_RESULTS.get(key), news, macro, d1) if key == "XAUUSD"
+                    else cable.report(m5, h1, now, setups, watch, PLAY_RESULTS.get(key), news, d1, eur_m5) if key == "GBPUSD"
+                    else fiber.report(m5, h1, now, setups, watch, PLAY_RESULTS.get(key), news, d1, eur_m5) if key == "EURUSD"
+                    else swissy.report(m5, h1, now, setups, watch, PLAY_RESULTS.get(key), news, d1, cfg.get("pip_value_usd_per_lot")) if key == "EURCHF"
+                    else aussie.report(m5, h1, now, setups, watch, PLAY_RESULTS.get(key), news, d1, cfg.get("pip_value_usd_per_lot"), eur_m5, macro) if key == "AUDCHF"
+                    else loonie.report(m5, h1, now, setups, watch, PLAY_RESULTS.get(key), news, d1, cfg.get("pip_value_usd_per_lot"), cfg.get("spread_pips")))
+        # the data checks (data_feed_charting_engine_architecture_prompt.md, Phase 3): Backtest Engineer's sample, Devil's audit
+        from .integrity import apply as data_checks
+        live_sp = cfg.get("live_spread") or 0.0
+        data_checks(gold_rep, m5, PLAY_RESULTS.get(key), playbook.STRATEGIES[key], len(setups),
+                    live_sp or cfg["spread_pips"] * cfg["pip"], cfg["pip"], bool(live_sp))
+        for s in setups:
+            if s["pass"] and not (gold_rep["execute"] and gold_rep["candidate"] is s):
+                s["pass"] = False
     from .engines import context as pair_context
     pctx = pair_context(key, m5, h1, playbook.Daily(d1 if d1 else playbook.resample(h1, 86400)), now)
     strategies, raw_shown = [], None
@@ -187,7 +205,8 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, cot: dict | None = None, s
             "playbook": {"name": playbook.team_name(key), "source": (PLAY_RESULTS.get(key) or {}).get("source"),
                          "from": (PLAY_RESULTS.get(key) or {}).get("from"), "to": (PLAY_RESULTS.get(key) or {}).get("to")},
             "badge": _badge(key, chart, pctx), "context": {k: v for k, v in pctx.items() if k != "asia"},
-            "cot": cot, "news": news, "agents": team_agents(pair, cfg, m5, res["_h1v"], strategies, ctx, now, cot, sent or [], news, pctx)}  # the team's seven role agents
+            "cot": cot, "news": news, **({"goldReport" if key == "XAUUSD" else "pairReport": gold_rep["contract"]} if gold_rep else {}),
+            "agents": gold_rep["agents"] if gold_rep else team_agents(pair, cfg, m5, res["_h1v"], strategies, ctx, now, cot, sent or [], news, pctx)}  # the team's seven role agents
 
 
 def pair_currencies(pair: str) -> set[str]:
@@ -228,6 +247,36 @@ async def _macro() -> dict | None:
         return _macro_cache["view"]  # the last good read, or None (then the gate is "not checked" and says no)
     _macro_cache.update(at=time.time() + 6 * 3600, view=view)
     return view
+
+
+async def _eur_m5(now: int, other: str = "EUR/USD"):
+    """The twin major's closed M5 candles: Cable's EUR/GBP check (EUR/USD for GBP/USD), EUR/USD's SMT (GBP/USD)."""
+    try:
+        e = await fetch_candle_series(other, "5M", M5_BARS)
+        return None if e["isSynthetic"] else [c for c in e["candles"] if c.time + 300 <= now]
+    except Exception:
+        return None
+
+
+_gold_cache: dict = {"at": 0.0, "view": None}
+
+
+async def _gold_macro() -> dict | None:
+    """The gold Devil's DXY and US 10-year yield daily closes (Yahoo), cached 6 hours."""
+    if _gold_cache["view"] is not None and _gold_cache["at"] > time.time():
+        return _gold_cache["view"]
+    import httpx
+    out = {}
+    try:
+        async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "Mozilla/5.0 (LiquidityDissection gold desk)"}) as client:
+            for name, t in (("dxy", "DX-Y.NYB"), ("us10y", "^TNX")):
+                r = await client.get(f"https://query2.finance.yahoo.com/v8/finance/chart/{t}", params={"interval": "1d", "range": "1mo"})
+                res = r.json()["chart"]["result"][0]
+                out[name] = [(int(ts) - int(ts) % 86400, c) for ts, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"]) if c is not None]
+    except Exception:
+        return _gold_cache["view"]
+    _gold_cache.update(at=time.time() + 6 * 3600, view=out)
+    return out
 
 
 async def _pip_value(pair: str, cfg: dict) -> dict:
@@ -303,10 +352,13 @@ async def team(pair: str, fresh: bool = False) -> dict:
                 sent = sent_setups()
             except Exception:  # no database (tests, a cold start): the risk check counts nothing live
                 sent = []
-            out = read_team(pair, await _pip_value(pair, cfg), m5, h1, now, cot, sent, await _news(pair), d1, await _pause(now),
-                            await _macro() if pair == "AUD/CHF" else None)
+            out = read_team(pair, {**(await _pip_value(pair, cfg)), "live_spread": m5s.get("spread") or 0.0}, m5, h1, now, cot, sent, await _news(pair), d1, await _pause(now),
+                            await (_gold_macro() if pair == "XAU/USD" else _macro()) if pair in ("AUD/CHF", "XAU/USD") else None,
+                            await _eur_m5(now, "EUR/USD" if pair == "GBP/USD" else "GBP/USD") if pair in ("GBP/USD", "EUR/USD")
+                            else (await _eur_m5(now, "AUD/CAD"), await _eur_m5(now, "EUR/CHF")) if pair == "AUD/CHF" else None)
             out["marketOpen"] = market_session_status(pair)["isOpen"]
             out["source"] = m5s["source"]
+            out["feed"] = {**(m5s.get("integrity") or {}), "spread": m5s.get("spread") or 0.0}  # the sanitizer's report on the M5 series
         _cache[pair] = (time.time() + TTL, out)
         return out
 

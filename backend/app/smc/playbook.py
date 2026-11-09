@@ -45,18 +45,35 @@ NY = ZoneInfo("America/New_York")
 # The strategies the teams trade (2026-11-08, the user: "remove the strategies without profit, keep only those with a
 # high win rate"; written: win rate >= 55 % and profitable in both halves of the one-year Dukascopy test). A pair with
 # no strategy that passed keeps its team's analysis and sends nothing.
-STRATEGIES = {"XAUUSD": [], "EURUSD": ["SB"], "GBPUSD": [], "EURCHF": ["S2"], "AUDCAD": ["P"], "AUDCHF": []}
-FAMILY = {"XAUUSD": "no proven strategy (analysis only)", "EURUSD": "SnapBack 3σ", "GBPUSD": "no proven strategy (analysis only)",
-          "EURCHF": "SWISS-REV S2", "AUDCAD": "Commodity range reversion", "AUDCHF": "no proven strategy (analysis only)"}
-NAMES = {"XAUUSD": {}, "EURUSD": {"SB": "SnapBack 3σ mean reversion"}, "GBPUSD": {},
-         "EURCHF": {"S2": "Bearish extreme premium fade (Z >= +2.2)"}, "AUDCAD": {"P": "Commodity range reversion"}, "AUDCHF": {}}
-CLAIMED = {("EURUSD", "SB"): "62.0 % (SteadyPips, 79 trades, 1:1); 70 % on our 1-year test",
-           ("EURCHF", "S2"): "spec example: 68.4 % on 2.2σ fades; 64 % on our 1-year test",
-           ("AUDCAD", "P"): "~60 %+; 59 % on our 1-year test"}
-MIN_RR = {("EURUSD", "SB"): 1.0, ("EURCHF", "S2"): 1.8, ("AUDCAD", "P"): 1.5}
+STRATEGIES = {"XAUUSD": ["A", "B"], "EURUSD": ["A", "B"], "GBPUSD": ["A", "B", "C"], "EURCHF": ["A", "B"], "AUDCAD": ["A", "B"], "AUDCHF": ["A", "B", "C"]}
+FAMILY = {"XAUUSD": "London-NY Fix Liquidity Sweep & ATR Displacement (ICT/Quant)", "EURUSD": "London-NY Killzone VWAP Orderblock & SMT Divergence", "GBPUSD": "London Judas Swing & Unicorn Breaker-FVG Strategy",
+          "EURCHF": "Ornstein-Uhlenbeck Z-Score & Range Sweep Mean Reversion", "AUDCAD": "Cointegrated Regression Channel & VPOC Supply/Demand Reversion", "AUDCHF": "Risk-Regime Trend Efficiency & Cross-Session Inducement Pullback"}
+NAMES = {"XAUUSD": {"A": "Scenario A · H1 trend continuation + killzone sweep", "B": "Scenario B · NY open Judas reversal at HTF liquidity"},
+         "EURUSD": {"A": "Scenario A · London manipulation sweep + VWAP-band OB", "B": "Scenario B · NY overlap pullback to the session VWAP"},
+         "GBPUSD": {"A": "Scenario A · London Judas swing + Unicorn", "B": "Scenario B · NY continuation after the London expansion",
+                    "C": "Scenario C · ADR exhaustion reversal at the London close"},
+         "EURCHF": {"A": "Scenario A · statistical extreme sweep back to the mean", "B": "Scenario B · H4 channel boundary bounce + M15 OB"}, "AUDCAD": {"A": "Scenario A · channel boundary sweep back to VPOC", "B": "Scenario B · sloping channel trend pullback"},
+         "AUDCHF": {"A": "Scenario A · H1 trend IDM sweep + EMA ribbon OB", "B": "Scenario B · Asian squeeze → Zurich expansion FVG retest",
+                    "C": "Scenario C · risk-off shock: short the H1 bearish OB"}}
+CLAIMED = {("EURUSD", "A"): "spec benchmark: 61.2 % WR, +1.20R EV (N=382, 2023-2026)",
+           ("EURUSD", "B"): "spec benchmark: 56.8 % WR, +0.96R EV (N=310, 2023-2026)",
+           ("EURCHF", "A"): "spec benchmark: 68.6 % WR, +1.02R EV (N=395, 2023-2026)",
+           ("EURCHF", "B"): "spec benchmark: 63.3 % WR, +0.99R EV (N=218, 2023-2026)",
+           ("AUDCAD", "A"): "spec benchmark: 64.6 % WR, +1.10R EV (N=328, 2023-2026)",
+           ("AUDCAD", "B"): "spec benchmark: 59.8 % WR, +1.18R EV (N=244, 2023-2026)",
+           ("AUDCHF", "A"): "spec benchmark: 57.7 % WR, +1.28R EV (N=312, 2023-2026)",
+           ("AUDCHF", "B"): "spec benchmark: 54.6 % WR, +1.02R EV (N=196, 2023-2026)",
+           ("AUDCHF", "C"): "the spec gives no benchmark",
+           ("XAUUSD", "A"): "spec benchmark: 58.4 % WR, +1.19R EV (N=418, 2023-2026)",
+           ("XAUUSD", "B"): "spec benchmark: 49.4 % WR, +0.93R EV (N=164, 2023-2026)",
+           ("GBPUSD", "A"): "spec benchmark: 60.4 % WR, +1.32R EV (N=346, 2023-2026)",
+           ("GBPUSD", "B"): "spec benchmark: 55.6 % WR, +0.89R EV (N=275, 2023-2026)",
+           ("GBPUSD", "C"): "spec benchmark: 52.1 % WR, +0.62R EV (N=142, 2023-2026)"}
+MIN_RR = {("EURUSD", "A"): 2.8, ("EURUSD", "B"): 2.4, ("EURCHF", "A"): 1.85, ("EURCHF", "B"): 1.85, ("AUDCAD", "A"): 2.4, ("AUDCAD", "B"): 2.8, ("AUDCHF", "A"): 3.0, ("AUDCHF", "B"): 2.6, ("AUDCHF", "C"): 2.6, ("XAUUSD", "A"): 3.0, ("XAUUSD", "B"): 2.5,
+          ("GBPUSD", "A"): 3.0, ("GBPUSD", "B"): 2.6, ("GBPUSD", "C"): 2.6}
 DISABLED: set = set()  # nothing switched off any more: the losing strategies were removed (2026-11-08)
 RISK_PCT: dict = {}  # 1 % for every strategy (the spec's 0.75 % was for gold, removed)
-MEAN_REVERSION = {("EURUSD", "SB"), ("EURCHF", "S2"), ("AUDCAD", "P")}
+MEAN_REVERSION = {("EURCHF", "A"), ("EURCHF", "B"), ("AUDCAD", "A")}
 NEWS_MIN = 15  # CHOICE: no red-folder release from 15 min before to 15 min after the entry (the guide: wait 10-15 min)
 
 
@@ -250,10 +267,12 @@ def m5_index_at_close(m5_times: list[int], t_close: int) -> Optional[int]:
 # ---------------------------------------------------------------- the trade, followed on M5
 def run(m5, k0: int, d: int, entry: float, sl: float, tp1: Optional[float], tp: float, part: float, market: bool,
         expiry: int, hold_until: int, cost: float, events: Optional[list] = None, news: Optional[list[int]] = None,
-        exits: Optional[list[int]] = None) -> dict:
+        exits: Optional[list[int]] = None, be_off: Optional[float] = 0.0, miss_px: Optional[float] = None, news_min: int = 0) -> dict:
     """A limit (or a market order at the close of candle k0) followed candle by candle on M5:
     PENDING → FILLED → TP1 (close `part`, stop to entry) → TP / STOP / BE_STOP / TIME, or EXPIRED / MISSED (target first).
-    `hold_until`: unix time the rest is closed at market. Returns state, fill, at, r (in R, cost included)."""
+    `hold_until`: unix time the rest is closed at market. `be_off`: the break-even stop sits be_off beyond the entry
+    (gold: + $0.50). `miss_px`: a pending limit is cancelled when price reaches it first (gold: 1.5 R without a fill).
+    Returns state, fill, at, r (in R, cost included)."""
     log = events if events is not None else []
     n = len(m5)
     risk = abs(entry - sl)
@@ -267,14 +286,16 @@ def run(m5, k0: int, d: int, entry: float, sl: float, tp1: Optional[float], tp: 
         for i in range(k0 + 1, end):
             x = m5[i]
             if news:  # the guide's news rule: a pending limit is pulled from 15 min before a red-folder release to 15 min after
+                nm = news_min or NEWS_MIN  # EUR/USD: orders suspended 20 min before (its spec)
                 j = bisect_left(news, x.time - NEWS_MIN * 60)
-                if j < len(news) and news[j] < x.time + M5S + NEWS_MIN * 60:
+                if j < len(news) and news[j] < x.time + M5S + nm * 60:
                     log.append((i, "EXPIRED", entry))
                     return {"state": "EXPIRED", "at": i, "news": news[j]}
             if (d > 0 and x.low <= entry) or (d < 0 and x.high >= entry):
                 fill = i
                 break
-            if (d > 0 and x.high >= tp) or (d < 0 and x.low <= tp):
+            if (d > 0 and x.high >= tp) or (d < 0 and x.low <= tp) or \
+               (miss_px is not None and ((d > 0 and x.high >= miss_px) or (d < 0 and x.low <= miss_px))):
                 log.append((i, "MISSED", entry))
                 return {"state": "MISSED", "at": i}
         if fill is None:
@@ -299,7 +320,7 @@ def run(m5, k0: int, d: int, entry: float, sl: float, tp1: Optional[float], tp: 
             return {"state": "WIN" if r > 0.05 else "LOSS" if r < -0.05 else "BE", "fill": fill, "at": j, "r": r}
         if (d > 0 and x.low <= stop) or (d < 0 and x.high >= stop):
             r = banked + left * (stop - entry) / risk * d - cost / risk
-            log.append((j, "STOP" if stop == sl else "BE_STOP", stop))
+            log.append((j, "STOP" if stop == sl else "BE_STOP", stop))  # BE_STOP: the stop moved after TP1
             return {"state": "WIN" if r > 0.05 else "LOSS" if r < -0.05 else "BE", "fill": fill, "at": j, "r": r}
         if j > fill or market:
             if (d > 0 and x.high >= tp) or (d < 0 and x.low <= tp):
@@ -307,9 +328,12 @@ def run(m5, k0: int, d: int, entry: float, sl: float, tp1: Optional[float], tp: 
                 log.append((j, "TP", tp))
                 return {"state": "WIN", "fill": fill, "at": j, "r": r}
             if tp1 is not None and left == 1.0 and ((d > 0 and x.high >= tp1) or (d < 0 and x.low <= tp1)):
-                banked, left, stop = part * abs(tp1 - entry) / risk, 1 - part, entry
+                banked, left = part * abs(tp1 - entry) / risk, 1 - part
+                if be_off is not None:  # None: the stop stays (EUR/USD's spec moves it nowhere)
+                    stop = entry + d * be_off
                 log.append((j, "TP1", tp1))
-                log.append((j, "BE", entry))
+                if be_off is not None:
+                    log.append((j, "BE", stop))
     return {"state": "ACTIVE", "fill": fill, "stop": stop, "banked": banked}
 
 
@@ -352,7 +376,8 @@ def median_body(c, k: int, n: int = 20) -> float:
     return w[len(w) // 2] if w else 0.0
 
 
-def _make(key, sid, d, m5, k0, entry, sl, tp1, tp, part, market, expiry_m5, hold_until, steps, geo, cost, zone=None) -> Optional[dict]:
+def _make(key, sid, d, m5, k0, entry, sl, tp1, tp, part, market, expiry_m5, hold_until, steps, geo, cost, zone=None,
+          be_off: float = 0.0, miss_px: Optional[float] = None) -> Optional[dict]:
     risk = abs(entry - sl)
     if risk <= 0 or (d > 0 and not (sl < entry < tp)) or (d < 0 and not (tp < entry < sl)):
         return None
@@ -360,8 +385,8 @@ def _make(key, sid, d, m5, k0, entry, sl, tp1, tp, part, market, expiry_m5, hold
         tp1 = None
     s = {"sid": sid, "pair": key, "dir": d, "index": k0, "time": m5[k0].time + M5S, "entry": entry, "sl": sl, "tp1": tp1, "tp": tp,
          "part": part if tp1 is not None else 1.0, "market": market, "expiry": expiry_m5, "holdUntil": hold_until,
-         "rr": abs(tp - entry) / risk, "zone": zone or (entry, entry), "steps": steps, "geo": geo}
-    s["result"] = run(m5, k0, d, entry, sl, tp1, tp, s["part"], market, expiry_m5, hold_until, cost)
+         "rr": abs(tp - entry) / risk, "zone": zone or (entry, entry), "steps": steps, "geo": geo, "beOff": be_off, "missPx": miss_px}
+    s["result"] = run(m5, k0, d, entry, sl, tp1, tp, s["part"], market, expiry_m5, hold_until, cost, None, None, None, be_off, miss_px)
     return s
 
 
@@ -599,17 +624,32 @@ def checklist(key: str, s: dict, news: Optional[list[int]], daily: Optional[Dail
 
 
 def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = None, eur_m5=None, d1=None,
-         macro: Optional[dict] = None, swiss_shock: Optional[list[int]] = None) -> tuple[list, list]:
+         macro: Optional[dict] = None, swiss_shock: Optional[list[int]] = None, events=None, research=None,
+         spread_pips: Optional[float] = None) -> tuple[list, list]:
     """The pair's strategies on its candles: (setups with their result and checklist, what is forming). `news`: the
     red-folder pause times (red_folder + eia_times); `d1`: daily candles for the ADR (built from H1 when not given);
     `macro`: macro_view() for the AUD/CHF gate and its risk-off exits."""
     daily = Daily(d1 if d1 else resample(h1, DAY))
     from . import engines  # what is left of the master spec's engines (engines.py)
-    if key == "EURUSD":
-        parts = [snapback(m5, h1, daily, key, pip, cost)]
-    elif key == "EURCHF":
-        parts = [engines.swiss(engines.Ctx(m5, h1, daily), pip, cost, swiss_shock)]
-    elif key == "AUDCAD":
+    if key == "XAUUSD":  # gold: its own spec and pipeline (gold.py): its news protocol, Devil, consensus
+        from . import gold
+        return gold.scan(m5, h1, cost, events, d1, macro, research)
+    if key == "EURUSD":  # EUR/USD: its own spec and pipeline (fiber.py); eur_m5 carries GBP/USD here (the SMT)
+        from . import fiber
+        return fiber.scan(m5, h1, cost, events, d1, eur_m5)
+    if key == "AUDCAD":  # AUD/CAD: its own spec and pipeline (loonie.py): regression channel, VPOC, S/D zones
+        from . import loonie
+        return loonie.scan(m5, h1, cost, events, d1, spread_pips)
+    if key == "AUDCHF":  # AUD/CHF: its own spec and pipeline (aussie.py); eur_m5 carries (AUD/CAD, EUR/CHF) M5 here
+        from . import aussie
+        return aussie.scan(m5, h1, cost, events, d1, eur_m5)
+    if key == "EURCHF":  # EUR/CHF: its own spec and pipeline (swissy.py): OU Z-score, Hurst, half-life
+        from . import swissy
+        return swissy.scan(m5, h1, cost, events, d1)
+    if key == "GBPUSD":  # Cable: its own spec and pipeline (cable.py)
+        from . import cable
+        return cable.scan(m5, h1, cost, events, d1, eur_m5)
+    if False:  # every pair now runs its own spec module above
         parts = [mean_reversion(m5, h1, daily, key, pip, cost)]
     else:
         return [], []  # no strategy passed the user's rule for this pair
@@ -633,7 +673,7 @@ def scan(key: str, m5, h1, pip: float, cost: float, news: Optional[list[int]] = 
             again = True
         if again:  # followed again with the news pause, the cut targets and the macro exits
             x["result"] = run(m5, x["index"], x["dir"], x["entry"], x["sl"], x["tp1"], x["tp"], x["part"], x["market"], x["expiry"],
-                              x["holdUntil"], cost, None, nw if not x["market"] else None, exits)
+                              x["holdUntil"], cost, None, nw if not x["market"] else None, exits, x.get("beOff", 0.0), x.get("missPx"))
         x["checklist"] = checklist(key, x, news, daily)
         x["pass"] = all(ok for _, ok, _ in x["checklist"])
     for x in s:  # a strategy turned off never passes (still measured)
@@ -726,48 +766,119 @@ def draw(key: str, m5, h1, now: int, shown: Optional[dict], decimals: int, d1=No
             return lo, hi
         return None
 
-    if key == "XAUUSD":
-        session(day, day + 6 * H1S, "Asian")
-        session(day + 7 * H1S, day + 10 * H1S + 1800, "London", "liquidity")
+    if key == "XAUUSD":  # the spec's pools, dealing range, OTE and killzones
+        session(day, day + 6 * H1S, "Asia")
+        session(day + 7 * H1S, day + 11 * H1S + 1800, "London", "liquidity")
         prev_day()
-        windows += [{"from": day + 7 * H1S, "to": day + 10 * H1S + 1800, "label": "London killzone"},
-                    {"from": day + 12 * H1S + 1800, "to": day + 16 * H1S, "label": "NY / COMEX killzone"}]
-    elif key == "EURUSD":
-        session(day, day + 7 * H1S, "Asian")
-        vwap_lines(1.5)
-        bands()
-        windows += [{"from": day, "to": day + 7 * H1S, "label": "Accumulation (Asia)"},
-                    {"from": day + 7 * H1S, "to": day + 9 * H1S + 1800, "label": "Manipulation: London Judas"},
-                    {"from": day + 12 * H1S, "to": day + 14 * H1S + 1800, "label": "Manipulation: NY Judas"}]
-    elif key == "GBPUSD":
-        session(day, day + 7 * H1S, "Asian")
+        from .gold import G as _G
+        gx = _G(m5, h1, daily)
+        for d_, lab in ((1, "EQL"), (-1, "EQH")):
+            for v in gx.eq_levels(now, d_):
+                seg(now - 12 * H1S, end, v, "liquidity", -d_, lab)
+        dr = gx.dealing(now)
+        if dr:
+            seg(now - 24 * H1S, end, dr[1], "liquidity", 1, "H1 dealing high")
+            seg(now - 24 * H1S, end, dr[0], "liquidity", -1, "H1 dealing low")
+            seg(now - 24 * H1S, end, dr[2], "eq", 0, "E_eq 50 %")
+            lo, hi = dr[0], dr[1]
+            boxes.append({"from": now - 12 * H1S, "to": end + 2 * H1S, "top": r(hi - 0.618 * (hi - lo)), "bottom": r(hi - 0.786 * (hi - lo)),
+                          "kind": "fvg", "dir": 1, "label": "OTE 61.8-78.6 % (long)"})
+        windows += [{"from": day + 7 * H1S, "to": day + 9 * H1S + 1800, "label": "London killzone (A)"},
+                    {"from": day + 12 * H1S + 1800, "to": day + 15 * H1S, "label": "NY / COMEX killzone (A)"},
+                    {"from": day + 12 * H1S + 1800, "to": day + 14 * H1S + 900, "label": "NY Judas (B)"}]
+    elif key == "EURUSD":  # the EUR/USD spec: the session VWAP ±1.5σ / ±2.0σ, the NY VWAP, the pools and killzones
+        from .fiber import vwap_anchored
+        session(day, day + 6 * H1S, "Asia")
+        session(day + 7 * H1S, day + 12 * H1S, "London", "liquidity")
         prev_day()
-        windows += [{"from": day + 7 * H1S, "to": day + 10 * H1S, "label": "London raid"},
-                    {"from": day + 12 * H1S + 1800, "to": day + 15 * H1S + 1800, "label": "NY overlap raid"}]
-    elif key == "EURCHF":
-        from .engines import zscore
+        vw0, sd0 = vwap_anchored(m5, 0)
+        vw12, _ = vwap_anchored(m5, 12)
+        k0_ = bisect_left(times, day)
+        pts_ = range(k0_, len(m5), 3)
+        for mult, lab, dash in ((0, "session VWAP", False), (1.5, "VWAP ±1.5σ", True), (-1.5, "", True), (2.0, "VWAP ±2.0σ", True), (-2.0, "", True)):
+            lines.append({"points": [[m5[q].time + M5S, r(vw0[q] + mult * sd0[q])] for q in pts_ if vw0[q] is not None], "color": "#22D3EE", "label": lab, "dash": dash})
+        lines.append({"points": [[m5[q].time + M5S, r(vw12[q])] for q in pts_ if vw12[q] is not None], "color": "#F59E0B", "label": "NY VWAP", "dash": False})
+        dealing(48, "H1 dealing range")
+        windows += [{"from": day + 7 * H1S, "to": day + 10 * H1S, "label": "London killzone (A)"},
+                    {"from": day + 12 * H1S, "to": day + 15 * H1S, "label": "NY overlap (B)"},
+                    {"from": day + 16 * H1S + 1800, "to": day + 23 * H1S, "label": "dead zone (D)"}]
+    elif key == "GBPUSD":  # the Cable spec: the Asian box, the Judas window, the ADR projections
+        session(day, day + 6 * H1S + 1800, "Asia box")
+        prev_day()
+        tdy = hilo(span(m5, times, day, end))
+        a14 = daily.adr(now, 14)
+        if tdy and a14:
+            for frac, lab in ((0.75, "75 % ADR"), (1.0, "100 % ADR")):
+                seg(now - 6 * H1S, end, tdy[1] + frac * a14, "liquidity", 1, f"{lab} from the low")
+                seg(now - 6 * H1S, end, tdy[0] - frac * a14, "liquidity", -1, f"{lab} from the high")
+        dealing(48, "H1 dealing range")
+        windows += [{"from": day + 6 * H1S + 2700, "to": day + 9 * H1S + 900, "label": "Judas window (A)"},
+                    {"from": day + 12 * H1S + 1800, "to": day + 15 * H1S + 1800, "label": "NY continuation (B)"},
+                    {"from": day + 15 * H1S, "to": day + 16 * H1S, "label": "London close (C)"}]
+    elif key == "EURCHF":  # the EUR/CHF spec: the M15 50-bar mean with its ±1.25 / 2.0 / 2.2σ bands, the H4 channel, PDH / PDL
+        from .swissy import E as _E
+        ex = _E(m5, h1, daily)
+        n = min(192, len(ex.m15))
+        for mult, lab, col in ((0, "μ 50 (M15 mean)", "#A78BFA"), (2.0, "±2.0σ", "#A78BFA"), (-2.0, "", "#A78BFA"), (2.2, "±2.2σ (pierce)", "#F43F5E"),
+                               (-2.2, "", "#F43F5E"), (1.25, "±1.25σ (TP2)", "#22D3EE"), (-1.25, "", "#22D3EE")):
+            lines.append({"points": [[ex.m15[q].time + M15S, r(ex.mu[q] + mult * ex.sd[q])] for q in range(len(ex.m15) - n, len(ex.m15))
+                                     if ex.mu[q] is not None and ex.m15[q].time + M15S <= end], "color": col, "label": lab, "dash": mult != 0})
+        ch = ex.channel(now)
+        if ch:
+            t0 = ex.h4[max(0, ex.i4(now) - 29)].time
+            seg(t0, end, ch[1], "liquidity", 1, f"H4 channel high ({ch[3]} touches)")
+            seg(t0, end, ch[0], "liquidity", -1, f"H4 channel low ({ch[2]} touches)")
+            seg(t0, end, (ch[0] + ch[1]) / 2, "eq", 0, "H4 midpoint (B target)")
+        prev_day()
+        windows.append({"from": day + 6 * H1S + 1800, "to": day + 15 * H1S + 1800, "label": "Zurich / Frankfurt / London (A, B)"})
+    elif key == "AUDCAD":  # the AUD/CAD spec: the 100-bar H1 regression channel, VPOC / VAH / VAL, fresh S/D zones
+        from .loonie import L as _L
+        lx = _L(m5, h1, daily)
+        i_ = lx.i1(now)
+        c_ = lx.ch(i_) if i_ >= 0 else None
+        if c_:
+            k0_ = i_ - 99
+            for mult, lab, col in ((0, "regression midline", "#A78BFA"), (1.75, "±1.75 σ_e", "#22D3EE"), (-1.75, "", "#22D3EE"), (1.9, "±1.90 σ_e (A)", "#F43F5E"), (-1.9, "", "#F43F5E")):
+                lines.append({"points": [[h1[k0_ + q - 1].time + H1S, r(c_["alpha"] + c_["beta"] * q + mult * c_["se"])] for q in range(1, 101)],
+                              "color": col, "label": lab, "dash": mult != 0})
+        p_ = lx.pr(i_) if i_ >= 0 else None
+        if p_:
+            t0 = h1[max(0, i_ - 99)].time
+            seg(t0, end, p_["vpoc"], "eq", 0, "VPOC (TP1)")
+            seg(t0, end, p_["vah"], "liquidity", 1, "VAH 70 %")
+            seg(t0, end, p_["val"], "liquidity", -1, "VAL 70 %")
+            from .loonie import tests_of as _tests
+            for z in [z for z in lx.zs if z["known"] <= now and now - z["known"] <= 30 * DAY and _tests(h1, z, now, lx.t1) <= 1][-6:]:
+                boxes.append({"from": z["t0"], "to": end + 2 * H1S, "top": r(z["hi"]), "bottom": r(z["lo"]), "kind": "ob", "dir": z["dir"],
+                              "label": f"fresh H1 {'demand' if z['dir'] > 0 else 'supply'}"})
+        session(day, day + 6 * H1S, "Asia")
+        windows += [{"from": day - H1S, "to": day + 5 * H1S, "label": "Sydney / Tokyo AUD"},
+                    {"from": day + 12 * H1S + 1800, "to": day + 16 * H1S + 1800, "label": "Toronto / NY CAD"},
+                    {"from": day + 20 * H1S + 2700, "to": day + 22 * H1S + 1800, "label": "rollover lockout"}]
+    elif key == "AUDCHF":  # the AUD/CHF spec: the EMA 21 / 55 / 200 ribbon, the impulse leg's 50-78.6 %, the Asian box, the sessions
+        from .aussie import A as _A
+        ax = _A(m5, h1, daily)
         cl = [x.close for x in h1]
-        z, mu, sg = zscore(cl, 50)
-        n = min(150, len(h1))
-        for mult, lab in ((0, "EMA 50 (mean)"), (2.2, "Z ±2.2σ"), (-2.2, "")):
-            lines.append({"points": [[h1[i].time + H1S, r(mu[i] + mult * sg[i])] for i in range(len(h1) - n, len(h1)) if mu[i] is not None and sg[i] is not None],
-                          "color": "#A78BFA", "label": lab, "dash": mult != 0})
-        vwap_lines(2.5)
-        dealing(50, "50-candle range")
-        windows.append({"from": day + 6 * H1S + 1800, "to": day + 15 * H1S + 1800, "label": "European hours"})
-    elif key == "AUDCAD":
-        bands()
-        a20 = daily.adr(now, 20)
-        if a20:
-            h4 = resample(h1, H4S)
-            for d in (1, -1):
-                for v in three_touch(h4, len(h4), d, 0.1 * a20):
-                    seg(h4[max(0, len(h4) - 120)].time, end, v, "liquidity", -d, f"3-touch level ({'swing lows' if d > 0 else 'swing highs'})")
-        windows.append({"from": day, "to": day + 11 * H1S, "label": "reversion window (Tokyo / London)"})
-    elif key == "AUDCHF":
-        emas((20, 50, 200))
-        dealing(60, "60-candle range")
-        windows.append({"from": day + 6 * H1S, "to": day + 15 * H1S, "label": "execution window"})
+        col = {21: "#38BDF8", 55: "#F59E0B", 200: "#F43F5E"}
+        for n_ in (21, 55, 200):
+            lines.append(_line(h1, ema(cl, n_), 150, col[n_], f"EMA {n_}", False, r))
+        i_ = ax.i1(now)
+        d_ = ax.trend(i_) or ax.s1["trend"][i_] or 1
+        im = ax.impulse(i_, d_) if i_ >= 0 else None
+        if im:
+            lo_, hi_, ilo, ihi = im
+            leg = hi_ - lo_
+            a_, b_ = (hi_ - 0.5 * leg, hi_ - 0.786 * leg) if d_ > 0 else (lo_ + 0.5 * leg, lo_ + 0.786 * leg)
+            t0 = h1[min(ilo, ihi)].time
+            boxes.append({"from": t0, "to": end + 2 * H1S, "top": r(max(a_, b_)), "bottom": r(min(a_, b_)), "kind": "fvg", "dir": d_,
+                          "label": f"Pullback 50-78.6 % ({'long' if d_ > 0 else 'short'})"})
+            seg(t0, end, hi_, "liquidity", 1, "SH_imp (TP1 long)")
+            seg(t0, end, lo_, "liquidity", -1, "SL_imp (TP1 short)")
+        session(day, day + 6 * H1S, "Asia box")
+        prev_day()
+        windows += [{"from": day - H1S, "to": day + 5 * H1S, "label": "Sydney / Tokyo (A)"},
+                    {"from": day + 6 * H1S + 1800, "to": day + 10 * H1S + 1800, "label": "Zurich / London open (A, B)"},
+                    {"from": day + 20 * H1S + 2700, "to": day + 22 * H1S + 1800, "label": "rollover lockout (D)"}]
 
     g = (shown or {}).get("geo") or {}
     d = (shown or {}).get("dir", 1)

@@ -6,17 +6,20 @@
  * by TIME (interpolated between bars, so an H1 object sits right on an M5 or a D1 chart) and redrawn with the view.
  */
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
+import type { PdZone, SessionBand } from './smcOverlay';
 import type { IChartApi, IPrimitivePaneRenderer, IPrimitivePaneView, ISeriesApi, ISeriesPrimitive, SeriesAttachedParameter, Time } from 'lightweight-charts';
 
 export interface DrawBox { from: number; to: number; top: number; bottom: number; kind: 'ob' | 'fvg'; dir: number; label: string }
 export interface DrawSegment { from: number; to: number; price: number; kind: 'bos' | 'choch' | 'sweep' | 'idm' | 'eq' | 'liquidity' | 'session'; dir: number; label: string }
 export interface DrawLabel { time: number; price: number; text: string; above: boolean; kind: string }
-export interface DrawTrade { from: number; to: number; entry: number; zone?: [number, number] | null; sl: number; tp: number; dir: number; label: string }
+export interface DrawTrade { from: number; to: number; entry: number; zone?: [number, number] | null; sl: number; tp: number; dir: number; label: string;
+  slPips?: number; tpPips?: number; rr?: number; risk?: string }
 /** An indicator line: [time, value] points, drawn as a polyline. */
 export interface DrawLine { points: [number, number][]; color: string; label: string; dash?: boolean }
 /** A time window of the strategy (e.g. the Silver Bullet hour): a shaded band over the whole height. */
 export interface DrawWindow { from: number; to: number; label: string }
-export interface SmcDrawing { boxes: DrawBox[]; segments: DrawSegment[]; labels: DrawLabel[]; trade: DrawTrade | null; lines?: DrawLine[]; windows?: DrawWindow[] }
+export interface SmcDrawing { boxes: DrawBox[]; segments: DrawSegment[]; labels: DrawLabel[]; trade: DrawTrade | null; lines?: DrawLine[]; windows?: DrawWindow[];
+  pd?: PdZone | null; sessions?: SessionBand[] }
 
 type Theme = 'dark' | 'light';
 const BULL = '#16C784', BEAR = '#EA3943';
@@ -95,6 +98,32 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
       ctx.textBaseline = 'middle';
       const clampX = (x: number) => Math.max(0, Math.min(W, x));
 
+      // 0a. session bands (Asia, London killzone, NY killzone): full height, the name at the bottom
+      for (const s of d.sessions ?? []) {
+        const x0 = this.x(s.from), x1 = this.x(s.to);
+        if (x0 === null || x1 === null) continue;
+        const a = clampX(x0), b = clampX(x1);
+        if (b - a < 2) continue;
+        ctx.fillStyle = s.color; ctx.fillRect(a, 0, b - a, mediaSize.height);
+        ctx.fillStyle = dark ? 'rgba(229,231,235,0.55)' : 'rgba(31,41,55,0.6)'; ctx.textAlign = 'left';
+        if (b - a > ctx.measureText(s.label).width + 6) ctx.fillText(s.label, a + 3, mediaSize.height - 9);
+      }
+      // 0b. the dealing range: premium (50-100 %) red, discount (0-50 %) green, the equilibrium dashed
+      if (d.pd) {
+        const p = d.pd;
+        const x0 = this.x(p.from), x1 = this.x(p.to), yh = this.y(p.high), yl = this.y(p.low), ym = this.y((p.high + p.low) / 2);
+        if (x0 !== null && x1 !== null && yh !== null && yl !== null && ym !== null) {
+          const a = clampX(x0), b = clampX(x1);
+          ctx.fillStyle = 'rgba(234,57,67,0.07)'; ctx.fillRect(a, yh, b - a, ym - yh);
+          ctx.fillStyle = 'rgba(22,199,132,0.07)'; ctx.fillRect(a, ym, b - a, yl - ym);
+          ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 1; ctx.setLineDash([6, 4]);
+          ctx.beginPath(); ctx.moveTo(a, ym); ctx.lineTo(b, ym); ctx.stroke(); ctx.setLineDash([]);
+          const r = Math.min(b, W - 4) - 6;
+          this.tag(ctx, r, yh + 9, 'Premium', '#F87171', 'right');
+          this.tag(ctx, r, ym - 8, 'EQ 50 %', '#D4AF37', 'right');
+          this.tag(ctx, r, yl - 9, 'Discount', '#4ADE80', 'right');
+        }
+      }
       // 0. the strategy's time windows (shaded bands, label at the top) and its indicator lines
       (d.windows ?? []).forEach((w, wi) => {
         const x0 = this.x(w.from), x1 = this.x(w.to);
@@ -138,6 +167,9 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
           ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
           ctx.beginPath(); ctx.moveTo(a, ye); ctx.lineTo(b, ye); ctx.stroke();
           this.tag(ctx, a + 6, ye + (t.dir > 0 ? 10 : -10), t.label, '#D4AF37', 'left');
+          // the position tool's numbers: the stop's pips and risk, the target's R:R
+          if (t.slPips !== undefined) this.tag(ctx, a + 6, (ye + ys) / 2, `SL ${t.slPips.toFixed(1)} pips${t.risk ? ` · ${t.risk}` : ''}`, '#F87171', 'left');
+          if (t.rr !== undefined) this.tag(ctx, a + 6, (ye + yt) / 2, `TP ${t.tpPips !== undefined ? `${t.tpPips.toFixed(1)} pips · ` : ''}1:${t.rr.toFixed(1)} RR`, '#4ADE80', 'left');
         }
       }
 
@@ -178,7 +210,7 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
           : s.kind === 'liquidity' ? '#F472B6' : '#A78BFA';
         ctx.strokeStyle = color;
         ctx.lineWidth = s.kind === 'bos' || s.kind === 'choch' ? 1.5 : 1;
-        ctx.setLineDash(s.kind === 'bos' || s.kind === 'choch' ? [] : s.kind === 'idm' || s.kind === 'eq' ? [5, 4] : [2, 3]);
+        ctx.setLineDash(s.kind === 'bos' ? [] : s.kind === 'choch' ? [2, 3] : s.kind === 'idm' || s.kind === 'eq' ? [5, 4] : [2, 3]);  // BOS solid, CHoCH dotted
         ctx.beginPath(); ctx.moveTo(a, y); ctx.lineTo(b, y); ctx.stroke();
         ctx.setLineDash([]);
         if (!s.label) continue;
