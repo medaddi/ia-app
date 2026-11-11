@@ -1,0 +1,8027 @@
+{
+ "sources": {
+  "dukascopy": {
+   "date": "2026-11-11",
+   "minOosTrades": 100,
+   "pairs": {
+    "XAUUSD": {
+     "from": 1762300800,
+     "to": 1793922900,
+     "trainEnd": 1778111850,
+     "validationEnd": 1786017375,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.009,
+        "avgCostR": 0.009,
+        "expectancyR": -1.009,
+        "totalR": -1.01,
+        "pf": 0.0,
+        "maxDrawdownR": 1.01,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.009,
+        "avgCostR": 0.009,
+        "expectancyR": -1.009,
+        "totalR": -1.01,
+        "pf": 0.0,
+        "maxDrawdownR": 1.01,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.009,
+        "avgCostR": 0.009,
+        "expectancyR": -1.009,
+        "totalR": -1.01,
+        "pf": 0.0,
+        "maxDrawdownR": 1.01,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 130,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.009,
+         "avgCostR": 0.009,
+         "expectancyR": -1.009,
+         "totalR": -1.01,
+         "pf": 0.0,
+         "maxDrawdownR": 1.01,
+         "ci95": null
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 133,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 133,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 133,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURUSD": {
+     "from": 1762300800,
+     "to": 1793922900,
+     "trainEnd": 1778111850,
+     "validationEnd": 1786017375,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 4,
+        "wins": 1,
+        "winRate": 25.0,
+        "avgWinR": 2.736,
+        "avgLossR": 1.05,
+        "avgCostR": 0.044,
+        "expectancyR": -0.104,
+        "totalR": -0.41,
+        "pf": 0.87,
+        "maxDrawdownR": 3.15,
+        "ci95": [
+         -1.057,
+         1.79
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.045,
+        "avgCostR": 0.045,
+        "expectancyR": -1.045,
+        "totalR": -2.09,
+        "pf": 0.0,
+        "maxDrawdownR": 2.09,
+        "ci95": [
+         -1.046,
+         -1.044
+        ]
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.061,
+        "avgCostR": 0.061,
+        "expectancyR": -1.061,
+        "totalR": -1.06,
+        "pf": 0.0,
+        "maxDrawdownR": 1.06,
+        "ci95": null
+       },
+       "test": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.736,
+        "avgLossR": null,
+        "avgCostR": 0.025,
+        "expectancyR": 2.736,
+        "totalR": 2.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.736,
+        "avgLossR": 1.061,
+        "avgCostR": 0.043,
+        "expectancyR": 0.837,
+        "totalR": 1.67,
+        "pf": 2.58,
+        "maxDrawdownR": 1.06,
+        "ci95": [
+         -1.061,
+         2.736
+        ]
+       },
+       "state": "insufficient data",
+       "confirmations": 162,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 3,
+         "wins": 1,
+         "winRate": 33.3,
+         "avgWinR": 2.736,
+         "avgLossR": 1.045,
+         "avgCostR": 0.038,
+         "expectancyR": 0.215,
+         "totalR": 0.65,
+         "pf": 1.31,
+         "maxDrawdownR": 2.09,
+         "ci95": [
+          -1.046,
+          2.736
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.061,
+         "avgCostR": 0.061,
+         "expectancyR": -1.061,
+         "totalR": -1.06,
+         "pf": 0.0,
+         "maxDrawdownR": 1.06,
+         "ci95": null
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 3,
+        "wins": 1,
+        "winRate": 33.3,
+        "avgWinR": 2.736,
+        "avgLossR": 1.045,
+        "avgCostR": 0.038,
+        "expectancyR": 0.215,
+        "totalR": 0.65,
+        "pf": 1.31,
+        "maxDrawdownR": 2.09,
+        "ci95": [
+         -1.046,
+         2.736
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.045,
+        "avgCostR": 0.045,
+        "expectancyR": -1.045,
+        "totalR": -2.09,
+        "pf": 0.0,
+        "maxDrawdownR": 2.09,
+        "ci95": [
+         -1.046,
+         -1.044
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.736,
+        "avgLossR": null,
+        "avgCostR": 0.025,
+        "expectancyR": 2.736,
+        "totalR": 2.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.736,
+        "avgLossR": null,
+        "avgCostR": 0.025,
+        "expectancyR": 2.736,
+        "totalR": 2.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 162,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 3,
+         "wins": 1,
+         "winRate": 33.3,
+         "avgWinR": 2.736,
+         "avgLossR": 1.045,
+         "avgCostR": 0.038,
+         "expectancyR": 0.215,
+         "totalR": 0.65,
+         "pf": 1.31,
+         "maxDrawdownR": 2.09,
+         "ci95": [
+          -1.046,
+          2.736
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 3.606,
+        "avgLossR": 1.046,
+        "avgCostR": 0.042,
+        "expectancyR": 1.28,
+        "totalR": 2.56,
+        "pf": 3.45,
+        "maxDrawdownR": 1.05,
+        "ci95": [
+         -1.046,
+         3.606
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.046,
+        "avgCostR": 0.046,
+        "expectancyR": -1.046,
+        "totalR": -1.05,
+        "pf": 0.0,
+        "maxDrawdownR": 1.05,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 3.606,
+        "avgLossR": null,
+        "avgCostR": 0.038,
+        "expectancyR": 3.606,
+        "totalR": 3.61,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 3.606,
+        "avgLossR": null,
+        "avgCostR": 0.038,
+        "expectancyR": 3.606,
+        "totalR": 3.61,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 162,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 3.606,
+         "avgLossR": 1.046,
+         "avgCostR": 0.042,
+         "expectancyR": 1.28,
+         "totalR": 2.56,
+         "pf": 3.45,
+         "maxDrawdownR": 1.05,
+         "ci95": [
+          -1.046,
+          3.606
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 162,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "GBPUSD": {
+     "from": 1762300800,
+     "to": 1793922900,
+     "trainEnd": 1778111850,
+     "validationEnd": 1786017375,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 6,
+        "wins": 2,
+        "winRate": 33.3,
+        "avgWinR": 3.624,
+        "avgLossR": 0.816,
+        "avgCostR": 0.091,
+        "expectancyR": 0.664,
+        "totalR": 3.98,
+        "pf": 2.22,
+        "maxDrawdownR": 2.23,
+        "ci95": [
+         -0.912,
+         2.705
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.037,
+        "avgCostR": 0.037,
+        "expectancyR": -1.037,
+        "totalR": -1.04,
+        "pf": 0.0,
+        "maxDrawdownR": 1.04,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 2,
+        "wins": 2,
+        "winRate": 100.0,
+        "avgWinR": 3.624,
+        "avgLossR": null,
+        "avgCostR": 0.082,
+        "expectancyR": 3.624,
+        "totalR": 7.25,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": [
+         2.212,
+         5.036
+        ]
+       },
+       "test": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.743,
+        "avgCostR": 0.114,
+        "expectancyR": -0.743,
+        "totalR": -2.23,
+        "pf": 0.01,
+        "maxDrawdownR": 2.23,
+        "ci95": [
+         -1.136,
+         0.011
+        ]
+       },
+       "oos": {
+        "trades": 5,
+        "wins": 2,
+        "winRate": 40.0,
+        "avgWinR": 3.624,
+        "avgLossR": 0.743,
+        "avgCostR": 0.101,
+        "expectancyR": 1.004,
+        "totalR": 5.02,
+        "pf": 3.24,
+        "maxDrawdownR": 2.23,
+        "ci95": [
+         -0.887,
+         3.243
+        ]
+       },
+       "state": "insufficient data",
+       "confirmations": 193,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 5,
+         "wins": 2,
+         "winRate": 40.0,
+         "avgWinR": 3.624,
+         "avgLossR": 1.092,
+         "avgCostR": 0.088,
+         "expectancyR": 0.794,
+         "totalR": 3.97,
+         "pf": 2.21,
+         "maxDrawdownR": 2.24,
+         "ci95": [
+          -1.097,
+          3.237
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": -0.011,
+         "avgCostR": 0.103,
+         "expectancyR": 0.011,
+         "totalR": 0.01,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 5,
+        "wins": 2,
+        "winRate": 40.0,
+        "avgWinR": 3.624,
+        "avgLossR": 1.092,
+        "avgCostR": 0.088,
+        "expectancyR": 0.794,
+        "totalR": 3.97,
+        "pf": 2.21,
+        "maxDrawdownR": 2.24,
+        "ci95": [
+         -1.097,
+         3.237
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.037,
+        "avgCostR": 0.037,
+        "expectancyR": -1.037,
+        "totalR": -1.04,
+        "pf": 0.0,
+        "maxDrawdownR": 1.04,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 2,
+        "wins": 2,
+        "winRate": 100.0,
+        "avgWinR": 3.624,
+        "avgLossR": null,
+        "avgCostR": 0.082,
+        "expectancyR": 3.624,
+        "totalR": 7.25,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": [
+         2.212,
+         5.036
+        ]
+       },
+       "test": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.12,
+        "avgCostR": 0.12,
+        "expectancyR": -1.12,
+        "totalR": -2.24,
+        "pf": 0.0,
+        "maxDrawdownR": 2.24,
+        "ci95": [
+         -1.136,
+         -1.104
+        ]
+       },
+       "oos": {
+        "trades": 4,
+        "wins": 2,
+        "winRate": 50.0,
+        "avgWinR": 3.624,
+        "avgLossR": 1.12,
+        "avgCostR": 0.101,
+        "expectancyR": 1.252,
+        "totalR": 5.01,
+        "pf": 3.24,
+        "maxDrawdownR": 2.24,
+        "ci95": [
+         -1.12,
+         3.624
+        ]
+       },
+       "state": "insufficient data",
+       "confirmations": 214,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 5,
+         "wins": 2,
+         "winRate": 40.0,
+         "avgWinR": 3.624,
+         "avgLossR": 1.092,
+         "avgCostR": 0.088,
+         "expectancyR": 0.794,
+         "totalR": 3.97,
+         "pf": 2.21,
+         "maxDrawdownR": 2.24,
+         "ci95": [
+          -1.097,
+          3.237
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.036,
+        "avgLossR": null,
+        "avgCostR": 0.109,
+        "expectancyR": 5.036,
+        "totalR": 5.04,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.036,
+        "avgLossR": null,
+        "avgCostR": 0.109,
+        "expectancyR": 5.036,
+        "totalR": 5.04,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.036,
+        "avgLossR": null,
+        "avgCostR": 0.109,
+        "expectancyR": 5.036,
+        "totalR": 5.04,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 214,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 5.036,
+         "avgLossR": null,
+         "avgCostR": 0.109,
+         "expectancyR": 5.036,
+         "totalR": 5.04,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.036,
+        "avgLossR": null,
+        "avgCostR": 0.109,
+        "expectancyR": 5.036,
+        "totalR": 5.04,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.036,
+        "avgLossR": null,
+        "avgCostR": 0.109,
+        "expectancyR": 5.036,
+        "totalR": 5.04,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.036,
+        "avgLossR": null,
+        "avgCostR": 0.109,
+        "expectancyR": 5.036,
+        "totalR": 5.04,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 214,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 5.036,
+         "avgLossR": null,
+         "avgCostR": 0.109,
+         "expectancyR": 5.036,
+         "totalR": 5.04,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURCHF": {
+     "from": 1762300800,
+     "to": 1793922900,
+     "trainEnd": 1778111850,
+     "validationEnd": 1786017375,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.108,
+        "avgCostR": 0.108,
+        "expectancyR": -1.108,
+        "totalR": -1.11,
+        "pf": 0.0,
+        "maxDrawdownR": 1.11,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.108,
+        "avgCostR": 0.108,
+        "expectancyR": -1.108,
+        "totalR": -1.11,
+        "pf": 0.0,
+        "maxDrawdownR": 1.11,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 75,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.108,
+         "avgCostR": 0.108,
+         "expectancyR": -1.108,
+         "totalR": -1.11,
+         "pf": 0.0,
+         "maxDrawdownR": 1.11,
+         "ci95": null
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.108,
+        "avgCostR": 0.108,
+        "expectancyR": -1.108,
+        "totalR": -1.11,
+        "pf": 0.0,
+        "maxDrawdownR": 1.11,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.108,
+        "avgCostR": 0.108,
+        "expectancyR": -1.108,
+        "totalR": -1.11,
+        "pf": 0.0,
+        "maxDrawdownR": 1.11,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 95,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.108,
+         "avgCostR": 0.108,
+         "expectancyR": -1.108,
+         "totalR": -1.11,
+         "pf": 0.0,
+         "maxDrawdownR": 1.11,
+         "ci95": null
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 95,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 95,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "AUDCAD": {
+     "from": 1762300800,
+     "to": 1793922900,
+     "trainEnd": 1778111850,
+     "validationEnd": 1786017375,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.129,
+        "avgCostR": 0.129,
+        "expectancyR": -1.129,
+        "totalR": -3.39,
+        "pf": 0.0,
+        "maxDrawdownR": 3.39,
+        "ci95": [
+         -1.164,
+         -1.108
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.114,
+        "avgCostR": 0.114,
+        "expectancyR": -1.114,
+        "totalR": -1.11,
+        "pf": 0.0,
+        "maxDrawdownR": 1.11,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -2.27,
+        "pf": 0.0,
+        "maxDrawdownR": 2.27,
+        "ci95": [
+         -1.164,
+         -1.108
+        ]
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -2.27,
+        "pf": 0.0,
+        "maxDrawdownR": 2.27,
+        "ci95": [
+         -1.164,
+         -1.108
+        ]
+       },
+       "state": "insufficient data",
+       "confirmations": 140,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.139,
+         "avgCostR": 0.139,
+         "expectancyR": -1.139,
+         "totalR": -2.28,
+         "pf": 0.0,
+         "maxDrawdownR": 2.28,
+         "ci95": [
+          -1.164,
+          -1.114
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.108,
+         "avgCostR": 0.108,
+         "expectancyR": -1.108,
+         "totalR": -1.11,
+         "pf": 0.0,
+         "maxDrawdownR": 1.11,
+         "ci95": null
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.129,
+        "avgCostR": 0.129,
+        "expectancyR": -1.129,
+        "totalR": -3.39,
+        "pf": 0.0,
+        "maxDrawdownR": 3.39,
+        "ci95": [
+         -1.164,
+         -1.108
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.114,
+        "avgCostR": 0.114,
+        "expectancyR": -1.114,
+        "totalR": -1.11,
+        "pf": 0.0,
+        "maxDrawdownR": 1.11,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -2.27,
+        "pf": 0.0,
+        "maxDrawdownR": 2.27,
+        "ci95": [
+         -1.164,
+         -1.108
+        ]
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -2.27,
+        "pf": 0.0,
+        "maxDrawdownR": 2.27,
+        "ci95": [
+         -1.164,
+         -1.108
+        ]
+       },
+       "state": "insufficient data",
+       "confirmations": 188,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.139,
+         "avgCostR": 0.139,
+         "expectancyR": -1.139,
+         "totalR": -2.28,
+         "pf": 0.0,
+         "maxDrawdownR": 2.28,
+         "ci95": [
+          -1.164,
+          -1.114
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.108,
+         "avgCostR": 0.108,
+         "expectancyR": -1.108,
+         "totalR": -1.11,
+         "pf": 0.0,
+         "maxDrawdownR": 1.11,
+         "ci95": null
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 188,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 188,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "AUDCHF": {
+     "from": 1762300800,
+     "to": 1793922900,
+     "trainEnd": 1778111850,
+     "validationEnd": 1786017375,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.203,
+        "avgCostR": 0.203,
+        "expectancyR": -1.203,
+        "totalR": -1.2,
+        "pf": 0.0,
+        "maxDrawdownR": 1.2,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.203,
+        "avgCostR": 0.203,
+        "expectancyR": -1.203,
+        "totalR": -1.2,
+        "pf": 0.0,
+        "maxDrawdownR": 1.2,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.203,
+        "avgCostR": 0.203,
+        "expectancyR": -1.203,
+        "totalR": -1.2,
+        "pf": 0.0,
+        "maxDrawdownR": 1.2,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 78,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.203,
+         "avgCostR": 0.203,
+         "expectancyR": -1.203,
+         "totalR": -1.2,
+         "pf": 0.0,
+         "maxDrawdownR": 1.2,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.203,
+        "avgCostR": 0.203,
+        "expectancyR": -1.203,
+        "totalR": -1.2,
+        "pf": 0.0,
+        "maxDrawdownR": 1.2,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.203,
+        "avgCostR": 0.203,
+        "expectancyR": -1.203,
+        "totalR": -1.2,
+        "pf": 0.0,
+        "maxDrawdownR": 1.2,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.203,
+        "avgCostR": 0.203,
+        "expectancyR": -1.203,
+        "totalR": -1.2,
+        "pf": 0.0,
+        "maxDrawdownR": 1.2,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 110,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.203,
+         "avgCostR": 0.203,
+         "expectancyR": -1.203,
+         "totalR": -1.2,
+         "pf": 0.0,
+         "maxDrawdownR": 1.2,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 110,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 110,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "yahoo": {
+   "date": "2026-11-11",
+   "minOosTrades": 100,
+   "pairs": {
+    "XAUUSD": {
+     "from": 1788321600,
+     "to": 1794421834,
+     "trainEnd": 1791371717,
+     "validationEnd": 1792896775,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.682,
+        "avgLossR": 1.009,
+        "avgCostR": 0.008,
+        "expectancyR": 0.837,
+        "totalR": 1.67,
+        "pf": 2.66,
+        "maxDrawdownR": 1.01,
+        "ci95": [
+         -1.009,
+         2.682
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.009,
+        "avgCostR": 0.009,
+        "expectancyR": -1.009,
+        "totalR": -1.01,
+        "pf": 0.0,
+        "maxDrawdownR": 1.01,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.682,
+        "avgLossR": null,
+        "avgCostR": 0.007,
+        "expectancyR": 2.682,
+        "totalR": 2.68,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.682,
+        "avgLossR": null,
+        "avgCostR": 0.007,
+        "expectancyR": 2.682,
+        "totalR": 2.68,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 52,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 2.682,
+         "avgLossR": 1.009,
+         "avgCostR": 0.008,
+         "expectancyR": 0.837,
+         "totalR": 1.67,
+         "pf": 2.66,
+         "maxDrawdownR": 1.01,
+         "ci95": [
+          -1.009,
+          2.682
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.682,
+        "avgLossR": 1.009,
+        "avgCostR": 0.008,
+        "expectancyR": 0.837,
+        "totalR": 1.67,
+        "pf": 2.66,
+        "maxDrawdownR": 1.01,
+        "ci95": [
+         -1.009,
+         2.682
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.009,
+        "avgCostR": 0.009,
+        "expectancyR": -1.009,
+        "totalR": -1.01,
+        "pf": 0.0,
+        "maxDrawdownR": 1.01,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.682,
+        "avgLossR": null,
+        "avgCostR": 0.007,
+        "expectancyR": 2.682,
+        "totalR": 2.68,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.682,
+        "avgLossR": null,
+        "avgCostR": 0.007,
+        "expectancyR": 2.682,
+        "totalR": 2.68,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 52,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 2.682,
+         "avgLossR": 1.009,
+         "avgCostR": 0.008,
+         "expectancyR": 0.837,
+         "totalR": 1.67,
+         "pf": 2.66,
+         "maxDrawdownR": 1.01,
+         "ci95": [
+          -1.009,
+          2.682
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 52,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 52,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURUSD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.83,
+        "avgLossR": 1.04,
+        "avgCostR": 0.033,
+        "expectancyR": 0.895,
+        "totalR": 1.79,
+        "pf": 2.72,
+        "maxDrawdownR": 1.04,
+        "ci95": [
+         -1.04,
+         2.83
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.83,
+        "avgLossR": 1.04,
+        "avgCostR": 0.033,
+        "expectancyR": 0.895,
+        "totalR": 1.79,
+        "pf": 2.72,
+        "maxDrawdownR": 1.04,
+        "ci95": [
+         -1.04,
+         2.83
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 38,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 2.83,
+         "avgLossR": 1.04,
+         "avgCostR": 0.033,
+         "expectancyR": 0.895,
+         "totalR": 1.79,
+         "pf": 2.72,
+         "maxDrawdownR": 1.04,
+         "ci95": [
+          -1.04,
+          2.83
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.83,
+        "avgLossR": 1.04,
+        "avgCostR": 0.033,
+        "expectancyR": 0.895,
+        "totalR": 1.79,
+        "pf": 2.72,
+        "maxDrawdownR": 1.04,
+        "ci95": [
+         -1.04,
+         2.83
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.83,
+        "avgLossR": 1.04,
+        "avgCostR": 0.033,
+        "expectancyR": 0.895,
+        "totalR": 1.79,
+        "pf": 2.72,
+        "maxDrawdownR": 1.04,
+        "ci95": [
+         -1.04,
+         2.83
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 38,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 2.83,
+         "avgLossR": 1.04,
+         "avgCostR": 0.033,
+         "expectancyR": 0.895,
+         "totalR": 1.79,
+         "pf": 2.72,
+         "maxDrawdownR": 1.04,
+         "ci95": [
+          -1.04,
+          2.83
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.685,
+        "avgCostR": 0.037,
+        "expectancyR": -0.685,
+        "totalR": -2.06,
+        "pf": 0.01,
+        "maxDrawdownR": 2.06,
+        "ci95": [
+         -1.04,
+         0.022
+        ]
+       },
+       "train": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.685,
+        "avgCostR": 0.037,
+        "expectancyR": -0.685,
+        "totalR": -2.06,
+        "pf": 0.01,
+        "maxDrawdownR": 2.06,
+        "ci95": [
+         -1.04,
+         0.022
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 38,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 3,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.685,
+         "avgCostR": 0.037,
+         "expectancyR": -0.685,
+         "totalR": -2.06,
+         "pf": 0.01,
+         "maxDrawdownR": 2.06,
+         "ci95": [
+          -1.04,
+          0.022
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.04,
+        "avgCostR": 0.04,
+        "expectancyR": -1.04,
+        "totalR": -1.04,
+        "pf": 0.0,
+        "maxDrawdownR": 1.04,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.04,
+        "avgCostR": 0.04,
+        "expectancyR": -1.04,
+        "totalR": -1.04,
+        "pf": 0.0,
+        "maxDrawdownR": 1.04,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 38,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.04,
+         "avgCostR": 0.04,
+         "expectancyR": -1.04,
+         "totalR": -1.04,
+         "pf": 0.0,
+         "maxDrawdownR": 1.04,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "GBPUSD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.531,
+        "avgCostR": 0.167,
+        "expectancyR": -0.531,
+        "totalR": -1.59,
+        "pf": 0.01,
+        "maxDrawdownR": 1.59,
+        "ci95": [
+         -1.281,
+         0.021
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.63,
+        "avgCostR": 0.235,
+        "expectancyR": -0.63,
+        "totalR": -1.26,
+        "pf": 0.02,
+        "maxDrawdownR": 1.28,
+        "ci95": [
+         -1.281,
+         0.021
+        ]
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.332,
+        "avgCostR": 0.032,
+        "expectancyR": -0.332,
+        "totalR": -0.33,
+        "pf": 0.0,
+        "maxDrawdownR": 0.33,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.332,
+        "avgCostR": 0.032,
+        "expectancyR": -0.332,
+        "totalR": -0.33,
+        "pf": 0.0,
+        "maxDrawdownR": 0.33,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 64,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 3,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.531,
+         "avgCostR": 0.167,
+         "expectancyR": -0.531,
+         "totalR": -1.59,
+         "pf": 0.01,
+         "maxDrawdownR": 1.59,
+         "ci95": [
+          -1.281,
+          0.021
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.531,
+        "avgCostR": 0.167,
+        "expectancyR": -0.531,
+        "totalR": -1.59,
+        "pf": 0.01,
+        "maxDrawdownR": 1.59,
+        "ci95": [
+         -1.281,
+         0.021
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.63,
+        "avgCostR": 0.235,
+        "expectancyR": -0.63,
+        "totalR": -1.26,
+        "pf": 0.02,
+        "maxDrawdownR": 1.28,
+        "ci95": [
+         -1.281,
+         0.021
+        ]
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.332,
+        "avgCostR": 0.032,
+        "expectancyR": -0.332,
+        "totalR": -0.33,
+        "pf": 0.0,
+        "maxDrawdownR": 0.33,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.332,
+        "avgCostR": 0.032,
+        "expectancyR": -0.332,
+        "totalR": -0.33,
+        "pf": 0.0,
+        "maxDrawdownR": 0.33,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 64,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 3,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.531,
+         "avgCostR": 0.167,
+         "expectancyR": -0.531,
+         "totalR": -1.59,
+         "pf": 0.01,
+         "maxDrawdownR": 1.59,
+         "ci95": [
+          -1.281,
+          0.021
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.63,
+        "avgCostR": 0.235,
+        "expectancyR": -0.63,
+        "totalR": -1.26,
+        "pf": 0.02,
+        "maxDrawdownR": 1.28,
+        "ci95": [
+         -1.281,
+         0.021
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.63,
+        "avgCostR": 0.235,
+        "expectancyR": -0.63,
+        "totalR": -1.26,
+        "pf": 0.02,
+        "maxDrawdownR": 1.28,
+        "ci95": [
+         -1.281,
+         0.021
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 64,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.63,
+         "avgCostR": 0.235,
+         "expectancyR": -0.63,
+         "totalR": -1.26,
+         "pf": 0.02,
+         "maxDrawdownR": 1.28,
+         "ci95": [
+          -1.281,
+          0.021
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.63,
+        "avgCostR": 0.235,
+        "expectancyR": -0.63,
+        "totalR": -1.26,
+        "pf": 0.02,
+        "maxDrawdownR": 1.28,
+        "ci95": [
+         -1.281,
+         0.021
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.63,
+        "avgCostR": 0.235,
+        "expectancyR": -0.63,
+        "totalR": -1.26,
+        "pf": 0.02,
+        "maxDrawdownR": 1.28,
+        "ci95": [
+         -1.281,
+         0.021
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 64,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.63,
+         "avgCostR": 0.235,
+         "expectancyR": -0.63,
+         "totalR": -1.26,
+         "pf": 0.02,
+         "maxDrawdownR": 1.28,
+         "ci95": [
+          -1.281,
+          0.021
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "USDJPY": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.014,
+        "avgCostR": 0.014,
+        "expectancyR": -1.014,
+        "totalR": -1.01,
+        "pf": 0.0,
+        "maxDrawdownR": 1.01,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.014,
+        "avgCostR": 0.014,
+        "expectancyR": -1.014,
+        "totalR": -1.01,
+        "pf": 0.0,
+        "maxDrawdownR": 1.01,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 95,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.014,
+         "avgCostR": 0.014,
+         "expectancyR": -1.014,
+         "totalR": -1.01,
+         "pf": 0.0,
+         "maxDrawdownR": 1.01,
+         "ci95": null
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 95,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 95,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 95,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "USDCAD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 56,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 56,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 56,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 56,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "USDCHF": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 21,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 21,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 21,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 21,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "AUDUSD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.57,
+        "avgCostR": 0.113,
+        "expectancyR": -0.57,
+        "totalR": -1.14,
+        "pf": 0.02,
+        "maxDrawdownR": 1.16,
+        "ci95": [
+         -1.161,
+         0.021
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.161,
+        "avgCostR": 0.161,
+        "expectancyR": -1.161,
+        "totalR": -1.16,
+        "pf": 0.0,
+        "maxDrawdownR": 1.16,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": -0.021,
+        "avgCostR": 0.064,
+        "expectancyR": 0.021,
+        "totalR": 0.02,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": -0.021,
+        "avgCostR": 0.064,
+        "expectancyR": 0.021,
+        "totalR": 0.02,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 34,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.57,
+         "avgCostR": 0.113,
+         "expectancyR": -0.57,
+         "totalR": -1.14,
+         "pf": 0.02,
+         "maxDrawdownR": 1.16,
+         "ci95": [
+          -1.161,
+          0.021
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.57,
+        "avgCostR": 0.113,
+        "expectancyR": -0.57,
+        "totalR": -1.14,
+        "pf": 0.02,
+        "maxDrawdownR": 1.16,
+        "ci95": [
+         -1.161,
+         0.021
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.161,
+        "avgCostR": 0.161,
+        "expectancyR": -1.161,
+        "totalR": -1.16,
+        "pf": 0.0,
+        "maxDrawdownR": 1.16,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": -0.021,
+        "avgCostR": 0.064,
+        "expectancyR": 0.021,
+        "totalR": 0.02,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": -0.021,
+        "avgCostR": 0.064,
+        "expectancyR": 0.021,
+        "totalR": 0.02,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 34,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.57,
+         "avgCostR": 0.113,
+         "expectancyR": -0.57,
+         "totalR": -1.14,
+         "pf": 0.02,
+         "maxDrawdownR": 1.16,
+         "ci95": [
+          -1.161,
+          0.021
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.57,
+        "avgCostR": 0.113,
+        "expectancyR": -0.57,
+        "totalR": -1.14,
+        "pf": 0.02,
+        "maxDrawdownR": 1.16,
+        "ci95": [
+         -1.161,
+         0.021
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.161,
+        "avgCostR": 0.161,
+        "expectancyR": -1.161,
+        "totalR": -1.16,
+        "pf": 0.0,
+        "maxDrawdownR": 1.16,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": -0.021,
+        "avgCostR": 0.064,
+        "expectancyR": 0.021,
+        "totalR": 0.02,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": -0.021,
+        "avgCostR": 0.064,
+        "expectancyR": 0.021,
+        "totalR": 0.02,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 34,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.57,
+         "avgCostR": 0.113,
+         "expectancyR": -0.57,
+         "totalR": -1.14,
+         "pf": 0.02,
+         "maxDrawdownR": 1.16,
+         "ci95": [
+          -1.161,
+          0.021
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.161,
+        "avgCostR": 0.161,
+        "expectancyR": -1.161,
+        "totalR": -1.16,
+        "pf": 0.0,
+        "maxDrawdownR": 1.16,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.161,
+        "avgCostR": 0.161,
+        "expectancyR": -1.161,
+        "totalR": -1.16,
+        "pf": 0.0,
+        "maxDrawdownR": 1.16,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 34,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.161,
+         "avgCostR": 0.161,
+         "expectancyR": -1.161,
+         "totalR": -1.16,
+         "pf": 0.0,
+         "maxDrawdownR": 1.16,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "NZDUSD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 40,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 40,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 40,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 40,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "GBPJPY": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.048,
+        "avgCostR": 0.048,
+        "expectancyR": -1.048,
+        "totalR": -1.05,
+        "pf": 0.0,
+        "maxDrawdownR": 1.05,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.048,
+        "avgCostR": 0.048,
+        "expectancyR": -1.048,
+        "totalR": -1.05,
+        "pf": 0.0,
+        "maxDrawdownR": 1.05,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.048,
+        "avgCostR": 0.048,
+        "expectancyR": -1.048,
+        "totalR": -1.05,
+        "pf": 0.0,
+        "maxDrawdownR": 1.05,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 54,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.048,
+         "avgCostR": 0.048,
+         "expectancyR": -1.048,
+         "totalR": -1.05,
+         "pf": 0.0,
+         "maxDrawdownR": 1.05,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.048,
+        "avgCostR": 0.048,
+        "expectancyR": -1.048,
+        "totalR": -1.05,
+        "pf": 0.0,
+        "maxDrawdownR": 1.05,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.048,
+        "avgCostR": 0.048,
+        "expectancyR": -1.048,
+        "totalR": -1.05,
+        "pf": 0.0,
+        "maxDrawdownR": 1.05,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.048,
+        "avgCostR": 0.048,
+        "expectancyR": -1.048,
+        "totalR": -1.05,
+        "pf": 0.0,
+        "maxDrawdownR": 1.05,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 54,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.048,
+         "avgCostR": 0.048,
+         "expectancyR": -1.048,
+         "totalR": -1.05,
+         "pf": 0.0,
+         "maxDrawdownR": 1.05,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 54,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 54,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "GBPAUD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.038,
+        "avgCostR": 0.089,
+        "expectancyR": -0.038,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.038,
+        "avgCostR": 0.089,
+        "expectancyR": -0.038,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.038,
+        "avgCostR": 0.089,
+        "expectancyR": -0.038,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 62,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.038,
+         "avgCostR": 0.089,
+         "expectancyR": -0.038,
+         "totalR": -0.04,
+         "pf": 0.0,
+         "maxDrawdownR": 0.04,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.038,
+        "avgCostR": 0.089,
+        "expectancyR": -0.038,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.038,
+        "avgCostR": 0.089,
+        "expectancyR": -0.038,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.038,
+        "avgCostR": 0.089,
+        "expectancyR": -0.038,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 62,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.038,
+         "avgCostR": 0.089,
+         "expectancyR": -0.038,
+         "totalR": -0.04,
+         "pf": 0.0,
+         "maxDrawdownR": 0.04,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 62,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 62,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "GBPNZD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 33,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 33,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 33,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 33,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "GBPCAD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.137,
+        "avgCostR": 0.137,
+        "expectancyR": -1.137,
+        "totalR": -2.27,
+        "pf": 0.0,
+        "maxDrawdownR": 2.27,
+        "ci95": [
+         -1.138,
+         -1.136
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.138,
+        "avgCostR": 0.138,
+        "expectancyR": -1.138,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 84,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.137,
+         "avgCostR": 0.137,
+         "expectancyR": -1.137,
+         "totalR": -2.27,
+         "pf": 0.0,
+         "maxDrawdownR": 2.27,
+         "ci95": [
+          -1.138,
+          -1.136
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.137,
+        "avgCostR": 0.137,
+        "expectancyR": -1.137,
+        "totalR": -2.27,
+        "pf": 0.0,
+        "maxDrawdownR": 2.27,
+        "ci95": [
+         -1.138,
+         -1.136
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.138,
+        "avgCostR": 0.138,
+        "expectancyR": -1.138,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 84,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.137,
+         "avgCostR": 0.137,
+         "expectancyR": -1.137,
+         "totalR": -2.27,
+         "pf": 0.0,
+         "maxDrawdownR": 2.27,
+         "ci95": [
+          -1.138,
+          -1.136
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.136,
+        "avgCostR": 0.136,
+        "expectancyR": -1.136,
+        "totalR": -1.14,
+        "pf": 0.0,
+        "maxDrawdownR": 1.14,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 84,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.136,
+         "avgCostR": 0.136,
+         "expectancyR": -1.136,
+         "totalR": -1.14,
+         "pf": 0.0,
+         "maxDrawdownR": 1.14,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 84,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "GBPCHF": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 36,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 36,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 36,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 36,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURGBP": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 19,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 19,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 19,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 19,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURJPY": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 3.738,
+        "avgLossR": null,
+        "avgCostR": 0.062,
+        "expectancyR": 3.738,
+        "totalR": 3.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 3.738,
+        "avgLossR": null,
+        "avgCostR": 0.062,
+        "expectancyR": 3.738,
+        "totalR": 3.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 34,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 3.738,
+         "avgLossR": null,
+         "avgCostR": 0.062,
+         "expectancyR": 3.738,
+         "totalR": 3.74,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 3.738,
+        "avgLossR": null,
+        "avgCostR": 0.062,
+        "expectancyR": 3.738,
+        "totalR": 3.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 3.738,
+        "avgLossR": null,
+        "avgCostR": 0.062,
+        "expectancyR": 3.738,
+        "totalR": 3.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 34,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 3.738,
+         "avgLossR": null,
+         "avgCostR": 0.062,
+         "expectancyR": 3.738,
+         "totalR": 3.74,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 3.738,
+        "avgLossR": null,
+        "avgCostR": 0.062,
+        "expectancyR": 3.738,
+        "totalR": 3.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 3.738,
+        "avgLossR": null,
+        "avgCostR": 0.062,
+        "expectancyR": 3.738,
+        "totalR": 3.74,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 34,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 3.738,
+         "avgLossR": null,
+         "avgCostR": 0.062,
+         "expectancyR": 3.738,
+         "totalR": 3.74,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 34,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURAUD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 28,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 28,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 28,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 28,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURNZD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 70,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 70,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 70,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 70,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURCAD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 1.974,
+        "avgLossR": 0.026,
+        "avgCostR": 0.108,
+        "expectancyR": 0.974,
+        "totalR": 1.95,
+        "pf": 75.81,
+        "maxDrawdownR": 0.03,
+        "ci95": [
+         -0.026,
+         1.974
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 1.974,
+        "avgLossR": null,
+        "avgCostR": 0.138,
+        "expectancyR": 1.974,
+        "totalR": 1.97,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.026,
+        "avgCostR": 0.078,
+        "expectancyR": -0.026,
+        "totalR": -0.03,
+        "pf": 0.0,
+        "maxDrawdownR": 0.03,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.026,
+        "avgCostR": 0.078,
+        "expectancyR": -0.026,
+        "totalR": -0.03,
+        "pf": 0.0,
+        "maxDrawdownR": 0.03,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 59,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 1.974,
+         "avgLossR": 0.026,
+         "avgCostR": 0.108,
+         "expectancyR": 0.974,
+         "totalR": 1.95,
+         "pf": 75.81,
+         "maxDrawdownR": 0.03,
+         "ci95": [
+          -0.026,
+          1.974
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 1.974,
+        "avgLossR": 0.026,
+        "avgCostR": 0.108,
+        "expectancyR": 0.974,
+        "totalR": 1.95,
+        "pf": 75.81,
+        "maxDrawdownR": 0.03,
+        "ci95": [
+         -0.026,
+         1.974
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 1.974,
+        "avgLossR": null,
+        "avgCostR": 0.138,
+        "expectancyR": 1.974,
+        "totalR": 1.97,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.026,
+        "avgCostR": 0.078,
+        "expectancyR": -0.026,
+        "totalR": -0.03,
+        "pf": 0.0,
+        "maxDrawdownR": 0.03,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.026,
+        "avgCostR": 0.078,
+        "expectancyR": -0.026,
+        "totalR": -0.03,
+        "pf": 0.0,
+        "maxDrawdownR": 0.03,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 59,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 1.974,
+         "avgLossR": 0.026,
+         "avgCostR": 0.108,
+         "expectancyR": 0.974,
+         "totalR": 1.95,
+         "pf": 75.81,
+         "maxDrawdownR": 0.03,
+         "ci95": [
+          -0.026,
+          1.974
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 59,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 59,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "EURCHF": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.125,
+        "avgCostR": 0.125,
+        "expectancyR": -1.125,
+        "totalR": -2.25,
+        "pf": 0.0,
+        "maxDrawdownR": 2.25,
+        "ci95": [
+         -1.134,
+         -1.117
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.125,
+        "avgCostR": 0.125,
+        "expectancyR": -1.125,
+        "totalR": -2.25,
+        "pf": 0.0,
+        "maxDrawdownR": 2.25,
+        "ci95": [
+         -1.134,
+         -1.117
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 24,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.125,
+         "avgCostR": 0.125,
+         "expectancyR": -1.125,
+         "totalR": -2.25,
+         "pf": 0.0,
+         "maxDrawdownR": 2.25,
+         "ci95": [
+          -1.134,
+          -1.117
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.125,
+        "avgCostR": 0.125,
+        "expectancyR": -1.125,
+        "totalR": -2.25,
+        "pf": 0.0,
+        "maxDrawdownR": 2.25,
+        "ci95": [
+         -1.134,
+         -1.117
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.125,
+        "avgCostR": 0.125,
+        "expectancyR": -1.125,
+        "totalR": -2.25,
+        "pf": 0.0,
+        "maxDrawdownR": 2.25,
+        "ci95": [
+         -1.134,
+         -1.117
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 24,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.125,
+         "avgCostR": 0.125,
+         "expectancyR": -1.125,
+         "totalR": -2.25,
+         "pf": 0.0,
+         "maxDrawdownR": 2.25,
+         "ci95": [
+          -1.134,
+          -1.117
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.125,
+        "avgCostR": 0.125,
+        "expectancyR": -1.125,
+        "totalR": -2.25,
+        "pf": 0.0,
+        "maxDrawdownR": 2.25,
+        "ci95": [
+         -1.134,
+         -1.117
+        ]
+       },
+       "train": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.125,
+        "avgCostR": 0.125,
+        "expectancyR": -1.125,
+        "totalR": -2.25,
+        "pf": 0.0,
+        "maxDrawdownR": 2.25,
+        "ci95": [
+         -1.134,
+         -1.117
+        ]
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 24,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.125,
+         "avgCostR": 0.125,
+         "expectancyR": -1.125,
+         "totalR": -2.25,
+         "pf": 0.0,
+         "maxDrawdownR": 2.25,
+         "ci95": [
+          -1.134,
+          -1.117
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.117,
+        "avgCostR": 0.117,
+        "expectancyR": -1.117,
+        "totalR": -1.12,
+        "pf": 0.0,
+        "maxDrawdownR": 1.12,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.117,
+        "avgCostR": 0.117,
+        "expectancyR": -1.117,
+        "totalR": -1.12,
+        "pf": 0.0,
+        "maxDrawdownR": 1.12,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 24,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.117,
+         "avgCostR": 0.117,
+         "expectancyR": -1.117,
+         "totalR": -1.12,
+         "pf": 0.0,
+         "maxDrawdownR": 1.12,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "AUDJPY": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.107,
+        "avgCostR": 0.107,
+        "expectancyR": -1.107,
+        "totalR": -3.32,
+        "pf": 0.0,
+        "maxDrawdownR": 3.32,
+        "ci95": [
+         -1.13,
+         -1.085
+        ]
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.117,
+        "avgCostR": 0.117,
+        "expectancyR": -1.117,
+        "totalR": -2.23,
+        "pf": 0.0,
+        "maxDrawdownR": 2.23,
+        "ci95": [
+         -1.13,
+         -1.104
+        ]
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.085,
+        "avgCostR": 0.085,
+        "expectancyR": -1.085,
+        "totalR": -1.08,
+        "pf": 0.0,
+        "maxDrawdownR": 1.08,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.107,
+        "avgCostR": 0.107,
+        "expectancyR": -1.107,
+        "totalR": -3.32,
+        "pf": 0.0,
+        "maxDrawdownR": 3.32,
+        "ci95": [
+         -1.13,
+         -1.085
+        ]
+       },
+       "state": "insufficient data",
+       "confirmations": 51,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 3,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.107,
+         "avgCostR": 0.107,
+         "expectancyR": -1.107,
+         "totalR": -3.32,
+         "pf": 0.0,
+         "maxDrawdownR": 3.32,
+         "ci95": [
+          -1.13,
+          -1.085
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.107,
+        "avgCostR": 0.107,
+        "expectancyR": -1.107,
+        "totalR": -3.32,
+        "pf": 0.0,
+        "maxDrawdownR": 3.32,
+        "ci95": [
+         -1.13,
+         -1.085
+        ]
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.117,
+        "avgCostR": 0.117,
+        "expectancyR": -1.117,
+        "totalR": -2.23,
+        "pf": 0.0,
+        "maxDrawdownR": 2.23,
+        "ci95": [
+         -1.13,
+         -1.104
+        ]
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.085,
+        "avgCostR": 0.085,
+        "expectancyR": -1.085,
+        "totalR": -1.08,
+        "pf": 0.0,
+        "maxDrawdownR": 1.08,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 3,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.107,
+        "avgCostR": 0.107,
+        "expectancyR": -1.107,
+        "totalR": -3.32,
+        "pf": 0.0,
+        "maxDrawdownR": 3.32,
+        "ci95": [
+         -1.13,
+         -1.085
+        ]
+       },
+       "state": "insufficient data",
+       "confirmations": 51,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 3,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.107,
+         "avgCostR": 0.107,
+         "expectancyR": -1.107,
+         "totalR": -3.32,
+         "pf": 0.0,
+         "maxDrawdownR": 3.32,
+         "ci95": [
+          -1.13,
+          -1.085
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.095,
+        "avgCostR": 0.095,
+        "expectancyR": -1.095,
+        "totalR": -2.19,
+        "pf": 0.0,
+        "maxDrawdownR": 2.19,
+        "ci95": [
+         -1.104,
+         -1.085
+        ]
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.104,
+        "avgCostR": 0.104,
+        "expectancyR": -1.104,
+        "totalR": -1.1,
+        "pf": 0.0,
+        "maxDrawdownR": 1.1,
+        "ci95": null
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.085,
+        "avgCostR": 0.085,
+        "expectancyR": -1.085,
+        "totalR": -1.08,
+        "pf": 0.0,
+        "maxDrawdownR": 1.08,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.095,
+        "avgCostR": 0.095,
+        "expectancyR": -1.095,
+        "totalR": -2.19,
+        "pf": 0.0,
+        "maxDrawdownR": 2.19,
+        "ci95": [
+         -1.104,
+         -1.085
+        ]
+       },
+       "state": "insufficient data",
+       "confirmations": 51,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.095,
+         "avgCostR": 0.095,
+         "expectancyR": -1.095,
+         "totalR": -2.19,
+         "pf": 0.0,
+         "maxDrawdownR": 2.19,
+         "ci95": [
+          -1.104,
+          -1.085
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.104,
+        "avgCostR": 0.104,
+        "expectancyR": -1.104,
+        "totalR": -1.1,
+        "pf": 0.0,
+        "maxDrawdownR": 1.1,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.104,
+        "avgCostR": 0.104,
+        "expectancyR": -1.104,
+        "totalR": -1.1,
+        "pf": 0.0,
+        "maxDrawdownR": 1.1,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.104,
+        "avgCostR": 0.104,
+        "expectancyR": -1.104,
+        "totalR": -1.1,
+        "pf": 0.0,
+        "maxDrawdownR": 1.1,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 51,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.104,
+         "avgCostR": 0.104,
+         "expectancyR": -1.104,
+         "totalR": -1.1,
+         "pf": 0.0,
+         "maxDrawdownR": 1.1,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "AUDCAD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 42,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 42,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 42,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 42,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "AUDCHF": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 36,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.014,
+         "avgCostR": 0.108,
+         "expectancyR": -0.014,
+         "totalR": -0.01,
+         "pf": 0.0,
+         "maxDrawdownR": 0.01,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 39,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.014,
+         "avgCostR": 0.108,
+         "expectancyR": -0.014,
+         "totalR": -0.01,
+         "pf": 0.0,
+         "maxDrawdownR": 0.01,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.014,
+        "avgCostR": 0.108,
+        "expectancyR": -0.014,
+        "totalR": -0.01,
+        "pf": 0.0,
+        "maxDrawdownR": 0.01,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 39,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.014,
+         "avgCostR": 0.108,
+         "expectancyR": -0.014,
+         "totalR": -0.01,
+         "pf": 0.0,
+         "maxDrawdownR": 0.01,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 39,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "AUDNZD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 14,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 14,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 14,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 14,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "NZDJPY": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.13,
+        "avgLossR": null,
+        "avgCostR": 0.244,
+        "expectancyR": 5.13,
+        "totalR": 5.13,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.13,
+        "avgLossR": null,
+        "avgCostR": 0.244,
+        "expectancyR": 5.13,
+        "totalR": 5.13,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 32,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 5.13,
+         "avgLossR": null,
+         "avgCostR": 0.244,
+         "expectancyR": 5.13,
+         "totalR": 5.13,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.13,
+        "avgLossR": null,
+        "avgCostR": 0.244,
+        "expectancyR": 5.13,
+        "totalR": 5.13,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.13,
+        "avgLossR": null,
+        "avgCostR": 0.244,
+        "expectancyR": 5.13,
+        "totalR": 5.13,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 32,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 5.13,
+         "avgLossR": null,
+         "avgCostR": 0.244,
+         "expectancyR": 5.13,
+         "totalR": 5.13,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.13,
+        "avgLossR": null,
+        "avgCostR": 0.244,
+        "expectancyR": 5.13,
+        "totalR": 5.13,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.13,
+        "avgLossR": null,
+        "avgCostR": 0.244,
+        "expectancyR": 5.13,
+        "totalR": 5.13,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 32,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 5.13,
+         "avgLossR": null,
+         "avgCostR": 0.244,
+         "expectancyR": 5.13,
+         "totalR": 5.13,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.13,
+        "avgLossR": null,
+        "avgCostR": 0.244,
+        "expectancyR": 5.13,
+        "totalR": 5.13,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 5.13,
+        "avgLossR": null,
+        "avgCostR": 0.244,
+        "expectancyR": 5.13,
+        "totalR": 5.13,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 32,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 5.13,
+         "avgLossR": null,
+         "avgCostR": 0.244,
+         "expectancyR": 5.13,
+         "totalR": 5.13,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "NZDCAD": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.108,
+        "avgLossR": 1.145,
+        "avgCostR": 0.173,
+        "expectancyR": 0.481,
+        "totalR": 0.96,
+        "pf": 1.84,
+        "maxDrawdownR": 1.15,
+        "ci95": [
+         -1.145,
+         2.108
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.145,
+        "avgCostR": 0.145,
+        "expectancyR": -1.145,
+        "totalR": -1.15,
+        "pf": 0.0,
+        "maxDrawdownR": 1.15,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.108,
+        "avgLossR": null,
+        "avgCostR": 0.202,
+        "expectancyR": 2.108,
+        "totalR": 2.11,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.108,
+        "avgLossR": null,
+        "avgCostR": 0.202,
+        "expectancyR": 2.108,
+        "totalR": 2.11,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 59,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.145,
+         "avgCostR": 0.145,
+         "expectancyR": -1.145,
+         "totalR": -1.15,
+         "pf": 0.0,
+         "maxDrawdownR": 1.15,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 2.108,
+         "avgLossR": null,
+         "avgCostR": 0.202,
+         "expectancyR": 2.108,
+         "totalR": 2.11,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.108,
+        "avgLossR": 1.145,
+        "avgCostR": 0.173,
+        "expectancyR": 0.481,
+        "totalR": 0.96,
+        "pf": 1.84,
+        "maxDrawdownR": 1.15,
+        "ci95": [
+         -1.145,
+         2.108
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 1.145,
+        "avgCostR": 0.145,
+        "expectancyR": -1.145,
+        "totalR": -1.15,
+        "pf": 0.0,
+        "maxDrawdownR": 1.15,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.108,
+        "avgLossR": null,
+        "avgCostR": 0.202,
+        "expectancyR": 2.108,
+        "totalR": 2.11,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.108,
+        "avgLossR": null,
+        "avgCostR": 0.202,
+        "expectancyR": 2.108,
+        "totalR": 2.11,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 59,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 1.145,
+         "avgCostR": 0.145,
+         "expectancyR": -1.145,
+         "totalR": -1.15,
+         "pf": 0.0,
+         "maxDrawdownR": 1.15,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 1,
+         "wins": 1,
+         "winRate": 100.0,
+         "avgWinR": 2.108,
+         "avgLossR": null,
+         "avgCostR": 0.202,
+         "expectancyR": 2.108,
+         "totalR": 2.11,
+         "pf": null,
+         "maxDrawdownR": 0.0,
+         "ci95": null
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 59,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 59,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "NZDCHF": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.064,
+        "avgCostR": 0.15,
+        "expectancyR": -0.064,
+        "totalR": -0.13,
+        "pf": 0.0,
+        "maxDrawdownR": 0.13,
+        "ci95": [
+         -0.084,
+         -0.045
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.045,
+        "avgCostR": 0.104,
+        "expectancyR": -0.045,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.084,
+        "avgCostR": 0.197,
+        "expectancyR": -0.084,
+        "totalR": -0.08,
+        "pf": 0.0,
+        "maxDrawdownR": 0.08,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.084,
+        "avgCostR": 0.197,
+        "expectancyR": -0.084,
+        "totalR": -0.08,
+        "pf": 0.0,
+        "maxDrawdownR": 0.08,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 16,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.064,
+         "avgCostR": 0.15,
+         "expectancyR": -0.064,
+         "totalR": -0.13,
+         "pf": 0.0,
+         "maxDrawdownR": 0.13,
+         "ci95": [
+          -0.084,
+          -0.045
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.064,
+        "avgCostR": 0.15,
+        "expectancyR": -0.064,
+        "totalR": -0.13,
+        "pf": 0.0,
+        "maxDrawdownR": 0.13,
+        "ci95": [
+         -0.084,
+         -0.045
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.045,
+        "avgCostR": 0.104,
+        "expectancyR": -0.045,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.084,
+        "avgCostR": 0.197,
+        "expectancyR": -0.084,
+        "totalR": -0.08,
+        "pf": 0.0,
+        "maxDrawdownR": 0.08,
+        "ci95": null
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.084,
+        "avgCostR": 0.197,
+        "expectancyR": -0.084,
+        "totalR": -0.08,
+        "pf": 0.0,
+        "maxDrawdownR": 0.08,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 16,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.064,
+         "avgCostR": 0.15,
+         "expectancyR": -0.064,
+         "totalR": -0.13,
+         "pf": 0.0,
+         "maxDrawdownR": 0.13,
+         "ci95": [
+          -0.084,
+          -0.045
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.045,
+        "avgCostR": 0.104,
+        "expectancyR": -0.045,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.045,
+        "avgCostR": 0.104,
+        "expectancyR": -0.045,
+        "totalR": -0.04,
+        "pf": 0.0,
+        "maxDrawdownR": 0.04,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 16,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.045,
+         "avgCostR": 0.104,
+         "expectancyR": -0.045,
+         "totalR": -0.04,
+         "pf": 0.0,
+         "maxDrawdownR": 0.04,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 16,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "CADJPY": {
+     "from": 1787180400,
+     "to": 1794422100,
+     "trainEnd": 1790801250,
+     "validationEnd": 1792611675,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 61,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 61,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 61,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 61,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "CADCHF": {
+     "from": 1787180400,
+     "to": 1794422400,
+     "trainEnd": 1790801400,
+     "validationEnd": 1792611900,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 39,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 39,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 39,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 0
+       },
+       "train": {
+        "trades": 0
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 39,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 0
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    },
+    "CHFJPY": {
+     "from": 1787180400,
+     "to": 1794422400,
+     "trainEnd": 1790801400,
+     "validationEnd": 1792611900,
+     "versions": {
+      "baseline": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.534,
+        "avgLossR": 0.021,
+        "avgCostR": 0.058,
+        "expectancyR": 1.256,
+        "totalR": 2.51,
+        "pf": 119.76,
+        "maxDrawdownR": 0.02,
+        "ci95": [
+         -0.021,
+         2.534
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.021,
+        "avgCostR": 0.063,
+        "expectancyR": -0.021,
+        "totalR": -0.02,
+        "pf": 0.0,
+        "maxDrawdownR": 0.02,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.534,
+        "avgLossR": null,
+        "avgCostR": 0.052,
+        "expectancyR": 2.534,
+        "totalR": 2.53,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.534,
+        "avgLossR": null,
+        "avgCostR": 0.052,
+        "expectancyR": 2.534,
+        "totalR": 2.53,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 33,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 2.534,
+         "avgLossR": 0.021,
+         "avgCostR": 0.058,
+         "expectancyR": 1.256,
+         "totalR": 2.51,
+         "pf": 119.76,
+         "maxDrawdownR": 0.02,
+         "ci95": [
+          -0.021,
+          2.534
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate": {
+       "all": {
+        "trades": 2,
+        "wins": 1,
+        "winRate": 50.0,
+        "avgWinR": 2.534,
+        "avgLossR": 0.021,
+        "avgCostR": 0.058,
+        "expectancyR": 1.256,
+        "totalR": 2.51,
+        "pf": 119.76,
+        "maxDrawdownR": 0.02,
+        "ci95": [
+         -0.021,
+         2.534
+        ]
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.021,
+        "avgCostR": 0.063,
+        "expectancyR": -0.021,
+        "totalR": -0.02,
+        "pf": 0.0,
+        "maxDrawdownR": 0.02,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.534,
+        "avgLossR": null,
+        "avgCostR": 0.052,
+        "expectancyR": 2.534,
+        "totalR": 2.53,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 1,
+        "wins": 1,
+        "winRate": 100.0,
+        "avgWinR": 2.534,
+        "avgLossR": null,
+        "avgCostR": 0.052,
+        "expectancyR": 2.534,
+        "totalR": 2.53,
+        "pf": null,
+        "maxDrawdownR": 0.0,
+        "ci95": null
+       },
+       "state": "insufficient data",
+       "confirmations": 33,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 2,
+         "wins": 1,
+         "winRate": 50.0,
+         "avgWinR": 2.534,
+         "avgLossR": 0.021,
+         "avgCostR": 0.058,
+         "expectancyR": 1.256,
+         "totalR": 2.51,
+         "pf": 119.76,
+         "maxDrawdownR": 0.02,
+         "ci95": [
+          -0.021,
+          2.534
+         ]
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr3": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.021,
+        "avgCostR": 0.063,
+        "expectancyR": -0.021,
+        "totalR": -0.02,
+        "pf": 0.0,
+        "maxDrawdownR": 0.02,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.021,
+        "avgCostR": 0.063,
+        "expectancyR": -0.021,
+        "totalR": -0.02,
+        "pf": 0.0,
+        "maxDrawdownR": 0.02,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 33,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.021,
+         "avgCostR": 0.063,
+         "expectancyR": -0.021,
+         "totalR": -0.02,
+         "pf": 0.0,
+         "maxDrawdownR": 0.02,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      },
+      "candidate_rr4": {
+       "all": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.021,
+        "avgCostR": 0.063,
+        "expectancyR": -0.021,
+        "totalR": -0.02,
+        "pf": 0.0,
+        "maxDrawdownR": 0.02,
+        "ci95": null
+       },
+       "train": {
+        "trades": 1,
+        "wins": 0,
+        "winRate": 0.0,
+        "avgWinR": null,
+        "avgLossR": 0.021,
+        "avgCostR": 0.063,
+        "expectancyR": -0.021,
+        "totalR": -0.02,
+        "pf": 0.0,
+        "maxDrawdownR": 0.02,
+        "ci95": null
+       },
+       "validation": {
+        "trades": 0
+       },
+       "test": {
+        "trades": 0
+       },
+       "oos": {
+        "trades": 0
+       },
+       "state": "insufficient data",
+       "confirmations": 33,
+       "h4FallbackTrades": 0,
+       "setups": {
+        "SF_BR": {
+         "trades": 1,
+         "wins": 0,
+         "winRate": 0.0,
+         "avgWinR": null,
+         "avgLossR": 0.021,
+         "avgCostR": 0.063,
+         "expectancyR": -0.021,
+         "totalR": -0.02,
+         "pf": 0.0,
+         "maxDrawdownR": 0.02,
+         "ci95": null
+        },
+        "SF_BOUNCE": {
+         "trades": 0
+        },
+        "SF_COUNTER": {
+         "trades": 0
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "pairs": {
+  "XAUUSD": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 2,
+   "expectancyR": 0.837,
+   "ci95": [
+    -1.009,
+    2.682
+   ],
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1788321600,
+   "to": 1794421834
+  },
+  "EURUSD": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 3,
+   "expectancyR": 0.215,
+   "ci95": [
+    -1.046,
+    2.736
+   ],
+   "source": "dukascopy",
+   "date": "2026-11-11",
+   "from": 1762300800,
+   "to": 1793922900
+  },
+  "GBPUSD": {
+   "state": "insufficient data",
+   "oosTrades": 4,
+   "needed": 100,
+   "trades": 5,
+   "expectancyR": 0.794,
+   "ci95": [
+    -1.097,
+    3.237
+   ],
+   "source": "dukascopy",
+   "date": "2026-11-11",
+   "from": 1762300800,
+   "to": 1793922900
+  },
+  "EURCHF": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 1,
+   "expectancyR": -1.108,
+   "ci95": null,
+   "source": "dukascopy",
+   "date": "2026-11-11",
+   "from": 1762300800,
+   "to": 1793922900
+  },
+  "AUDCAD": {
+   "state": "insufficient data",
+   "oosTrades": 2,
+   "needed": 100,
+   "trades": 3,
+   "expectancyR": -1.129,
+   "ci95": [
+    -1.164,
+    -1.108
+   ],
+   "source": "dukascopy",
+   "date": "2026-11-11",
+   "from": 1762300800,
+   "to": 1793922900
+  },
+  "AUDCHF": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 1,
+   "expectancyR": -1.203,
+   "ci95": null,
+   "source": "dukascopy",
+   "date": "2026-11-11",
+   "from": 1762300800,
+   "to": 1793922900
+  },
+  "USDJPY": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "USDCAD": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "USDCHF": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "AUDUSD": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 2,
+   "expectancyR": -0.57,
+   "ci95": [
+    -1.161,
+    0.021
+   ],
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "NZDUSD": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "GBPJPY": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 1,
+   "expectancyR": -1.048,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "GBPAUD": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 1,
+   "expectancyR": -0.038,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "GBPNZD": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "GBPCAD": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 2,
+   "expectancyR": -1.137,
+   "ci95": [
+    -1.138,
+    -1.136
+   ],
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "GBPCHF": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "EURGBP": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "EURJPY": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 1,
+   "expectancyR": 3.738,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "EURAUD": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "EURNZD": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "EURCAD": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 2,
+   "expectancyR": 0.974,
+   "ci95": [
+    -0.026,
+    1.974
+   ],
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "AUDJPY": {
+   "state": "insufficient data",
+   "oosTrades": 3,
+   "needed": 100,
+   "trades": 3,
+   "expectancyR": -1.107,
+   "ci95": [
+    -1.13,
+    -1.085
+   ],
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "AUDNZD": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "NZDJPY": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 1,
+   "expectancyR": 5.13,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "NZDCAD": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 2,
+   "expectancyR": 0.481,
+   "ci95": [
+    -1.145,
+    2.108
+   ],
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "NZDCHF": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 2,
+   "expectancyR": -0.064,
+   "ci95": [
+    -0.084,
+    -0.045
+   ],
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "CADJPY": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422100
+  },
+  "CADCHF": {
+   "state": "insufficient data",
+   "oosTrades": 0,
+   "needed": 100,
+   "trades": 0,
+   "expectancyR": null,
+   "ci95": null,
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422400
+  },
+  "CHFJPY": {
+   "state": "insufficient data",
+   "oosTrades": 1,
+   "needed": 100,
+   "trades": 2,
+   "expectancyR": 1.256,
+   "ci95": [
+    -0.021,
+    2.534
+   ],
+   "source": "yahoo",
+   "date": "2026-11-11",
+   "from": 1787180400,
+   "to": 1794422400
+  }
+ }
+}

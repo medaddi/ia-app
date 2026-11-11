@@ -15,12 +15,15 @@ export interface TeamSetup {
   symbol?: string; sentAt?: string | null;
   // FXAlexG: the setup's grade, its S_AlexG score and its live confluences
   grade?: string; gpa?: number; consensus?: number; setupType?: string; checklistGpa?: Confluence[];
+  /** the plan's details: the confirmation timeframe, trend-following or counter-trend, what invalidates it, distances in pips */
+  etf?: string; family?: 'trend-following' | 'counter-trend' | null; invalidation?: string | null; slPips?: number; tpPips?: number; bePips?: number;
   // set once sent, by the trade manager (backend smc/manager.py)
   status?: 'PENDING' | 'OPEN' | 'CLOSED' | 'EXPIRED' | 'MISSED'; outcome?: 'WIN' | 'LOSS' | 'BREAKEVEN' | null; resultR?: number | null; events?: string[];
 }
 /** One of the 18 FXAlexG confluences: its weight in % and whether it is live at the AOI. */
 export interface Confluence { key: string; label: string; pts: number; ok: boolean }
-/** A radar alert: the SoS is in at an AOI, only the engulfing candle is missing. */
+/** A radar read: the SoS is in at an AOI, only the engulfing candle is missing. Shown as the "Watching" status on the pair's
+ * own card only: it is never a notification (no toast, no bell item, no push, no Telegram). */
 export interface RadarAlert { id: string; symbol?: string; direction: 'BUY' | 'SELL'; tf: string; touches: number; low: number; high: number; psych?: number | null; etf: string; gpa: number; grade: string; time: number; setup?: string | null; at?: number }
 export interface Measured { trades: number; wins: number; winRate: number | null; totalR: number }
 export interface TeamStrategy { id: string; name: string; status: 'SIGNAL' | 'BLOCKED' | 'WATCHING' | 'IDLE' | 'OFF'; setup: TeamSetup | null;
@@ -36,7 +39,11 @@ export interface Team { success: boolean; symbol: string; at: number; lastCandle
   /** the pair profile's H1 badge (e.g. "H1 range · Z -1.8σ · discount 18 %") */ badge?: string;
   /** FXAlexG: the live read's GPA (0-100), grade (A+ / A / B / C+ / F), the 5 agents' consensus, the decision, the 9-point checklist */
   grade?: string; gpa?: number; consensus?: number; decision?: 'EXECUTE' | 'WAIT_FOR_TRIGGER' | 'WATCH_ONLY' | 'VETOED'; direction?: 'BUY' | 'SELL';
-  setupType?: string | null; checklist?: Confluence[]; radar?: RadarAlert | null }
+  setupType?: string | null; checklist?: Confluence[]; radar?: RadarAlert | null;
+  /** what the validation can say about this pair's strategy (smc/tools/validate.py): never "profitable" from a few trades */
+  evidence?: Evidence; family?: 'trend-following' | 'counter-trend' | null; params?: { minRr: number; counterMinGpa: number; version: string } }
+export interface Evidence { state: 'insufficient data' | 'experimental' | 'validated for research'; oosTrades: number; needed: number; trades: number;
+  expectancyR?: number | null; ci95?: [number, number] | null; source?: string | null; date?: string }
 
 // Each pair's last good team read, kept for the whole session: a switch shows THAT pair's last read at once (never another
 // pair's: the key is the pair, and the read carries its own symbol), and the fresh read replaces it a moment later.

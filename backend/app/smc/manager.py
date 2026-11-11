@@ -4,10 +4,9 @@ closed M5 candles, with the SAME function as the backtest (playbook.run), and te
 web push and in the app:
 
   ✅ FILLED                    the entry is on
-  🛡️ BREAKEVEN LOCKED (+1.5R)  price reached +1.5 R: the stop goes to the entry + 2 pips (a risk-free trade)
   🎯 TAKE PROFIT HIT (+X R)    the front-run target
-  🛑 STOP LOSS HIT (-1 R)      the structural stop
-  ⏱️ CLOSED / EXPIRED          break-even close, the Friday 20:00 UTC exit when not in profit, or a cancelled order
+  🛑 STOP LOSS HIT (-1 R)      the structural stop, saved with the signal and never moved (the owner, 2026-11-11)
+  ⏱️ CLOSED / EXPIRED          the Friday 20:00 UTC exit when not in profit, or a cancelled order
 
 Each step is saved with the setup (signals.params["events"]) so it is never sent twice; the result (outcome, R) is saved
 when the trade ends: the app's real results and win rate (/api/smc/results) come from here. It places nothing.
@@ -54,7 +53,8 @@ def follow(p: dict, m5, cost: float, news: list[int] | None = None) -> tuple[lis
     if k0 is None:
         return [], {"state": "UNKNOWN"}
     events: list[tuple] = []
-    out = playbook.run(m5, k0, d, p["entry"], p["sl"], p.get("tp1"), p["tp"], p.get("part", 1.0), bool(p.get("market")),
+    # the stop saved with the signal never moves (the owner, 2026-11-11): no break-even step, also for signals sent before
+    out = playbook.run(m5, k0, d, p["entry"], p["sl"], None, p["tp"], 1.0, bool(p.get("market")),
                        int(p.get("expiry") or 0), int(p.get("holdUntil") or p["time"] + 30 * 86400), cost, events,
                        sorted(news) if news else None, None, (p["beOff"] if "beOff" in p else 0.0), None, int(p.get("newsMin") or 0),
                        bool(p.get("fridayExit")))

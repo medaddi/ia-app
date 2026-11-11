@@ -45,5 +45,8 @@
   "currencies": [
     "CAD",
     "CHF"
-  ]
+  ],
+  "min_lot": 0.01,
+  "lot_step": 0.01,
+  "lot_note": "min_lot / lot_step: the app's stated broker assumption (a standard retail MT4 / MT5 account: 0.01 lot, step 0.01); change them to your broker's contract specification"
 }

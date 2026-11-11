@@ -39,17 +39,40 @@ from .playbook import DAY, H1S, H4S, M5S, M15S, NEWS_MIN, _Bar, _make, atr, ema,
 W1S, H2S, M30S = 7 * DAY, 7200, 1800
 TF_SEC = {"W1": W1S, "D1": DAY, "H4": H4S, "H2": H2S, "H1": H1S, "M30": M30S, "M15": M15S}
 M_PIV = {"W1": 2, "D1": 3, "H4": 3, "H2": 3, "H1": 3, "M30": 3, "M15": 3}  # CHOICE: the LTFs use m = 3 like 1D / 4H
-N_AOI = {"W1": 120, "D1": 250}
+N_AOI = {"W1": 120, "D1": 250}  # H4 (the fallback): strategy.json h4_aoi_bars
 ENTRY_TFS = ("H2", "H1", "M30", "M15")
 STRATEGY_NAME = "FXAlexG Set & Forget"
 SETUPS = {"SF_BR": "Set & Forget — Break & Retest Continuation", "SF_BOUNCE": "Set & Forget — Direct AOI Structure Bounce",
           "SF_COUNTER": "Set & Forget — Weekly Retracement Intraday Swing"}
-BE_R, BE_PIPS, MIN_RR, FRONT_RUN_PIPS = 1.5, 2.0, 2.0, 7.0  # the TP is always the structure's (no R cap: the user, 2026-11-11)
+BE_R, BE_PIPS, FRONT_RUN_PIPS = 1.5, 2.0, 7.0  # the minimum R:R: strategy.json min_rr  # the TP is always the structure's (no R cap: the user, 2026-11-11)
 SESSION = (6, 17)  # 06:00-17:00 UTC: pre-London, London, NY overlap
 RISK_BY_GRADE = {"A+": 1.0, "A": 1.0, "B": 0.75, "C+": 0.5}
 SOS_BARS, RECENT_BARS, SWING_BARS, REVERSAL_BARS, HOLD_DAYS = 24, 3, 12, 10, 30  # CHOICE (the spec does not size them)
 CFG_DIR = Path(__file__).parent / "configs"
 _cfg: dict = {}
+# Every testable threshold lives in strategy.json with its origin (source / research / baseline) and its pre-registered
+# grid. P holds the values in force; use() switches to a preset or to explicit overrides (the validation tool only).
+STRATEGY = json.loads((Path(__file__).parent / "strategy.json").read_text(encoding="utf-8"))
+P: dict = {k: v["value"] for k, v in STRATEGY["params"].items()}
+
+
+def use(preset: Optional[str] = None, **over) -> dict:
+    """Sets the parameters in force: strategy.json's values, then a named preset, then explicit overrides (each checked
+    against the parameter's pre-registered grid). Clears the cached contexts. Returns the values in force."""
+    vals = {k: v["value"] for k, v in STRATEGY["params"].items()}
+    for k, v in {**(STRATEGY["presets"][preset] if preset else {}), **over}.items():
+        if v not in STRATEGY["params"][k]["grid"]:
+            raise ValueError(f"{k} = {v!r} is not in its pre-registered grid {STRATEGY['params'][k]['grid']}")
+        vals[k] = v
+    P.clear()
+    P.update(vals)
+    _ctx.clear()
+    return dict(P)
+
+
+def ztf(z: dict) -> str:
+    """A zone's timeframe label: 1W+1D, 1D, 1W, or 4H for the fallback zone."""
+    return "1W+1D" if z.get("overlap") else "1D" if "D1" in z["tfs"] else "1W" if "W1" in z["tfs"] else "4H"
 
 
 def config(key: str) -> dict:
@@ -237,13 +260,13 @@ def touches(c, n0: int, i: int, lo: float, hi: float, rev: float) -> tuple[int, 
     n, last, roles = 0, -99, []
     for q in range(max(n0, 1), i + 1):
         x = c[q]
-        if not (x.low <= hi and x.high >= lo) or q - last < 3:
+        if not (x.low <= hi and x.high >= lo) or q - last < P["touch_sep_bars"]:
             continue
         pc = c[q - 1].close
         side = 1 if pc > hi else -1 if pc < lo else 0
         if not side:
             continue
-        for r in range(q, min(q + REVERSAL_BARS, i) + 1):
+        for r in range(q, min(q + P["touch_reversal_bars"], i) + 1):
             y = c[r]
             if side > 0:
                 if y.close < lo:
@@ -275,7 +298,7 @@ def psych_near(lo: float, hi: float, pip: float, step: float) -> Optional[float]
 def build_zones(tf: TF, i: int, atr_d: float, pip: float, step: float) -> list[dict]:
     if i < 20 or not atr_d:
         return []
-    n0 = max(0, i - N_AOI[tf.name] + 1)
+    n0 = max(0, i - (N_AOI.get(tf.name) or P["h4_aoi_bars"]) + 1)
     c, m = tf.c, tf.m
     pts = []
     for q in range(max(n0, m), i - m + 1):  # pivots known at i
@@ -286,7 +309,7 @@ def build_zones(tf: TF, i: int, atr_d: float, pip: float, step: float) -> list[d
         if tf.wl[q]:
             pts.append((c[q].low, False))
     pts.sort()
-    thick, rev = 0.35 * atr_d, 0.75 * atr_d
+    thick, rev = P["zone_atr_k"] * atr_d, P["touch_reversal_atr"] * atr_d
     seen, cands = set(), []
     for a in range(len(pts)):
         if not pts[a][1]:  # CHOICE: zones are anchored on close pivots (the wicks widen them)
@@ -298,7 +321,7 @@ def build_zones(tf: TF, i: int, atr_d: float, pip: float, step: float) -> list[d
             continue
         seen.add(key)
         n, roles = touches(c, n0, i, lo, hi, rev)
-        if n >= 3:
+        if n >= P["min_touches"]:
             cands.append({"lo": lo, "hi": hi, "touches": n, "roles": roles, "tfs": {tf.name}, "t0": c[roles[0][0]].time})
     cands.sort(key=lambda z: (-z["touches"], z["hi"] - z["lo"]))
     out = []
@@ -394,6 +417,17 @@ class Ctx:
                                                build_zones(d1, id_, atr_d, self.pip, self.psych))
         return self._aoi[(iw, id_)]
 
+    def aois_h4(self, i4: int, id_: int) -> list[dict]:
+        """The fallback zones: three-touch zones built on H4 (same thickness and rejection, in ATR 14 D1), used only when
+        W1 / D1 give no valid zone inside the active range (the gold example of the source)."""
+        if ("H4", i4) not in self._aoi:
+            atr_d = self.tf["D1"].at[id_] if id_ >= 0 else None
+            zs = build_zones(self.tf["H4"], i4, atr_d, self.pip, self.psych)
+            for z in zs:
+                z.update(overlap=False, strong=z["touches"] >= 5, fallback=True)
+            self._aoi[("H4", i4)] = zs
+        return self._aoi[("H4", i4)]
+
     def adr20(self, id_: int) -> Optional[float]:
         d = self.tf["D1"].c
         if id_ < 5:
@@ -415,8 +449,9 @@ def context(key: str, m5, h1, d1, spread: Optional[float] = None) -> Ctx:
 
 
 def bounded(z: dict, d: int, ranges: dict) -> bool:
-    """3.4.1: a BUY zone inside an active bullish [HL, HH] of W1 or D1 (a SELL zone inside [LL, LH])."""
-    for tfn in z["tfs"]:
+    """3.4.1: a BUY zone inside an active bullish [HL, HH] of W1 or D1 (a SELL zone inside [LL, LH]). An H4 fallback
+    zone must lie inside the active range of D1 or W1."""
+    for tfn in (("D1", "W1") if z.get("fallback") else z["tfs"]):
         r = ranges.get(tfn)
         if r and r[0] <= z["lo"] and z["hi"] <= r[1]:
             return True
@@ -447,6 +482,10 @@ def evaluate(cx: Ctx, etf: str, t: int, d: int, news: Optional[list[int]] = None
     ranges = {"W1": w1.range_of(iw, d), "D1": d1.range_of(id_, d)}
     zones = cx.aois(iw, id_) if iw >= 0 and id_ >= 0 else []
     usable = [z for z in zones if bounded(z, d, ranges)]
+    fallback = False
+    if not usable and P["h4_fallback"] and i4 >= 0 and id_ >= 0:  # W1 / D1 lack three independent reactions: H4
+        usable = [z for z in cx.aois_h4(i4, id_) if bounded(z, d, ranges)]
+        fallback = bool(usable)
     g = e.g
     x = g[t]
     recent = [e.c[q] for q in range(max(t - RECENT_BARS + 1, 0), t + 1)]
@@ -455,7 +494,7 @@ def evaluate(cx: Ctx, etf: str, t: int, d: int, news: Optional[list[int]] = None
     z = min(touching, key=dist) if touching else None
     near = min(usable, key=dist) if usable else None
     r = {"dir": d, "etf": etf, "t": t, "T": T, "Tx": Tx, "S": S, "zone": z, "zones": zones, "usable": usable, "price": x.close,
-         "near": near, "near_atr": (dist(near) / atr_d) if near and atr_d else None, "atr_d": atr_d, "c": {}}
+         "near": near, "near_atr": (dist(near) / atr_d) if near and atr_d else None, "atr_d": atr_d, "c": {}, "h4_fallback": fallback}
     c = r["c"]
     if z:
         c["sos"] = sos_at(e, t, z, d, tol)
@@ -483,6 +522,7 @@ def evaluate(cx: Ctx, etf: str, t: int, d: int, news: Optional[list[int]] = None
     # the setup type
     r["setup"] = ("SF_COUNTER" if S["W1"] != d else
                   "SF_BR" if z and any(role == -d for _, role in z["roles"]) else "SF_BOUNCE") if S["D1"] == d else None
+    r["family"] = "counter-trend" if r["setup"] == "SF_COUNTER" else "trend-following" if r["setup"] else None
     # 3.7: the plan
     r["rr"] = 0.0
     if z and (c.get("engulf") or c.get("doji")):
@@ -513,7 +553,7 @@ def evaluate(cx: Ctx, etf: str, t: int, d: int, news: Optional[list[int]] = None
             level = (min(target, p) if d > 0 else max(target, p)) if p else target
             tp = level - d * FRONT_RUN_PIPS * pip
             rr = (tp - entry) * d / ((entry - sl) * d)
-            r.update(entry=entry, sl=sl, tp=tp, tp1=entry + d * BE_R * (entry - sl) * d, rr=rr, target=target, psych_tp=p,
+            r.update(entry=entry, sl=sl, tp=tp, tp1=(entry + d * BE_R * (entry - sl) * d) if P["break_even"] else None, rr=rr, target=target, psych_tp=p,
                      band=(entry - 0.15 * atr1, entry + 0.15 * atr1), atr1=atr1)
     risk = abs(r["entry"] - r["sl"]) if "entry" in r else None
     r["news"] = [n for n in (news or []) if abs(n - Tx) <= NEWS_MIN * 60]
@@ -554,24 +594,28 @@ def squad(r: dict, pip: float, usd_per_pip: float = 10.0) -> dict:
     # 2 · aoi_architect
     if z and (z["overlap"] or z["touches"] >= 5) and z["psych"] is not None:
         a_st, a_sc = "ok", 100
-        a_b = f"In {'1W+1D' if z['overlap'] else '1D' if 'D1' in z['tfs'] else '1W'} AOI · {z['touches']} touches · Psych {f(z['psych'])}"
+        a_b = f"In {ztf(z)} AOI · {z['touches']} touches · Psych {f(z['psych'])}"
     elif z:
         a_st, a_sc = "ok", 85
-        a_b = f"In {'1W+1D' if z['overlap'] else '1D' if 'D1' in z['tfs'] else '1W'} AOI @ {f((z['lo'] + z['hi']) / 2)} ({z['touches']} taps)"
+        a_b = f"In {ztf(z)} AOI @ {f((z['lo'] + z['hi']) / 2)} ({z['touches']} taps)"
     elif r["near"]:
         q = r["near"]
         a_st, a_sc = "wait", 60
-        a_b = f"Waiting for pullback to {'1D' if 'D1' in q['tfs'] else '1W'} AOI @ {f((q['lo'] + q['hi']) / 2)} ({q['touches']} taps)"
+        a_b = f"Waiting for pullback to {ztf(q)} AOI @ {f((q['lo'] + q['hi']) / 2)} ({q['touches']} taps)"
     else:
-        a_st, a_sc, a_b = "veto", 0, "No valid 3-touch 1W/1D AOI in range"
+        a_st, a_sc, a_b = "veto", 0, "No valid 3-touch 1W/1D" + ("/4H" if P["h4_fallback"] else "") + " AOI in range"
     aoi = {"status": a_st, "score": a_sc, "badge": badge(a_b),
-           "details": [f"{len(r['usable'])} AOI(s) inside the active {'[HL, HH]' if d > 0 else '[LL, LH]'} · {len(r['zones'])} on 1W / 1D in all"] +
+           "details": [f"{len(r['usable'])} AOI(s) inside the active {'[HL, HH]' if d > 0 else '[LL, LH]'} · {len(r['zones'])} on 1W / 1D in all"
+                       + (" · 4H fallback zone (1W / 1D have no three-touch zone in range)" if r.get("h4_fallback") else "")] +
                       ([f"Zone {f(z['lo'])} – {f(z['hi'])} · {z['width']:.0f} pips · roles {'S/R flip' if len({x for _, x in z['roles']}) > 1 else 'one side'}"] if z else []) +
                       ([f"Nearest {r['near_atr']:.2f} ATR (1D) away"] if r["near_atr"] is not None and not z else [])}
     # 3 · confluence_grader
     gp, items = r["gpa"], r["items"]
     hits = sum(1 for k, _, _ in GPA if items[k])
-    if gp >= 70:
+    counter_short = r["setup"] == "SF_COUNTER" and 70 <= gp < P["counter_min_gpa"]
+    if counter_short:  # a counter-trend setup faces a stricter gate than a trend-following one
+        g_st, g_b = "wait", f"Counter-trend needs GPA {P['counter_min_gpa']}% · has {gp}%"
+    elif gp >= 70:
         g_st = "ok"
         g_b = f"Grade {r['grade']} ({gp}%) · {hits}/9 Confluences" + (" + 50 EMA tap" if items["ema_htf"] else "") if gp >= 80 else \
             f"Grade {r['grade']} ({gp}%) · Passes min GPA threshold"
@@ -599,8 +643,8 @@ def squad(r: dict, pip: float, usd_per_pip: float = 10.0) -> dict:
     # 5 · risk_guardian
     wd = r["weekday"]
     news_txt = "news not checked" if not r["news_checked"] else (f"News {hm(r['news'][0])} UTC" if r["news"] else "Clear news")
-    if "entry" in r and r["rr"] < MIN_RR:
-        k_st, k_b = "veto", f"R:R {r['rr']:.1f} < 2.0 to the next 1D/1W structure"
+    if "entry" in r and r["rr"] < P["min_rr"]:
+        k_st, k_b = "veto", f"R:R {r['rr']:.1f} < {P['min_rr']:.1f} to the next 1D/1W structure"
     elif r["news"]:
         k_st, k_b = "veto", f"High-impact news at {hm(r['news'][0])} UTC (±30 min)"
     elif r["rollover"]:
@@ -624,7 +668,7 @@ def squad(r: dict, pip: float, usd_per_pip: float = 10.0) -> dict:
     rk = RISK_BY_GRADE.get(r["grade"], 0.0)
     risk = {"status": k_st, "score": k_sc, "badge": badge(k_b), "risk_percent": rk,
             "details": [f"{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][wd]} {hm(r['Tx'])} UTC · session 06:00-17:00 · {news_txt}",
-                        f"Risk {rk:g} % for grade {r['grade']} · R:R floor 2.0 · spread cap 25 % of SL"]}
+                        f"Risk {rk:g} % for grade {r['grade']} · R:R floor {P['min_rr']:.1f} · spread cap 25 % of SL"]}
     if "entry" in r:
         slp = abs(r["entry"] - r["sl"]) / pip
         lots = int(10000 * rk / 100 / (slp * usd_per_pip) * 100) / 100 if slp else 0
@@ -633,7 +677,7 @@ def squad(r: dict, pip: float, usd_per_pip: float = 10.0) -> dict:
     agents = {"trend_director": trend, "aoi_architect": aoi, "confluence_grader": conf, "trigger_sniper": trig, "risk_guardian": risk}
     cons = round(sum(w * agents[k]["score"] for _, k, _, w in ROLES))
     veto = [k for k, a in agents.items() if a["status"] == "veto"]
-    execute = bool(cons >= 70 and r["gpa"] >= 70 and not veto and trig["status"] == "ok" and risk["status"] == "ok")
+    execute = bool(cons >= 70 and r["gpa"] >= 70 and not counter_short and not veto and trig["status"] == "ok" and risk["status"] == "ok")
     decision = "EXECUTE" if execute else "VETOED" if veto else "WAIT_FOR_TRIGGER" if z else "WATCH_ONLY"
     radar = bool(trend["status"] == "ok" and aoi["status"] == "ok" and sos and not (eng or (dj and sos)))
     return {"agents": agents, "consensus": cons, "vetoes": veto, "execute": execute, "decision": decision, "radar": radar}
@@ -705,12 +749,12 @@ def scan(key: str, m5, h1, cost: float, events=None, d1=None, research: Optional
                     risk_ = (entry - r["sl"]) * d
                     if risk_ <= 0:
                         continue
-                    r.update(entry=entry, tp1=entry + d * BE_R * risk_, rr=(r["tp"] - entry) * d / risk_)
+                    r.update(entry=entry, tp1=(entry + d * BE_R * risk_) if P["break_even"] else None, rr=(r["tp"] - entry) * d / risk_)
                     sq = squad(r, pip, cx.cfg.get("pip_value_usd_per_lot", 10.0))
                 steps = [(f"1W {r['S']['W1']:+d} · 1D {r['S']['D1']:+d} · 4H {r['S']['H4']:+d}", r["S"]["D1"] == d, r["setup"] or ""),
-                         (f"In {'1W+1D' if z['overlap'] else '+'.join(sorted(z['tfs']))} AOI {fmt(z['lo'], pip)}-{fmt(z['hi'], pip)} ({z['touches']} touches)", True, ""),
+                         (f"In {ztf(z)} AOI {fmt(z['lo'], pip)}-{fmt(z['hi'], pip)} ({z['touches']} touches)", True, ""),
                          (f"{etf} closed confirmation", True, "engulfing" if r["c"].get("engulf") else "doji"),
-                         (f"GPA {r['gpa']} % (grade {r['grade']})", r["gpa"] >= 70, ""), (f"R:R {r['rr']:.2f} >= 2.0", r["rr"] >= MIN_RR, "")]
+                         (f"GPA {r['gpa']} % (grade {r['grade']})", r["gpa"] >= 70, ""), (f"R:R {r['rr']:.2f} >= {P['min_rr']:.1f}", r["rr"] >= P["min_rr"], "")]
                 s = _make(key, r["setup"] or "SF_BOUNCE", d, m5, k0, entry, r["sl"], r["tp1"], r["tp"], 0.0, True, 0, Tx + HOLD_DAYS * DAY, steps,
                           {"aoi": (z["lo"], z["hi"], z["t0"]), "sos": (r["c"]["sos"]["level"], r["c"]["sos"]["time"]) if r["c"].get("sos") else None},
                           cost, zone=r["band"], be_off=BE_PIPS * pip)
@@ -719,17 +763,19 @@ def scan(key: str, m5, h1, cost: float, events=None, d1=None, research: Optional
                 s["result"] = run(m5, k0, d, entry, r["sl"], r["tp1"], r["tp"], 0.0, True, 0, s["holdUntil"], cost, None, None, None,
                                   BE_PIPS * pip, None, 0, True)
                 rk = RISK_BY_GRADE.get(r["grade"], 0.0)
-                s.update(gpa=r["gpa"], grade=r["grade"], setupType=r["setup"], riskPct=rk, etf=etf, consensus=sq["consensus"], vetoes=sq["vetoes"],
+                s.update(family="counter-trend" if s["sid"] == "SF_COUNTER" else "trend-following", gpa=r["gpa"], grade=r["grade"], setupType=r["setup"], riskPct=rk, etf=etf, consensus=sq["consensus"], vetoes=sq["vetoes"],
                          checklistGpa=checklist_of(r), confirmedAt=T, deferred=Tx != T, fridayExit=True,
                          desk=[{"key": k2, "role": role, "status": sq["agents"][name]["status"], "badge": sq["agents"][name]["badge"],
                                 "score": sq["agents"][name]["score"]} for k2, name, role, _ in ROLES],
                          zoneInfo={"low": z["lo"], "high": z["hi"], "tfs": sorted(z["tfs"], reverse=True), "touches": z["touches"],
-                                   "width": round(z["width"]), "psych": z["psych"], "overlap": z["overlap"]},
+                                   "width": round(z["width"]), "psych": z["psych"], "overlap": z["overlap"], "label": ztf(z)},
                          psychTp=r.get("psych_tp"), slPips=round(abs(entry - r["sl"]) / pip, 1), tpPips=round(abs(r["tp"] - entry) / pip, 1),
-                         bePips=round(abs(r["tp1"] - entry) / pip, 1))
+                         bePips=round(abs(r["tp1"] - entry) / pip, 1) if r["tp1"] is not None else None)
                 s["checklist"] = [(f"1 · Consensus >= 70 ({sq['consensus']})", sq["consensus"] >= 70, ""),
                                   (f"2 · GPA >= 70 % ({r['gpa']} %, grade {r['grade']})", r["gpa"] >= 70, ""),
                                   ("3 · No agent in veto", not sq["vetoes"], ", ".join(sq["vetoes"]) or "none"),
+                                  *([(f"Counter-trend: GPA >= {P['counter_min_gpa']} % ({r['gpa']} %)", r["gpa"] >= P["counter_min_gpa"], "")]
+                                    if r["setup"] == "SF_COUNTER" else []),
                                   ("4 · Trigger sniper and risk guardian ok", sq["agents"]["trigger_sniper"]["status"] == "ok" and
                                    sq["agents"]["risk_guardian"]["status"] == "ok", sq["agents"]["risk_guardian"]["badge"])]
                 s["pass"] = sq["execute"]
@@ -783,7 +829,7 @@ def report(key: str, m5, h1, now: int, setups: list, news_events, d1, usd_per_pi
     if sq["radar"] and z:
         st = c["sos"]["time"] if c.get("sos") else r["T"]
         radar = {"id": f"RADAR-{key}-{'B' if d > 0 else 'S'}-{round(z['lo'] / pip)}-{st}", "direction": "BUY" if d > 0 else "SELL",
-                 "tf": "1W+1D" if z["overlap"] else ("1D" if "D1" in z["tfs"] else "1W"), "touches": z["touches"], "low": z["lo"], "high": z["hi"],
+                 "tf": ztf(z), "touches": z["touches"], "low": z["lo"], "high": z["hi"],
                  "psych": z["psych"], "etf": r["etf"], "gpa": r["gpa"], "grade": r["grade"], "time": st, "setup": r["setup"]}
     contract = {"pair": cx.cfg["symbol"], "strategy_name": STRATEGY_NAME, "setup_type": r["setup"],
                 "timestamp_utc": datetime.fromtimestamp(m5[-1].time + M5S, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -796,9 +842,11 @@ def report(key: str, m5, h1, now: int, setups: list, news_events, d1, usd_per_pi
 
 
 # ---------------------------------------------------------------- the chart
-def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[float] = None) -> dict:
-    """1W / 1D AOI boxes (touches, psych), the round number line, the 1D and 4H body-close HH / HL / LH / LL, the LTF SoS
-    line. The EMA 50 is drawn by the chart itself on every timeframe."""
+def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[float] = None, focus: Optional[dict] = None) -> dict:
+    """What the chart draws. ESSENTIAL (always shown): the zone in play (`focus`: the read's AOI, a 4H fallback zone
+    included) or, with none, the nearest zone above and the nearest below the price; the 1D confirmed structure levels.
+    DETAIL (`detail: True`, shown only when the user turns "Details" on): the other zones, the round numbers, the 4H
+    levels, the HH / HL markers, the 1H SoS line. The EMA 50 is drawn by the chart itself."""
     cx = context(key, m5, h1, d1, spread)
     pip = cx.pip
     w1, dd, h4 = cx.tf["W1"], cx.tf["D1"], cx.tf["H4"]
@@ -807,12 +855,21 @@ def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[fl
     px = m5[-1].close
     boxes, segs, labels = [], [], []
     zs = sorted(cx.aois(iw, id_), key=lambda z: max(z["lo"] - px, px - z["hi"], 0))[:8] if iw >= 0 and id_ >= 0 else []
+    same = lambda a, b: abs(a["lo"] - b["lo"]) < pip / 2 and abs(a["hi"] - b["hi"]) < pip / 2  # noqa: E731
+    if focus and not any(same(focus, z) for z in zs):
+        zs = [focus, *zs]
+    if focus:
+        main = [focus]
+    else:  # nothing in play: the nearest zone under the price and the nearest above it
+        below, above = [z for z in zs if z["hi"] < px], [z for z in zs if z["lo"] > px]
+        main = [z for z in zs if z["lo"] <= px <= z["hi"]][:1] + below[:1] + above[:1]
     for z in zs:
-        tfl = "1W/1D" if z["overlap"] else ("1D" if "D1" in z["tfs"] else "1W")
+        tfl = "1W/1D" if z["overlap"] else ztf(z)
         boxes.append({"from": z["t0"], "to": end + 6 * H1S, "top": r_fn(z["hi"]), "bottom": r_fn(z["lo"]), "kind": "ob", "dir": 1 if z["hi"] < px else -1,
-                      "label": f"{tfl} AOI · {z['touches']} Touches" + (f" · Psych {fmt(z['psych'], pip)}" if z["psych"] is not None else "")})
+                      "label": f"{tfl} AOI · {z['touches']} Touches" + (f" · Psych {fmt(z['psych'], pip)}" if z["psych"] is not None else ""),
+                      "detail": not any(same(z, q) for q in main)})
         if z["psych"] is not None:
-            segs.append({"from": z["t0"], "to": end, "price": r_fn(z["psych"]), "kind": "eq", "dir": 0, "label": f"Psych {fmt(z['psych'], pip)}"})
+            segs.append({"from": z["t0"], "to": end, "price": r_fn(z["psych"]), "kind": "eq", "dir": 0, "label": f"Psych {fmt(z['psych'], pip)}", "detail": True})
     for tf, i in ((dd, id_), (h4, i4)):
         if i < 0:
             continue
@@ -822,8 +879,9 @@ def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[fl
         for name, k, dirn in names:
             lv = st[k][i]
             if lv and lv[1] >= i - 150:
-                segs.append({"from": tf.t[lv[1]], "to": end, "price": r_fn(lv[0]), "kind": "liquidity", "dir": dirn, "label": f"{tf.name.replace('D1', '1D').replace('H4', '4H')} {name}"})
-                labels.append({"time": tf.t[lv[1]], "price": r_fn(lv[0]), "text": name, "above": dirn > 0, "kind": "structure"})
+                segs.append({"from": tf.t[lv[1]], "to": end, "price": r_fn(lv[0]), "kind": "liquidity", "dir": dirn,
+                             "label": f"{tf.name.replace('D1', '1D').replace('H4', '4H')} {name}", "detail": tf.name != "D1"})
+                labels.append({"time": tf.t[lv[1]], "price": r_fn(lv[0]), "text": name, "above": dirn > 0, "kind": "structure", "detail": True})
     e = cx.tf["H1"]
     t = e.idx(end)
     if t > 60 and id_ >= 0:
@@ -832,6 +890,6 @@ def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[fl
             for z in zs:
                 res = sos_at(e, t, z, d, 0.3 * atr_d)
                 if res:
-                    segs.append({"from": res["time"] - 6 * H1S, "to": end, "price": r_fn(res["level"]), "kind": "bos", "dir": d, "label": "1H SoS"})
+                    segs.append({"from": res["time"] - 6 * H1S, "to": end, "price": r_fn(res["level"]), "kind": "bos", "dir": d, "label": "1H SoS", "detail": True})
                     break
     return {"boxes": boxes, "segments": segs, "labels": labels, "lines": []}

@@ -1,6 +1,6 @@
 import { apiFetch } from '../api';
 import { markDataReady } from '../splash';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PriceChart, type ChartLevel, type PriceCandle } from './PriceChart';
 import { TeamCard } from './TeamCard';
 import { cachedTeams, prefetchTeams, useSmcTeam } from '../smcTeam';
@@ -9,7 +9,7 @@ import { useLivePrice } from '../livePrices';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { PairFlags } from './PairFlags';
 import { useDragScroll } from '../useDragScroll';
-import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, PAIR_DECIMALS, PAIR_GROUPS, TIMEFRAMES, marketOpenNow, type InstrumentSymbol } from '../instruments';
+import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, PAIR_DECIMALS, PAIR_GROUPS, TIMEFRAMES, type InstrumentSymbol } from '../instruments';
 
 /**
  * The live chart of each pair: its candles, its live price, and its team (the pair playbook strategy) with the setup it found drawn on the chart.
@@ -48,10 +48,18 @@ const savedTf = (s: InstrumentSymbol) => {
   try { const v = localStorage.getItem(tfKey(s)); return v && TIMEFRAMES.includes(v) ? v : DEFAULT_TF; } catch { return DEFAULT_TF; }
 };
 
+// The background warm-up gives way to the user: while the pair just opened is loading (and for a moment after a
+// switch), it waits, so the pair on screen is never queued behind the other pairs' requests.
+let userLoads = 0;
+let lastSwitch = 0;
+const userIdle = async (signal: AbortSignal) => {
+  while (!signal.aborted && (userLoads > 0 || Date.now() - lastSwitch < 1500 || document.hidden)) await new Promise(r => setTimeout(r, 250));
+};
+
 export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSymbol = 'XAU/USD', onSymbolChange, lang = 'en' }) => {
   const [symbol, setSymbolState] = useState<InstrumentSymbol>(initialSymbol);
   const [timeframe, setTimeframeState] = useState<string>(() => savedTf(initialSymbol));
-  const setSymbol = (s: InstrumentSymbol) => { setSymbolState(s); setTimeframeState(savedTf(s)); onSymbolChange?.(s); };
+  const setSymbol = (s: InstrumentSymbol) => { lastSwitch = Date.now(); setSymbolState(s); setTimeframeState(savedTf(s)); onSymbolChange?.(s); };
   const setTimeframe = (tf: string) => { setTimeframeState(tf); try { localStorage.setItem(tfKey(symbol), tf); } catch { /* storage blocked */ } };
   // The app picked another pair (search, dashboard card): follow it
   useEffect(() => { if (initialSymbol !== symbol) { setSymbolState(initialSymbol); setTimeframeState(savedTf(initialSymbol)); } }, [initialSymbol]);
@@ -70,6 +78,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   viewRef.current = { symbol, timeframe };
 
   const loadCandles = useCallback(async (sym: string, tf: string) => {
+    userLoads++;
     try {
       const entry = await fetchCandles(sym, tf, abortRef.current?.signal);
       if (!entry || viewRef.current.symbol !== sym || !chartTfs(viewRef.current.timeframe).includes(tf)) return;  // an answer for the old pair: dropped
@@ -77,6 +86,8 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
       markDataReady();
     } catch {
       // keep the last good candles
+    } finally {
+      userLoads--;
     }
   }, []);
 
@@ -88,17 +99,21 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
     chartTfs(timeframe).forEach(tf => loadCandles(symbol, tf));
   }, [symbol, timeframe]);
 
-  // Once the page is open: the other pairs' candles (their saved timeframe) and teams load quietly, one by one, so a switch is instant
+  // Once the page is open: each other pair's candles (its saved timeframe) AND its team load quietly, pair by pair in the
+  // bar's order, so a switch shows the whole pair at once. The warm-up pauses while the user's own pair is loading.
   useEffect(() => {
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
       for (const s of INSTRUMENT_SYMBOLS) {
-        if (ctrl.signal.aborted) return;
         for (const tf of chartTfs(savedTf(s))) {
+          await userIdle(ctrl.signal);
+          if (ctrl.signal.aborted) return;
           if (!candleCache.has(`${s}_${tf}`)) { try { await fetchCandles(s, tf, ctrl.signal); } catch { /* loads when opened */ } }
         }
+        await userIdle(ctrl.signal);
+        if (ctrl.signal.aborted) return;
+        await prefetchTeams([s], ctrl.signal);
       }
-      await prefetchTeams(INSTRUMENT_SYMBOLS, ctrl.signal);
     }, 2500);
     return () => { clearTimeout(t); ctrl.abort(); };
   }, []);
@@ -121,32 +136,38 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const [, setTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setTick(x => x + 1), 15000); return () => clearInterval(id); }, []);
   const toggleSwings = () => setSwings(v => { try { localStorage.setItem('ld_sunday_swings', v ? '0' : '1'); } catch { /* storage blocked */ } return !v; });
-  const rank = (x: ReturnType<typeof cachedTeams>[number]) => (x.signals?.length ? 2000 : x.radar ? 1000 : 0) + (x.consensus ?? 0);
+  // the pair on screen is always visible in the bar: brought into view when it changes (a phone shows 3 or 4 pairs at a time)
+  useLayoutEffect(() => {
+    const bar = pairBar.current;
+    const btn = bar?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!bar || !btn) return;
+    const l = btn.offsetLeft - bar.offsetLeft, r = l + btn.offsetWidth;
+    if (l < bar.scrollLeft + 16 || r > bar.scrollLeft + bar.clientWidth - 16) bar.scrollTo({ left: l - (bar.clientWidth - btn.offsetWidth) / 2, behavior: 'smooth' });
+  }, [symbol, swings]);
+  const rank = (x: ReturnType<typeof cachedTeams>[number]) => (x.signals?.length ? 2000 : 0) + (x.consensus ?? 0);
   const top = cachedTeams().filter(x => x.success).sort((a, b) => rank(b) - rank(a)).slice(0, 5);
   const li = lang === 'ar' ? 2 : lang === 'fr' ? 1 : 0;
   const pairButton = (id: InstrumentSymbol, extra?: string) => (
-    <button key={id} role="tab" aria-selected={symbol === id} onClick={() => setSymbol(id)}
-      className={`h-10 ps-2 pe-3 shrink-0 inline-flex items-center gap-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${symbol === id ? 'glass-pill text-gold-100' : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'}`}>
+    <button key={id} role="tab" aria-selected={symbol === id} onClick={() => setSymbol(id)} title={INSTRUMENT_LABELS[id]}
+      className={`snap-start h-11 ps-2.5 pe-3.5 shrink-0 inline-flex items-center gap-2 rounded-xl border text-xs font-medium cursor-pointer transition-colors ${symbol === id ? 'glass-pill border-gold-500/40 text-gold-100' : 'border-line bg-white/[0.02] text-slate-300 hover:text-white hover:bg-white/[0.05]'}`}>
       <PairFlags symbol={id} size={18} />
       <span className="font-mono">{id}</span>{extra && <span className="font-mono text-[10px] text-gold-300">{extra}</span>}
     </button>
   );
   const decimals = PAIR_DECIMALS[symbol];
   const lastClose = candles.length ? candles[candles.length - 1].close : null;
-  const shown = live?.price ?? lastClose;
-  const open = marketOpenNow();
   // What THIS pair's team draws: its analysis (levels, zones, BOS / CHoCH / sweeps) and its setup when one passed the guide's checklist
   const mine = team?.success && team.symbol === symbol ? team : null;
   const sig = mine ? mine.signals[mine.signals.length - 1] : undefined;
   const ch = mine?.chart;
   const near = (v: number) => !lastClose || Math.abs(v - lastClose) / lastClose < 0.2;  // never another pair's level
-  const levels: ChartLevel[] = (sig ? [{ price: sig.entry, label: `${sig.strategy} ${sig.direction}`, kind: 'entry' as const },
-    { price: sig.sl, label: 'SL', kind: 'sl' as const }, { price: sig.tp, label: 'TP', kind: 'tp' as const }] : []).filter(l => near(l.price));
+  const levels: ChartLevel[] = (sig ? [{ price: sig.entry, label: `${sig.direction} entry`, kind: 'entry' as const },
+    { price: sig.sl, label: 'Stop', kind: 'sl' as const }, { price: sig.tp, label: `Target 1:${sig.rr}`, kind: 'tp' as const }] : []).filter(l => near(l.price));
   // the position tool's numbers: the stop in pips and its 1 % risk, the target's pips and R:R (gold: 1 pip = $0.10)
   const pip = decimals === 2 ? 0.1 : decimals === 3 ? 0.01 : 0.0001;  // gold $0.10, JPY pairs 0.01
   const tool = (tr: NonNullable<typeof ch>['trade']) => tr && near(tr.entry) ? {
     ...tr, slPips: Math.abs(tr.entry - tr.sl) / pip, tpPips: Math.abs(tr.tp - tr.entry) / pip,
-    rr: Math.abs(tr.tp - tr.entry) / (Math.abs(tr.entry - tr.sl) || 1), risk: `1 % = $100 / $10k`,
+    rr: Math.abs(tr.tp - tr.entry) / (Math.abs(tr.entry - tr.sl) || 1), risk: sig?.riskPct != null ? `${sig.riskPct} % risk` : undefined, decimals,
   } : null;
   const drawing = ch ? { boxes: ch.boxes.filter(b => near(b.top) && near(b.bottom)), segments: ch.segments.filter(x => near(x.price)),
     labels: ch.labels.filter(x => near(x.price)), trade: tool(ch.trade),
@@ -155,33 +176,22 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-4 py-3 glass border rounded-[var(--radius-card)]">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          {/* Pairs: each with its flags; scrolls sideways on a phone without a visible scrollbar */}
-          <div ref={pairBar} role="tablist" aria-label={t('Instrument', 'Instrument', 'الأداة')}
-            className="no-scrollbar select-none cursor-grab flex items-center gap-1 overflow-x-auto max-w-full -mx-1 px-1 [mask-image:linear-gradient(90deg,transparent,#000_12px,#000_calc(100%-16px),transparent)]">
-            {swings ? (
-              <>
-                <span className="shrink-0 px-2 text-[10px] uppercase tracking-wider text-gold-300">{t('Watchlist top picks', 'Meilleures paires', 'أحسن الأزواج')}</span>
-                {top.length === 0 && <span className="shrink-0 text-[11px] text-slate-500">{t('Reading the 29 teams…', 'Lecture des 29 équipes…', 'كيقرا 29 فريق…')}</span>}
-                {top.map(x => pairButton(x.symbol as InstrumentSymbol, `${x.signals?.length ? '🎯' : x.radar ? '👀' : ''}${x.consensus ?? ''}`))}
-              </>
-            ) : PAIR_GROUPS.map(g => (
-              <React.Fragment key={g.id}>
-                <span className="shrink-0 ps-2 pe-1 text-[10px] uppercase tracking-wider text-slate-500" title={INSTRUMENT_LABELS[g.pairs[0]]}>{g.label[li]}</span>
-                {g.pairs.map(id => pairButton(id))}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <button type="button" onClick={toggleSwings} aria-pressed={swings}
-            className={`h-8 px-2.5 rounded-lg border text-[11px] cursor-pointer ${swings ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white'}`}>
-            {t('Sunday Swings', 'Sunday Swings', 'Sunday Swings')}
-          </button>
-          <span className={`w-1.5 h-1.5 rounded-full ${open ? 'bg-emerald-400' : 'bg-slate-500'}`} aria-hidden="true" />
-          <span className="text-slate-400">{open ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
-          <span className="text-white font-semibold tabular-nums">{shown != null ? shown.toFixed(decimals) : '—'}</span>
+      {/* The pair bar: only the pairs. It scrolls sideways (a swipe on a phone, a drag or the wheel with a mouse), each pair a
+          44 px tall target with room around it; a thin line separates the groups. */}
+      <div className="glass border rounded-[var(--radius-card)] py-2">
+        <div ref={pairBar} role="tablist" aria-label={t('Instrument', 'Instrument', 'الأداة')}
+          className="no-scrollbar select-none cursor-grab flex items-center gap-2 overflow-x-auto overscroll-x-contain snap-x snap-proximity scroll-px-3 px-3 touch-pan-x">
+          {swings ? (
+            top.length === 0
+              ? <span className="shrink-0 h-11 inline-flex items-center text-[11px] text-slate-500">{t('Reading the 29 teams…', 'Lecture des 29 équipes…', 'كيقرا 29 فريق…')}</span>
+              : top.map(x => pairButton(x.symbol as InstrumentSymbol, `${x.signals?.length ? '🎯 ' : ''}${x.consensus ?? ''}`))
+          ) : PAIR_GROUPS.map((g, gi) => (
+            <React.Fragment key={g.id}>
+              {gi > 0 && <span className="shrink-0 w-px h-6 bg-line" role="separator" aria-label={g.label[li]} />}
+              {g.pairs.map(id => pairButton(id))}
+            </React.Fragment>
+          ))}
+          <span className="shrink-0 w-1" aria-hidden="true" />
         </div>
       </div>
 
@@ -194,7 +204,13 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
             return (
               <PriceChart key={tf} symbol={symbol} candles={e.list.length ? e.list : NO_CANDLES} decimals={decimals} timeframe={tf} tabValue={timeframe}
                 timeframes={TIMEFRAMES} onTimeframeChange={setTimeframe} compact={tfs.length > 1} livePrice={live?.price ?? null}
-                quote={live?.quoteTime ? { time: live.quoteTime, source: live.source } : e.quote} updatedAt={e.at} lang={lang} levels={levels} drawing={drawing} />
+                quote={live?.quoteTime ? { time: live.quoteTime, source: live.source } : e.quote} updatedAt={e.at} lang={lang} levels={levels} drawing={drawing}
+                extra={tf === tfs[0] ? (
+                  <button type="button" onClick={toggleSwings} aria-pressed={swings}
+                    title={t('Show only the 5 pairs the teams rate highest', 'N’afficher que les 5 paires les mieux notées', 'بين غير 5 أزواج اللي عندهم أحسن تنقيط')}
+                    className={`h-9 px-2.5 rounded-lg border text-xs whitespace-nowrap cursor-pointer ${swings ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white hover:bg-surface-2'}`}>
+                    {t('Top 5', 'Top 5', 'أحسن 5')}
+                  </button>) : null} />
             );
           })}
         </div>

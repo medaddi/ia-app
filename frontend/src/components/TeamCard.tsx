@@ -4,6 +4,7 @@ import { tr } from './ui';
 import type { Language } from '../types';
 import type { Team, TeamAgent, TeamSetup } from '../smcTeam';
 import { NotificationBell } from './NotificationBell';
+import { SizeLine, useMySizing } from './RiskSizing';
 
 // the 5 FXAlexG agents
 const AGENT_ICON = { trend: TrendingUp, aoi: MapPin, confluence: Gauge, trigger: Crosshair, risk: Shield };
@@ -13,6 +14,8 @@ const GRADE_TONE: Record<string, string> = { 'A+': 'bg-emerald-500/20 text-emera
 const TONE = { SIGNAL: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30', BLOCKED: 'bg-amber-500/10 text-amber-200 ring-amber-500/25',
   WATCHING: 'bg-sky-500/10 text-sky-200 ring-sky-500/25', IDLE: 'bg-white/[0.03] text-slate-400 ring-line', OFF: 'bg-white/[0.02] text-slate-600 ring-line' };
 const hm = (t: number) => new Date(t * 1000).toISOString().slice(11, 16);
+/** My own lot for a signal (never another user's): from /api/me/sizing. */
+const MySize: React.FC<{ id: string; lang: Language }> = ({ id, lang }) => <SizeLine s={useMySizing(id)} lang={lang} />;
 
 /** The pair's team under its chart: its own playbook strategy, and each setup with its levels and the 5 questions (research, not advice). */
 export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: number; lang: Language }> = ({ team, symbol, decimals, lang }) => {
@@ -22,18 +25,50 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
   const status = (s: string) => ({ SIGNAL: t('Setup', 'Setup', 'سيتاب'), BLOCKED: t('Blocked', 'Bloqué', 'محبوس'), WATCHING: t('Watching', 'En veille', 'كيراقب'), IDLE: t('Idle', 'Rien', 'والو'), OFF: t('Off for this pair', 'Désactivée', 'مطفية') } as Record<string, string>)[s];
   const setupBox = (s: TeamSetup) => (
     <div className={`mt-2 rounded-lg border px-3 py-2 ${s.pass ? 'border-emerald-500/40 bg-emerald-500/[0.05]' : 'border-line bg-white/[0.02]'}`}>
-      <p className="text-xs font-mono text-slate-200">
-        <span className={`font-bold ${s.direction === 'BUY' ? 'text-emerald-300' : 'text-rose-300'}`}>{s.market
-          ? (s.direction === 'BUY' ? t('BUY at market', 'ACHAT au marché', 'شرا ف السوق') : t('SELL at market', 'VENTE au marché', 'بيع ف السوق'))
-          : (s.direction === 'BUY' ? t('BUY zone', 'Zone d’achat', 'منطقة الشرا') : t('SELL zone', 'Zone de vente', 'منطقة البيع'))}</span> {!s.market && s.zone ? `${f(s.zone[0])} – ${f(s.zone[1])}` : f(s.entry)} ·
-        <span className="text-rose-300"> SL {f(s.sl)}</span> ·{s.tp1 != null && <span className="text-emerald-200"> TP1 {f(s.tp1)} ({Math.round((s.part ?? 1) * 100)} %) ·</span>} <span className="text-emerald-300">TP {f(s.tp)}</span> · 1:{s.rr}{s.rrBest && s.rrBest > s.rr ? `–${s.rrBest}` : ''}
+      <p className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className={`px-1.5 py-0.5 rounded font-bold ${s.direction === 'BUY' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-rose-500/15 text-rose-200'}`}>{s.direction}</span>
+        {s.setupType && <span className="font-mono text-slate-200">{s.setupType}</span>}
+        {s.etf && <span className="px-1.5 py-0.5 rounded bg-surface-2 font-mono text-[11px] text-gold-300">{s.etf}</span>}
+        {s.grade && <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ring-1 ring-inset ${GRADE_TONE[s.grade] ?? GRADE_TONE.F}`}>{t('Grade', 'Grade', 'Grade')} {s.grade}{s.gpa != null ? ` · ${s.gpa}%` : ''}</span>}
+        {s.family && <span className={`px-1.5 py-0.5 rounded text-[11px] ring-1 ring-inset ${s.family === 'counter-trend' ? 'bg-amber-500/10 text-amber-200 ring-amber-500/30' : 'bg-white/[0.03] text-slate-300 ring-line'}`}>
+          {s.family === 'counter-trend' ? t('Counter-trend', 'Contre-tendance', 'عكس الترند') : t('Trend-following', 'Suivi de tendance', 'مع الترند')}</span>}
+        <span className="ms-auto text-[11px] text-slate-500">{t('Research signal · not an order', 'Signal de recherche · pas un ordre', 'إشارة بحث · ماشي أمر')}</span>
       </p>
-      {s.market ? <p className="mt-0.5 text-[11px] text-slate-400">{t('Entered at the close of the trigger candle, as the playbook says.', 'Entrée à la clôture de la bougie de déclenchement, comme le dit le guide.', 'الدخول مع إغلاق شمعة الزناد، كيما كيقول الدليل.')}</p>
-      : <p className="mt-0.5 text-[11px] text-slate-400">{t(`Limit at ${f(s.entry)}, the near edge: price only has to come into the zone, not touch one exact price.`,
-        `Limite à ${f(s.entry)}, le bord proche : le prix doit seulement entrer dans la zone, pas toucher un prix exact.`,
-        `الليميت ف ${f(s.entry)}، الطرف القريب: الثمن خاصو غير يدخل للمنطقة، ماشي يقيس نقطة بالضبط.`)}</p>}
-      <p className="mt-0.5 text-[11px] text-slate-500">{!s.market && <>{t('valid until', 'valable jusqu’à', 'صالح حتى')} {hm(s.validUntil)} UTC · </>}{s.riskPct ?? 1} % : {s.lots['1000']} lot / $1,000</p>
-      <ul className="mt-1.5 grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
+      <dl className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono text-xs">
+        <div className="rounded-md bg-white/[0.03] px-2 py-1.5">
+          <dt className="text-[10px] uppercase tracking-wider text-gold-300">{s.market ? t('Entry (market)', 'Entrée (marché)', 'الدخول (السوق)') : t('Entry (limit)', 'Entrée (limite)', 'الدخول (ليميت)')}</dt>
+          <dd className="text-slate-100">{f(s.entry)}</dd>
+        </div>
+        <div className="rounded-md bg-white/[0.03] px-2 py-1.5">
+          <dt className="text-[10px] uppercase tracking-wider text-rose-300">{t('Stop', 'Stop', 'الستوب')}</dt>
+          <dd className="text-slate-100">{f(s.sl)}{s.slPips != null && <span className="text-slate-500"> · {s.slPips} pips</span>}</dd>
+        </div>
+        <div className="rounded-md bg-white/[0.03] px-2 py-1.5">
+          <dt className="text-[10px] uppercase tracking-wider text-emerald-300">{t('Target', 'Objectif', 'الهدف')}</dt>
+          <dd className="text-slate-100">{f(s.tp)}{s.tpPips != null && <span className="text-slate-500"> · {s.tpPips} pips</span>}</dd>
+        </div>
+        <div className="rounded-md bg-white/[0.03] px-2 py-1.5">
+          <dt className="text-[10px] uppercase tracking-wider text-slate-400">R:R</dt>
+          <dd className="text-slate-100">1:{s.rr}</dd>
+        </div>
+      </dl>
+      {s.tp1 != null && <p className="mt-1.5 text-[11px] text-slate-400">{s.part
+        ? <>TP1 {f(s.tp1)} ({Math.round(s.part * 100)} %)</>
+        : <>{t('Break-even step', 'Passage à break-even', 'خطوة البريك إيفن')}: {t('at', 'à', 'ف')} <span className="font-mono text-slate-200">{f(s.tp1)}</span> {t('the stop moves to the entry + 2 pips', 'le stop passe à l’entrée + 2 pips', 'الستوب كيمشي للدخول + 2 بيبس')}</>}</p>}
+      {s.invalidation && <p className="mt-0.5 text-[11px] text-slate-400"><span className="text-rose-300">{t('Invalidation', 'Invalidation', 'الإبطال')}:</span> {s.invalidation}</p>}
+      <div className="mt-1"><MySize id={s.id} lang={lang} /></div>
+      <p className="mt-0.5 text-[11px] text-slate-500">{!s.market && <>{t('valid until', 'valable jusqu’à', 'صالح حتى')} {hm(s.validUntil)} UTC · </>}{t('stop fixed for this signal', 'stop fixe pour ce signal', 'الستوب ثابت لهاد الإشارة')} · {t('signal candle closed', 'bougie du signal clôturée', 'شمعة الإشارة سدات')} {hm(s.time)} UTC</p>
+      <p className="mt-1.5 text-[10px] uppercase tracking-wider text-slate-500">{t('Why', 'Pourquoi', 'علاش')}</p>
+      <ul className="grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
+        {s.steps.map(x => (
+          <li key={x.step} className="flex items-start gap-1 text-[11px]" title={x.detail}>
+            {x.ok ? <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" aria-label={t('yes', 'oui', 'آه')} /> : <X className="w-3.5 h-3.5 shrink-0 text-rose-400" aria-label={t('no', 'non', 'لا')} />}
+            <span className="text-slate-300">{x.step}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1.5 text-[10px] uppercase tracking-wider text-slate-500">{t('Execution gate', 'Règle d’exécution', 'قاعدة التنفيذ')}</p>
+      <ul className="grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
         {s.checklist.map(c => (
           <li key={c.q} className="flex items-start gap-1 text-[11px]" title={c.detail}>
             {c.ok ? <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" aria-label={t('yes', 'oui', 'آه')} /> : <X className="w-3.5 h-3.5 shrink-0 text-rose-400" aria-label={t('no', 'non', 'لا')} />}
@@ -56,6 +91,19 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
               {team.badge ?? <>H1 {team.chart.trend === 'BULLISH' ? t('bullish', 'haussier', 'صاعد') : team.chart.trend === 'BEARISH' ? t('bearish', 'baissier', 'هابط') : t('undefined', 'indéfini', 'غير محدد')} · {team.chart.premium ? 'premium' : 'discount'}</>}
             </span>
           )}
+          {team?.success && team.evidence && (() => {
+            const e = team.evidence;
+            const word = e.state === 'validated for research' ? t('Validated for research', 'Validée pour la recherche', 'مأكدة للبحث')
+              : e.state === 'experimental' ? t('Experimental', 'Expérimentale', 'تجريبية') : t('Insufficient data', 'Données insuffisantes', 'المعطيات ما كافياش');
+            const tip = t(`Out-of-sample trades in the validation: ${e.oosTrades} of the ${e.needed} needed before any claim. The chart and the setups stay available; the strategy is not proven on this pair.`,
+              `Trades hors échantillon dans la validation : ${e.oosTrades} sur les ${e.needed} exigés avant toute conclusion. Le graphique et les setups restent disponibles ; la stratégie n’est pas prouvée sur cette paire.`,
+              `الصفقات خارج العينة ف التحقق: ${e.oosTrades} من ${e.needed} اللي خاصين قبل أي خلاصة. الشارت والسيتابات باقيين؛ الاستراتيجية ما مأكداش على هاد الزوج.`);
+            return (
+              <span title={tip} className={`px-1.5 py-0.5 rounded-md text-[11px] ring-1 ring-inset ${e.state === 'validated for research' ? 'bg-emerald-500/10 text-emerald-200 ring-emerald-500/25' : 'bg-amber-500/10 text-amber-200 ring-amber-500/25'}`}>
+                {t('Evidence', 'Preuves', 'الدليل')}: {word} · {e.oosTrades}/{e.needed}
+              </span>
+            );
+          })()}
           <NotificationBell lang={lang} />
           {team?.success && team.lastCandle && <span className="text-[11px] font-mono text-slate-500">{t('last M5 close', 'dernière clôture M5', 'آخر إغلاق M5')} {hm(team.lastCandle + 300)} UTC</span>}
         </div>
@@ -193,9 +241,9 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
         </ul>
       )}
       <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">
-        {t('A setup is sent to Telegram, your phone and this app once, when the 5 agents agree (consensus 70+, GPA 70 %+ = grade C+ or better, no veto, a closed LTF trigger, R:R 1:2 or more, the session, day and news rules). A radar alert comes earlier, when only the engulfing close is missing. Research, not financial advice.',
-          'Un setup est envoyé sur Telegram, votre téléphone et cette app une seule fois, quand les 5 agents sont d’accord (consensus 70+, GPA 70 %+ = grade C+ ou mieux, aucun veto, un déclencheur LTF clôturé, gain 1:2 ou plus, les règles de session, de jour et de news). Une alerte radar arrive avant, quand il ne manque que la bougie englobante. Recherche, pas un conseil.',
-          'السيتاب كيتصيفط لتيليغرام وللتيليفون ولهاد التطبيق مرة وحدة، ملي 5 agents كيتفقو (إجماع 70+، GPA 70 %+ يعني C+ ولا حسن، حتى فيتو، زناد LTF مسدود، ربح 1:2 ولا كثر، وقواعد السيشن والنهار والأخبار). تنبيه الرادار كيجي قبل، ملي كتبقى غير الشمعة الابتلاعية. بحث، ماشي نصيحة.')}
+        {t(`A setup is sent to Telegram, your phone and this app once, when the 5 agents agree (consensus 70+, GPA 70 %+, no veto, a closed confirmation candle at a zone with 3+ touches, R:R 1:${team?.params?.minRr ?? 2} or more to the next opposing structure, the session, day and news rules). A counter-trend setup needs GPA ${team?.params?.counterMinGpa ?? 80} %+. Nothing is sent while a setup is only forming. Research signals, never orders; not financial advice and no promise of profit.`,
+          `Un setup est envoyé sur Telegram, votre téléphone et cette app une seule fois, quand les 5 agents sont d’accord (consensus 70+, GPA 70 %+, aucun veto, une bougie de confirmation clôturée sur une zone à 3+ touches, gain 1:${team?.params?.minRr ?? 2} ou plus jusqu’à la prochaine structure opposée, les règles de session, de jour et de news). Un setup contre-tendance exige un GPA de ${team?.params?.counterMinGpa ?? 80} %+. Rien n’est envoyé tant qu’un setup est seulement en formation. Signaux de recherche, jamais des ordres ; pas un conseil financier, aucune promesse de gain.`,
+          `السيتاب كيتصيفط لتيليغرام وللتيليفون ولهاد التطبيق مرة وحدة، ملي 5 agents كيتفقو (إجماع 70+، GPA 70 %+، حتى فيتو، شمعة تأكيد مسدودة ف منطقة فيها 3+ لمسات، ربح 1:${team?.params?.minRr ?? 2} ولا كثر حتى للهيكل المعاكس الجاي، وقواعد السيشن والنهار والأخبار). السيتاب عكس الترند خاصو GPA ${team?.params?.counterMinGpa ?? 80} %+. والو ما كيتصيفط ملي السيتاب باقي غير كيتكون. إشارات بحث، ماشي أوامر؛ ماشي نصيحة مالية وحتى وعد بالربح.`)}
       </p>
     </section>
   );

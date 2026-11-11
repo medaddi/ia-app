@@ -9,11 +9,13 @@ import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { PdZone, SessionBand } from './smcOverlay';
 import type { IChartApi, IPrimitivePaneRenderer, IPrimitivePaneView, ISeriesApi, ISeriesPrimitive, SeriesAttachedParameter, Time } from 'lightweight-charts';
 
-export interface DrawBox { from: number; to: number; top: number; bottom: number; kind: 'ob' | 'fvg'; dir: number; label: string }
-export interface DrawSegment { from: number; to: number; price: number; kind: 'bos' | 'choch' | 'sweep' | 'idm' | 'eq' | 'liquidity' | 'session'; dir: number; label: string }
-export interface DrawLabel { time: number; price: number; text: string; above: boolean; kind: string }
+/** `detail`: a secondary object, drawn only when the chart's "Details" switch is on (off by default). */
+export interface DrawBox { from: number; to: number; top: number; bottom: number; kind: 'ob' | 'fvg'; dir: number; label: string; detail?: boolean }
+export interface DrawSegment { from: number; to: number; price: number; kind: 'bos' | 'choch' | 'sweep' | 'idm' | 'eq' | 'liquidity' | 'session'; dir: number; label: string; detail?: boolean }
+export interface DrawLabel { time: number; price: number; text: string; above: boolean; kind: string; detail?: boolean }
+/** The proposed trade of a research signal (never an order): entry, stop, target, the break-even step, with their numbers. */
 export interface DrawTrade { from: number; to: number; entry: number; zone?: [number, number] | null; sl: number; tp: number; dir: number; label: string;
-  slPips?: number; tpPips?: number; rr?: number; risk?: string }
+  slPips?: number; tpPips?: number; rr?: number; risk?: string; tp1?: number | null; beR?: number; decimals?: number }
 /** An indicator line: [time, value] points, drawn as a polyline. */
 export interface DrawLine { points: [number, number][]; color: string; label: string; dash?: boolean }
 /** A time window of the strategy (e.g. the Silver Bullet hour): a shaded band over the whole height. */
@@ -151,25 +153,42 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
         if (started && l.label && lx > 0 && lx <= W) this.tag(ctx, Math.min(lx, W) - 6, ly - 9, l.label, l.color, 'right');  // inside, above its line's end
       }
 
-      // 1. the trade: TP area and SL area from the signal on
+      // 1. the proposed trade: a light target area and stop area, then three labelled lines (entry, stop, target) and the
+      //    break-even step. Its labels are placed first, so nothing else may cover a risk level.
       if (d.trade) {
         const t = d.trade;
         const x0 = this.x(t.from), x1 = this.x(t.to), ye = this.y(t.entry), ys = this.y(t.sl), yt = this.y(t.tp);
         if (x0 !== null && x1 !== null && ye !== null && ys !== null && yt !== null) {
           const a = clampX(x0), b = clampX(x1);
-          ctx.fillStyle = 'rgba(22,199,132,0.16)'; ctx.fillRect(a, Math.min(ye, yt), b - a, Math.abs(yt - ye));
-          ctx.fillStyle = 'rgba(234,57,67,0.16)'; ctx.fillRect(a, Math.min(ye, ys), b - a, Math.abs(ys - ye));
-          // the entry ZONE (a band, not one price): the limit is its near edge, the trade is on once price is inside
-          const zt = t.zone ? this.y(t.zone[1]) : null, zb = t.zone ? this.y(t.zone[0]) : null;
-          if (zt !== null && zb !== null) {
-            ctx.fillStyle = 'rgba(212,175,55,0.22)'; ctx.fillRect(a, Math.min(zt, zb), b - a, Math.max(2, Math.abs(zb - zt)));
+          const px = (v: number) => v.toFixed(t.decimals ?? 2);
+          const ENTRY = '#D4AF37', SL = '#F87171', TP = '#4ADE80';
+          ctx.fillStyle = 'rgba(22,199,132,0.10)'; ctx.fillRect(a, Math.min(ye, yt), b - a, Math.abs(yt - ye));
+          ctx.fillStyle = 'rgba(234,57,67,0.10)'; ctx.fillRect(a, Math.min(ye, ys), b - a, Math.abs(ys - ye));
+          const line = (y: number, color: string, dash: number[] = []) => {
+            ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(dash);
+            ctx.beginPath(); ctx.moveTo(a, y); ctx.lineTo(b, y); ctx.stroke(); ctx.setLineDash([]);
+          };
+          line(ye, ENTRY); line(ys, SL); line(yt, TP);
+          const inward = (y: number) => y + (y > ye ? -9 : 9);  // a stop / target label sits just inside its line, never off the chart
+          // a label starts at the trade's left edge; when the trade begins too close to the right edge for the text to fit,
+          // it is written to the LEFT of that edge instead, so no level is ever cut by the price axis
+          // (on a narrow chart with no room on either side: from the chart's left edge, so the role and the price are read first)
+          const put = (y: number, s: string, color: string) => {
+            const w = ctx.measureText(s).width;
+            if (a + 6 + w <= W - 4) this.tag(ctx, Math.max(a + 6, 6), y, s, color, 'left');
+            else if (a - 6 - w >= 4) this.tag(ctx, a - 6, y, s, color, 'right');
+            else this.tag(ctx, 6, y, s, color, 'left');
+          };
+          put(ye + (t.dir > 0 ? 9 : -9), `${t.dir > 0 ? 'BUY' : 'SELL'} ENTRY ${px(t.entry)}`, ENTRY);
+          put(inward(ys), `STOP ${px(t.sl)}${t.slPips !== undefined ? ` · ${t.slPips.toFixed(1)} pips` : ''} · −1R${t.risk ? ` · ${t.risk}` : ''}`, SL);
+          put(inward(yt), `TARGET ${px(t.tp)}${t.tpPips !== undefined ? ` · ${t.tpPips.toFixed(1)} pips` : ''}${t.rr !== undefined ? ` · R:R 1:${t.rr.toFixed(2)}` : ''}`, TP);
+          const yb = t.tp1 != null ? this.y(t.tp1) : null;
+          if (yb !== null && t.tp1 != null) {
+            ctx.strokeStyle = 'rgba(212,175,55,0.7)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(a, yb); ctx.lineTo(b, yb); ctx.stroke(); ctx.setLineDash([]);
+            put(yb + (t.dir > 0 ? 9 : -9), `+${t.beR ?? 1.5}R ${px(t.tp1)} · stop to entry + 2 pips`, '#D4AF37');
           }
-          ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
-          ctx.beginPath(); ctx.moveTo(a, ye); ctx.lineTo(b, ye); ctx.stroke();
-          this.tag(ctx, a + 6, ye + (t.dir > 0 ? 10 : -10), t.label, '#D4AF37', 'left');
-          // the position tool's numbers: the stop's pips and risk, the target's R:R
-          if (t.slPips !== undefined) this.tag(ctx, a + 6, (ye + ys) / 2, `SL ${t.slPips.toFixed(1)} pips${t.risk ? ` · ${t.risk}` : ''}`, '#F87171', 'left');
-          if (t.rr !== undefined) this.tag(ctx, a + 6, (ye + yt) / 2, `TP ${t.tpPips !== undefined ? `${t.tpPips.toFixed(1)} pips · ` : ''}1:${t.rr.toFixed(1)} RR`, '#4ADE80', 'left');
+          put(ye + (t.dir > 0 ? -9 : 9), t.label, text);
         }
       }
 
