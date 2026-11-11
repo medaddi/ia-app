@@ -17,19 +17,22 @@ from datetime import datetime, timezone
 import httpx
 
 from . import oanda
-from .pairs import CONVERSION_FEEDS, PAIRS
+from .pairs import CONVERSION_FEEDS, PAIRS, decimals_of, plausible
 from .sanitize import merge, sanitize
 from .jsnum import round_to
 from .types import Candle
 
 UA = {"Accept": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"}
 PRICE_TTL = 1.0  # live price shared by every viewer: at most one provider request per symbol per second
-RAW_TTL = 20.0
-SLOW_TTL = 300.0
-HOURLY_TTL = 60.0  # 2 years of 1h: re-downloaded at most once a minute (and right after each candle close)
+RAW_TTL = 20.0  # the chart-only intraday series (1m, 15m, 30m)
+# The FXAlexG spec (Step 1.3): 29 pairs are scanned every minute, so W1 / D1 candles are cached 30 minutes, H1 5 minutes
+# and M5 60 seconds. A cache never outlives its candle: it ends a few seconds after the next candle closes, so a team
+# always reads the candle that just closed.
+M5_TTL, HOURLY_TTL, SLOW_TTL = 60.0, 300.0, 1800.0
+_STEP = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600}
 
-TIMEFRAME_SECONDS = {"1M": 60, "5M": 300, "15M": 900, "30M": 1800, "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800}
-INTERVALS = {"1M": ("1m", "5d"), "5M": ("5m", "60d"), "15M": ("15m", "60d"), "30M": ("30m", "60d"), "1H": ("1h", "2y"), "4H": ("1h", "2y"), "1D": ("1d", "5y"), "1W": ("1wk", "10y")}
+TIMEFRAME_SECONDS = {"1M": 60, "5M": 300, "15M": 900, "30M": 1800, "1H": 3600, "2H": 7200, "4H": 14400, "1D": 86400, "1W": 604800}
+INTERVALS = {"1M": ("1m", "5d"), "5M": ("5m", "60d"), "15M": ("15m", "60d"), "30M": ("30m", "60d"), "1H": ("1h", "2y"), "2H": ("1h", "2y"), "4H": ("1h", "2y"), "1D": ("1d", "5y"), "1W": ("1wk", "10y")}
 
 _client: httpx.AsyncClient | None = None
 _price_cache: dict[str, tuple[dict, float]] = {}
@@ -87,7 +90,7 @@ def market_session_status(symbol: str = "XAU/USD", now: datetime | None = None) 
 
 def _price_result(symbol: str, price: float, chg_pct: float, high: float, low: float, source: str, quote_time: int | None = None) -> dict:
     s = market_session_status(symbol)
-    dec = 5 if is_fx(symbol) else 2
+    dec = decimals_of(canonical(symbol))
     return {
         "symbol": symbol, "price": price, "change24h": chg_pct, "change24hAmount": round_to(price * chg_pct / 100, dec),
         "high24h": high, "low24h": low, "source": source, "lastUpdated": int(time.time() * 1000),
@@ -146,7 +149,7 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
         return hit[0]
     result = None
     if oanda.enabled() and sym in oanda.INSTRUMENTS:  # the primary feed: OANDA mid price and its live spread
-        q = await oanda.price(sym, 5 if sym in FX_TICKERS else 2)
+        q = await oanda.price(sym, decimals_of(sym))
         if q and q["price"] > 0:
             result = {**_price_result(sym, q["price"], 0.0, q["price"], q["price"], oanda.SOURCE, q["time"]), "spread": q["spread"]}
             prev = _last_known.get(sym)
@@ -171,18 +174,18 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
             pass
     if result is None and sym in FX_TICKERS:
         q = (await _spark_quotes()).get(FX_TICKERS[sym])
-        if q and 0.3 < q["price"] < 3.0:
-            price = round_to(q["price"], 5)
+        if q and plausible(sym, q["price"]):
+            price = round_to(q["price"], decimals_of(sym))
             result = _price_result(sym, price, round_to((q["price"] - q["prev"]) / q["prev"] * 100, 2) if q["prev"] else 0,
                                    q["high"], q["low"], f"Interbank Forex {FX_TICKERS[sym]}", q.get("time"))
     if result is None:
         fx = sym in FX_TICKERS
         meta = await _yahoo_meta(FX_TICKERS[sym] if fx else "GC=F")
         p = float((meta or {}).get("regularMarketPrice") or 0)
-        ok = 0.3 < p < 3.0 if fx else 2000 < p < 8000
+        ok = plausible(sym, p)
         if ok:
             prev = float(meta.get("previousClose") or meta.get("chartPreviousClose") or p) or p
-            dec = 5 if fx else 2
+            dec = decimals_of(sym)
             if not fx and not _gold_basis and _last_known.get(sym, {}).get("source") == SPOT_SOURCE:
                 return {**_last_known[sym], "lastUpdated": int(time.time() * 1000)}  # no gap known yet: the last real spot
             adj = 0.0 if fx else (_gold_basis[0] if _gold_basis else 0.0)  # gold futures back in spot terms
@@ -233,7 +236,12 @@ async def _yahoo_candles(ticker: str, interval: str, rng: str, decimals: int, fr
             return hit[0]
         raise
     # Intraday series refresh every 20s; hourly/daily history changes slowly
-    _raw_cache[key] = (out, time.time() + (RAW_TTL if interval not in ("1h", "1d", "1wk") else HOURLY_TTL if interval == "1h" else SLOW_TTL))
+    now = time.time()
+    ttl = SLOW_TTL if interval in ("1d", "1wk") else HOURLY_TTL if interval == "1h" else M5_TTL if interval == "5m" else RAW_TTL
+    step = _STEP.get(interval)
+    if step:
+        ttl = min(ttl, step - now % step + 4)  # until just after this timeframe's next close
+    _raw_cache[key] = (out, now + ttl)
     return out
 
 
@@ -279,7 +287,7 @@ async def _oanda_series(sym: str, timeframe: str, limit: int, decimals: int, ste
 async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", limit: int = 600, live_price: float | None = None, fresh: bool = False) -> dict:
     sym = canonical(symbol)
     euro = sym in FX_TICKERS  # any forex pair (no futures basis)
-    decimals = 5 if euro else 2
+    decimals = decimals_of(sym)
     step = TIMEFRAME_SECONDS.get(timeframe, 900)
     if oanda.enabled() and sym in oanda.INSTRUMENTS and timeframe in oanda.GRANULARITY:
         try:
@@ -292,8 +300,8 @@ async def fetch_candle_series(symbol: str = "XAU/USD", timeframe: str = "15M", l
     try:
         candles = await _yahoo_candles(ticker, interval, rng, decimals, fresh)
         # Reshaping thousands of candles is CPU work: off the event loop so other requests keep flowing
-        if timeframe == "4H":
-            candles = await asyncio.to_thread(aggregate, candles, 14400)
+        if timeframe in ("2H", "4H"):  # aggregated from 1H
+            candles = await asyncio.to_thread(aggregate, candles, step)
         elif step < 86400 and any(c.time % step for c in candles[-3:]):
             # Yahoo stamps the forming intraday candle with the current time (e.g. 00:28:45): put it back on its slot
             candles = await asyncio.to_thread(aggregate, candles, step)

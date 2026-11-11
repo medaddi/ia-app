@@ -20,15 +20,20 @@ The numbers are the skill's defaults made stricter for 1 % per trade (HYPOTHESIS
 from typing import Iterable, Optional
 
 LIMITS = {"risk_pct": 1.0, "max_total_risk_pct": 3.0, "max_usd_same_side": 2, "max_orders_per_day": 5}
-USD_PAIRS = {"EUR/USD", "GBP/USD", "XAU/USD"}  # quoted against the dollar
+CURRENCIES = ("USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD")  # the FXAlexG spec: exposure caps on all 8
 HOLD_SEC = 4 * 3600
 
 
+def exposure(symbol: str, direction: str) -> dict[str, int]:
+    """+1 / -1 per currency leg: BUY GBP/JPY = long GBP, short JPY. Gold has only its dollar leg (BUY = short USD)."""
+    a, b = symbol.split("/")
+    s = 1 if direction == "BUY" else -1
+    return {c: v for c, v in ((a, s), (b, -s)) if c in CURRENCIES}
+
+
 def usd_side(symbol: str, direction: str) -> int:
-    """+1 = long the dollar, −1 = short it, 0 = no dollar leg. BUY EUR/USD, GBP/USD or XAU/USD sells the dollar."""
-    if symbol not in USD_PAIRS:
-        return 0
-    return -1 if direction == "BUY" else 1
+    """+1 = long the dollar, -1 = short it, 0 = no dollar leg."""
+    return exposure(symbol, direction).get("USD", 0)
 
 
 def live(sent: Iterable[dict], now: int) -> list[dict]:
@@ -57,11 +62,10 @@ def check(symbol: str, setup: dict, sent: list[dict], now: int, limits: Optional
     reasons = []
     if any(s["symbol"] == symbol for s in open_):
         reasons.append(f"duplicate: a {symbol} setup is still live (one trade per pair at a time)")
-    side = usd_side(symbol, setup["direction"])
-    if side:
-        same = [s for s in open_ if usd_side(s["symbol"], s["direction"]) == side]
+    for ccy, side in exposure(symbol, setup["direction"]).items():  # at most 2 live bets the same way on any one currency
+        same = [s for s in open_ if exposure(s["symbol"], s["direction"]).get(ccy) == side]
         if len(same) >= lim["max_usd_same_side"]:
-            reasons.append(f"dollar: already {len(same)} live setups {'long' if side > 0 else 'short'} the US dollar "
+            reasons.append(f"{ccy}: already {len(same)} live setups {'long' if side > 0 else 'short'} the {ccy} "
                            f"({', '.join(s['symbol'] for s in same)}); the limit is {lim['max_usd_same_side']}")
     tw = twins(symbol)
     same_way = [s for s in open_ if s["symbol"] in tw and s["direction"] == setup["direction"]]

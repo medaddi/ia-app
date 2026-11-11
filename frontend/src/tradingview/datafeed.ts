@@ -4,14 +4,14 @@
  * supplies the data (TradingView's library ships no market data of its own).
  */
 import { apiFetch } from '../api';
-import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, type InstrumentSymbol } from '../instruments';
+import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, PAIR_DECIMALS, type InstrumentSymbol } from '../instruments';
 
 // TradingView resolution → the backend's timeframe code
 const RES_TF: Record<string, string> = { '5': '5M', '15': '15M', '30': '30M', '60': '1H', '240': '4H', '1D': '1D', D: '1D', '1W': '1W', W: '1W' };
 export const TF_RES: Record<string, string> = { M5: '5', M15: '15', M30: '30', H1: '60', H4: '240', D1: '1D', W1: '1W' };
 const RES_SEC: Record<string, number> = { '5': 300, '15': 900, '30': 1800, '60': 3600, '240': 14400, '1D': 86400, D: 86400, '1W': 604800, W: 604800 };
 const SUPPORTED = ['5', '15', '30', '60', '240', '1D', '1W'];
-const DECIMALS: Record<InstrumentSymbol, number> = { 'XAU/USD': 2, 'EUR/USD': 5, 'GBP/USD': 5, 'EUR/CHF': 5, 'AUD/CAD': 5, 'AUD/CHF': 5 };
+const DECIMALS: Record<InstrumentSymbol, number> = PAIR_DECIMALS;
 const POLL_MS = 2000;
 
 interface Bar { time: number; open: number; high: number; low: number; close: number; volume?: number }

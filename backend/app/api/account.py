@@ -113,6 +113,18 @@ async def push_test(u: User = Depends(current_user), db: Session = Depends(get_d
     return {"success": n > 0, "devices": len(rows), "delivered": n}
 
 
+@router.post("/telegram/test-me")
+async def telegram_test_me(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """A test message to this account's linked Telegram chat (the in-app bell's test button)."""
+    cfg = get_setting(db, "telegram")
+    if not u.telegram_chat_id:
+        return {"success": False, "error": "no Telegram chat linked to this account"}
+    if not cfg.get("botToken"):
+        return {"success": False, "error": "the bot is not configured"}
+    out = await tg.send_message(cfg["botToken"], u.telegram_chat_id, "✅ <b>LiquidityDissection</b> · test notification (Set &amp; Forget alerts reach you here).")
+    return {"success": bool(out.get("success")), "error": out.get("error")}
+
+
 # ---------------------------------------------------------------- profile
 
 class ProfileIn(BaseModel):

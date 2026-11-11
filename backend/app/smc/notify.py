@@ -1,26 +1,35 @@
 """
-The notifier: every minute each pair's team is read again; a NEW setup that passes its rules and the 7 questions, then the
-trader-skill's portfolio risk check across all the teams (skill/portfolio.py: one trade per pair, at most 2 bets the same
-way on the dollar, 3 % total risk, 5 a day), is saved once (signals table, id = the setup) and sent once, to Telegram (every account linked to the bot, plus the admin chat)
-and as a push to every approved account's devices. A setup already sent is never sent again.
-Research, not advice: the message says so.
+The notifier (the FXAlexG spec, section 5): every minute the 29 teams are read again and three kinds of alerts go out,
+each to Telegram (every chat linked to an approved account, plus the admin chat), as a web push to every approved
+account's devices, and into the app's live feed (/api/smc/signals):
+
+  1 · AOI_WATCH_ALERT  trend ok, inside a 1W / 1D AOI, the LTF SoS is in, only the engulfing close is missing.
+                       Once per wave (a watermark keeps it from repeating).
+  2 · SIGNAL_EXECUTE   the full Set & Forget trade, once: the desk executes and the portfolio check agrees.
+  3 · MANAGER_LIVE_UPDATE  every step of a sent trade (manager.py): FILLED, BREAKEVEN LOCKED, TP HIT, SL HIT, CLOSED.
+
+Research, not advice: every message says so. Nothing here places an order.
 """
 
+import asyncio
 import html
 import time
-from datetime import datetime, timezone
 
 from sqlalchemy import or_, select
 
 from ..config import settings
 from ..db import SessionLocal
 from ..market.data import market_session_status
-from ..models import PushSubscription, Signal, User
+from ..models import PushSubscription, Signal, User, Watermark
 from ..push import send_push
 from ..store import get_setting, set_setting
 from ..telegram import bot
 from .desk import BY_SYMBOL, PAIRS, team
 from .skill import portfolio
+
+RULE = "━━━━━━━━━━━━━━━━━━"
+RADAR_KEEP = 30
+READ_AT_ONCE = 8  # the spec: 29 teams read 8 at a time (asyncio.Semaphore(8))
 
 
 def _f(v: float, dec: int) -> str:
@@ -28,25 +37,33 @@ def _f(v: float, dec: int) -> str:
 
 
 def message(s: dict, pair: str, dec: int) -> str:
+    """Stage 2 · SIGNAL_EXECUTE: the full Set & Forget trade (the spec's Part 5.2 fields)."""
     buy = s["direction"] == "BUY"
-    until = datetime.fromtimestamp(s["validUntil"], timezone.utc).strftime("%H:%M")
-    s = {"zone": [s["entry"], s["entry"]], "rrBest": s["rr"], **s}  # a setup saved before the entry zone existed
-    side = "Buy" if buy else "Sell"
-    if s.get("market"):  # the playbook's market entries: on the trigger candle's close
-        entry = f"{side} at market <code>{_f(s['entry'], dec)}</code> (the trigger candle's close)\n"
-    else:
-        entry = (f"{side} zone <code>{_f(s['zone'][0], dec)} – {_f(s['zone'][1], dec)}</code>\n"
-                 f"(limit at <code>{_f(s['entry'], dec)}</code>, the near edge: filled once price comes into the zone, valid until {until} UTC)\n")
-    tp1 = f"TP1 <code>{_f(s['tp1'], dec)}</code> (close {round(s.get('part', 1) * 100)} %, stop to entry)\n" if s.get("tp1") is not None else ""
-    rr = f"RR 1:{s['rr']}" + (f" at the limit, up to 1:{s['rrBest']} deeper in the zone" if s["rrBest"] > s["rr"] else "")
-    n = len(s.get("checklist") or []) or 7
-    return (f"{'🟢' if buy else '🔴'} <b>{s['direction']} {pair}</b> · {html.escape(s['name'])}\n"
-            f"{bot.LINE}\n"
-            f"{entry}SL <code>{_f(s['sl'], dec)}</code>\n{tp1}TP <code>{_f(s['tp'], dec)}</code>\n"
-            f"{rr} · {n}/{n} questions ✅\n"
-            f"{s.get('riskPct', 1.0):g} % risk: {s['lots']['1000']} lot per $1,000 · {s['lots']['10000']} per $10,000\n"
-            + (f"⚖️ {html.escape(s['riskNote'])}\n" if s.get("riskNote") else "") + "\n"
-            "<i>Research setup, not financial advice. Check it on the chart before any trade.</i>")
+    z = s.get("zone") or [s["entry"], s["entry"]]
+    zi = s.get("zoneInfo") or {}
+    where = f"{'below' if buy else 'above'} the {'1W/1D' if zi.get('overlap') else '/'.join(zi.get('tfs') or ['1D'])} AOI"
+    psych = f" · before Psych <code>{_f(s['psychTp'], dec)}</code>" if s.get("psychTp") is not None else ""
+    lines = [f"🎯 <b>SET &amp; FORGET — {pair} {s['direction']}</b> · <code>{s.get('setupType') or s['strategy']}</code>", RULE,
+             f"🏅 <b>FXAlexG Grade:</b> {s.get('grade', '?')} (GPA {s.get('gpa', 0)}%) · <b>Consensus:</b> {s.get('consensus', 0)}/100",
+             f"{'📈' if buy else '📉'} <b>Entry:</b> <code>{_f(s['entry'], dec)}</code> <i>(zone <code>{_f(z[0], dec)} – {_f(z[1], dec)}</code>)</i>",
+             f"🛑 <b>Structural SL:</b> <code>{_f(s['sl'], dec)}</code> <i>(-{s.get('slPips', 0):.1f} pips · {where})</i>",
+             f"🛡️ <b>Break-even at +1.5R:</b> <code>{_f(s['tp1'], dec)}</code> <i>(stop to entry + 2 pips)</i>" if s.get("tp1") is not None else "",
+             f"💰 <b>Front-run TP:</b> <code>{_f(s['tp'], dec)}</code> <i>(+{s.get('tpPips', 0):.1f} pips{psych})</i>",
+             f"⚖️ <b>R:R</b> <code>1 : {s['rr']:.2f}</code> · <b>Risk</b> <code>{s.get('riskPct', 1.0):g}%</code> (<code>{s['lots']['10000']} lots</code> per $10k)"]
+    if s.get("riskNote"):
+        lines.append(f"⚖️ {html.escape(s['riskNote'])}")
+    if s.get("desk"):
+        lines += [RULE, "🤖 <b>5-Agent Desk:</b>"]
+        icon = {"ok": "✅", "warn": "⚠️", "wait": "⏳", "veto": "⛔"}
+        lines += [f"{icon.get(a_['status'], '•')} <b>{html.escape(a_['role'])}</b> ({a_.get('score', 0)}): {html.escape(a_['badge'])}" for a_ in s["desk"]]
+    lines.append("<i>Research software — does not place orders. Not financial advice.</i>")
+    return "\n".join(x for x in lines if x)
+
+
+def radar_message(pair: str, r: dict, dec: int) -> str:
+    """Stage 1 · AOI_WATCH_ALERT (the spec's template)."""
+    return (f"👀 [RADAR] {pair} ({r['direction']}) inside {r['tf']} AOI ({r['touches']} touches) · GPA {r['gpa']}% ({r['grade']}) · "
+            "Waiting for LTF Engulfing close.\n<i>Research software — does not place orders.</i>")
 
 
 def _app_link(pair: str) -> str:
@@ -54,7 +71,7 @@ def _app_link(pair: str) -> str:
 
 
 async def broadcast(pair: str, text: str, title: str, body: str, tag: str) -> dict:
-    """One message to every account linked to the bot (+ the admin chat) and a push to every approved account's devices."""
+    """One message to every chat linked to an approved account (+ the admin chat) and a push to every approved account's devices."""
     url = _app_link(pair)
     markup = None if ("localhost" in url or "127.0.0.1" in url) else {"inline_keyboard": [[{"text": "📈 Open in the app", "url": url}]]}
     tg_sent = pushed = 0
@@ -76,11 +93,10 @@ async def broadcast(pair: str, text: str, title: str, body: str, tag: str) -> di
 
 
 async def _send(pair: str, s: dict) -> dict:
-    """The setup's first alert."""
     dec = BY_SYMBOL[pair]["decimals"]
-    s = {"zone": [s["entry"], s["entry"]], **s}
-    return await broadcast(pair, message(s, pair, dec), f"{'🟢' if s['direction'] == 'BUY' else '🔴'} {s['direction']} {pair} · {s['strategy']}",
-                           (f"Market {_f(s['entry'], dec)}" if s.get("market") else f"Zone {_f(s['zone'][0], dec)}–{_f(s['zone'][1], dec)}") + f" | SL {_f(s['sl'], dec)} | TP {_f(s['tp'], dec)} | 1:{s['rr']}", f"ld-{s['id']}")
+    z = s.get("zone") or [s["entry"], s["entry"]]
+    return await broadcast(pair, message(s, pair, dec), f"🎯 {s['direction']} {pair} · Grade {s.get('grade', '?')} ({s.get('gpa', 0)}%)",
+                           f"Entry {_f(s['entry'], dec)} | SL {_f(s['sl'], dec)} | BE +1.5R | TP {_f(s['tp'], dec)} | 1:{s['rr']}", f"ld-{s['id']}")
 
 
 def _claim(pair: str, s: dict, state: str = "PENDING") -> bool:
@@ -88,9 +104,9 @@ def _claim(pair: str, s: dict, state: str = "PENDING") -> bool:
     with SessionLocal() as db:
         if db.get(Signal, s["id"]):
             return False
-        db.add(Signal(id=s["id"], symbol=pair, setup=s["strategy"], direction=s["direction"], entry_type="LIMIT", entry=s["entry"], sl=s["sl"],
-                      tp1=s["tp"], tp2=s["tp"], tp3=s["tp"], rr_tp2=s["rr"], score=7, signal_time=s["time"], state=state,
-                      params={"validUntil": s["validUntil"], "lots": s["lots"]}, payload=s))
+        db.add(Signal(id=s["id"], symbol=pair, setup=s["strategy"], direction=s["direction"], entry_type="MARKET" if s.get("market") else "LIMIT",
+                      entry=s["entry"], sl=s["sl"], tp1=s.get("tp1") or s["tp"], tp2=s["tp"], tp3=s["tp"], rr_tp2=s["rr"], score=s.get("gpa") or 0,
+                      signal_time=s["time"], state=state, params={"validUntil": s["validUntil"], "lots": s["lots"]}, payload=s))
         db.commit()
         return True
 
@@ -100,46 +116,75 @@ def _seen(sid: str) -> bool:
         return db.get(Signal, sid) is not None
 
 
-def sent_setups(limit: int = 50) -> list[dict]:
+def sent_setups(limit: int = 80) -> list[dict]:
     """The setups actually sent (not the blocked ones), newest first: what the portfolio check counts as live."""
     with SessionLocal() as db:
         rows = db.scalars(select(Signal).where(Signal.id.like("SMC-%"), Signal.state != "BLOCKED").order_by(Signal.signal_time.desc()).limit(limit)).all()
-        return [{**(r.payload or {}), "symbol": r.symbol} for r in rows]
+        return [{**(r.payload or {}), "symbol": r.symbol, "state": r.state} for r in rows]
+
+
+def _radar_new(pair: str, r: dict) -> bool:
+    """True the first time this radar (pair, side, zone, SoS wave) is seen: a watermark row remembers it."""
+    with SessionLocal() as db:
+        if db.scalar(select(Watermark).where(Watermark.ref == "RADAR", Watermark.signal_id == r["id"])):
+            return False
+        db.add(Watermark(ref="RADAR", chat_id="*", signal_id=r["id"], symbol=pair, offset=0.0))
+        db.commit()
+        feed = get_setting(db, "radar").get("items") or []
+        feed.insert(0, {**r, "symbol": pair, "at": int(time.time())})
+        set_setting(db, "radar", {"items": feed[:RADAR_KEEP]})
+        return True
 
 
 async def tick() -> dict:
-    """One pass over the six teams. Called every minute (the in-process loop, or the host's cron)."""
+    """One pass over the 29 teams. Called every minute (the in-process loop, or the host's cron)."""
     started = time.time()
     results: dict[str, str] = {}
+    open_pairs = [p for p in PAIRS if market_session_status(p)["isOpen"]]
+    gate = asyncio.Semaphore(READ_AT_ONCE)
+
+    async def read(pair: str):
+        async with gate:
+            try:
+                return await team(pair, fresh=True)
+            except Exception as err:  # one pair failing never stops the others
+                return err
+    reads = dict(zip(open_pairs, await asyncio.gather(*(read(p) for p in open_pairs))))  # the feeds are fetched side by side
     for pair in PAIRS:
-        if not market_session_status(pair)["isOpen"]:
+        if pair not in reads:
             results[pair] = "market closed"
             continue
-        try:
-            t = await team(pair, fresh=True)
-        except Exception as err:  # one pair failing never stops the others
-            results[pair] = f"error: {err!r}"
+        t = reads[pair]
+        if isinstance(t, Exception):
+            results[pair] = f"error: {t!r}"
             continue
         if not t.get("success"):
             results[pair] = t.get("error") or "no read"
             continue
-        sent = []
-        for s in t["signals"]:
+        notes = []
+        dec = BY_SYMBOL[pair]["decimals"]
+        rd = t.get("radar")
+        if rd and _radar_new(pair, rd):  # stage 1
+            out = await broadcast(pair, radar_message(pair, rd, dec), f"👀 Radar · {pair} {rd['direction']}",
+                                  f"Inside {rd['tf']} AOI ({rd['touches']} touches) · GPA {rd['gpa']}% · waiting for the LTF engulfing close", f"ld-{rd['id']}")
+            notes.append(f"radar {rd['direction']} → telegram {out['telegram']} · push {out['push']}")
+        for s in t["signals"]:  # stage 2
             if _seen(s["id"]):
                 continue
             chk = portfolio.check(pair, s, sent_setups(), int(time.time()))
             if chk["verdict"] == "BLOCK":  # saved with its reasons, never sent, never checked again
                 _claim(pair, {**s, "portfolio": chk}, state="BLOCKED")
-                sent.append(f"{s['strategy']} {s['direction']} BLOCKED by the risk check: {'; '.join(chk['reasons'])}")
+                notes.append(f"{s['direction']} BLOCKED by the portfolio check: {'; '.join(chk['reasons'])}")
                 continue
-            if chk.get("riskPct", 1.0) < 1.0:  # the guide's split (EUR/USD + GBP/USD): this one at 0.5 %, the lot halved
-                s = {**s, "riskPct": chk["riskPct"], "riskNote": "; ".join(chk.get("notes") or []),
-                     "lots": {k: int(v * chk["riskPct"] * 100 + 1e-6) / 100 for k, v in s["lots"].items()}}
+            if chk.get("riskPct", 1.0) < 1.0:  # two correlated trades the same way: the risk is split
+                k = chk["riskPct"]
+                s = {**s, "riskPct": round(s.get("riskPct", 1.0) * k, 3), "riskNote": "; ".join(chk.get("notes") or []),
+                     "lots": {q: int(v * k * 100 + 1e-6) / 100 for q, v in s["lots"].items()}}
             if _claim(pair, {**s, "portfolio": chk}):
                 out = await _send(pair, s)
-                sent.append(f"{s['strategy']} {s['direction']} → telegram {out['telegram']} · push {out['push']}")
-        results[pair] = "; ".join(sent) if sent else ("watching" if not t["signals"] else "signal already sent")
-    try:  # the trade manager: each sent setup followed step by step (filled, 1:3, BE, trailing, closed)
+                notes.append(f"{s['direction']} {s.get('setupType')} grade {s.get('grade')} → telegram {out['telegram']} · push {out['push']}")
+        results[pair] = "; ".join(notes) if notes else (t.get("decision") or "watching").lower()
+    try:  # stage 3: the trade manager
         from .manager import manage_all
         steps = await manage_all(broadcast)
         if steps:
@@ -161,3 +206,9 @@ def recent(limit: int = 30) -> list[dict]:
         rows = db.scalars(select(Signal).where(Signal.id.like("SMC-%"), Signal.state != "BLOCKED").order_by(Signal.signal_time.desc()).limit(limit)).all()
         return [{**(r.payload or {}), "symbol": r.symbol, "sentAt": r.sent_at.isoformat() if r.sent_at else None, "status": r.state,
                  "outcome": r.outcome, "resultR": r.r_multiple, "events": (r.params or {}).get("events", [])} for r in rows]
+
+
+def recent_radar() -> list[dict]:
+    """The last radar alerts (the app's live feed)."""
+    with SessionLocal() as db:
+        return get_setting(db, "radar").get("items") or []

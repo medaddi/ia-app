@@ -10,12 +10,23 @@
  *    the box shrinks to what is left and says so; fully filled ones are dropped.
  * Swings: 2-candle fractals, known 2 candles after (no look-ahead in what is drawn at the right edge).
  */
-import type { DrawBox, DrawSegment } from './smcDrawing';
+import type { DrawBox, DrawLine, DrawSegment } from './smcDrawing';
 
 export interface Bar { time: number; open: number; high: number; low: number; close: number }
 export interface PdZone { from: number; to: number; high: number; low: number }
 export interface SessionBand { from: number; to: number; label: string; color: string }
-export interface SmcOverlay { pd: PdZone | null; boxes: DrawBox[]; segments: DrawSegment[]; sessions: SessionBand[] }
+export interface SmcOverlay { pd: PdZone | null; boxes: DrawBox[]; segments: DrawSegment[]; sessions: SessionBand[]; lines: DrawLine[] }
+
+/** The 50 EMA on closes (alpha = 2 / 51), from the first 50 closes' average (the FXAlexG spec, 3.2). */
+export function ema50(b: Bar[]): (number | null)[] {
+  const out: (number | null)[] = new Array(b.length).fill(null);
+  if (b.length < 50) return out;
+  const a = 2 / 51;
+  let e = b.slice(0, 50).reduce((s, x) => s + x.close, 0) / 50;
+  out[49] = e;
+  for (let i = 50; i < b.length; i++) { e = b[i].close * a + e * (1 - a); out[i] = e; }
+  return out;
+}
 
 const DAY = 86400;
 
@@ -29,7 +40,11 @@ function fractals(b: Bar[]) {
 }
 
 export function computeSmc(all: Bar[], tfSec: number): SmcOverlay {
-  const out: SmcOverlay = { pd: null, boxes: [], segments: [], sessions: [] };
+  const out: SmcOverlay = { pd: null, boxes: [], segments: [], sessions: [], lines: [] };
+  const e50 = ema50(all);  // the blue 50 EMA on every timeframe, from the whole series
+  const pts: [number, number][] = [];
+  for (let i = Math.max(0, all.length - 400); i < all.length; i++) { const v = e50[i]; if (v != null) pts.push([all[i].time + tfSec, v]); }
+  if (pts.length) out.lines.push({ points: pts, color: '#3b82f6', label: '50 EMA' });
   const b = all.slice(-400);
   const n = b.length;
   if (n < 10) return out;

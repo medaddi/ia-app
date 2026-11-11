@@ -272,3 +272,115 @@
   their CE; the position tool's SL pips and 1 % risk, TP pips and R:R. An "SMC" toggle next to "Analysis".
 - Live on Yahoo today (no token yet): FX continuity 98-99 % over 7 days, gold M5 misses slots (e.g. Monday 14:20), so the
   gold Devil vetoes on the feed check; no pair has N >= 30 in its year, so every Backtest Engineer says LIMITED.
+
+## v1.7 · 2026-11-09 · AUD/CAD "P" restored; the simple 3-rule test
+- The user asked for a simple version ("don't complicate it"): `backend/app/smc/simple.py`, the same three rules for
+  the six pairs (direction · a sweep of the Asian range / PDH-PDL in the pair's window · an M15 MSS; limit at the retest,
+  SL beyond the sweep, TP 2 R, closed 20:45 UTC, no entry ±15 min of news), fixed before the run. One year: 89 trades,
+  34 %, -19.84R, PF 0.64; first 60 % -13.79R, last 40 % -6.06R. It loses in both parts and is NOT switched on (kept
+  for research).
+- AUD/CAD goes back to the commodity range reversion "P" (the user: "bring it back"), with the general team and its
+  chart (Bollinger 3σ, 3-touch H4 levels). One year: 17 trades, 59 %, +5.94R, both halves positive. loonie.py (the AUD/CAD
+  md: 0 trades) stays in the repo, unused.
+- Switched on now: GBP/USD A + AUD/CAD P = 23 trades, 61 %, +7.52R (gold A 1 trade, -1.02R; the others 0).
+
+## v1.8 · 2026-11-10 · FXAlexG "Set & Forget" for every pair: the user's spec fxalexg_set_and_forget_strategy_claude_implementation_prompt.md
+- Part 1: the universe grows to FXAlexG's watchlist, gold + 28 forex pairs (29): `market/pairs.py` (Yahoo tickers),
+  `market/oanda.py` (instruments), `smc/configs/<PAIR>.json` + `smc/pairs/<PAIR>/config.json` (pip, decimals 2 / 3 / 5,
+  "500" step, max AOI width, tier, currencies, spreads CHOICE), live pip values for every quote currency (`desk._pip_value`),
+  JPY prices (decimals 3, price sanity per pair), the portfolio cap on all 8 currencies (`skill/portfolio.exposure`), the
+  frontend list and a JPY flag.
+- Part 2: `backend/app/smc/alexg.py`: bodies, Snake Trick elbows (k W1 2, D1 3, H4 3, H1 3, M30 3, M15 4) and the body-close
+  structure machine; W1 / D1 / H4 sync and its vetoes; 3-touch W1 (156) / D1 (300) AOIs <= W_max, W1 + D1 merge, "Every 500"
+  snap, ± 5 pip proximity, 10 pip invalidation; live EMA 50 / prior elbow / candles / patterns; the mandatory SoS +
+  engulfing on H1, M30, M15 (24 bars, > 1.8 ATR = 50 % limit); S_AlexG and the grades; SL / TP / RR >= 2.5; seasonal risk.
+- Part 3: the 7 agents with the spec's score formulas, statuses, badges and the pairReport contract (EXECUTE /
+  WAIT_FOR_TRIGGER / WATCH_ONLY / VETOED). CHOICE: when the Devil's only reason is the missing trigger, the Lead says
+  WAIT_FOR_TRIGGER (the spec's own state) instead of VETOED; nothing executes either way.
+- Part 4: D1 750 bars (W1 resampled from it), the chart (AOI boxes with touches / width, the "500" line, EMA 50 H4 / D1,
+  H4 body HH / HL / LH / LL, the SoS neckline), tests (`test_alexg.py`). 80 backend tests pass, tsc clean. Every earlier
+  per-pair strategy (gold.py, cable.py, fiber.py, swissy.py, aussie.py, loonie.py, AUD/CAD "P") stays in the code, unused.
+- One year (Dukascopy, the 6 pairs with data; D1 / W1 built from the same year, so W1 AOIs see 52 weeks, not 156): GBP/USD
+  1 trade, -1.10R; the others 0. Behind it: 3,100 SoS + engulfing setups at an AOI on the 5 FX pairs, of which ~230 reach
+  grade B; the consensus >= 78 gate stops almost all (the Backtest Engineer scores 40 with N = 0, so consensus is capped).
+  Taken all together the setups lose (40-48 % win, -0.06 to -0.26R each); grade B + RR >= 2.5 + no veto without the
+  consensus gate: 4 trades, 1 win, -0.78R. Gold: 0 setups (± 5 pips = $0.50 and a $6 max AOI width are very tight for gold).
+- The 23 new pairs have no history in `smc/pairs/` yet (no Dukascopy download made); their Backtest Engineer says N = 0.
+- 29 teams read in 37 s locally (the Vercel cron allows 60 s per call).
+
+## v1.9 · 2026-11-10 · FXAlexG redesigned: one engine, 5 agents, 3-stage alerts (the user's second FXAlexG spec)
+- Step 1 · purge: gold.py, fiber.py, cable.py, swissy.py, aussie.py, loonie.py, simple.py, engine.py, engines.py, agents.py,
+  chart.py, manage.py, integrity.py and their tests are deleted, with the old research tools that needed them. playbook.py
+  keeps only the shared pieces (candles, indicators, the M5 trade follower) and the registry. Every one of the 29
+  instruments runs alexg.py only. The tick-volume and M5-gap vetoes are gone: the strategy reads W1 / D1 / H4 / H1 / M30 /
+  M15 prices only. Configs carry the new max AOI widths (gold and GBP crosses 65, EUR/GBP and EUR/CHF 50, AUD / NZD crosses
+  55). Candle caches: W1 / D1 30 min, H1 5 min, M5 60 s, each ending just after its next candle closes. The notifier reads
+  the teams 6 at a time.
+- Step 2 · the engine: elbows confirmed by a close back under B+ / over B- (k = 3, W1 2); a trend shift needs a close
+  0.5 pip beyond HL / LH; sync = W1 + D1 (+ H4 or its pullback) or D1 + H4 with no opposing W1 AOI inside 1.5 x risk;
+  AOIs with >= 3 D1 touches or >= 2 W1 touches, 12 pips <= width <= W_max (a tighter cluster is widened to 12, CHOICE),
+  psych level within 8 pips; the live window = one of the last 24 H1 candles within max(8 pips, 0.12 x ADR 20) and the
+  close not 10 pips beyond the distal edge; the new engulfing (close beyond the previous body, body >= 0.85 x it); SL capped
+  at 1.2 x ADR 20; the break-even trigger at +1.5 R (25 % banked, stop to the entry); TP 5 pips before the opposing
+  D1 / W1 structure, at most 3.5 R, RR >= 2.5.
+- Step 3 · the 5 agents: trend_director 25 %, aoi_architect 25 %, confluence_grader 25 %, trigger_sniper 15 %,
+  risk_guardian 10 % + veto (news +-30 min, RR < 2.5, spread > 15 % of SL). CHOICE: the spec gives each agent's statuses and
+  weight but no score formula, so the scores are simple steps (see alexg.squad). EXECUTE iff sync, S_AlexG >= 80, SoS +
+  engulfing, RR >= 2.5 and no agent in veto. The frontend shows the 5 agents, the grade badge and the confluence bar with
+  its 80 % line.
+- Step 4 · alerts: RADAR (trend ok, in an AOI, >= 65 %, SoS in, engulfing awaited; once per wave through a watermark),
+  SIGNAL (the spec's Telegram template with the plan, the confluences and the 5 badges), TRADE MANAGER (FILLED,
+  BREAKEVEN +1.5R, TP_HIT, SL_HIT, BE_CLOSED, EXPIRED). Each goes to Telegram, web push and the in-app feed
+  (/api/smc/signals now returns the radar list; a toast with a sound shows a new signal or radar). CHOICE: a market entry
+  is alerted only within 20 minutes of its trigger candle.
+- Step 5 · measured, one year of Dukascopy on the 6 pairs with stored data, news trades removed: about 6,200 two-step
+  triggers at an AOI, 51 passed the gate: 39 % wins, -14.76R, PF 0.56 (first 60 %: 22 trades, -4.91R; last 40 %: 29 trades,
+  -9.85R). Exits: 6 full targets, 14 break-even closes after +1.5 R, 31 stops. Gold: 32 triggers, none passed. The spec's
+  goal (PF > 1.5, WR >= 50 %) is NOT met on this data; no number was changed after seeing the result. The 23 new pairs
+  have no stored history.
+- Tests: test_alexg.py and test_notify_pipeline.py replace the old spec tests: 40 backend tests pass, tsc clean. Live:
+  29 teams read without error (42 s cold, 18 s with warm caches); AUD/JPY gave a live EXECUTE, EUR/USD and GBP/AUD a radar.
+
+## v2.0 · 2026-11-11 · FXAlexG overhaul: SF_BR / SF_BOUNCE / SF_COUNTER, the GPA, the 5-agent desk (the user's third FXAlexG spec)
+- Part 1: the legacy modules stay deleted; playbook.STRATEGIES = SF_BR (break & retest continuation), SF_BOUNCE (direct
+  AOI bounce, 4th+ touch), SF_COUNTER (1D shifted against the 1W) for the 29 instruments; the old ids are gone.
+- Part 2: Yahoo tickers USDJPY=X / USDCHF=X / USDCAD=X; a 2H timeframe (aggregated from 1H, OANDA H2); the desk reads
+  M5 2000, H1 4000 (4H 1000), D1 900 (W1 120+ weeks); the notifier reads 8 teams at a time.
+- Part 3 (alexg.py rewritten): No-Gap candles for every pattern; the EMA 50 tap (0.15 ATR); line-chart structure on
+  closes (m: W1 2, D1 / 4H 3, LTF 3 CHOICE), HL strictly behind HH; AOIs from close + wick pivots, <= 0.35 ATR (D1) thick,
+  touches = entry + a 0.75 ATR (D1) reversal within 10 candles (CHOICE), 3+ candles apart, >= 3, inside the active
+  [HL, HH] / [LL, LH]; round numbers 50 / 100 pips (gold $25 / $50) within 10 pips; confirmations on 2H / 1H / 30M / 15M
+  (doji / pinbar, the new engulfing, LTF SoS, double top-bottom / H&S); the 9-item 100-point GPA (A+ 90, A 80, B 75, C+ 70,
+  F); entry at the confirmation close (band 0.15 ATR 1H), SL = AOI / swing - 0.20 ATR 1H - spread, TP 7 pips (CHOICE in
+  the 5-10) before the next opposing D1 / W1 zone or the round number inside it, RR >= 2.0. A confirmation outside
+  06:00-17:00 UTC executes at the next 06:00 if price is still inside the band (CHOICE: 17:00-21:00 waits too).
+- Reading fixes made after the first run (not tuning): the TP target is the next OPPOSING zone (its last touch rejected
+  price against the trade), not any zone above; the round number must sit at or just inside that target zone.
+- The trade follower: at +1.5 R the stop goes to the entry + 2 pips (no partial close); a trade not in profit on Friday
+  20:00 UTC is closed (TIME).
+- Part 4: the 5 agents with the spec's scores and statuses (trend 100 / 80 / 70 / 25, AOI 100 / 85 / 60 / 0, grader = GPA,
+  trigger 100 / 85 / 65 / 40, guardian: RR, session, Mon-Wed / Thursday A-grade + 1.2 ADR / Friday veto, news +-30 min,
+  rollover 21:45-22:15, spread > 25 % of SL); consensus 0.25 / 0.25 / 0.20 / 0.20 / 0.10; execute iff consensus >= 70,
+  GPA >= 70, no veto, trigger and guardian ok.
+- Part 5: AOI_WATCH_ALERT ("👀 [RADAR] ..."), SIGNAL_EXECUTE (setup type, grade, consensus, entry zone, SL pips, BE level,
+  front-run TP + psych, R:R, risk by grade 1 / 0.75 / 0.5 %, the 5 agents), MANAGER_LIVE_UPDATE (FILLED, BREAKEVEN LOCKED
+  (+1.5R), TAKE PROFIT HIT (+X R), STOP LOSS HIT, CLOSED / EXPIRED). /api/telegram/test-me added for the bell.
+- Part 6: tabs M15 | M30 | H1 | H2 | H4 | D1 | W1 | H4 + H1; pairs grouped (Majors, JPY, GBP/EUR, Commodity/CHF, Gold);
+  the Sunday Swings toggle (top 5 by consensus, signals and radars first); the blue 50 EMA on every timeframe; AOI boxes
+  "1W/1D AOI · N Touches · Psych ..."; HH / HL / LH / LL markers; the 1H SoS line; the +1.5R line on the position box;
+  TeamCard: the 5 agents with score and weight, the GPA grade and bar (70 % line), the 9-point checklist; the bell
+  (live feed + Test Telegram + Test Web Push).
+- Part 7: 43 backend tests pass (test_alexg.py), tsc clean, the app checked live (no console or server error).
+- Measured: Dukascopy one year, 6 pairs (D1 / W1 built from that year): 16 trades, 19 % wins, -3.14R, PF 0.76
+  (SF_BR 11 trades +1.14R, SF_COUNTER 5 trades -4.28R, SF_BOUNCE none). Yahoo last 60 days, 29 pairs (full W1 / D1):
+  29 trades, 21 % wins, +2.25R, PF 1.14. Both samples are small.
+
+## v2.1 · 2026-11-11 · TP capped at 2.5R (the user: "TP 2R, 2.5R at most")
+- `alexg.TP_CAP_R = 2.5`: the front-run target is cut to entry + 2.5 x risk when the structure is farther; the 2.0R floor stays.
+- Same trades as v2.0 (the entries do not change); only the winners are smaller. Dukascopy one year, 6 pairs: 16 trades,
+  19 % wins, -6.04R, PF 0.54 (was -3.14R). Yahoo 60 days, 29 pairs: 30 trades, 23 % wins, -1.17R, PF 0.93 (was +2.25R).
+  No trade turned from a loss into a win: the ones that lost never reached 2.5R either.
+
+## v2.2 · 2026-11-11 · TP from the structure only (the user: "the TP from the structure, not arbitrary, and the stop")
+- The 2.5R cap is removed: the TP is the next opposing 1D / 1W zone, HH / LL or the round number inside it, 7 pips before it;
+  RR >= 2.0 stays. The SL was already structural (beyond the AOI or the LTF swing, minus 0.20 ATR 1H and the spread).

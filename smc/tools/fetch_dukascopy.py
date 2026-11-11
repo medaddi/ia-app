@@ -25,7 +25,8 @@ import httpx
 from smc.tools.fetch_data import check, iso
 
 ROOT = Path(__file__).resolve().parents[1]
-PAIRS = {"XAUUSD": 1e3, "EURUSD": 1e5, "GBPUSD": 1e5, "EURCHF": 1e5, "AUDCAD": 1e5, "AUDCHF": 1e5}
+# every instrument of the app (smc/pairs/<PAIR>/config.json): price = points / div (gold and JPY pairs 3 decimals, others 5)
+PAIRS = {p.name: (1e3 if p.name == "XAUUSD" or p.name.endswith("JPY") else 1e5) for p in sorted((ROOT / "pairs").iterdir()) if (p / "config.json").exists()}
 URL = "https://datafeed.dukascopy.com/datafeed/{s}/{y}/{m:02d}/{d:02d}/BID_candles_min_1.bi5"
 UA = {"User-Agent": "smc-research (personal backtest; one request at a time)"}
 
@@ -83,8 +84,8 @@ def build(m1: list[dict], step: int) -> list[dict]:
     return [by[t] for t in sorted(by)]
 
 
-def main(only: list[str], days: int) -> None:
-    end = datetime.now(timezone.utc).date() - timedelta(days=1)
+def main(only: list[str], days: int, end: date | None = None) -> None:
+    end = end or datetime.now(timezone.utc).date() - timedelta(days=1)
     with httpx.Client(headers=UA, timeout=40) as client:
         for pair, div in PAIRS.items():
             if only and pair not in only:
@@ -120,5 +121,7 @@ def main(only: list[str], days: int) -> None:
 
 if __name__ == "__main__":
     args = [a.upper().replace("/", "") for a in sys.argv[1:] if not a.isdigit()]
+    dates = [a for a in sys.argv[1:] if a.count("-") == 2]
+    args = [a for a in args if a.count("-") != 2]
     n = next((int(a) for a in sys.argv[1:] if a.isdigit()), 730)
-    main(args, n)
+    main(args, n, date.fromisoformat(dates[0]) if dates else None)  # an end date (YYYY-MM-DD) keeps every pair on one window

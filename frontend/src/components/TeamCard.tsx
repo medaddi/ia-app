@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CandlestickChart, Check, ChevronDown, Crown, Droplets, FlaskConical, Hourglass, OctagonX, Shield, Swords, Target, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Crosshair, Gauge, Hourglass, MapPin, OctagonX, Shield, TrendingUp, Users, X } from 'lucide-react';
 import { tr } from './ui';
 import type { Language } from '../types';
 import type { Team, TeamAgent, TeamSetup } from '../smcTeam';
+import { NotificationBell } from './NotificationBell';
 
-const AGENT_ICON = { lead: Crown, structure: CandlestickChart, liquidity: Droplets, entry: Target, risk: Shield, backtest: FlaskConical, devil: Swords };
+// the 5 FXAlexG agents
+const AGENT_ICON = { trend: TrendingUp, aoi: MapPin, confluence: Gauge, trigger: Crosshair, risk: Shield };
+const GRADE_TONE: Record<string, string> = { 'A+': 'bg-emerald-500/20 text-emerald-200 ring-emerald-500/40', A: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30',
+  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', 'C+': 'bg-amber-500/15 text-amber-200 ring-amber-500/30', F: 'bg-white/[0.04] text-slate-400 ring-line' };
 
 const TONE = { SIGNAL: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30', BLOCKED: 'bg-amber-500/10 text-amber-200 ring-amber-500/25',
   WATCHING: 'bg-sky-500/10 text-sky-200 ring-sky-500/25', IDLE: 'bg-white/[0.03] text-slate-400 ring-line', OFF: 'bg-white/[0.02] text-slate-600 ring-line' };
@@ -52,6 +56,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
               {team.badge ?? <>H1 {team.chart.trend === 'BULLISH' ? t('bullish', 'haussier', 'صاعد') : team.chart.trend === 'BEARISH' ? t('bearish', 'baissier', 'هابط') : t('undefined', 'indéfini', 'غير محدد')} · {team.chart.premium ? 'premium' : 'discount'}</>}
             </span>
           )}
+          <NotificationBell lang={lang} />
           {team?.success && team.lastCandle && <span className="text-[11px] font-mono text-slate-500">{t('last M5 close', 'dernière clôture M5', 'آخر إغلاق M5')} {hm(team.lastCandle + 300)} UTC</span>}
         </div>
       </header>
@@ -61,13 +66,15 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
         <ul className="mt-3 space-y-1.5" aria-label={t('The team\u2019s agents', 'Les agents de l\u2019équipe', 'الوكلاء ديال الفريق')}>
           {team.agents.map((a: TeamAgent) => {
             const Icon = AGENT_ICON[a.key];
-            const lead = a.key === 'lead';
+            const lead = false;  // five equal specialists: no lead row
             return (
               <li key={a.key} className={`rounded-lg border px-3 py-2 ${lead ? (a.status === 'ok' ? 'border-emerald-500/40 bg-emerald-500/[0.06]' : 'border-gold-500/30 bg-gold-500/[0.04]') : 'border-line bg-white/[0.02]'}`}>
                 <button type="button" onClick={() => setOpen(o => (o === a.key ? null : a.key))} aria-expanded={open === a.key} className="w-full flex items-center gap-2 text-start cursor-pointer">
                   <Icon className={`w-4 h-4 shrink-0 ${lead ? 'text-gold-300' : 'text-slate-400'}`} aria-hidden="true" />
                   <span className={`shrink-0 text-xs font-semibold ${lead ? 'text-gold-100' : 'text-slate-200'}`}>{a.role}</span>
                   <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">{a.finding}</span>
+                  {a.score != null && <span className="hidden sm:inline shrink-0 font-mono text-[10px] text-slate-400">{a.score}</span>}
+                  {a.weight != null && <span className="hidden sm:inline shrink-0 font-mono text-[10px] text-slate-500">×{Math.round(a.weight * 100)}%</span>}
                   {a.status === 'ok' ? <Check className="w-4 h-4 shrink-0 text-emerald-400" aria-label={t('signs off', 'valide', 'موافق')} />
                     : a.status === 'veto' ? <OctagonX className="w-4 h-4 shrink-0 text-rose-400" aria-label={t('veto', 'veto', 'فيتو')} />
                     : a.status === 'warn' ? <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" aria-label={t('objection', 'objection', 'اعتراض')} />
@@ -84,9 +91,52 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
           })}
         </ul>
       )}
+      {team?.success && team.gpa != null && (() => {
+        const score = team.gpa ?? 0;
+        const grade = team.grade ?? 'F';
+        const all = team.checklist ?? [];
+        const decision = ({ EXECUTE: 'EXECUTE', WAIT_FOR_TRIGGER: t('WAIT FOR TRIGGER', 'ATTEND LE DÉCLENCHEUR', 'كيتسنا الزناد'),
+          WATCH_ONLY: t('WATCH ONLY', 'SURVEILLANCE', 'مراقبة فقط'), VETOED: 'VETO' } as Record<string, string>)[team.decision ?? 'WATCH_ONLY'];
+        return (
+          <div className="mt-3 rounded-lg border border-line bg-white/[0.02] px-3 py-2.5">
+            <button type="button" onClick={() => setOpen(o => (o === 'gpa' ? null : 'gpa'))} aria-expanded={open === 'gpa'} className="w-full text-start cursor-pointer">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`px-2 py-0.5 rounded-md text-xs font-bold ring-1 ring-inset ${GRADE_TONE[grade] ?? GRADE_TONE.F}`}>
+                  {grade === 'F' ? t('Grade F · NO TRADE', 'Grade F · PAS DE TRADE', 'Grade F · ما كاين تريد') : `Grade ${grade}`}
+                </span>
+                <span className="font-mono text-xs text-slate-200">GPA {score}%</span>
+                <span className="text-[11px] text-slate-500">{team.direction}{team.setupType ? ` · ${team.setupType}` : ''} · {t('consensus', 'consensus', 'الإجماع')} {team.consensus ?? 0}/100 · {all.filter(c => c.ok).length}/9</span>
+                <span className="ms-auto text-[11px] font-semibold text-slate-300">{decision}</span>
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${open === 'gpa' ? 'rotate-180' : ''}`} aria-hidden="true" />
+              </div>
+              <div className="relative mt-2 h-2 rounded-full bg-white/[0.06]" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={score}
+                aria-label={t('GPA score, a trade needs 70 % (C+)', 'Score GPA, un trade demande 70 % (C+)', 'سكور GPA، التريد خاصو 70 % (C+)')}>
+                <div className={`h-full rounded-full ${score >= 80 ? 'bg-emerald-400' : score >= 70 ? 'bg-gold-400' : score >= 55 ? 'bg-amber-400' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, score)}%` }} />
+                <span className="absolute -top-1 h-4 w-px bg-gold-300" style={{ insetInlineStart: '70%' }} aria-hidden="true" />
+                <span className="absolute -top-1 h-4 w-px bg-white/30" style={{ insetInlineStart: '90%' }} aria-hidden="true" />
+              </div>
+              <div className="relative mt-1 h-3 text-[10px] font-mono text-slate-500" aria-hidden="true">
+                <span className="absolute start-0">0%</span>
+                <span className="absolute -translate-x-1/2 text-gold-300" style={{ insetInlineStart: '70%' }}>70% C+</span>
+                <span className="absolute -translate-x-1/2" style={{ insetInlineStart: '90%' }}>90% A+</span>
+              </div>
+            </button>
+            {open === 'gpa' && (
+              <ul className="mt-2 grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
+                {all.map(c => (
+                  <li key={c.key} className="flex items-start gap-1 text-[11px]">
+                    {c.ok ? <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" aria-label={t('yes', 'oui', 'آه')} /> : <X className="w-3.5 h-3.5 shrink-0 text-slate-600" aria-label={t('no', 'non', 'لا')} />}
+                    <span className={c.ok ? 'text-slate-200' : 'text-slate-500'}>{c.label} <span className="font-mono">+{c.pts}</span></span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })()}
       {team?.success && (
         <div className="mt-4">
-          <p className="text-[11px] uppercase tracking-wider text-slate-500">{t('This pair’s strategies (your guide)', 'Les stratégies de cette paire (votre guide)', 'الاستراتيجيات ديال هاد الزوج (الدليل ديالك)')}</p>
+          <p className="text-[11px] uppercase tracking-wider text-slate-500">{t('Set & Forget setup', 'Setup Set & Forget', 'السيتاب Set & Forget')}</p>
         </div>
       )}
       {team?.success && team.strategies.length === 0 && (
@@ -143,9 +193,9 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
         </ul>
       )}
       <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">
-        {t('A setup is sent to Telegram and your phone once, when its rules and the guide’s checklist (news, reward, 1 %, correlation, regime) pass. Research, not financial advice: each line shows what the guide claims and what one year of tests measured.',
-          'Un setup est envoyé sur Telegram et votre téléphone une seule fois, quand ses règles et la liste du guide (news, gain, 1 %, corrélation, régime) passent. Recherche, pas un conseil : chaque ligne montre ce que dit le guide et ce qu’un an de tests a mesuré.',
-          'السيتاب كيتصيفط لتيليغرام وللتيليفون مرة وحدة، ملي القواعد ديالو وشروط الدليل (الأخبار، الربح، 1 %، الارتباط، التقلب) كيدوزو. بحث، ماشي نصيحة: كل سطر كيبين شنو كيقول الدليل وشنو قاس التيست ف عام.')}
+        {t('A setup is sent to Telegram, your phone and this app once, when the 5 agents agree (consensus 70+, GPA 70 %+ = grade C+ or better, no veto, a closed LTF trigger, R:R 1:2 or more, the session, day and news rules). A radar alert comes earlier, when only the engulfing close is missing. Research, not financial advice.',
+          'Un setup est envoyé sur Telegram, votre téléphone et cette app une seule fois, quand les 5 agents sont d’accord (consensus 70+, GPA 70 %+ = grade C+ ou mieux, aucun veto, un déclencheur LTF clôturé, gain 1:2 ou plus, les règles de session, de jour et de news). Une alerte radar arrive avant, quand il ne manque que la bougie englobante. Recherche, pas un conseil.',
+          'السيتاب كيتصيفط لتيليغرام وللتيليفون ولهاد التطبيق مرة وحدة، ملي 5 agents كيتفقو (إجماع 70+، GPA 70 %+ يعني C+ ولا حسن، حتى فيتو، زناد LTF مسدود، ربح 1:2 ولا كثر، وقواعد السيشن والنهار والأخبار). تنبيه الرادار كيجي قبل، ملي كتبقى غير الشمعة الابتلاعية. بحث، ماشي نصيحة.')}
       </p>
     </section>
   );

@@ -1,9 +1,8 @@
-"""The data feed spec (data_feed_charting_engine_architecture_prompt.md): sanitizer, OANDA parsing, the data audit."""
+"""The data feed spec (data_feed_charting_engine_architecture_prompt.md): sanitizer and OANDA parsing (the M5 / tick-volume audit was removed with the FXAlexG redesign)."""
 
 from app.market import oanda
 from app.market.sanitize import market_open, merge, sanitize
 from app.market.types import Candle
-from app.smc import integrity
 
 T0 = 1_790_000_000 - 1_790_000_000 % 86400  # a UTC midnight
 while not market_open(T0 + 8 * 3600) or not market_open(T0 + 20 * 3600):
@@ -54,15 +53,3 @@ def test_oanda_mid_candles_carry_the_spread():
                          "ask": {"o": "1.10007", "h": "1.10056", "l": "1.09996", "c": "1.10026"}}]}
     c = oanda.parse(body, 5)[0]
     assert c.time % 300 == 0 and c.close == 1.1002 and c.volume == 42 and abs(c.spread - 0.00012) < 1e-9
-
-
-def test_the_audit_and_the_fit_rule():
-    m5 = bars(600, S - 2 * 86400)
-    au = integrity.audit(m5, None, 0.0001, 0.0001)
-    assert au["clean"] and au["missing"] == 0
-    cand = {"time": S + 3600, "geo": {"sweep": (0.999, m5[-20].time), "fvg": (1.0, 1.00012, m5[-20].time)}}
-    au = integrity.audit(m5, cand, 0.0001, 0.0001)
-    assert not au["clean"] and not au["checks"][2][1]  # a 1.2-pip FVG is under 1.5 × a 1-pip spread
-    assert not integrity.audit([Candle(x.time, 1, 1, 1, 1, 0) for x in m5], {**cand, "geo": {"sweep": (1, m5[-20].time)}}, 0.0001, 0.0001)["checks"][1][1]
-    sm = integrity.sample({"strategies": {"A": {"all": {"trades": 40, "wins": 24, "totalR": 10.0, "grossWinR": 30.0, "grossLossR": 20.0}}}}, ["A"])
-    assert sm == {"trades": 40, "winRate": 60, "pf": 1.5, "expectancyR": 0.25, "source": None}

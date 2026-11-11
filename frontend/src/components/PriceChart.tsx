@@ -43,11 +43,11 @@ interface PriceChartProps {
 }
 
 /** The timeframe tabs' names ("SPLIT" is the H1 + M5 split view). */
-export const TAB_LABEL = (tf: string) => (tf === 'SPLIT' ? 'H1 + M5' : tf);
+export const TAB_LABEL = (tf: string) => (tf === 'SPLIT' ? 'H4 + H1' : tf);
 
-const TF_SEC: Record<string, number> = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800 };
+const TF_SEC: Record<string, number> = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H2: 7200, H4: 14400, D1: 86400, W1: 604800 };
 // Candles shown when a pair / timeframe opens (the rest of the history stays one scroll away)
-const VISIBLE_BARS: Record<string, number> = { M1: 180, M5: 160, M15: 150, M30: 130, H1: 120, H4: 100, D1: 66, W1: 52 };
+const VISIBLE_BARS: Record<string, number> = { M1: 180, M5: 160, M15: 150, M30: 130, H1: 120, H2: 110, H4: 100, D1: 66, W1: 52 };
 const PAL = {
   dark: { bg: 'rgba(9, 11, 16, 0.55)', grid: 'rgba(255,255,255,0.035)', text: '#8D96A6', border: '#1F2430', bull: '#16C784', bear: '#EA3943' },
   light: { bg: '#FFFFFF', grid: 'rgba(0,0,0,0.05)', text: '#4D5566', border: '#DDD6C8', bull: '#0E9F6E', bear: '#D92D3A' },
@@ -116,7 +116,7 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
       rightPriceScale: { borderColor: p.border, scaleMargins: { top: 0.1, bottom: 0.16 } },
       timeScale: { borderColor: p.border, timeVisible: true, secondsVisible: false, barSpacing: 8, rightOffset: 8 },
     });
-    const minMove = decimals === 2 ? 0.01 : decimals === 4 ? 0.0001 : 0.00001;
+    const minMove = 10 ** -decimals;
     const cs = chart.addSeries(CandlestickSeries, {
       upColor: p.bull, downColor: p.bear, borderUpColor: p.bull, borderDownColor: p.bear, wickUpColor: p.bull, wickDownColor: p.bear,
       priceFormat: { type: 'price', precision: decimals, minMove },
@@ -240,7 +240,8 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
   const smc = useMemo(() => (showSmc ? computeSmc(bars, tfSec) : null), [bars, tfSec, showSmc]);
   useEffect(() => {
     const team: SmcDrawing = showTeam && drawing ? drawing : { boxes: [], segments: [], labels: [], lines: [], windows: [], trade: drawing?.trade ?? null };
-    const merged: SmcDrawing = smc ? { ...team, pd: smc.pd, sessions: smc.sessions, boxes: [...smc.boxes, ...team.boxes], segments: [...smc.segments, ...team.segments] } : team;
+    const merged: SmcDrawing = smc ? { ...team, pd: smc.pd, sessions: smc.sessions, boxes: [...smc.boxes, ...team.boxes], segments: [...smc.segments, ...team.segments],
+      lines: [...smc.lines, ...(team.lines ?? [])] } : team;
     drawRef.current?.update(merged, bars.map(b => b.time), tfSec, theme);
   }, [drawing, showTeam, smc, bars, tfSec, theme]);
 

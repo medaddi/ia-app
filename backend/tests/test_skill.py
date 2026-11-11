@@ -19,7 +19,7 @@ def test_one_trade_per_pair_at_a_time():
 def test_at_most_two_bets_the_same_way_on_the_dollar():
     sent = [setup("EUR/USD", "BUY"), setup("GBP/USD", "BUY")]  # two short-dollar bets live
     gold = portfolio.check("XAU/USD", {"direction": "BUY"}, sent, NOW)
-    assert gold["verdict"] == "BLOCK" and any(r.startswith("dollar") for r in gold["reasons"])
+    assert gold["verdict"] == "BLOCK" and any(r.startswith("USD:") for r in gold["reasons"])  # the cap now covers all 8 currencies
     assert portfolio.check("XAU/USD", {"direction": "SELL"}, sent, NOW)["verdict"] == "PASS"  # the other way is fine
     assert portfolio.check("AUD/CAD", {"direction": "BUY"}, sent, NOW)["verdict"] == "PASS"  # no dollar leg
 
@@ -75,7 +75,7 @@ def test_a_blocked_setup_is_saved_and_never_sent(monkeypatch):
     monkeypatch.setattr(notify, "market_session_status", lambda p: {"isOpen": True})
     monkeypatch.setattr(notify.time, "time", lambda: 1790001400)
     res = asyncio.run(notify.tick())
-    assert sent == [first["id"]] and "BLOCKED by the risk check: duplicate" in res["EUR/USD"]
+    assert sent == [first["id"]] and "BLOCKED by the portfolio check: duplicate" in res["EUR/USD"]
     assert all(x["id"] != again["id"] for x in notify.recent())  # a blocked setup is not listed as sent
     asyncio.run(notify.tick())
     assert sent == [first["id"]]  # and it is never checked or sent again

@@ -4,7 +4,7 @@ import React from 'react';
  * Small round flags for the currencies the app trades, drawn inline (nothing to download), and a pair icon made of two
  * overlapping circles: the base currency in front, the quote behind it. Gold (XAU) is a gold coin.
  */
-type Ccy = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'NZD' | 'CHF' | 'AUD' | 'XAU';
+type Ccy = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'NZD' | 'CHF' | 'AUD' | 'XAU' | 'JPY';
 
 const UnionJack = ({ w = 60, h = 30 }: { w?: number; h?: number }) => (
   <g>
@@ -78,6 +78,13 @@ function FlagArt({ ccy }: { ccy: Ccy }) {
           <g transform="scale(0.53 0.95)"><UnionJack w={60} h={34} /></g>
           <polygon points={star(16, 48, 6)} fill="#fff" />
           {[[47, 16, 3.2], [55, 30, 3.2], [40, 30, 3.2], [47, 50, 3.6]].map(([x, y, r], i) => <polygon key={i} points={star(x, y, r)} fill="#fff" />)}
+        </g>
+      );
+    case 'JPY':
+      return (
+        <g>
+          <rect width="64" height="64" fill="#FFFFFF" />
+          <circle cx="32" cy="32" r="14" fill="#BC002D" />
         </g>
       );
     case 'CHF':

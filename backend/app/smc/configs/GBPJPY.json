@@ -1,0 +1,49 @@
+{
+  "pair": "GBPJPY",
+  "symbol": "GBP/JPY",
+  "decimals": 3,
+  "pip": 0.01,
+  "point": 0.001,
+  "contract_size": 100000,
+  "pip_value_usd_per_lot": 6.54,
+  "spread_pips": 2.5,
+  "slippage_pips": 0.5,
+  "commission_usd_per_lot": 0.0,
+  "min_stop_cost_ratio": 5.0,
+  "sessions_utc": {
+    "asia": [
+      0,
+      6
+    ],
+    "london": [
+      7,
+      10
+    ],
+    "newyork": [
+      12,
+      15
+    ],
+    "trade": [
+      7,
+      20
+    ]
+  },
+  "news_window_min": 30,
+  "risk_pct": 1.0,
+  "split": {
+    "in_sample": 0.6,
+    "out_of_sample": 0.4
+  },
+  "notes": [
+    "Added for the FXAlexG Set & Forget watchlist (2026-11-10)."
+  ],
+  "yahoo": "GBPJPY=X",
+  "oanda": "GBP_JPY",
+  "psych_step": 0.5,
+  "max_aoi_pips": 65,
+  "tier": "Tier 1 (Alex G Top Swing Pair)",
+  "currencies": [
+    "GBP",
+    "JPY"
+  ]
+}

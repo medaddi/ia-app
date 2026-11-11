@@ -3,13 +3,13 @@ import { markDataReady } from '../splash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { PriceChart, type ChartLevel, type PriceCandle } from './PriceChart';
 import { TeamCard } from './TeamCard';
-import { prefetchTeams, useSmcTeam } from '../smcTeam';
+import { cachedTeams, prefetchTeams, useSmcTeam } from '../smcTeam';
 import type { Language } from '../types';
 import { useLivePrice } from '../livePrices';
 import { TradingViewChart, useChartingLibrary } from '../tradingview/TradingViewChart';
 import { PairFlags } from './PairFlags';
 import { useDragScroll } from '../useDragScroll';
-import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, PAIR_DECIMALS, TIMEFRAMES, marketOpenNow, type InstrumentSymbol } from '../instruments';
+import { INSTRUMENT_LABELS, INSTRUMENT_SYMBOLS, PAIR_DECIMALS, PAIR_GROUPS, TIMEFRAMES, marketOpenNow, type InstrumentSymbol } from '../instruments';
 
 /**
  * The live chart of each pair: its candles, its live price, and its team (the pair playbook strategy) with the setup it found drawn on the chart.
@@ -20,12 +20,12 @@ interface ExunuTerminalViewProps {
   lang?: string;
 }
 
-const PROVIDER_TF: Record<string, string> = { M1: '1M', M5: '5M', M15: '15M', M30: '30M', H1: '1H', H4: '4H', D1: '1D', W1: '1W' };
+const PROVIDER_TF: Record<string, string> = { M1: '1M', M5: '5M', M15: '15M', M30: '30M', H1: '1H', H2: '2H', H4: '4H', D1: '1D', W1: '1W' };
 const NO_CANDLES: PriceCandle[] = [];
 const LIVE_MS = 5000; // candles every 5 s; the price every second (livePrices.ts)
 const DEFAULT_TF = 'H1';
 // the timeframes a tab shows: one chart, or the H1 + M5 split view
-const chartTfs = (tab: string) => (tab === 'SPLIT' ? ['H1', 'M5'] : [tab]);
+const chartTfs = (tab: string) => (tab === 'SPLIT' ? ['H4', 'H1'] : [tab]);
 
 // Each pair's last candles, per pair AND timeframe, with the price info that came with them: a switch shows that pair's
 // own last candles at once (never another pair's), and the fresh ones replace them a moment later
@@ -116,6 +116,21 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
 
   const t = (en: string, fr: string, ar: string) => (lang === 'ar' ? ar : lang === 'fr' ? fr : en);
   const pairBar = useDragScroll<HTMLDivElement>();
+  // the Sunday Swings watchlist: every pair's last read ranked by its 5-agent consensus, signals and radars first
+  const [swings, setSwings] = useState<boolean>(() => { try { return localStorage.getItem('ld_sunday_swings') === '1'; } catch { return false; } });
+  const [, setTick] = useState(0);
+  useEffect(() => { const id = setInterval(() => setTick(x => x + 1), 15000); return () => clearInterval(id); }, []);
+  const toggleSwings = () => setSwings(v => { try { localStorage.setItem('ld_sunday_swings', v ? '0' : '1'); } catch { /* storage blocked */ } return !v; });
+  const rank = (x: ReturnType<typeof cachedTeams>[number]) => (x.signals?.length ? 2000 : x.radar ? 1000 : 0) + (x.consensus ?? 0);
+  const top = cachedTeams().filter(x => x.success).sort((a, b) => rank(b) - rank(a)).slice(0, 5);
+  const li = lang === 'ar' ? 2 : lang === 'fr' ? 1 : 0;
+  const pairButton = (id: InstrumentSymbol, extra?: string) => (
+    <button key={id} role="tab" aria-selected={symbol === id} onClick={() => setSymbol(id)}
+      className={`h-10 ps-2 pe-3 shrink-0 inline-flex items-center gap-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${symbol === id ? 'glass-pill text-gold-100' : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'}`}>
+      <PairFlags symbol={id} size={18} />
+      <span className="font-mono">{id}</span>{extra && <span className="font-mono text-[10px] text-gold-300">{extra}</span>}
+    </button>
+  );
   const decimals = PAIR_DECIMALS[symbol];
   const lastClose = candles.length ? candles[candles.length - 1].close : null;
   const shown = live?.price ?? lastClose;
@@ -128,7 +143,7 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
   const levels: ChartLevel[] = (sig ? [{ price: sig.entry, label: `${sig.strategy} ${sig.direction}`, kind: 'entry' as const },
     { price: sig.sl, label: 'SL', kind: 'sl' as const }, { price: sig.tp, label: 'TP', kind: 'tp' as const }] : []).filter(l => near(l.price));
   // the position tool's numbers: the stop in pips and its 1 % risk, the target's pips and R:R (gold: 1 pip = $0.10)
-  const pip = decimals === 2 ? 0.1 : 0.0001;
+  const pip = decimals === 2 ? 0.1 : decimals === 3 ? 0.01 : 0.0001;  // gold $0.10, JPY pairs 0.01
   const tool = (tr: NonNullable<typeof ch>['trade']) => tr && near(tr.entry) ? {
     ...tr, slPips: Math.abs(tr.entry - tr.sl) / pip, tpPips: Math.abs(tr.tp - tr.entry) / pip,
     rr: Math.abs(tr.tp - tr.entry) / (Math.abs(tr.entry - tr.sl) || 1), risk: `1 % = $100 / $10k`,
@@ -145,16 +160,25 @@ export const ExunuTerminalView: React.FC<ExunuTerminalViewProps> = ({ initialSym
           {/* Pairs: each with its flags; scrolls sideways on a phone without a visible scrollbar */}
           <div ref={pairBar} role="tablist" aria-label={t('Instrument', 'Instrument', 'الأداة')}
             className="no-scrollbar select-none cursor-grab flex items-center gap-1 overflow-x-auto max-w-full -mx-1 px-1 [mask-image:linear-gradient(90deg,transparent,#000_12px,#000_calc(100%-16px),transparent)]">
-            {INSTRUMENT_SYMBOLS.map(id => (
-              <button key={id} role="tab" aria-selected={symbol === id} onClick={() => setSymbol(id)}
-                className={`h-10 ps-2 pe-3 shrink-0 inline-flex items-center gap-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${symbol === id ? 'glass-pill text-gold-100' : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]'}`}>
-                <PairFlags symbol={id} size={18} />
-                <span className="font-mono">{id}</span><span className="hidden 2xl:inline text-slate-500"> · {INSTRUMENT_LABELS[id]}</span>
-              </button>
+            {swings ? (
+              <>
+                <span className="shrink-0 px-2 text-[10px] uppercase tracking-wider text-gold-300">{t('Watchlist top picks', 'Meilleures paires', 'أحسن الأزواج')}</span>
+                {top.length === 0 && <span className="shrink-0 text-[11px] text-slate-500">{t('Reading the 29 teams…', 'Lecture des 29 équipes…', 'كيقرا 29 فريق…')}</span>}
+                {top.map(x => pairButton(x.symbol as InstrumentSymbol, `${x.signals?.length ? '🎯' : x.radar ? '👀' : ''}${x.consensus ?? ''}`))}
+              </>
+            ) : PAIR_GROUPS.map(g => (
+              <React.Fragment key={g.id}>
+                <span className="shrink-0 ps-2 pe-1 text-[10px] uppercase tracking-wider text-slate-500" title={INSTRUMENT_LABELS[g.pairs[0]]}>{g.label[li]}</span>
+                {g.pairs.map(id => pairButton(id))}
+              </React.Fragment>
             ))}
           </div>
         </div>
         <div className="flex items-center gap-2 font-mono text-xs">
+          <button type="button" onClick={toggleSwings} aria-pressed={swings}
+            className={`h-8 px-2.5 rounded-lg border text-[11px] cursor-pointer ${swings ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white'}`}>
+            {t('Sunday Swings', 'Sunday Swings', 'Sunday Swings')}
+          </button>
           <span className={`w-1.5 h-1.5 rounded-full ${open ? 'bg-emerald-400' : 'bg-slate-500'}`} aria-hidden="true" />
           <span className="text-slate-400">{open ? t('Market open', 'Marché ouvert', 'السوق مفتوح') : t('Market closed', 'Marché fermé', 'السوق مغلق')}</span>
           <span className="text-white font-semibold tabular-nums">{shown != null ? shown.toFixed(decimals) : '—'}</span>

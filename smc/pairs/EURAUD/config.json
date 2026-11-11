@@ -1,0 +1,49 @@
+{
+  "pair": "EURAUD",
+  "symbol": "EUR/AUD",
+  "decimals": 5,
+  "pip": 0.0001,
+  "point": 1e-05,
+  "contract_size": 100000,
+  "pip_value_usd_per_lot": 6.5,
+  "spread_pips": 2.5,
+  "slippage_pips": 0.5,
+  "commission_usd_per_lot": 0.0,
+  "min_stop_cost_ratio": 5.0,
+  "sessions_utc": {
+    "asia": [
+      0,
+      6
+    ],
+    "london": [
+      7,
+      10
+    ],
+    "newyork": [
+      12,
+      15
+    ],
+    "trade": [
+      7,
+      20
+    ]
+  },
+  "news_window_min": 30,
+  "risk_pct": 1.0,
+  "split": {
+    "in_sample": 0.6,
+    "out_of_sample": 0.4
+  },
+  "notes": [
+    "Added for the FXAlexG Set & Forget watchlist (2026-11-10)."
+  ],
+  "yahoo": "EURAUD=X",
+  "oanda": "EUR_AUD",
+  "psych_step": 0.005,
+  "max_aoi_pips": 60,
+  "tier": "Tier 1 (Alex G Swing Cross)",
+  "currencies": [
+    "EUR",
+    "AUD"
+  ]
+}

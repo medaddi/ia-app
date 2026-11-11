@@ -14,9 +14,8 @@ import httpx
 
 from .types import Candle
 
-INSTRUMENTS = {"XAU/USD": "XAU_USD", "EUR/USD": "EUR_USD", "GBP/USD": "GBP_USD", "EUR/CHF": "EUR_CHF", "AUD/CAD": "AUD_CAD",
-               "AUD/CHF": "AUD_CHF", "USD/CAD": "USD_CAD", "USD/CHF": "USD_CHF", "AUD/USD": "AUD_USD"}
-GRANULARITY = {"1M": "M1", "5M": "M5", "15M": "M15", "30M": "M30", "1H": "H1", "4H": "H4", "1D": "D", "1W": "W"}
+INSTRUMENTS = {"XAU/USD": "XAU_USD", "EUR/USD": "EUR_USD", "GBP/USD": "GBP_USD", "USD/JPY": "USD_JPY", "USD/CAD": "USD_CAD", "USD/CHF": "USD_CHF", "AUD/USD": "AUD_USD", "NZD/USD": "NZD_USD", "GBP/JPY": "GBP_JPY", "GBP/AUD": "GBP_AUD", "GBP/NZD": "GBP_NZD", "GBP/CAD": "GBP_CAD", "GBP/CHF": "GBP_CHF", "EUR/GBP": "EUR_GBP", "EUR/JPY": "EUR_JPY", "EUR/AUD": "EUR_AUD", "EUR/NZD": "EUR_NZD", "EUR/CAD": "EUR_CAD", "EUR/CHF": "EUR_CHF", "AUD/JPY": "AUD_JPY", "AUD/CAD": "AUD_CAD", "AUD/CHF": "AUD_CHF", "AUD/NZD": "AUD_NZD", "NZD/JPY": "NZD_JPY", "NZD/CAD": "NZD_CAD", "NZD/CHF": "NZD_CHF", "CAD/JPY": "CAD_JPY", "CAD/CHF": "CAD_CHF", "CHF/JPY": "CHF_JPY"}
+GRANULARITY = {"1M": "M1", "5M": "M5", "15M": "M15", "30M": "M30", "1H": "H1", "2H": "H2", "4H": "H4", "1D": "D", "1W": "W"}
 MAX_COUNT = 5000
 SOURCE = "OANDA v20 (mid, bid/ask spread)"
 

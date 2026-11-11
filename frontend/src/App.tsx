@@ -10,6 +10,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
 const ExunuTerminalView = lazy(() => import('./components/ExunuTerminalView').then(m => ({ default: m.ExunuTerminalView })));
 import { DashboardView } from './components/DashboardView';
+import { SignalToasts } from './components/SignalToasts';
 import { isInstrument } from './instruments';
 import { notifyEnabled, subscribePush } from './notifications';
 import { GoldLoader, LogoLoader } from './components/GoldLoader';
@@ -302,6 +303,7 @@ export default function App() {
     <>
       {tgBanner}
       {tgDialog}
+      <SignalToasts lang={lang} />
       <AppLayout
         activeTab={activeTab}
         onSelectTab={setActiveTab}
