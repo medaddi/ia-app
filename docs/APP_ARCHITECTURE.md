@@ -39,8 +39,7 @@ backend/app/
                  (squad), scan (history + live), report (pairReport), draw_objects (chart)
     playbook.py  shared pieces: resample, ema, atr, run() (the trade followed on M5), _make, the registry (STRATEGIES)
     desk.py      one team read: team(pair) / read_team(...): candles -> alexg.scan -> alexg.report -> chart -> JSON
-    notify.py    tick(): signal, then the trade manager (a radar read is never sent); broadcast to Telegram + push; recent()
-    strategy.json  every testable threshold: value, origin (source / research / baseline), pre-registered grid, presets
+    notify.py    tick(): radar, signal, then the trade manager; broadcast to Telegram + push; recent(), recent_radar()
     manager.py   follows each sent setup (FILLED, BREAKEVEN +1.5R, TP_HIT, SL_HIT, BE_CLOSED, EXPIRED), saves results
     skill/portfolio.py   cross-team check: one trade per pair, <= 2 same-way bets per currency, 3 % total, 5 a day
     skill/cot.py         CFTC positioning (not used by the 5 agents)
@@ -90,17 +89,12 @@ SL). Each: status ok / warn / wait / veto, score 0-100, badge <= 55 chars, detai
 
 **One read** (`desk.team(pair)`, cached 60 s): M5 2000, H1 4000 (4H / 2H aggregated), D1 900 (W1 resampled) ->
 `alexg.scan` -> `alexg.report` -> chart objects -> JSON: `strategies` (one row per setup type), `signals`, `chart`,
-`agents`, `grade`, `gpa`, `consensus`, `decision`, `setupType`, `checklist`, `radar`, `pairReport`, `evidence`
-(the validation state of the pair: insufficient data / experimental / validated for research), `family`, `params`.
+`agents`, `grade`, `gpa`, `consensus`, `decision`, `setupType`, `checklist`, `radar`, `pairReport`.
 
-**Parameters and versions** (`strategy.json`, `alexg.P`, `alexg.use(preset)`): source rules (>= 3 touches, the H4 fallback
-when W1 / D1 have no three-touch zone in range), research numbers (zone 0.35 ATR D1, rejection 0.75 ATR D1, counter-trend
-GPA 80), baseline (R:R 2). SF_COUNTER is the counter-trend family: labelled, counted and gated apart (GPA >= 80).
-
-**Alerts** (`notify.tick()`, every minute, 29 pairs read 8 at a time): SIGNAL_EXECUTE after `portfolio.check` (1 per pair,
-<= 2 same-way bets per currency, <= 3 % total), saved in `signals`, sent to Telegram (linked chats + admin), web push and the
-app; MANAGER_LIVE_UPDATE: FILLED, BREAKEVEN LOCKED (+1.5R), TAKE PROFIT HIT, STOP LOSS HIT, CLOSED / EXPIRED. A radar read
-(in a zone, the trigger missing) is NOT a notification since v2.4: nothing goes to Telegram, push, toasts or the bell.
+**Alerts** (`notify.tick()`, every minute, 29 pairs read 8 at a time): 1 · AOI_WATCH_ALERT ("👀 [RADAR] ..."), once per
+wave (watermarks); 2 · SIGNAL_EXECUTE after `portfolio.check` (1 per pair, <= 2 same-way bets per currency, <= 3 % total),
+saved in `signals`, sent to Telegram (linked chats + admin), web push and the app; 3 · MANAGER_LIVE_UPDATE: FILLED,
+BREAKEVEN LOCKED (+1.5R), TAKE PROFIT HIT, STOP LOSS HIT, CLOSED / EXPIRED.
 
 ## 6. Database tables
 
@@ -114,18 +108,16 @@ Health: `/api/health`, `/api/cron/status`, `/api/cron/tick`. Auth / account: `/a
 `/push/key|subscribe|unsubscribe|test`, `/telegram/bot|connect`, `/users...` (admin). Market: `/market/prices`,
 `/market/candles`, `/exunu/candles?symbol=&timeframe=1M|5M|15M|1H|4H`, `/news`. Settings: `/settings`,
 `/telegram/config|bot-info|switch-bot|webhook|test|subscribers`. Teams: `/smc/team?symbol=`, `/smc/results`,
-`/smc/signals` (the sent setups; radar reads are not notifications).
+`/smc/signals` (sent setups + `radar`).
 
 ## 8. Frontend
 
 Login -> token in localStorage. Dashboard (prices, sent setups, results, news). Terminal: pairs grouped (Majors, JPY
 Crosses, GBP/EUR Crosses, Commodity/CHF, Gold) with a "Sunday Swings" toggle (top 5 by consensus, signals and radars
-first); chart tabs M15 | M30 | H1 | H2 | H4 | D1 | W1 | H4 + H1. The chart is calm by default: candles, the zone in play, the 1D
-structure levels, the proposed trade (ENTRY / STOP / TARGET lines with price, pips and R:R, the +1.5R step), a legend;
-switches "EMA 50" (on) and "Details" (off: other zones, round numbers, 4H levels, sessions, liquidity, FVGs). The team card:
-5 agents with score and weight, the GPA grade and bar, the 9-point checklist, the evidence state of the pair, and each
-setup's plan (direction, timeframe, grade, family, entry, stop, target, R:R, invalidation, reasons); the bell (sent signals,
-Test Telegram, Test Web Push). `SignalToasts` shows a toast with a sound for a new signal only. Languages: English,
+first); chart tabs M15 | M30 | H1 | H2 | H4 | D1 | W1 | H4 + H1; the blue 50 EMA on every timeframe, AOI boxes with
+touches and psych, HH / HL / LH / LL markers, the SoS line, the position box with the +1.5R line; the team card (5 agents
+with score and weight, the GPA grade and bar, the 9-point checklist, the setup rows) and the bell (live alerts, Test
+Telegram, Test Web Push). `SignalToasts` shows a toast with a sound for a new signal or radar. Languages: English,
 French, Darija/Arabic.
 
 ## 9. Research loop
@@ -149,11 +141,7 @@ Research, not advice; no orders. Push only to `medv`; commit only when asked. No
 
 ## 12. Known limits (honest state)
 
-- Validation of 2026-11-11 (smc/research/): Dukascopy one year on 6 pairs, candidate 13 trades, expectancy -0.08R with a 95 %
-  interval of [-1.08, +1.08]; Yahoo 60 days on 29 instruments, candidate 29 trades, +0.20R [-0.37, +0.92]. The intervals
-  cross 0 and no instrument has more than 4 of the 100 out-of-sample trades the pre-registered rule asks for: every pair is
-  "insufficient data". The strategy is neither shown profitable nor shown unprofitable.
-- The 23 pairs without a stored year need more history (Dukascopy refused the download with 503); the Dukascopy year
-  builds D1 / W1 from itself, so it sees less weekly history than the live app.
-- The parameter grid in strategy.json is registered but not searched: with these samples a search would only fit noise.
+- Dukascopy one year on 6 pairs (D1 / W1 from that year only): 16 trades, 19 % wins, -3.14R, PF 0.76. Yahoo last 60 days
+  on 29 pairs (full W1 / D1): 29 trades, 21 % wins, +2.25R, PF 1.14. Small samples either way; the 23 new pairs have no
+  stored year (Dukascopy refused the download with 503).
 - OANDA is coded but off until its token is set; on Yahoo forex has no volume and gold is GC=F futures.

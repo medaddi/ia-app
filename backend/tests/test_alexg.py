@@ -238,27 +238,26 @@ def _sig(sid, t):
 
 def _clean():
     from app.db import SessionLocal, init_db
-    from app.models import Signal
+    from app.models import Setting, Signal, Watermark
     init_db()
     with SessionLocal() as db:
         db.query(Signal).filter(Signal.id.like("SMC-%")).delete(synchronize_session=False)
+        db.query(Watermark).filter(Watermark.ref == "RADAR").delete(synchronize_session=False)
+        db.query(Setting).filter(Setting.key == "radar").delete(synchronize_session=False)
         db.commit()
 
 
-def test_the_signal_message():
-    sid = f"SMC-GBPUSD-SF_BR-{T0}-B"
-    t = notify.message({**_sig(sid, T0), "etf": "M15"}, "GBP/USD", 5)
-    for part in ("GBP/USD — BUY</b> · Grade A", "Entry <code>1.25120</code>", "SL <code>1.24780</code>", "TP <code>1.26175</code>", "R:R 1:3.1",
-                 "M15 | ", " UTC", f"ID <code>{sid}</code>", "not an order", "Stop fixed"):
-        assert part in t, part
-    assert "lot" not in t.lower() and "$" not in t and "risk" not in t.lower()  # market data only: nobody's risk or lot
-    assert f"LD|v=1|id={sid}|symbol=GBPUSD|side=BUY|entry=1.25120|sl=1.24780|tp=1.26175|tf=M15|time=" in t
-    mk = notify.copy_markup({**_sig(sid, T0), "etf": "M15"}, "GBP/USD", None)
-    assert mk["inline_keyboard"][0][0]["copy_text"]["text"].startswith("LD|v=1|") and len(mk["inline_keyboard"][0][0]["copy_text"]["text"]) <= 256
-    assert not hasattr(notify, "radar_message")  # the radar is no longer a notification
+def test_the_three_messages():
+    t = notify.message(_sig("SMC-GBPUSD-SF_BR-1-B", T0), "GBP/USD", 5)
+    for part in ("SET &amp; FORGET — GBP/USD BUY", "SF_BR", "Grade:</b> A (GPA 85%)", "Consensus:</b> 88/100", "Entry:</b> <code>1.25120</code>",
+                 "Structural SL:</b> <code>1.24780</code>", "-34.0 pips", "Break-even at +1.5R:</b> <code>1.25630</code>", "Front-run TP:</b> <code>1.26175</code>",
+                 "before Psych <code>1.26250</code>", "1 : 3.10", "Risk</b> <code>1%</code>", "5-Agent Desk", "does not place orders"):
+        assert part in t
+    r = {"direction": "SELL", "tf": "1W+1D", "touches": 6, "gpa": 72, "grade": "C+"}
+    assert notify.radar_message("GBP/JPY", r, 3).startswith("👀 [RADAR] GBP/JPY (SELL) inside 1W+1D AOI (6 touches) · GPA 72% (C+) · Waiting for LTF Engulfing close.")
 
 
-def test_no_radar_notification_and_the_signal_once(monkeypatch):
+def test_radar_once_then_the_signal_once(monkeypatch):
     _clean()
     T = T0 + 9 * 3600
     rad = {"id": f"RADAR-GBPJPY-B-1-{T}", "direction": "BUY", "tf": "1D", "touches": 4, "low": 192.4, "high": 192.85, "psych": 192.5, "etf": "H1",
@@ -273,7 +272,7 @@ def test_no_radar_notification_and_the_signal_once(monkeypatch):
         return {"success": True, "signals": [], "radar": None, "decision": "WATCH_ONLY"}
     sent = []
 
-    async def fake_broadcast(pair, text, title, body, tag, signal=None):
+    async def fake_broadcast(pair, text, title, body, tag):
         sent.append((pair, text))
         return {"telegram": 1, "push": 1}
     monkeypatch.setattr(notify, "team", fake_team)
@@ -282,17 +281,15 @@ def test_no_radar_notification_and_the_signal_once(monkeypatch):
     monkeypatch.setattr(notify.time, "time", lambda: T + 60)
     asyncio.run(notify.tick())
     asyncio.run(notify.tick())
-    assert sent == []  # a radar read sends nothing: no Telegram, no push, nothing in the feed
+    assert [p for p, _ in sent] == ["GBP/JPY"] and sent[0][1].startswith("👀 [RADAR]")  # once per wave
     state["sig"] = [_sig(f"SMC-GBPUSD-SF_BR-{T}-B", T)]
     res = asyncio.run(notify.tick())
     asyncio.run(notify.tick())
     assert [p for p, _ in sent].count("GBP/USD") == 1 and "SF_BR grade A → telegram 1 · push 1" in res["GBP/USD"]
-    assert all("RADAR" not in txt for _, txt in sent) and any(x["id"] == state["sig"][0]["id"] for x in notify.recent())
-    from app.api import smc as smc_api
-    assert "radar" not in smc_api.smc_signals(None)  # the app's feed carries the sent setups only
+    assert notify.recent_radar()[0]["symbol"] == "GBP/JPY" and any(x["id"] == state["sig"][0]["id"] for x in notify.recent())
 
 
-def test_the_manager_keeps_the_stop_fixed_and_tells_the_close(monkeypatch):
+def test_the_manager_tells_breakeven_locked_then_the_close(monkeypatch):
     _clean()
     T = T0 + 9 * 3600 - (T0 + 9 * 3600) % 300
     s = _sig(f"SMC-GBPUSD-SF_BR-{T + 300}-B", T + 300)
@@ -307,16 +304,10 @@ def test_the_manager_keeps_the_stop_fixed_and_tells_the_close(monkeypatch):
     async def send(pair, text, title, body, tag):
         sent.append((title, text))
     one = asyncio.run(manager.manage_all(send))
-    assert one[s["id"]] == ["FILLED"]  # past +1.5R: no break-even step any more, the stop stays where the signal put it
-    m5.append(c(3, 1.2560, 1.2562, 1.2509, 1.2511))  # back down through the entry: the stop (1.24780) is still far away
-    assert asyncio.run(manager.manage_all(send)) == {}
-    m5.append(c(4, 1.2511, 1.2512, 1.2470, 1.2475))  # down through the saved stop
+    assert one[s["id"]] == ["FILLED", "TP1"] and "BREAKEVEN LOCKED (+1.5R)" in sent[1][0] and "<code>1.25140</code>" in sent[1][1]
+    m5.append(c(3, 1.2560, 1.2562, 1.2509, 1.2511))  # back down: the locked stop at entry + 2 pips
     two = asyncio.run(manager.manage_all(send))
-    assert two[s["id"]] == ["STOP"] and "STOP LOSS HIT" in sent[-1][0] and len(sent) == 2
-    from app.db import SessionLocal
-    from app.models import Signal
-    with SessionLocal() as db:
-        row = db.get(Signal, s["id"])
-        assert row.sl == s["sl"] == 1.2478 and row.outcome == "LOSS"  # the saved stop never changed
+    assert two[s["id"]] == ["BE_STOP"] and "CLOSED at break-even" in sent[-1][0]
+    assert asyncio.run(manager.manage_all(send)) == {} and len(sent) == 3
     res = manager.results()
-    assert res["all"]["trades"] == 1 and abs(res["all"]["totalR"] + 1.0) < 0.01
+    assert res["all"]["trades"] == 1 and abs(res["all"]["totalR"] - 0.059) < 0.01  # +2 pips on a 34-pip stop

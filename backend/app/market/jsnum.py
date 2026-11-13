@@ -24,20 +24,7 @@ def to_fixed(x: float, d: int) -> str:
 
 
 def round_to(x: float, d: int) -> float:
-    """Number(v.toFixed(d)).
-
-    Fast path (every candle price goes through here, ~120,000 calls per pair read): when x * 10^d is not within 1e-6 of a
-    half, the nearest integer n is unambiguous and n / 10^d (one correctly rounded division) is exactly float(toFixed).
-    Only a value at or next to a half takes the exact Decimal path, where toFixed's half-away-from-zero matters."""
-    if 0 <= d <= 15 and x == x and abs(x) < 1e15:
-        p = 10.0 ** d
-        y = abs(x) * p
-        if y < 4e15:
-            f = y - math.floor(y)
-            if abs(f - 0.5) > 1e-6:
-                n = math.floor(y + 0.5)
-                v = n / p
-                return -v if x < 0 else v  # a tiny negative rounds to -0.0, as Number("-0.00") does
+    """Number(v.toFixed(d))."""
     s = to_fixed(x, d)
     return float(s) if s not in ("NaN", "Infinity", "-Infinity") else float(s.replace("Infinity", "inf"))
 

@@ -26,29 +26,9 @@ TTL = 60
 FRESH_SEC = 20 * 60  # CHOICE: a market entry is alerted only within 20 minutes of its trigger candle (never a stale price)
 _cache: dict[str, tuple[float, dict]] = {}
 _locks: dict[str, asyncio.Lock] = {}
-_cpu_gate: list = []
-
-
-def _cpu() -> asyncio.Semaphore:
-    """The one-read-at-a-time gate of the strategy maths (made on first use, inside the running event loop)."""
-    if not _cpu_gate:
-        _cpu_gate.append(asyncio.Semaphore(1))
-    return _cpu_gate[0]
 LIVE: dict[str, tuple] = {}  # pair → (closed M5 candles, cost, news times) of the last read: what the trade manager follows
 _PLAY_FILE = Path(__file__).parent / "research" / "playbook.json"
 PLAY_RESULTS = json.loads(_PLAY_FILE.read_text(encoding="utf-8")) if _PLAY_FILE.exists() else {}  # smc/tools/playbook_test.py
-_VAL_FILE = Path(__file__).parent / "research" / "validation.json"
-VALIDATION = (json.loads(_VAL_FILE.read_text(encoding="utf-8")) if _VAL_FILE.exists() else {}).get("pairs", {})  # smc/tools/validate.py
-NEEDED_OOS = alexg.STRATEGY["validation"]["min_oos_trades_per_instrument"]
-
-
-def evidence(key: str) -> dict:
-    """What the validation can say about this pair's strategy: 'insufficient data' until it has the out-of-sample trades
-    the pre-registered rule asks for. Never 'profitable' from a handful of trades. The chart works whatever the state."""
-    v = VALIDATION.get(key)
-    if not v:
-        return {"state": "insufficient data", "oosTrades": 0, "needed": NEEDED_OOS, "trades": 0, "source": None}
-    return v
 
 
 def setup_id(pair: str, s: dict) -> str:
@@ -71,10 +51,6 @@ def _setup_json(pair: str, cfg: dict, s: dict) -> dict:
     lots = {"1000": lots_for(cfg, s["entry"], s["sl"], 1000, rk), "10000": lots_for(cfg, s["entry"], s["sl"], 10000, rk)}
     g = s.get("geo") or {}
     zones = [{"label": "AOI", "top": g["aoi"][1], "bottom": g["aoi"][0], "from": g["aoi"][2]}] if g.get("aoi") else []
-    buy = s["dir"] > 0
-    zi = s.get("zoneInfo") or {}
-    invalidation = (f"{'Below' if buy else 'Above'} {rd(s['sl'])}: price through the {zi.get('label', '')} zone "
-                    f"({rd(zi.get('low'))} – {rd(zi.get('high'))}) and the last swing, plus a volatility buffer and the spread") if zi else None
     return {"id": setup_id(pair, s), "strategy": s["sid"], "name": playbook.NAMES[pair.replace("/", "")][s["sid"]],
             "direction": "BUY" if s["dir"] > 0 else "SELL", "time": s["time"], "entry": rd(s["entry"]), "sl": rd(s["sl"]), "tp": rd(s["tp"]),
             "tp1": rd(s["tp1"]), "part": s["part"], "market": s["market"], "zone": [rd(min(s["zone"])), rd(max(s["zone"]))],
@@ -83,7 +59,6 @@ def _setup_json(pair: str, cfg: dict, s: dict) -> dict:
             "state": s["result"]["state"], "pass": s["pass"], "checklist": [{"q": a, "ok": ok, "detail": det} for a, ok, det in s["checklist"]],
             "steps": [{"step": a, "ok": ok, "detail": det} for a, ok, det in s["steps"]], "lots": lots, "riskPct": rk,
             "grade": s.get("grade"), "gpa": s.get("gpa"), "consensus": s.get("consensus"), "setupType": s.get("setupType"), "etf": s.get("etf"),
-            "family": s.get("family"), "invalidation": invalidation, "confirmedAt": s.get("confirmedAt"),
             "checklistGpa": s.get("checklistGpa"), "desk": s.get("desk"), "zoneInfo": s.get("zoneInfo"), "slPips": s.get("slPips"),
             "tpPips": s.get("tpPips"), "bePips": s.get("bePips"), "psychTp": s.get("psychTp"), "fridayExit": s.get("fridayExit"),
             "draw": {"entry": s["entry"], "sl": s["sl"], "tp": s["tp"], "zone": [min(s["zone"]), max(s["zone"])], "zones": zones, "from": s["time"]}}
@@ -126,13 +101,14 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
     r = rep["read"]
     h4 = r["S"]["H4"]
     chart = {"trend": "BULLISH" if h4 > 0 else "BEARISH" if h4 < 0 else "UNDEFINED", "premium": False, "windows": [],
-             **alexg.draw_objects(key, m5, h1, d1, now, lambda v: round(v, cfg["decimals"]), spread, r["zone"] or r["near"]), "trade": None}
+             **alexg.draw_objects(key, m5, h1, d1, now, lambda v: round(v, cfg["decimals"]), spread), "trade": None}
     signals = []
     if shown:
         d = 1 if shown["direction"] == "BUY" else -1
         chart["trade"] = {"from": shown["time"], "to": max(shown["time"] + 24 * 3600, now + 6 * 3600), "entry": shown["entry"], "zone": shown["zone"],
-                          "sl": shown["sl"], "tp": shown["tp"], "dir": d, "rr": shown["rr"], "tp1": shown["tp1"],
-                          "label": f"{shown['direction']} · {shown['setupType']} · {shown.get('etf') or ''} · grade {shown['grade']} (research signal)"}
+                          "sl": shown["sl"], "tp": shown["tp"], "dir": d, "label": f"Set & Forget {shown['direction']} · {shown['grade']} · 1:{shown['rr']}"}
+        chart["segments"].append({"from": shown["time"], "to": chart["trade"]["to"], "price": shown["tp1"], "kind": "liquidity", "dir": d,
+                                  "label": "+1.5R · stop to entry + 2 pips"})
         if now - shown["time"] <= FRESH_SEC:  # a market entry is alerted only while its price is fresh
             signals = [shown]
     c = rep["contract"]
@@ -142,8 +118,7 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
                                          "from": (PLAY_RESULTS.get(key) or {}).get("from"), "to": (PLAY_RESULTS.get(key) or {}).get("to")},
             "badge": f"{arrows} · GPA {c['gpa_score']}% ({c['grade']})", "grade": c["grade"], "gpa": c["gpa_score"], "consensus": c["consensus_score"],
             "decision": c["final_decision"], "direction": c["direction"], "setupType": c["setup_type"], "checklist": c["checklist"],
-            "radar": radar, "news": news, "pairReport": c, "agents": rep["agents"], "evidence": evidence(key),
-            "family": r.get("family"), "params": {"minRr": alexg.P["min_rr"], "counterMinGpa": alexg.P["counter_min_gpa"], "version": alexg.STRATEGY["version"]}}
+            "radar": radar, "news": news, "pairReport": c, "agents": rep["agents"]}
 
 
 def pair_currencies(pair: str) -> set[str]:
@@ -210,12 +185,7 @@ async def team(pair: str, fresh: bool = False) -> dict:
             h1 = [c for c in h1s["candles"] if c.time + 3600 <= now]
             d1 = None if bad(ds) else [c for c in ds["candles"] if c.time + 86400 <= now]
             if len(m5) >= 300 and len(h1) >= 300:
-                pv, news = await asyncio.gather(_pip_value(pair, cfg), _news(pair))
-                # the strategy maths is CPU work (about a second cold): one read at a time, in a worker thread, so the server
-                # keeps answering the other requests (the chart's candles, the prices) meanwhile. One at a time because Python
-                # threads share one CPU lock: several reads side by side would starve those requests instead
-                async with _cpu():
-                    out = await asyncio.to_thread(read_team, pair, {**pv, "live_spread": m5s.get("spread") or 0.0}, m5, h1, now, news, d1)
+                out = read_team(pair, {**(await _pip_value(pair, cfg)), "live_spread": m5s.get("spread") or 0.0}, m5, h1, now, await _news(pair), d1)
                 out["marketOpen"] = market_session_status(pair)["isOpen"]
                 out["source"] = m5s["source"]
                 out["feed"] = {**(h1s.get("integrity") or {}), "spread": m5s.get("spread") or 0.0}  # the sanitizer's report on H1

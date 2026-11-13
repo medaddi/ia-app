@@ -4,7 +4,6 @@ import { apiJson } from '../api';
 import { disableNotifications, enableNotifications, needsInstall, notifyEnabled, notifyPermission, notifySupported, testPush } from '../notifications';
 import type { Language } from '../types';
 import { Button, Card, Field, Notice, fmtDate, inputCls, tr } from './ui';
-import { ImportCard, RiskCard } from './RiskSizing';
 
 /** My account: who I am, the Telegram link, the notifications of this device and my password. No trades: they are being rebuilt. */
 export interface AppUser {
@@ -119,8 +118,6 @@ export const AccountView: React.FC<AccountViewProps> = ({ lang, theme = 'dark', 
           {user.createdAt && <><dt className="text-slate-500">{t('Since', 'Depuis', 'من')}</dt><dd className="font-mono text-slate-300">{fmtDate(user.createdAt)}</dd></>}
         </dl>
       </Card>
-      <RiskCard isLight={isLight} lang={lang} />
-      <ImportCard isLight={isLight} lang={lang} />
       <TelegramLinkCard isLight={isLight} lang={lang} user={user} onUserChange={onUserChange} />
       <NotificationsCard isLight={isLight} lang={lang} />
       <Card isLight={isLight} icon={<KeyRound className="w-4 h-4" />} title={t('Password', 'Mot de passe', 'كلمة السر')}>

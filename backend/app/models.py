@@ -8,14 +8,12 @@ Database tables.
   settings       app parameters (key → JSON value)
   watermarks     anti copy-trading log: which chat received which personal offset
   trader_files   each user's trader-skill files: config, the order of each pair, the decision log
-  user_signal_sizes  one user's own lot for one signal (their USD risk, the lot, the contract / conversion data used):
-                 private to that user, written once, never rewritten by a later risk change
 """
 
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -190,24 +188,3 @@ class TraderFile(Base):
     name: Mapped[str] = mapped_column(String(32), primary_key=True)
     data: Mapped[dict] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
-
-
-class UserSignalSize(Base):
-    """One user's size for one signal: their USD risk at that moment, the lot, the estimated loss and the contract /
-    conversion data used (`meta`). Read and written only through queries scoped to that user."""
-    __tablename__ = "user_signal_sizes"
-    __table_args__ = (UniqueConstraint("user_id", "signal_id", name="uq_user_signal_size"),)
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    signal_id: Mapped[str] = mapped_column(String(80), index=True)
-    source: Mapped[str] = mapped_column(String(12), default="app")  # app | telegram | import
-    risk_usd: Mapped[float] = mapped_column(Float)
-    lots: Mapped[float] = mapped_column(Float)
-    est_loss_usd: Mapped[float] = mapped_column(Float)
-    meta: Mapped[dict] = mapped_column(JSON)
-    symbol: Mapped[str] = mapped_column(String(16))
-    direction: Mapped[str] = mapped_column(String(8))
-    entry: Mapped[float] = mapped_column(Float)
-    sl: Mapped[float] = mapped_column(Float)  # the signal's fixed stop, copied once
-    tp: Mapped[float] = mapped_column(Float)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -39,17 +39,12 @@ function fractals(b: Bar[]) {
   return { hi, lo };
 }
 
-/** The blue 50 EMA of the timeframe on screen (from the whole series), as one line. */
-export function emaLine(all: Bar[], tfSec: number): DrawLine | null {
-  const e50 = ema50(all);
-  const pts: [number, number][] = [];
-  for (let i = Math.max(0, all.length - 400); i < all.length; i++) { const v = e50[i]; if (v != null) pts.push([all[i].time + tfSec, v]); }
-  return pts.length ? { points: pts, color: '#3b82f6', label: '50 EMA' } : null;
-}
-
-/** The secondary overlays (the chart's "Details" switch, off by default). */
 export function computeSmc(all: Bar[], tfSec: number): SmcOverlay {
   const out: SmcOverlay = { pd: null, boxes: [], segments: [], sessions: [], lines: [] };
+  const e50 = ema50(all);  // the blue 50 EMA on every timeframe, from the whole series
+  const pts: [number, number][] = [];
+  for (let i = Math.max(0, all.length - 400); i < all.length; i++) { const v = e50[i]; if (v != null) pts.push([all[i].time + tfSec, v]); }
+  if (pts.length) out.lines.push({ points: pts, color: '#3b82f6', label: '50 EMA' });
   const b = all.slice(-400);
   const n = b.length;
   if (n < 10) return out;

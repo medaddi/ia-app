@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..auth import current_user
 from ..market.data import canonical
 from ..smc.desk import BY_SYMBOL, team
-from ..smc.notify import recent
+from ..smc.notify import recent, recent_radar
 
 router = APIRouter(prefix="/api")
 
@@ -28,4 +28,4 @@ def smc_results(_=Depends(current_user)):
 
 @router.get("/smc/signals")
 def smc_signals(_=Depends(current_user)):
-    return {"success": True, "signals": recent()}  # the sent setups (the live feed); radar reads are not notifications
+    return {"success": True, "signals": recent(), "radar": recent_radar()}  # sent setups + the radar alerts (the live feed)
