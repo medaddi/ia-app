@@ -1,0 +1,1136 @@
+{
+ "XAUUSD": {
+  "split": 1791539280,
+  "from": 1787889600,
+  "to": 1793972400,
+  "rows": {
+   "S1|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|B": {
+    "in": {
+     "n": 1,
+     "win": 0,
+     "R": -0.03,
+     "exp": -0.03
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|A": {
+    "in": {
+     "n": 1,
+     "win": 0,
+     "R": -1.03,
+     "exp": -1.03
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|B": {
+    "in": {
+     "n": 1,
+     "win": 0,
+     "R": -1.03,
+     "exp": -1.03
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|strict": {
+    "in": {
+     "n": 2,
+     "win": 0,
+     "R": -2.09,
+     "exp": -1.05
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|A": {
+    "in": {
+     "n": 2,
+     "win": 0,
+     "R": -2.09,
+     "exp": -1.05
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|B": {
+    "in": {
+     "n": 2,
+     "win": 0,
+     "R": -2.09,
+     "exp": -1.05
+    },
+    "out": {
+     "n": 1,
+     "win": 0,
+     "R": -1.03,
+     "exp": -1.03
+    },
+    "outR": [
+     -1.0306431775538716
+    ]
+   },
+   "S4|strict": {
+    "in": {
+     "n": 2,
+     "win": 50,
+     "R": 2.8,
+     "exp": 1.4
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|A": {
+    "in": {
+     "n": 3,
+     "win": 67,
+     "R": 5.34,
+     "exp": 1.78
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|B": {
+    "in": {
+     "n": 3,
+     "win": 67,
+     "R": 5.34,
+     "exp": 1.78
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   }
+  }
+ },
+ "EURUSD": {
+  "split": 1791152280,
+  "from": 1786921200,
+  "to": 1793973000,
+  "rows": {
+   "S1|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 1,
+     "win": 0,
+     "R": -1.16,
+     "exp": -1.16
+    },
+    "outR": [
+     -1.161054421185375
+    ]
+   },
+   "S3|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 1,
+     "win": 0,
+     "R": -1.16,
+     "exp": -1.16
+    },
+    "outR": [
+     -1.161054421185375
+    ]
+   },
+   "S4|strict": {
+    "in": {
+     "n": 1,
+     "win": 100,
+     "R": 0.91,
+     "exp": 0.91
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|A": {
+    "in": {
+     "n": 1,
+     "win": 100,
+     "R": 0.91,
+     "exp": 0.91
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|B": {
+    "in": {
+     "n": 3,
+     "win": 33,
+     "R": -1.4,
+     "exp": -0.47
+    },
+    "out": {
+     "n": 2,
+     "win": 100,
+     "R": 4.32,
+     "exp": 2.16
+    },
+    "outR": [
+     2.2142573487948565,
+     2.1062153609568495
+    ]
+   }
+  }
+ },
+ "GBPUSD": {
+  "split": 1791152280,
+  "from": 1786921200,
+  "to": 1793973000,
+  "rows": {
+   "S1|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|B": {
+    "in": {
+     "n": 1,
+     "win": 0,
+     "R": -1.2,
+     "exp": -1.2
+    },
+    "out": {
+     "n": 2,
+     "win": 50,
+     "R": -0.42,
+     "exp": -0.21
+    },
+    "outR": [
+     -1.1848638752980971,
+     0.7674310750890849
+    ]
+   },
+   "S3|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   }
+  }
+ },
+ "EURCHF": {
+  "split": 1791152280,
+  "from": 1786921200,
+  "to": 1793973000,
+  "rows": {
+   "S1|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   }
+  }
+ },
+ "AUDCAD": {
+  "split": 1791152280,
+  "from": 1786921200,
+  "to": 1793973000,
+  "rows": {
+   "S1|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   }
+  }
+ },
+ "AUDCHF": {
+  "split": 1791152280,
+  "from": 1786921200,
+  "to": 1793973000,
+  "rows": {
+   "S1|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S1|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S2|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S3|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|strict": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|A": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   },
+   "S4|B": {
+    "in": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "out": {
+     "n": 0,
+     "win": null,
+     "R": 0.0,
+     "exp": null
+    },
+    "outR": []
+   }
+  }
+ }
+}

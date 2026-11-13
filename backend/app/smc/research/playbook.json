@@ -1,0 +1,978 @@
+{
+ "XAUUSD": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "news": {
+   "events": 652
+  },
+  "triggers": 130,
+  "grades": {
+   "F": 76,
+   "C+": 19,
+   "A": 16,
+   "B": 10,
+   "A+": 9
+  },
+  "all": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.01,
+   "expectancyR": -1.009,
+   "grossWinR": 0,
+   "grossLossR": 1.009
+  },
+  "in": {
+   "trades": 0,
+   "wins": 0,
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null
+  },
+  "out": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.01,
+   "expectancyR": -1.009,
+   "grossWinR": 0,
+   "grossLossR": 1.009
+  },
+  "withoutNewsRule": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.01,
+   "expectancyR": -1.009,
+   "grossWinR": 0,
+   "grossLossR": 1.009
+  },
+  "pf": 0.0,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 0,
+   "sl": 1
+  },
+  "strategies": {
+   "SF_BR": {
+    "name": "Set & Forget \u2014 Break & Retest Continuation",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 49,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "SF_BOUNCE": {
+    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 10,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "SF_COUNTER": {
+    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 71,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.01,
+     "expectancyR": -1.009,
+     "grossWinR": 0,
+     "grossLossR": 1.009
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.01,
+     "expectancyR": -1.009,
+     "grossWinR": 0,
+     "grossLossR": 1.009
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   }
+  }
+ },
+ "EURUSD": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "news": {
+   "events": 652
+  },
+  "triggers": 162,
+  "grades": {
+   "F": 90,
+   "A": 21,
+   "C+": 13,
+   "B": 22,
+   "A+": 16
+  },
+  "all": {
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -0.41,
+   "expectancyR": -0.104,
+   "grossWinR": 2.736,
+   "grossLossR": 3.15
+  },
+  "in": {
+   "trades": 2,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -2.09,
+   "expectancyR": -1.045,
+   "grossWinR": 0,
+   "grossLossR": 2.089
+  },
+  "out": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": 1.67,
+   "expectancyR": 0.837,
+   "grossWinR": 2.736,
+   "grossLossR": 1.061
+  },
+  "withoutNewsRule": {
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -0.41,
+   "expectancyR": -0.104,
+   "grossWinR": 2.736,
+   "grossLossR": 3.15
+  },
+  "pf": 0.87,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 0,
+   "sl": 3
+  },
+  "strategies": {
+   "SF_BR": {
+    "name": "Set & Forget \u2014 Break & Retest Continuation",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 89,
+    "all": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": 0.65,
+     "expectancyR": 0.215,
+     "grossWinR": 2.736,
+     "grossLossR": 2.089
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.09,
+     "expectancyR": -1.045,
+     "grossWinR": 0,
+     "grossLossR": 2.089
+    },
+    "out": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 2.74,
+     "expectancyR": 2.736,
+     "grossWinR": 2.736,
+     "grossLossR": 0
+    },
+    "pf": 1.31,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 0,
+     "sl": 2
+    }
+   },
+   "SF_BOUNCE": {
+    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 25,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "SF_COUNTER": {
+    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 48,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.06,
+     "expectancyR": -1.061,
+     "grossWinR": 0,
+     "grossLossR": 1.061
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.06,
+     "expectancyR": -1.061,
+     "grossWinR": 0,
+     "grossLossR": 1.061
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   }
+  }
+ },
+ "GBPUSD": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "news": {
+   "events": 652
+  },
+  "triggers": 193,
+  "grades": {
+   "F": 99,
+   "B": 37,
+   "A": 22,
+   "C+": 20,
+   "A+": 15
+  },
+  "all": {
+   "trades": 6,
+   "wins": 2,
+   "winRate": 33,
+   "totalR": 3.98,
+   "expectancyR": 0.664,
+   "grossWinR": 7.26,
+   "grossLossR": 3.276
+  },
+  "in": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": 4.0,
+   "expectancyR": 2.0,
+   "grossWinR": 5.036,
+   "grossLossR": 1.037
+  },
+  "out": {
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -0.02,
+   "expectancyR": -0.004,
+   "grossWinR": 2.224,
+   "grossLossR": 2.24
+  },
+  "withoutNewsRule": {
+   "trades": 7,
+   "wins": 2,
+   "winRate": 29,
+   "totalR": 2.91,
+   "expectancyR": 0.416,
+   "grossWinR": 7.26,
+   "grossLossR": 4.349
+  },
+  "pf": 2.22,
+  "exits": {
+   "tp": 2,
+   "be_after_1_5R": 1,
+   "sl": 3
+  },
+  "strategies": {
+   "SF_BR": {
+    "name": "Set & Forget \u2014 Break & Retest Continuation",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 80,
+    "all": {
+     "trades": 5,
+     "wins": 2,
+     "winRate": 40,
+     "totalR": 3.97,
+     "expectancyR": 0.794,
+     "grossWinR": 7.248,
+     "grossLossR": 3.276
+    },
+    "in": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 4.0,
+     "expectancyR": 2.0,
+     "grossWinR": 5.036,
+     "grossLossR": 1.037
+    },
+    "out": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -0.03,
+     "expectancyR": -0.009,
+     "grossWinR": 2.212,
+     "grossLossR": 2.24
+    },
+    "pf": 2.21,
+    "exits": {
+     "tp": 2,
+     "be_after_1_5R": 0,
+     "sl": 3
+    }
+   },
+   "SF_BOUNCE": {
+    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 41,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "SF_COUNTER": {
+    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 72,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": 0.01,
+     "expectancyR": 0.011,
+     "grossWinR": 0.011,
+     "grossLossR": 0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": 0.01,
+     "expectancyR": 0.011,
+     "grossWinR": 0.011,
+     "grossLossR": 0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 0
+    }
+   }
+  }
+ },
+ "EURCHF": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "news": {
+   "events": 652
+  },
+  "triggers": 75,
+  "grades": {
+   "F": 46,
+   "A+": 12,
+   "A": 7,
+   "B": 6,
+   "C+": 4
+  },
+  "all": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.11,
+   "expectancyR": -1.108,
+   "grossWinR": 0,
+   "grossLossR": 1.108
+  },
+  "in": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.11,
+   "expectancyR": -1.108,
+   "grossWinR": 0,
+   "grossLossR": 1.108
+  },
+  "out": {
+   "trades": 0,
+   "wins": 0,
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null
+  },
+  "withoutNewsRule": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.11,
+   "expectancyR": -1.108,
+   "grossWinR": 0,
+   "grossLossR": 1.108
+  },
+  "pf": 0.0,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 0,
+   "sl": 1
+  },
+  "strategies": {
+   "SF_BR": {
+    "name": "Set & Forget \u2014 Break & Retest Continuation",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 20,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "SF_BOUNCE": {
+    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 6,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "SF_COUNTER": {
+    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 49,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.11,
+     "expectancyR": -1.108,
+     "grossWinR": 0,
+     "grossLossR": 1.108
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.11,
+     "expectancyR": -1.108,
+     "grossWinR": 0,
+     "grossLossR": 1.108
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   }
+  }
+ },
+ "AUDCAD": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "news": {
+   "events": 652
+  },
+  "triggers": 140,
+  "grades": {
+   "F": 79,
+   "C+": 14,
+   "B": 17,
+   "A+": 8,
+   "A": 22
+  },
+  "all": {
+   "trades": 3,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -3.39,
+   "expectancyR": -1.129,
+   "grossWinR": 0,
+   "grossLossR": 3.386
+  },
+  "in": {
+   "trades": 2,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -2.28,
+   "expectancyR": -1.139,
+   "grossWinR": 0,
+   "grossLossR": 2.278
+  },
+  "out": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.11,
+   "expectancyR": -1.108,
+   "grossWinR": 0,
+   "grossLossR": 1.108
+  },
+  "withoutNewsRule": {
+   "trades": 3,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -3.39,
+   "expectancyR": -1.129,
+   "grossWinR": 0,
+   "grossLossR": 3.386
+  },
+  "pf": 0.0,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 0,
+   "sl": 3
+  },
+  "strategies": {
+   "SF_BR": {
+    "name": "Set & Forget \u2014 Break & Retest Continuation",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 56,
+    "all": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.28,
+     "expectancyR": -1.139,
+     "grossWinR": 0,
+     "grossLossR": 2.278
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.28,
+     "expectancyR": -1.139,
+     "grossWinR": 0,
+     "grossLossR": 2.278
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 2
+    }
+   },
+   "SF_BOUNCE": {
+    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 25,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "SF_COUNTER": {
+    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 59,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.11,
+     "expectancyR": -1.108,
+     "grossWinR": 0,
+     "grossLossR": 1.108
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.11,
+     "expectancyR": -1.108,
+     "grossWinR": 0,
+     "grossLossR": 1.108
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   }
+  }
+ },
+ "AUDCHF": {
+  "source": "dukascopy",
+  "from": 1762300800,
+  "split": 1781274060,
+  "to": 1793922900,
+  "news": {
+   "events": 652
+  },
+  "triggers": 78,
+  "grades": {
+   "F": 39,
+   "A+": 12,
+   "A": 12,
+   "C+": 10,
+   "B": 5
+  },
+  "all": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.2,
+   "expectancyR": -1.203,
+   "grossWinR": 0,
+   "grossLossR": 1.203
+  },
+  "in": {
+   "trades": 0,
+   "wins": 0,
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null
+  },
+  "out": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.2,
+   "expectancyR": -1.203,
+   "grossWinR": 0,
+   "grossLossR": 1.203
+  },
+  "withoutNewsRule": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.2,
+   "expectancyR": -1.203,
+   "grossWinR": 0,
+   "grossLossR": 1.203
+  },
+  "pf": 0.0,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 0,
+   "sl": 1
+  },
+  "strategies": {
+   "SF_BR": {
+    "name": "Set & Forget \u2014 Break & Retest Continuation",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 35,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.2,
+     "expectancyR": -1.203,
+     "grossWinR": 0,
+     "grossLossR": 1.203
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.2,
+     "expectancyR": -1.203,
+     "grossWinR": 0,
+     "grossLossR": 1.203
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   },
+   "SF_BOUNCE": {
+    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 5,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "SF_COUNTER": {
+    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 38,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   }
+  }
+ }
+}

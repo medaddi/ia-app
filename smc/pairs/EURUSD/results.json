@@ -1,0 +1,576 @@
+{
+  "pair": "EURUSD",
+  "symbol": "EUR/USD",
+  "m5From": 1786921200,
+  "m5To": 1793973000,
+  "split": 1791152280,
+  "cost": 0.00012,
+  "strategies": {
+    "S1": {
+      "name": "HTF trend continuation",
+      "setups": 1,
+      "gated_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "gated_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      }
+    },
+    "S2": {
+      "name": "PDH / PDL & external liquidity sweep reversal",
+      "setups": 3,
+      "gated_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "gated_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_in": {
+        "plain": {
+          "trades": 1,
+          "winRate": 0.0,
+          "avgWinR": 0,
+          "expectancyR": -1.153,
+          "totalR": -1.15,
+          "profitFactor": 0.0,
+          "maxDrawdownR": 1.15,
+          "longestLosingStreak": 1,
+          "weak": true
+        },
+        "managed": {
+          "trades": 1,
+          "winRate": 0.0,
+          "avgWinR": 0,
+          "expectancyR": -1.153,
+          "totalR": -1.15,
+          "profitFactor": 0.0,
+          "maxDrawdownR": 1.15,
+          "longestLosingStreak": 1,
+          "weak": true
+        },
+        "baseline": {
+          "runs": 500,
+          "expectancyR": -1.153,
+          "p95": -1.153
+        },
+        "bySession": {
+          "London": {
+            "trades": 1,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -1.153,
+            "totalR": -1.15,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 1.15,
+            "longestLosingStreak": 1,
+            "weak": true
+          }
+        },
+        "byMonth": {
+          "2026-08": {
+            "trades": 1,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -1.153,
+            "totalR": -1.15,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 1.15,
+            "longestLosingStreak": 1,
+            "weak": true
+          }
+        }
+      },
+      "all_out": {
+        "plain": {
+          "trades": 2,
+          "winRate": 0.0,
+          "avgWinR": 0,
+          "expectancyR": -0.715,
+          "totalR": -1.43,
+          "profitFactor": 0.0,
+          "maxDrawdownR": 1.43,
+          "longestLosingStreak": 2,
+          "weak": true
+        },
+        "managed": {
+          "trades": 2,
+          "winRate": 0.0,
+          "avgWinR": 0,
+          "expectancyR": -0.715,
+          "totalR": -1.43,
+          "profitFactor": 0.0,
+          "maxDrawdownR": 1.43,
+          "longestLosingStreak": 2,
+          "weak": true
+        },
+        "baseline": {
+          "runs": 500,
+          "expectancyR": 0.276,
+          "p95": 1.233
+        },
+        "bySession": {
+          "London": {
+            "trades": 1,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -0.27,
+            "totalR": -0.27,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 0.27,
+            "longestLosingStreak": 1,
+            "weak": true
+          },
+          "London/NY": {
+            "trades": 1,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -1.161,
+            "totalR": -1.16,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 1.16,
+            "longestLosingStreak": 1,
+            "weak": true
+          }
+        },
+        "byMonth": {
+          "2026-10": {
+            "trades": 2,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -0.715,
+            "totalR": -1.43,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 1.43,
+            "longestLosingStreak": 2,
+            "weak": true
+          }
+        }
+      }
+    },
+    "S3": {
+      "name": "Asian range sweep + killzone (Power of 3 / Judas swing)",
+      "setups": 3,
+      "gated_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "gated_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_out": {
+        "plain": {
+          "trades": 3,
+          "winRate": 33.3,
+          "avgWinR": 1.46,
+          "expectancyR": -0.26,
+          "totalR": -0.78,
+          "profitFactor": 0.65,
+          "maxDrawdownR": 1.16,
+          "longestLosingStreak": 1,
+          "weak": true
+        },
+        "managed": {
+          "trades": 3,
+          "winRate": 33.3,
+          "avgWinR": 1.46,
+          "expectancyR": 0.074,
+          "totalR": 0.22,
+          "profitFactor": 1.18,
+          "maxDrawdownR": 1.16,
+          "longestLosingStreak": 1,
+          "weak": true
+        },
+        "baseline": {
+          "runs": 500,
+          "expectancyR": 0.19,
+          "p95": 1.447
+        },
+        "bySession": {
+          "London": {
+            "trades": 1,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -1.079,
+            "totalR": -1.08,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 1.08,
+            "longestLosingStreak": 1,
+            "weak": true
+          },
+          "London/NY": {
+            "trades": 2,
+            "winRate": 50.0,
+            "avgWinR": 1.46,
+            "expectancyR": 0.15,
+            "totalR": 0.3,
+            "profitFactor": 1.26,
+            "maxDrawdownR": 1.16,
+            "longestLosingStreak": 1,
+            "weak": true
+          }
+        },
+        "byMonth": {
+          "2026-10": {
+            "trades": 1,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -1.161,
+            "totalR": -1.16,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 1.16,
+            "longestLosingStreak": 1,
+            "weak": true
+          },
+          "2026-11": {
+            "trades": 2,
+            "winRate": 50.0,
+            "avgWinR": 1.46,
+            "expectancyR": 0.191,
+            "totalR": 0.38,
+            "profitFactor": 1.35,
+            "maxDrawdownR": 1.08,
+            "longestLosingStreak": 1,
+            "weak": true
+          }
+        }
+      }
+    },
+    "S4": {
+      "name": "Single-candle OB & wick mitigation",
+      "setups": 28,
+      "gated_in": {
+        "plain": {
+          "trades": 1,
+          "winRate": 100.0,
+          "avgWinR": 0.91,
+          "expectancyR": 0.909,
+          "totalR": 0.91,
+          "profitFactor": null,
+          "maxDrawdownR": 0.0,
+          "longestLosingStreak": 0,
+          "weak": true
+        },
+        "managed": {
+          "trades": 1,
+          "winRate": 100.0,
+          "avgWinR": 0.91,
+          "expectancyR": 0.909,
+          "totalR": 0.91,
+          "profitFactor": null,
+          "maxDrawdownR": 0.0,
+          "longestLosingStreak": 0,
+          "weak": true
+        },
+        "baseline": {
+          "runs": 500,
+          "expectancyR": -0.193,
+          "p95": 0.653
+        },
+        "bySession": {
+          "London/NY": {
+            "trades": 1,
+            "winRate": 100.0,
+            "avgWinR": 0.91,
+            "expectancyR": 0.909,
+            "totalR": 0.91,
+            "profitFactor": null,
+            "maxDrawdownR": 0.0,
+            "longestLosingStreak": 0,
+            "weak": true
+          }
+        },
+        "byMonth": {
+          "2026-09": {
+            "trades": 1,
+            "winRate": 100.0,
+            "avgWinR": 0.91,
+            "expectancyR": 0.909,
+            "totalR": 0.91,
+            "profitFactor": null,
+            "maxDrawdownR": 0.0,
+            "longestLosingStreak": 0,
+            "weak": true
+          }
+        }
+      },
+      "gated_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_in": {
+        "plain": {
+          "trades": 10,
+          "winRate": 60.0,
+          "avgWinR": 0.93,
+          "expectancyR": 0.09,
+          "totalR": 0.9,
+          "profitFactor": 1.19,
+          "maxDrawdownR": 2.39,
+          "longestLosingStreak": 2,
+          "weak": true
+        },
+        "managed": {
+          "trades": 10,
+          "winRate": 60.0,
+          "avgWinR": 0.89,
+          "expectancyR": 0.064,
+          "totalR": 0.64,
+          "profitFactor": 1.14,
+          "maxDrawdownR": 2.39,
+          "longestLosingStreak": 2,
+          "weak": true
+        },
+        "baseline": {
+          "runs": 500,
+          "expectancyR": 0.083,
+          "p95": 0.746
+        },
+        "bySession": {
+          "Asia": {
+            "trades": 2,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -1.193,
+            "totalR": -2.39,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 2.39,
+            "longestLosingStreak": 2,
+            "weak": true
+          },
+          "London": {
+            "trades": 3,
+            "winRate": 66.7,
+            "avgWinR": 0.87,
+            "expectancyR": 0.201,
+            "totalR": 0.6,
+            "profitFactor": 1.53,
+            "maxDrawdownR": 1.14,
+            "longestLosingStreak": 1,
+            "weak": true
+          },
+          "London/NY": {
+            "trades": 2,
+            "winRate": 50.0,
+            "avgWinR": 0.91,
+            "expectancyR": -0.131,
+            "totalR": -0.26,
+            "profitFactor": 0.78,
+            "maxDrawdownR": 1.17,
+            "longestLosingStreak": 1,
+            "weak": true
+          },
+          "NY late": {
+            "trades": 3,
+            "winRate": 100.0,
+            "avgWinR": 0.98,
+            "expectancyR": 0.982,
+            "totalR": 2.95,
+            "profitFactor": null,
+            "maxDrawdownR": 0.0,
+            "longestLosingStreak": 0,
+            "weak": true
+          }
+        },
+        "byMonth": {
+          "2026-08": {
+            "trades": 4,
+            "winRate": 75.0,
+            "avgWinR": 0.67,
+            "expectancyR": 0.216,
+            "totalR": 0.86,
+            "profitFactor": 1.76,
+            "maxDrawdownR": 1.14,
+            "longestLosingStreak": 1,
+            "weak": true
+          },
+          "2026-09": {
+            "trades": 4,
+            "winRate": 75.0,
+            "avgWinR": 1.2,
+            "expectancyR": 0.606,
+            "totalR": 2.42,
+            "profitFactor": 3.07,
+            "maxDrawdownR": 1.17,
+            "longestLosingStreak": 1,
+            "weak": true
+          },
+          "2026-10": {
+            "trades": 2,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -1.193,
+            "totalR": -2.39,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 2.39,
+            "longestLosingStreak": 2,
+            "weak": true
+          }
+        }
+      },
+      "all_out": {
+        "plain": {
+          "trades": 8,
+          "winRate": 37.5,
+          "avgWinR": 1.91,
+          "expectancyR": 0.086,
+          "totalR": 0.69,
+          "profitFactor": 1.14,
+          "maxDrawdownR": 3.94,
+          "longestLosingStreak": 4,
+          "weak": true
+        },
+        "managed": {
+          "trades": 8,
+          "winRate": 37.5,
+          "avgWinR": 1.41,
+          "expectancyR": 0.151,
+          "totalR": 1.21,
+          "profitFactor": 1.4,
+          "maxDrawdownR": 1.94,
+          "longestLosingStreak": 4,
+          "weak": true
+        },
+        "baseline": {
+          "runs": 500,
+          "expectancyR": -0.45,
+          "p95": 0.171
+        },
+        "bySession": {
+          "Asia": {
+            "trades": 1,
+            "winRate": 100.0,
+            "avgWinR": 1.41,
+            "expectancyR": 1.405,
+            "totalR": 1.41,
+            "profitFactor": null,
+            "maxDrawdownR": 0.0,
+            "longestLosingStreak": 0,
+            "weak": true
+          },
+          "London/NY": {
+            "trades": 4,
+            "winRate": 50.0,
+            "avgWinR": 2.16,
+            "expectancyR": 0.487,
+            "totalR": 1.95,
+            "profitFactor": 1.82,
+            "maxDrawdownR": 2.37,
+            "longestLosingStreak": 2,
+            "weak": true
+          },
+          "NY late": {
+            "trades": 3,
+            "winRate": 0.0,
+            "avgWinR": 0,
+            "expectancyR": -0.888,
+            "totalR": -2.66,
+            "profitFactor": 0.0,
+            "maxDrawdownR": 2.66,
+            "longestLosingStreak": 3,
+            "weak": true
+          }
+        },
+        "byMonth": {
+          "2026-10": {
+            "trades": 8,
+            "winRate": 37.5,
+            "avgWinR": 1.91,
+            "expectancyR": 0.086,
+            "totalR": 0.69,
+            "profitFactor": 1.14,
+            "maxDrawdownR": 3.94,
+            "longestLosingStreak": 4,
+            "weak": true
+          }
+        }
+      }
+    }
+  }
+}

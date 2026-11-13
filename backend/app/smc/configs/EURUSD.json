@@ -1,0 +1,51 @@
+{
+  "pair": "EURUSD",
+  "symbol": "EUR/USD",
+  "decimals": 5,
+  "pip": 0.0001,
+  "point": 1e-05,
+  "contract_size": 100000,
+  "pip_value_usd_per_lot": 10.0,
+  "spread_pips": 1.0,
+  "slippage_pips": 0.2,
+  "commission_usd_per_lot": 0.0,
+  "notes": [
+    "Most liquid major: the most samples for the rules.",
+    "DXY as a context filter is not in the data (open experiment).",
+    "Asian session often quiet: S3 compared with and without a minimum Asian range (open experiment)."
+  ],
+  "min_stop_cost_ratio": 5.0,
+  "sessions_utc": {
+    "asia": [
+      0,
+      6
+    ],
+    "london": [
+      7,
+      10
+    ],
+    "newyork": [
+      12,
+      15
+    ],
+    "trade": [
+      7,
+      16
+    ]
+  },
+  "news_window_min": 15,
+  "risk_pct": 1.0,
+  "split": {
+    "in_sample": 0.6,
+    "out_of_sample": 0.4
+  },
+  "yahoo": "EURUSD=X",
+  "oanda": "EUR_USD",
+  "psych_step": 0.005,
+  "max_aoi_pips": 60,
+  "tier": "Tier 1 (Existing \u2014 Core)",
+  "currencies": [
+    "EUR",
+    "USD"
+  ]
+}

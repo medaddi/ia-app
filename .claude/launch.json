@@ -2,9 +2,21 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "name": "api",
+      "runtimeExecutable": "backend/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--app-dir", "backend", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "api-quiet",
+      "runtimeExecutable": "backend/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-c", "import os, sys; os.environ['SCHEDULER_ENABLED'] = '0'; os.environ['TELEGRAM_POLLING'] = '0'; sys.path.insert(0, 'backend'); import uvicorn; uvicorn.run('app.main:app', port=8000)"],
+      "port": 8000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["frontend/node_modules/vite/bin/vite.js", "frontend", "--port", "3000"],
       "port": 3000
     }
   ]

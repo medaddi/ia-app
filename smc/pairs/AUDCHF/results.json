@@ -1,0 +1,290 @@
+{
+  "pair": "AUDCHF",
+  "symbol": "AUD/CHF",
+  "m5From": 1786921200,
+  "m5To": 1793973000,
+  "split": 1791152280,
+  "cost": 0.00022999999999999998,
+  "strategies": {
+    "S1": {
+      "name": "HTF trend continuation",
+      "setups": 0,
+      "gated_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "gated_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      }
+    },
+    "S2": {
+      "name": "PDH / PDL & external liquidity sweep reversal",
+      "setups": 1,
+      "gated_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "gated_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_in": {
+        "plain": {
+          "trades": 1,
+          "winRate": 100.0,
+          "avgWinR": 1.82,
+          "expectancyR": 1.819,
+          "totalR": 1.82,
+          "profitFactor": null,
+          "maxDrawdownR": 0.0,
+          "longestLosingStreak": 0,
+          "weak": true
+        },
+        "managed": {
+          "trades": 1,
+          "winRate": 100.0,
+          "avgWinR": 1.82,
+          "expectancyR": 1.819,
+          "totalR": 1.82,
+          "profitFactor": null,
+          "maxDrawdownR": 0.0,
+          "longestLosingStreak": 0,
+          "weak": true
+        },
+        "baseline": {
+          "runs": 500,
+          "expectancyR": 0.443,
+          "p95": 1.819
+        },
+        "bySession": {
+          "London/NY": {
+            "trades": 1,
+            "winRate": 100.0,
+            "avgWinR": 1.82,
+            "expectancyR": 1.819,
+            "totalR": 1.82,
+            "profitFactor": null,
+            "maxDrawdownR": 0.0,
+            "longestLosingStreak": 0,
+            "weak": true
+          }
+        },
+        "byMonth": {
+          "2026-10": {
+            "trades": 1,
+            "winRate": 100.0,
+            "avgWinR": 1.82,
+            "expectancyR": 1.819,
+            "totalR": 1.82,
+            "profitFactor": null,
+            "maxDrawdownR": 0.0,
+            "longestLosingStreak": 0,
+            "weak": true
+          }
+        }
+      },
+      "all_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      }
+    },
+    "S3": {
+      "name": "Asian range sweep + killzone (Power of 3 / Judas swing)",
+      "setups": 1,
+      "gated_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "gated_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_out": {
+        "plain": {
+          "trades": 1,
+          "winRate": 100.0,
+          "avgWinR": 0.1,
+          "expectancyR": 0.095,
+          "totalR": 0.1,
+          "profitFactor": null,
+          "maxDrawdownR": 0.0,
+          "longestLosingStreak": 0,
+          "weak": true
+        },
+        "managed": {
+          "trades": 1,
+          "winRate": 0.0,
+          "avgWinR": 0,
+          "expectancyR": -0.1,
+          "totalR": -0.1,
+          "profitFactor": 0.0,
+          "maxDrawdownR": 0.1,
+          "longestLosingStreak": 1,
+          "weak": true
+        },
+        "baseline": {
+          "runs": 500,
+          "expectancyR": -0.11,
+          "p95": 0.069
+        },
+        "bySession": {
+          "London": {
+            "trades": 1,
+            "winRate": 100.0,
+            "avgWinR": 0.1,
+            "expectancyR": 0.095,
+            "totalR": 0.1,
+            "profitFactor": null,
+            "maxDrawdownR": 0.0,
+            "longestLosingStreak": 0,
+            "weak": true
+          }
+        },
+        "byMonth": {
+          "2026-11": {
+            "trades": 1,
+            "winRate": 100.0,
+            "avgWinR": 0.1,
+            "expectancyR": 0.095,
+            "totalR": 0.1,
+            "profitFactor": null,
+            "maxDrawdownR": 0.0,
+            "longestLosingStreak": 0,
+            "weak": true
+          }
+        }
+      }
+    },
+    "S4": {
+      "name": "Single-candle OB & wick mitigation",
+      "setups": 0,
+      "gated_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "gated_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_in": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      },
+      "all_out": {
+        "plain": {
+          "trades": 0
+        },
+        "managed": {
+          "trades": 0
+        },
+        "baseline": null,
+        "bySession": {},
+        "byMonth": {}
+      }
+    }
+  }
+}
