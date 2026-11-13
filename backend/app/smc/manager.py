@@ -9,6 +9,8 @@ web push and in the app:
   🛑 STOP LOSS HIT (-1 R)      the structural stop
   ⏱️ CLOSED / EXPIRED          break-even close, the Friday 20:00 UTC exit when not in profit, or a cancelled order
 
+Since 2026-11-13 these steps are saved but not sent (notify.TRADE_UPDATES = False): only the signal is announced.
+
 Each step is saved with the setup (signals.params["events"]) so it is never sent twice; the result (outcome, R) is saved
 when the trade ends: the app's real results and win rate (/api/smc/results) come from here. It places nothing.
 """
@@ -62,18 +64,17 @@ def follow(p: dict, m5, cost: float, news: list[int] | None = None) -> tuple[lis
 
 
 def message(pair: str, p: dict, kind: str, price: float, out: dict) -> str:
+    """One short line: the step, the trade, the price or the result."""
     dec = BY_SYMBOL[pair]["decimals"]
-    head, what = WORDS.get(kind, (kind, ""))
-    line = f"{head} · <b>{p['direction']} {pair}</b> (Grade {p.get('grade', '?')})\n{html.escape(what)}"
-    if kind == "FILLED":
-        line += f"\nEntry <code>{price:.{dec}f}</code> · SL <code>{p['sl']:.{dec}f}</code> · TP <code>{p['tp']:.{dec}f}</code>"
-    if kind == "TP1":
-        d = 1 if p["direction"] == "BUY" else -1
-        line += f"\nNew stop: <code>{p['entry'] + d * p.get('beOff', 0.0):.{dec}f}</code> (entry + 2 pips)"
+    head = WORDS.get(kind, (kind, ""))[0]
     if kind in ("TP", "STOP", "BE_STOP", "TIME") and "r" in out:
-        line = line.replace(head, f"{head} ({out['r']:+.2f} R)", 1)
-        line += f"\nResult: <b>{out['r']:+.2f}R</b> (after costs)"
-    return line + "\n<i>Research software — does not place orders.</i>"
+        tail = f" ({out['r']:+.2f}R)"
+    elif kind == "TP1":
+        d = 1 if p["direction"] == "BUY" else -1
+        tail = f" · stop to <code>{p['entry'] + d * p.get('beOff', 0.0):.{dec}f}</code>"
+    else:
+        tail = f" at <code>{price:.{dec}f}</code>"
+    return f"{head} · <b>{pair} {p['direction']}</b>{tail}"
 
 
 async def manage_all(send) -> dict:

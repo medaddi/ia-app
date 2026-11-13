@@ -28,7 +28,8 @@ export default defineConfig(({ mode }) => {
     server: {
       // In development the Python API runs on :8000 (backend/); /api is proxied so no CORS setup is needed
       proxy: {
-        '/api': { target: env.API_PROXY || 'http://localhost:8000', changeOrigin: true },
+        // 127.0.0.1, not "localhost": on Windows localhost tries IPv6 (::1) first and adds 0.2 s to every API request
+        '/api': { target: env.API_PROXY || 'http://127.0.0.1:8000', changeOrigin: true },
       },
     },
   };

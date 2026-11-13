@@ -1,7 +1,8 @@
 // The intro (index.html #splash) covers the app while it gathers its data: it fades out once the first real screen is
-// ready, never before MIN_MS (the logo animation), never after MAX_MS (a slow server must not trap the user).
-const MIN_MS = 4000;
-const MAX_MS = 10000;
+// ready, never before MIN_MS (a short logo flash), never after MAX_MS (a slow server must not trap the user: the screen then
+// shows and fills in as its data arrives).
+const MIN_MS = 900;
+const MAX_MS = 4000;
 let done = false;
 let dataReady = false;
 let waiting: (() => void) | null = null;

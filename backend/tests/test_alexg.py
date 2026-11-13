@@ -182,15 +182,13 @@ def test_the_sanitizer_never_vetoes_on_missing_volume():
     assert len(out) == 30 and rep["missing"] == [] and rep["artifacts"] == []
 
 
-def test_the_portfolio_caps():
+def test_every_pairs_trade_is_sent_one_live_trade_per_pair():
     now = T0 + 3600
     live = lambda s, d: {"symbol": s, "direction": d, "time": now - 60, "liveUntil": now + 9999}  # noqa: E731
     assert portfolio.check("EUR/USD", {"direction": "BUY"}, [live("EUR/USD", "SELL")], now)["verdict"] == "BLOCK"  # one per pair
-    two_jpy = [live("USD/JPY", "BUY"), live("EUR/JPY", "BUY")]  # already 2 short-JPY bets
-    v = portfolio.check("GBP/JPY", {"direction": "BUY"}, two_jpy, now)
-    assert v["verdict"] == "BLOCK" and any(r.startswith("JPY:") for r in v["reasons"])
-    three = [live("EUR/USD", "BUY"), live("GBP/CHF", "SELL"), live("AUD/NZD", "BUY")]
-    assert any(r.startswith("total risk") for r in portfolio.check("CAD/JPY", {"direction": "SELL"}, three, now)["reasons"])
+    many = [live(p, "BUY") for p in ("USD/JPY", "EUR/JPY", "EUR/USD", "GBP/CHF", "AUD/NZD", "NZD/USD", "GBP/USD")]
+    assert portfolio.check("GBP/JPY", {"direction": "BUY"}, many, now)["verdict"] == "PASS"  # no currency / total / daily cap any more
+    assert portfolio.check("EUR/USD", {"direction": "BUY"}, [{**live("EUR/USD", "SELL"), "state": "CLOSED"}], now)["verdict"] == "PASS"
 
 
 # ---------------------------------------------------------------- a team on stored candles
@@ -238,26 +236,23 @@ def _sig(sid, t):
 
 def _clean():
     from app.db import SessionLocal, init_db
-    from app.models import Setting, Signal, Watermark
+    from app.models import Signal
     init_db()
     with SessionLocal() as db:
         db.query(Signal).filter(Signal.id.like("SMC-%")).delete(synchronize_session=False)
-        db.query(Watermark).filter(Watermark.ref == "RADAR").delete(synchronize_session=False)
-        db.query(Setting).filter(Setting.key == "radar").delete(synchronize_session=False)
         db.commit()
 
 
-def test_the_three_messages():
-    t = notify.message(_sig("SMC-GBPUSD-SF_BR-1-B", T0), "GBP/USD", 5)
-    for part in ("SET &amp; FORGET — GBP/USD BUY", "SF_BR", "Grade:</b> A (GPA 85%)", "Consensus:</b> 88/100", "Entry:</b> <code>1.25120</code>",
-                 "Structural SL:</b> <code>1.24780</code>", "-34.0 pips", "Break-even at +1.5R:</b> <code>1.25630</code>", "Front-run TP:</b> <code>1.26175</code>",
-                 "before Psych <code>1.26250</code>", "1 : 3.10", "Risk</b> <code>1%</code>", "5-Agent Desk", "does not place orders"):
-        assert part in t
-    r = {"direction": "SELL", "tf": "1W+1D", "touches": 6, "gpa": 72, "grade": "C+"}
-    assert notify.radar_message("GBP/JPY", r, 3).startswith("👀 [RADAR] GBP/JPY (SELL) inside 1W+1D AOI (6 touches) · GPA 72% (C+) · Waiting for LTF Engulfing close.")
+def test_the_short_signal_message():
+    t = notify.message({**_sig(f"SMC-GBPUSD-SF_BR-{T0}-B", T0), "etf": "M15"}, "GBP/USD", 5)
+    assert t == ("🎯 <b>GBP/USD BUY · M15 · 00:00 UTC</b>\n"
+                 "Entry <code>1.25120</code> · SL <code>1.24780</code> · TP <code>1.26175</code> · 1:3.1\n"
+                 "<i>Signal only · no order placed</i>")  # three short lines, what the app shows
+    assert "lot" not in t.lower() and "$" not in t  # market data only: nobody's risk or lot
+    assert not hasattr(notify, "radar_message")  # the radar is no longer a notification
 
 
-def test_radar_once_then_the_signal_once(monkeypatch):
+def test_no_radar_notification_and_the_signal_once(monkeypatch):
     _clean()
     T = T0 + 9 * 3600
     rad = {"id": f"RADAR-GBPJPY-B-1-{T}", "direction": "BUY", "tf": "1D", "touches": 4, "low": 192.4, "high": 192.85, "psych": 192.5, "etf": "H1",
@@ -272,7 +267,7 @@ def test_radar_once_then_the_signal_once(monkeypatch):
         return {"success": True, "signals": [], "radar": None, "decision": "WATCH_ONLY"}
     sent = []
 
-    async def fake_broadcast(pair, text, title, body, tag):
+    async def fake_broadcast(pair, text, title, body, tag, signal=None):
         sent.append((pair, text))
         return {"telegram": 1, "push": 1}
     monkeypatch.setattr(notify, "team", fake_team)
@@ -281,12 +276,14 @@ def test_radar_once_then_the_signal_once(monkeypatch):
     monkeypatch.setattr(notify.time, "time", lambda: T + 60)
     asyncio.run(notify.tick())
     asyncio.run(notify.tick())
-    assert [p for p, _ in sent] == ["GBP/JPY"] and sent[0][1].startswith("👀 [RADAR]")  # once per wave
+    assert sent == []  # a radar read sends nothing: no Telegram, no push, nothing in the feed
     state["sig"] = [_sig(f"SMC-GBPUSD-SF_BR-{T}-B", T)]
     res = asyncio.run(notify.tick())
     asyncio.run(notify.tick())
     assert [p for p, _ in sent].count("GBP/USD") == 1 and "SF_BR grade A → telegram 1 · push 1" in res["GBP/USD"]
-    assert notify.recent_radar()[0]["symbol"] == "GBP/JPY" and any(x["id"] == state["sig"][0]["id"] for x in notify.recent())
+    assert all("RADAR" not in txt for _, txt in sent) and any(x["id"] == state["sig"][0]["id"] for x in notify.recent())
+    from app.api import smc as smc_api
+    assert "radar" not in smc_api.smc_signals(None)  # the app's feed carries the sent setups only
 
 
 def test_the_manager_tells_breakeven_locked_then_the_close(monkeypatch):
@@ -304,7 +301,7 @@ def test_the_manager_tells_breakeven_locked_then_the_close(monkeypatch):
     async def send(pair, text, title, body, tag):
         sent.append((title, text))
     one = asyncio.run(manager.manage_all(send))
-    assert one[s["id"]] == ["FILLED", "TP1"] and "BREAKEVEN LOCKED (+1.5R)" in sent[1][0] and "<code>1.25140</code>" in sent[1][1]
+    assert one[s["id"]] == ["FILLED", "TP1"] and "BREAKEVEN LOCKED (+1.5R)" in sent[1][0] and "stop to <code>1.25140</code>" in sent[1][1]
     m5.append(c(3, 1.2560, 1.2562, 1.2509, 1.2511))  # back down: the locked stop at entry + 2 pips
     two = asyncio.run(manager.manage_all(send))
     assert two[s["id"]] == ["BE_STOP"] and "CLOSED at break-even" in sent[-1][0]

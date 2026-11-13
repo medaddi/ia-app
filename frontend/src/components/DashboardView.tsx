@@ -79,14 +79,14 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
     const load = async () => {
       if (document.hidden) return;
       try {
-        const [a, n, g] = await Promise.all([apiJson<{ assets: MarketAsset[] }>('/api/market/assets'), apiJson<{ news: NewsItem[] }>('/api/news').catch(() => ({ news: [] as NewsItem[] })),
-          apiJson<{ signals: TeamSetup[] }>('/api/smc/signals').catch(() => ({ signals: [] as TeamSetup[] }))]);
+        // each part fills in as soon as its own answer arrives: the screen never waits for the slowest one
+        apiJson<{ news: NewsItem[] }>('/api/news').then(n => { if (!stop) setNews(n.news); }).catch(() => {});
+        apiJson<{ signals: TeamSetup[] }>('/api/smc/signals').then(g => { if (!stop) setSent(g.signals); }).catch(() => {});
         apiJson<{ all: { trades: number; wins: number; losses: number; breakeven: number; winRate: number | null; totalR: number } }>('/api/smc/results')
           .then(x => { if (!stop) setResults(x.all); }).catch(() => {});
+        const a = await apiJson<{ assets: MarketAsset[] }>('/api/market/assets');
         if (stop) return;
         setAssets(a.assets);
-        setNews(n.news);
-        setSent(g.signals);
         setError(null);
         markDataReady();
       } catch (e: any) {

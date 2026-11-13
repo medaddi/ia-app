@@ -1,4 +1,4 @@
-"""The trader-skill in the teams: the portfolio risk check across all teams, and a blocked setup is never sent."""
+"""The check before a trade is sent: one live trade per pair (no cross-pair limit since 2026-11-13), and a blocked setup is never sent."""
 
 import asyncio
 
@@ -16,23 +16,11 @@ def test_one_trade_per_pair_at_a_time():
     assert chk["verdict"] == "BLOCK" and any(r.startswith("duplicate") for r in chk["reasons"])
 
 
-def test_at_most_two_bets_the_same_way_on_the_dollar():
-    sent = [setup("EUR/USD", "BUY"), setup("GBP/USD", "BUY")]  # two short-dollar bets live
-    gold = portfolio.check("XAU/USD", {"direction": "BUY"}, sent, NOW)
-    assert gold["verdict"] == "BLOCK" and any(r.startswith("USD:") for r in gold["reasons"])  # the cap now covers all 8 currencies
-    assert portfolio.check("XAU/USD", {"direction": "SELL"}, sent, NOW)["verdict"] == "PASS"  # the other way is fine
-    assert portfolio.check("AUD/CAD", {"direction": "BUY"}, sent, NOW)["verdict"] == "PASS"  # no dollar leg
-
-
-def test_the_guide_correlation_cap():
-    sent = [setup("AUD/CAD", "BUY")]
-    chk = portfolio.check("AUD/CHF", {"direction": "BUY"}, sent, NOW)
-    assert chk["verdict"] == "BLOCK" and chk["reasons"][0].startswith("correlation: AUD/CAD BUY (+0.66)")
-    assert portfolio.check("AUD/CHF", {"direction": "SELL"}, sent, NOW)["verdict"] == "PASS"  # the other way is a hedge, not a double
-    assert portfolio.check("EUR/CHF", {"direction": "BUY"}, sent, NOW)["verdict"] == "PASS"  # not in the guide's pairs
-    eu = portfolio.check("GBP/USD", {"direction": "SELL"}, [setup("EUR/USD", "SELL")], NOW)
-    assert eu["verdict"] == "PASS" and eu["riskPct"] == 0.5 and eu["notes"][0].startswith("correlation: EUR/USD SELL")  # split, not blocked
-    assert portfolio.check("GBP/USD", {"direction": "BUY"}, [setup("EUR/USD", "SELL")], NOW)["riskPct"] == 1.0
+def test_no_cross_pair_limit_any_more():
+    sent = [setup(p, "BUY") for p in ("EUR/USD", "GBP/USD", "AUD/CAD", "EUR/CHF", "XAU/USD", "AUD/USD")]  # 6 live, same way on USD
+    for pair, side in (("NZD/USD", "BUY"), ("AUD/CHF", "BUY"), ("GBP/JPY", "SELL")):
+        assert portfolio.check(pair, {"direction": side}, sent, NOW)["verdict"] == "PASS"  # every pair's trade is sent
+    assert portfolio.check("GBP/USD", {"direction": "SELL"}, sent, NOW)["riskPct"] == 1.0  # no risk split either
 
 
 def test_a_trade_stays_live_until_its_live_until():
@@ -40,12 +28,11 @@ def test_a_trade_stays_live_until_its_live_until():
     assert portfolio.live([long_], NOW) == [long_] and portfolio.live([setup("EUR/CHF", "BUY", NOW - 10 * 3600)], NOW) == []
 
 
-def test_total_risk_and_the_daily_limit():
-    three = [setup("EUR/CHF", "BUY"), setup("AUD/CAD", "SELL"), setup("XAU/USD", "SELL")]
-    assert any(r.startswith("total risk") for r in portfolio.check("AUD/CHF", {"direction": "BUY"}, three, NOW)["reasons"])
-    old = [setup(p, "BUY", NOW - 6 * 3600) for p in ("EUR/CHF", "AUD/CAD", "AUD/CHF", "XAU/USD", "GBP/USD")]  # today, expired
-    chk = portfolio.check("EUR/USD", {"direction": "BUY"}, old, NOW)
-    assert [r.split(":")[0] for r in chk["reasons"]] == ["daily"] and chk["live"] == 0
+def test_no_daily_limit_and_an_ended_trade_frees_its_pair():
+    old = [setup(p, "BUY", NOW - 6 * 3600) for p in ("EUR/CHF", "AUD/CAD", "AUD/CHF", "XAU/USD", "GBP/USD")]  # 5 sent today
+    assert portfolio.check("EUR/USD", {"direction": "BUY"}, old, NOW)["verdict"] == "PASS"
+    closed = {**setup("EUR/USD", "BUY"), "state": "CLOSED"}
+    assert portfolio.check("EUR/USD", {"direction": "SELL"}, [closed], NOW)["verdict"] == "PASS"
 
 
 def test_a_blocked_setup_is_saved_and_never_sent(monkeypatch):

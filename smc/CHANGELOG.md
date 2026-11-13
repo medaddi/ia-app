@@ -384,3 +384,23 @@
 ## v2.2 · 2026-11-11 · TP from the structure only (the user: "the TP from the structure, not arbitrary, and the stop")
 - The 2.5R cap is removed: the TP is the next opposing 1D / 1W zone, HH / LL or the round number inside it, 7 pips before it;
   RR >= 2.0 stays. The SL was already structural (beyond the AOI or the LTF swing, minus 0.20 ATR 1H and the spread).
+
+## v2.3.1 · 2026-11-13 · On a3a2e45: only the trade is announced, short, for every pair; each user's risk and lot; faster start
+(Built on a3a2e45 at the owner's request; the later strategy, validation, chart and import work is not in this version.)
+- The radar stays in the app (the "Watching" status on a pair's card) but sends no notification (no Telegram, push,
+  toast or bell; /api/smc/signals returns the sent setups only). Only the trade is announced; the trade manager follows
+  and saves every result silently (notify.TRADE_UPDATES = False).
+- Every pair's trade is sent when it is found: the cross-pair limits (5 a day, 3 % total, 2 same-way bets per currency,
+  the correlation caps) are removed; one live trade per pair stays. A closed or expired trade frees its pair.
+- Short alerts, the same everywhere: "XAU/USD SELL · M15 · 12:10 UTC" / "Entry · SL · TP · R:R" / "Signal only · no
+  order placed"; a user's private chat and their own toast add "Your lot 0.24 · risk $250". Prices at the pair's own
+  decimals (checked for all 29 pairs: the server config, the chart and the alerts agree).
+- Each user's USD risk (My account, or /risk 50 in Telegram): lot = risk / (stop distance x contract units x quote-to-USD
+  + costs), rounded down to 0.01, never up; missing or stale data says "size unavailable"; private to the user.
+- Faster start: short intro, the dashboard shows when the prices are in, prices served at once while a refresh runs
+  behind, gold-api times out sooner, the strategy maths off the event loop, a fast exact price rounding, the dev proxy on
+  127.0.0.1.
+- Online the notifier runs from Vercel Cron every minute (backend/vercel.json; it needs Vercel Pro and CRON_SECRET): the
+  live /api/cron/status showed its last pass 67 s earlier with all 29 pairs read. Locally backend/.env keeps
+  SCHEDULER_ENABLED=false, so a local server never sends.
+- Tests: 54 backend tests pass (an end-to-end test: three pairs find a trade at the same tick, all three arrive with exact numbers).

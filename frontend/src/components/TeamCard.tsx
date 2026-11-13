@@ -4,6 +4,7 @@ import { tr } from './ui';
 import type { Language } from '../types';
 import type { Team, TeamAgent, TeamSetup } from '../smcTeam';
 import { NotificationBell } from './NotificationBell';
+import { SizeLine, useMySizing } from './RiskSizing';
 
 // the 5 FXAlexG agents
 const AGENT_ICON = { trend: TrendingUp, aoi: MapPin, confluence: Gauge, trigger: Crosshair, risk: Shield };
@@ -13,6 +14,8 @@ const GRADE_TONE: Record<string, string> = { 'A+': 'bg-emerald-500/20 text-emera
 const TONE = { SIGNAL: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30', BLOCKED: 'bg-amber-500/10 text-amber-200 ring-amber-500/25',
   WATCHING: 'bg-sky-500/10 text-sky-200 ring-sky-500/25', IDLE: 'bg-white/[0.03] text-slate-400 ring-line', OFF: 'bg-white/[0.02] text-slate-600 ring-line' };
 const hm = (t: number) => new Date(t * 1000).toISOString().slice(11, 16);
+/** My own lot for a signal (from my USD risk and the signal's stop; never another user's): from /api/me/sizing. */
+const MySize: React.FC<{ id: string; lang: Language }> = ({ id, lang }) => <SizeLine s={useMySizing(id)} lang={lang} />;
 
 /** The pair's team under its chart: its own playbook strategy, and each setup with its levels and the 5 questions (research, not advice). */
 export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: number; lang: Language }> = ({ team, symbol, decimals, lang }) => {
@@ -32,7 +35,8 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
       : <p className="mt-0.5 text-[11px] text-slate-400">{t(`Limit at ${f(s.entry)}, the near edge: price only has to come into the zone, not touch one exact price.`,
         `Limite à ${f(s.entry)}, le bord proche : le prix doit seulement entrer dans la zone, pas toucher un prix exact.`,
         `الليميت ف ${f(s.entry)}، الطرف القريب: الثمن خاصو غير يدخل للمنطقة، ماشي يقيس نقطة بالضبط.`)}</p>}
-      <p className="mt-0.5 text-[11px] text-slate-500">{!s.market && <>{t('valid until', 'valable jusqu’à', 'صالح حتى')} {hm(s.validUntil)} UTC · </>}{s.riskPct ?? 1} % : {s.lots['1000']} lot / $1,000</p>
+      <div className="mt-1"><MySize id={s.id} lang={lang} /></div>
+      {!s.market && <p className="mt-0.5 text-[11px] text-slate-500">{t('valid until', 'valable jusqu’à', 'صالح حتى')} {hm(s.validUntil)} UTC</p>}
       <ul className="mt-1.5 grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
         {s.checklist.map(c => (
           <li key={c.q} className="flex items-start gap-1 text-[11px]" title={c.detail}>

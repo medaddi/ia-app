@@ -26,6 +26,14 @@ TTL = 60
 FRESH_SEC = 20 * 60  # CHOICE: a market entry is alerted only within 20 minutes of its trigger candle (never a stale price)
 _cache: dict[str, tuple[float, dict]] = {}
 _locks: dict[str, asyncio.Lock] = {}
+_cpu_gate: list = []
+
+
+def _cpu() -> asyncio.Semaphore:
+    """One strategy read at a time in its worker thread (several Python threads side by side starve the server more)."""
+    if not _cpu_gate:
+        _cpu_gate.append(asyncio.Semaphore(1))
+    return _cpu_gate[0]
 LIVE: dict[str, tuple] = {}  # pair → (closed M5 candles, cost, news times) of the last read: what the trade manager follows
 _PLAY_FILE = Path(__file__).parent / "research" / "playbook.json"
 PLAY_RESULTS = json.loads(_PLAY_FILE.read_text(encoding="utf-8")) if _PLAY_FILE.exists() else {}  # smc/tools/playbook_test.py
@@ -185,7 +193,11 @@ async def team(pair: str, fresh: bool = False) -> dict:
             h1 = [c for c in h1s["candles"] if c.time + 3600 <= now]
             d1 = None if bad(ds) else [c for c in ds["candles"] if c.time + 86400 <= now]
             if len(m5) >= 300 and len(h1) >= 300:
-                out = read_team(pair, {**(await _pip_value(pair, cfg)), "live_spread": m5s.get("spread") or 0.0}, m5, h1, now, await _news(pair), d1)
+                pv, news = await asyncio.gather(_pip_value(pair, cfg), _news(pair))
+                # the strategy maths is CPU work (about a second cold): in a worker thread, one read at a time, so the server
+                # keeps answering the prices and the candles meanwhile instead of making them wait behind it
+                async with _cpu():
+                    out = await asyncio.to_thread(read_team, pair, {**pv, "live_spread": m5s.get("spread") or 0.0}, m5, h1, now, news, d1)
                 out["marketOpen"] = market_session_status(pair)["isOpen"]
                 out["source"] = m5s["source"]
                 out["feed"] = {**(h1s.get("integrity") or {}), "spread": m5s.get("spread") or 0.0}  # the sanitizer's report on H1

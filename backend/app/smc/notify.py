@@ -1,12 +1,16 @@
 """
-The notifier (the FXAlexG spec, section 5): every minute the 29 teams are read again and three kinds of alerts go out,
-each to Telegram (every chat linked to an approved account, plus the admin chat), as a web push to every approved
-account's devices, and into the app's live feed (/api/smc/signals):
+The notifier: every minute the 29 teams are read again and ONE kind of alert goes out, to Telegram (every chat linked to
+an approved account, plus the admin chat), as a web push to every approved account's devices, and into the app's live
+feed (/api/smc/signals):
 
-  1 · AOI_WATCH_ALERT  trend ok, inside a 1W / 1D AOI, the LTF SoS is in, only the engulfing close is missing.
-                       Once per wave (a watermark keeps it from repeating).
-  2 · SIGNAL_EXECUTE   the full Set & Forget trade, once: the desk executes and the portfolio check agrees.
-  3 · MANAGER_LIVE_UPDATE  every step of a sent trade (manager.py): FILLED, BREAKEVEN LOCKED, TP HIT, SL HIT, CLOSED.
+  SIGNAL_EXECUTE       the trade, once, in three short lines: the desk executes and the portfolio check agrees.
+
+The trade manager (manager.py) follows each sent trade to its end and saves its result without a message
+(TRADE_UPDATES = False; True brings back its short FILLED / TAKE PROFIT / STOP LOSS / CLOSED lines).
+
+The radar (AOI_WATCH_ALERT: inside a zone, the trigger still missing) is NOT a notification any more (the owner,
+2026-11-11): nothing about it goes to Telegram, to web push or to the app's feed. The team read still carries its
+`radar` field (the "Watching" status of a setup row on the pair's own card), and what was stored before is left as it is.
 
 Research, not advice: every message says so. Nothing here places an order.
 """
@@ -14,13 +18,15 @@ Research, not advice: every message says so. Nothing here places an order.
 import asyncio
 import html
 import time
+from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import or_, select
 
 from ..config import settings
 from ..db import SessionLocal
 from ..market.data import market_session_status
-from ..models import PushSubscription, Signal, User, Watermark
+from ..models import PushSubscription, Signal, User
 from ..push import send_push
 from ..store import get_setting, set_setting
 from ..telegram import bot
@@ -28,7 +34,10 @@ from .desk import BY_SYMBOL, PAIRS, team
 from .skill import portfolio
 
 RULE = "━━━━━━━━━━━━━━━━━━"
-RADAR_KEEP = 30
+# Only the signal is announced (the owner, 2026-11-13: "send only the trade when there is one"). The trade manager still
+# follows every sent trade to its end and saves the result (the app's results); it just tells nobody. True turns its
+# short updates (filled, take profit, stop loss, closed) back on.
+TRADE_UPDATES = False
 READ_AT_ONCE = 8  # the spec: 29 teams read 8 at a time (asyncio.Semaphore(8))
 
 
@@ -36,44 +45,53 @@ def _f(v: float, dec: int) -> str:
     return f"{v:.{dec}f}"
 
 
+def head(s: dict, pair: str) -> str:
+    """The first line, the same everywhere (Telegram, push, the app's toast and bell): pair, side, timeframe, UTC time."""
+    t = datetime.fromtimestamp(int(s["time"]), timezone.utc).strftime("%H:%M")
+    return f"{pair} {s['direction']} · {s.get('etf') or 'H1'} · {t} UTC"
+
+
+def levels(s: dict, dec: int) -> str:
+    return f"Entry {_f(s['entry'], dec)} · SL {_f(s['sl'], dec)} · TP {_f(s['tp'], dec)} · 1:{s['rr']:.1f}"
+
+
 def message(s: dict, pair: str, dec: int) -> str:
-    """Stage 2 · SIGNAL_EXECUTE: the full Set & Forget trade (the spec's Part 5.2 fields)."""
-    buy = s["direction"] == "BUY"
-    z = s.get("zone") or [s["entry"], s["entry"]]
-    zi = s.get("zoneInfo") or {}
-    where = f"{'below' if buy else 'above'} the {'1W/1D' if zi.get('overlap') else '/'.join(zi.get('tfs') or ['1D'])} AOI"
-    psych = f" · before Psych <code>{_f(s['psychTp'], dec)}</code>" if s.get("psychTp") is not None else ""
-    lines = [f"🎯 <b>SET &amp; FORGET — {pair} {s['direction']}</b> · <code>{s.get('setupType') or s['strategy']}</code>", RULE,
-             f"🏅 <b>FXAlexG Grade:</b> {s.get('grade', '?')} (GPA {s.get('gpa', 0)}%) · <b>Consensus:</b> {s.get('consensus', 0)}/100",
-             f"{'📈' if buy else '📉'} <b>Entry:</b> <code>{_f(s['entry'], dec)}</code> <i>(zone <code>{_f(z[0], dec)} – {_f(z[1], dec)}</code>)</i>",
-             f"🛑 <b>Structural SL:</b> <code>{_f(s['sl'], dec)}</code> <i>(-{s.get('slPips', 0):.1f} pips · {where})</i>",
-             f"🛡️ <b>Break-even at +1.5R:</b> <code>{_f(s['tp1'], dec)}</code> <i>(stop to entry + 2 pips)</i>" if s.get("tp1") is not None else "",
-             f"💰 <b>Front-run TP:</b> <code>{_f(s['tp'], dec)}</code> <i>(+{s.get('tpPips', 0):.1f} pips{psych})</i>",
-             f"⚖️ <b>R:R</b> <code>1 : {s['rr']:.2f}</code> · <b>Risk</b> <code>{s.get('riskPct', 1.0):g}%</code> (<code>{s['lots']['10000']} lots</code> per $10k)"]
-    if s.get("riskNote"):
-        lines.append(f"⚖️ {html.escape(s['riskNote'])}")
-    if s.get("desk"):
-        lines += [RULE, "🤖 <b>5-Agent Desk:</b>"]
-        icon = {"ok": "✅", "warn": "⚠️", "wait": "⏳", "veto": "⛔"}
-        lines += [f"{icon.get(a_['status'], '•')} <b>{html.escape(a_['role'])}</b> ({a_.get('score', 0)}): {html.escape(a_['badge'])}" for a_ in s["desk"]]
-    lines.append("<i>Research software — does not place orders. Not financial advice.</i>")
-    return "\n".join(x for x in lines if x)
+    """The signal, short (the owner, 2026-11-13: "simple and small, only what the app shows"): pair, side, timeframe,
+    time, entry, stop, target, R:R. A private chat adds its owner's lot.
+    Market data only: never anyone's risk or lot."""
+    return "\n".join([f"🎯 <b>{html.escape(head(s, pair))}</b>",
+                      f"Entry <code>{_f(s['entry'], dec)}</code> · SL <code>{_f(s['sl'], dec)}</code> · TP <code>{_f(s['tp'], dec)}</code> · 1:{s['rr']:.1f}",
+                      "<i>Signal only · no order placed</i>"])
 
 
-def radar_message(pair: str, r: dict, dec: int) -> str:
-    """Stage 1 · AOI_WATCH_ALERT (the spec's template)."""
-    return (f"👀 [RADAR] {pair} ({r['direction']}) inside {r['tf']} AOI ({r['touches']} touches) · GPA {r['gpa']}% ({r['grade']}) · "
-            "Waiting for LTF Engulfing close.\n<i>Research software — does not place orders.</i>")
+async def personal_line(db, chat: str, sig_id: str) -> Optional[str]:
+    """The lot of THE user this private chat is linked to, from that user's own USD risk (saved as their snapshot).
+    None for a group, a channel or a chat no account owns: a shared chat never sees anyone's risk or lot."""
+    if not chat or str(chat).startswith("-"):  # groups and channels have negative ids
+        return None
+    u = bot.account_of(db, str(chat))
+    sig = db.get(Signal, sig_id)
+    if not u or not sig:
+        return None
+    from .sizing import size_for, valid_risk
+    if valid_risk(u.risk_usd) is None:
+        return "👤 Your lot: set your risk with /risk 50 (or in the app)"
+    z = await size_for(db, u, sig, source="telegram")
+    if z.get("status") != "ok":
+        return "👤 Your lot: unavailable (see the app)"
+    return f"👤 Your lot <code>{z['lots']:g}</code> · risk ${z['riskUsd']:g}"
 
 
 def _app_link(pair: str) -> str:
     return f"{settings.public_app_url or 'http://localhost:3000'}/?symbol={pair}"
 
 
-async def broadcast(pair: str, text: str, title: str, body: str, tag: str) -> dict:
-    """One message to every chat linked to an approved account (+ the admin chat) and a push to every approved account's devices."""
+async def broadcast(pair: str, text: str, title: str, body: str, tag: str, signal: Optional[dict] = None) -> dict:
+    """One message to every chat linked to an approved account (+ the admin chat) and a push to every approved account's
+    devices. With `signal`: in each linked PRIVATE chat (not the admin chat) that user's own lot."""
     url = _app_link(pair)
-    markup = None if ("localhost" in url or "127.0.0.1" in url) else {"inline_keyboard": [[{"text": "📈 Open in the app", "url": url}]]}
+    public = None if ("localhost" in url or "127.0.0.1" in url) else url
+    markup = {"inline_keyboard": [[{"text": "📈 Open in the app", "url": public}]]} if public else None
     tg_sent = pushed = 0
     with SessionLocal() as db:
         cfg = get_setting(db, "telegram")
@@ -82,8 +100,14 @@ async def broadcast(pair: str, text: str, title: str, body: str, tag: str) -> di
             chats = {x.chat_id for x in bot.active_subscribers(db) if not x.muted}
             if cfg.get("chatId"):
                 chats.add(str(cfg["chatId"]))
+            admin_chat = str(cfg.get("chatId") or "")
             for chat in chats:
-                out = await bot.send_message(token, chat, text, markup)
+                mine = await personal_line(db, chat, signal["id"]) if signal and chat != admin_chat else None
+                if mine:  # the owner's lot goes just above the last line
+                    body, _, last = text.rpartition("\n")
+                    out = await bot.send_message(token, chat, f"{body}\n{mine}\n{last}", markup)
+                else:
+                    out = await bot.send_message(token, chat, text, markup)
                 tg_sent += bool(out.get("success"))
         rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
                           .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()
@@ -94,9 +118,7 @@ async def broadcast(pair: str, text: str, title: str, body: str, tag: str) -> di
 
 async def _send(pair: str, s: dict) -> dict:
     dec = BY_SYMBOL[pair]["decimals"]
-    z = s.get("zone") or [s["entry"], s["entry"]]
-    return await broadcast(pair, message(s, pair, dec), f"🎯 {s['direction']} {pair} · Grade {s.get('grade', '?')} ({s.get('gpa', 0)}%)",
-                           f"Entry {_f(s['entry'], dec)} | SL {_f(s['sl'], dec)} | BE +1.5R | TP {_f(s['tp'], dec)} | 1:{s['rr']}", f"ld-{s['id']}")
+    return await broadcast(pair, message(s, pair, dec), f"🎯 {head(s, pair)}", levels(s, dec), f"ld-{s['id']}", s)
 
 
 def _claim(pair: str, s: dict, state: str = "PENDING") -> bool:
@@ -123,17 +145,9 @@ def sent_setups(limit: int = 80) -> list[dict]:
         return [{**(r.payload or {}), "symbol": r.symbol, "state": r.state} for r in rows]
 
 
-def _radar_new(pair: str, r: dict) -> bool:
-    """True the first time this radar (pair, side, zone, SoS wave) is seen: a watermark row remembers it."""
-    with SessionLocal() as db:
-        if db.scalar(select(Watermark).where(Watermark.ref == "RADAR", Watermark.signal_id == r["id"])):
-            return False
-        db.add(Watermark(ref="RADAR", chat_id="*", signal_id=r["id"], symbol=pair, offset=0.0))
-        db.commit()
-        feed = get_setting(db, "radar").get("items") or []
-        feed.insert(0, {**r, "symbol": pair, "at": int(time.time())})
-        set_setting(db, "radar", {"items": feed[:RADAR_KEEP]})
-        return True
+async def _quiet(*_args, **_kw) -> dict:
+    """The trade manager's messages when TRADE_UPDATES is off: nothing is sent."""
+    return {"telegram": 0, "push": 0}
 
 
 async def tick() -> dict:
@@ -162,13 +176,7 @@ async def tick() -> dict:
             results[pair] = t.get("error") or "no read"
             continue
         notes = []
-        dec = BY_SYMBOL[pair]["decimals"]
-        rd = t.get("radar")
-        if rd and _radar_new(pair, rd):  # stage 1
-            out = await broadcast(pair, radar_message(pair, rd, dec), f"👀 Radar · {pair} {rd['direction']}",
-                                  f"Inside {rd['tf']} AOI ({rd['touches']} touches) · GPA {rd['gpa']}% · waiting for the LTF engulfing close", f"ld-{rd['id']}")
-            notes.append(f"radar {rd['direction']} → telegram {out['telegram']} · push {out['push']}")
-        for s in t["signals"]:  # stage 2
+        for s in t["signals"]:  # a radar read (t["radar"]) is never sent anywhere
             if _seen(s["id"]):
                 continue
             chk = portfolio.check(pair, s, sent_setups(), int(time.time()))
@@ -176,17 +184,13 @@ async def tick() -> dict:
                 _claim(pair, {**s, "portfolio": chk}, state="BLOCKED")
                 notes.append(f"{s['direction']} BLOCKED by the portfolio check: {'; '.join(chk['reasons'])}")
                 continue
-            if chk.get("riskPct", 1.0) < 1.0:  # two correlated trades the same way: the risk is split
-                k = chk["riskPct"]
-                s = {**s, "riskPct": round(s.get("riskPct", 1.0) * k, 3), "riskNote": "; ".join(chk.get("notes") or []),
-                     "lots": {q: int(v * k * 100 + 1e-6) / 100 for q, v in s["lots"].items()}}
             if _claim(pair, {**s, "portfolio": chk}):
                 out = await _send(pair, s)
                 notes.append(f"{s['direction']} {s.get('setupType')} grade {s.get('grade')} → telegram {out['telegram']} · push {out['push']}")
         results[pair] = "; ".join(notes) if notes else (t.get("decision") or "watching").lower()
-    try:  # stage 3: the trade manager
+    try:  # the trade manager
         from .manager import manage_all
-        steps = await manage_all(broadcast)
+        steps = await manage_all(broadcast if TRADE_UPDATES else _quiet)
         if steps:
             results["manager"] = "; ".join(f"{k.split('-')[1]} {'/'.join(v)}" for k, v in steps.items())
     except Exception as err:  # managing never stops the teams
@@ -207,8 +211,3 @@ def recent(limit: int = 30) -> list[dict]:
         return [{**(r.payload or {}), "symbol": r.symbol, "sentAt": r.sent_at.isoformat() if r.sent_at else None, "status": r.state,
                  "outcome": r.outcome, "resultR": r.r_multiple, "events": (r.params or {}).get("events", [])} for r in rows]
 
-
-def recent_radar() -> list[dict]:
-    """The last radar alerts (the app's live feed)."""
-    with SessionLocal() as db:
-        return get_setting(db, "radar").get("items") or []

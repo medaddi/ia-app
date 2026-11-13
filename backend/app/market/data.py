@@ -142,11 +142,29 @@ async def _spark_quotes() -> dict:
         return out
 
 
+STALE_OK = 30.0  # a price this many seconds past its 1 s refresh is still served at once, while a new one is fetched behind
+_refreshing: dict[str, asyncio.Task] = {}
+
+
 async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict:
+    """The live price. Within 1 s of the last fetch: that price. Up to 30 s after: that price at once (stale-while-
+    revalidate), a refresh running in the background, so a screen never waits on a slow provider (the first gold-api call
+    after a start takes several seconds). Older, missing or `fresh`: fetched now."""
     sym = canonical(symbol)
     hit = _price_cache.get(sym)
-    if not fresh and hit and hit[1] > time.time():
-        return hit[0]
+    now = time.time()
+    if not fresh and hit:
+        if hit[1] > now:
+            return hit[0]
+        if hit[1] + STALE_OK > now:
+            task = _refreshing.get(sym)
+            if task is None or task.done():
+                _refreshing[sym] = asyncio.get_running_loop().create_task(_fetch_live_price_now(sym))
+            return hit[0]
+    return await _fetch_live_price_now(sym)
+
+
+async def _fetch_live_price_now(sym: str) -> dict:
     result = None
     if oanda.enabled() and sym in oanda.INSTRUMENTS:  # the primary feed: OANDA mid price and its live spread
         q = await oanda.price(sym, decimals_of(sym))
@@ -157,7 +175,7 @@ async def fetch_live_price(symbol: str = "XAU/USD", fresh: bool = False) -> dict
                 result.update(change24h=prev.get("change24h", 0.0), high24h=max(prev.get("high24h") or 0, q["price"]), low24h=min(prev.get("low24h") or q["price"], q["price"]))
     if sym == "XAU/USD":
         try:
-            r = await client().get("https://api.gold-api.com/price/XAU", timeout=3.5)
+            r = await client().get("https://api.gold-api.com/price/XAU", timeout=httpx.Timeout(2.5, connect=2.0))  # else the Yahoo fallback
             if r.status_code == 200:
                 d = r.json()
                 p = float(d.get("price") or 0)

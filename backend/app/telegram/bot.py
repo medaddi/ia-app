@@ -228,6 +228,7 @@ SECTIONS = [
     ("👤 My account", [
         ("connect", "Link this Telegram to my app account"),
         ("status", "My account"),
+        ("risk", "My USD risk per trade, e.g. /risk 50"),
     ]),
     ("ℹ️ Info", [
         ("help", "All commands"),
@@ -313,6 +314,21 @@ async def handle_update(token: str, upd: dict) -> None:
         elif not account:
             reply, markup = connect_button(db, chat_id, display)
             reply = "🔒 <b>Connect your app account first</b>\n\n" + reply
+        elif cmd == "/risk":  # this linked account's own USD risk per trade: each signal then shows its own lot
+            from ..smc.sizing import valid_risk
+            arg = text.split()[1] if len(text.split()) > 1 else None
+            if arg is None:
+                cur = valid_risk(account.risk_usd)
+                reply = (f"⚖️ Your risk per trade: <b>${cur:g}</b>\nChange it: /risk 50" if cur is not None else
+                         "⚖️ No risk set yet: each signal shows your lot once you set it.\nExample: /risk 50 (USD)")
+            else:
+                v = valid_risk(arg.replace(",", ".").lstrip("$"))
+                if v is None:
+                    reply = "⚠️ Send a positive amount in USD, for example /risk 50"
+                else:
+                    account.risk_usd = v
+                    db.commit()
+                    reply = f"✅ Risk per trade: <b>${v:g}</b>\nYour next signals show your lot for it (already-sized signals keep theirs)."
         elif cmd == "/status":
             full = " ".join(x for x in (account.first_name, account.last_name) if x)
             reply = f"👤 <b>My account</b>\n{LINE}\n👤 Account: <b>{html.escape(account.username)}</b>" + (f" · {html.escape(full)}" if full else "")

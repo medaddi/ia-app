@@ -4,14 +4,14 @@ import { apiJson } from '../api';
 import { testPush } from '../notifications';
 import { tr } from './ui';
 import type { Language } from '../types';
-import type { RadarAlert, TeamSetup } from '../smcTeam';
+import { signalHead, signalLevels, type TeamSetup } from '../smcTeam';
 
 /**
- * The in-app notification bell (the spec, Part 6.3): the live feed of the desk's alerts (Set & Forget signals with their
- * trade updates, and radar alerts) from /api/smc/signals, and the two test buttons: a Telegram message to this account's
+ * The in-app notification bell: the live feed of the desk's alerts (Set & Forget signals with their trade updates; radar
+ * reads are not alerts) from /api/smc/signals, and the two test buttons: a Telegram message to this account's
  * linked chat (/api/telegram/test-me) and a web push to this browser (/api/push/test).
  */
-interface Item { id: string; kind: 'signal' | 'radar'; symbol: string; title: string; detail: string; time: number }
+interface Item { id: string; symbol: string; title: string; detail: string; time: number }
 
 const hm = (t: number) => new Date(t * 1000).toISOString().slice(5, 16).replace('T', ' ');
 
@@ -25,14 +25,12 @@ export const NotificationBell: React.FC<{ lang: Language }> = ({ lang }) => {
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    apiJson<{ signals?: TeamSetup[]; radar?: RadarAlert[] }>('/api/smc/signals').then(j => {
+    apiJson<{ signals?: TeamSetup[] }>('/api/smc/signals').then(j => {
       if (!alive) return;
-      const sig: Item[] = (j.signals ?? []).map(s => ({ id: s.id, kind: 'signal', symbol: s.symbol ?? '', time: s.time,
-        title: `🎯 ${s.direction} ${s.symbol} · ${s.grade ?? ''} ${s.setupType ?? ''}`,
-        detail: `${s.entry} · SL ${s.sl} · TP ${s.tp} · 1:${s.rr}${s.status ? ` · ${s.status}${s.resultR != null ? ` ${s.resultR > 0 ? '+' : ''}${s.resultR}R` : ''}` : ''}` }));
-      const rad: Item[] = (j.radar ?? []).map(r => ({ id: r.id, kind: 'radar', symbol: r.symbol ?? '', time: r.at ?? r.time,
-        title: `👀 ${r.symbol} ${r.direction} · ${r.tf} AOI`, detail: `${r.touches} touches · GPA ${r.gpa}% (${r.grade}) · ${t('waiting for the engulfing close', 'attend la bougie englobante', 'كيتسنا الشمعة الابتلاعية')}` }));
-      setItems([...sig, ...rad].sort((a, b) => b.time - a.time).slice(0, 20));
+      const sig: Item[] = (j.signals ?? []).map(s => ({ id: s.id, symbol: s.symbol ?? '', time: s.time,
+        title: `🎯 ${signalHead(s)}`,
+        detail: `${signalLevels(s)}${s.resultR != null ? ` · ${s.resultR > 0 ? '+' : ''}${s.resultR}R` : ''}` }));
+      setItems(sig.sort((a, b) => b.time - a.time).slice(0, 20));
     }).catch(() => setItems([]));
     const close = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('mousedown', close);
@@ -68,7 +66,7 @@ export const NotificationBell: React.FC<{ lang: Language }> = ({ lang }) => {
                   className="w-full text-start rounded-lg border border-line bg-white/[0.02] px-2.5 py-1.5 hover:bg-white/[0.05] cursor-pointer">
                   <p className="text-[11px] font-semibold text-slate-100 truncate">{x.title}</p>
                   <p className="text-[10px] text-slate-400 truncate">{x.detail}</p>
-                  <p className="text-[10px] font-mono text-slate-500">{hm(x.time)} UTC</p>
+
                 </button>
               </li>
             ))}

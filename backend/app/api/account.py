@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..auth import admin_user, bearer, current_user, hash_code, login, logout, password_problems, register, session_user, user_json
 from ..db import get_db
 from .. import push
-from ..models import PushSubscription, User
+from ..models import PushSubscription, Signal, User, UserSignalSize
 from ..store import get_setting
 from ..telegram import bot as tg
 
@@ -142,6 +142,53 @@ def me_update(body: ProfileIn, u: User = Depends(current_user), db: Session = De
         u.access_code_hash = hash_code(body.accessCode)
     db.commit()
     return {"success": True, "user": user_json(u)}
+
+
+# ---------------------------------------------------------------- my USD risk per trade and my lot sizes (private)
+# Every route below reads and writes ONLY the signed-in user's rows: the user id comes from the session, never from the
+# request. No route returns another user's risk or lots; the admin's user list does not include them either.
+
+class RiskIn(BaseModel):
+    riskUsd: Optional[float] = None  # None clears it
+
+
+@router.get("/me/risk")
+def my_risk(u: User = Depends(current_user)):
+    from ..smc.sizing import valid_risk
+    return {"riskUsd": valid_risk(u.risk_usd)}
+
+
+@router.put("/me/risk")
+def my_risk_set(body: RiskIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Saves THIS user's USD risk per trade. It applies to signals sized from now on: a saved size is never rewritten."""
+    from ..smc.sizing import valid_risk
+    if body.riskUsd is None:
+        u.risk_usd = None
+    else:
+        v = valid_risk(body.riskUsd)
+        if v is None:
+            raise HTTPException(422, "The risk must be a positive amount in USD (at most 1,000,000)")
+        u.risk_usd = v
+    db.commit()
+    return {"success": True, "riskUsd": valid_risk(u.risk_usd)}
+
+
+@router.get("/me/sizing/{signal_id}")
+async def my_sizing(signal_id: str, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """My lot for a signal the app sent: my saved size, or computed now from MY risk and the signal's stop, and saved."""
+    from ..smc.sizing import size_for
+    sig = db.get(Signal, signal_id)
+    if sig is None or not sig.id.startswith("SMC-") or sig.state == "BLOCKED":
+        return {"status": "unavailable", "reason": "this setup has not been sent as a signal yet: its size appears once it is sent", "signalId": signal_id}
+    return await size_for(db, u, sig)
+
+
+@router.get("/me/sizings")
+def my_sizings(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """My saved sizes, newest first (mine only)."""
+    from ..smc.sizing import snapshot_json
+    rows = db.scalars(select(UserSignalSize).where(UserSignalSize.user_id == u.id).order_by(UserSignalSize.created_at.desc()).limit(100)).all()
+    return {"items": [snapshot_json(r) for r in rows]}
 
 
 @router.get("/telegram/bot")
