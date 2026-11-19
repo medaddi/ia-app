@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { apiFetch } from './api';
+import { readCache, writeCache } from './cache';
 import type { SmcDrawing } from './chart/smcDrawing';
 
 export interface Check { q: string; ok: boolean; detail: string }
@@ -16,15 +17,16 @@ export interface TeamSetup {
   // FXAlexG: the setup's grade, its S_AlexG score and its live confluences
   grade?: string; gpa?: number; consensus?: number; setupType?: string; checklistGpa?: Confluence[];
   /** the plan's details: the confirmation timeframe, trend-following or counter-trend, what invalidates it, distances in pips */
-  etf?: string; family?: 'trend-following' | 'counter-trend' | null; invalidation?: string | null; slPips?: number; tpPips?: number; bePips?: number;
+  etf?: string; family?: 'swing' | 'day' | null; invalidation?: string | null; slPips?: number; tpPips?: number; bePips?: number;
+  score?: number; lots10k?: number | null; spreadPct?: number;
   // set once sent, by the trade manager (backend smc/manager.py)
   status?: 'PENDING' | 'OPEN' | 'CLOSED' | 'EXPIRED' | 'MISSED'; outcome?: 'WIN' | 'LOSS' | 'BREAKEVEN' | null; resultR?: number | null; events?: string[];
 }
 /** One of the 18 FXAlexG confluences: its weight in % and whether it is live at the AOI. */
 export interface Confluence { key: string; label: string; pts: number; ok: boolean }
-/** A radar read: the SoS is in at an AOI, only the engulfing candle is missing. Shown as the "Watching" status on the pair's
- * own card only: it is never a notification (no toast, no bell item, no push, no Telegram). */
-export interface RadarAlert { id: string; symbol?: string; direction: 'BUY' | 'SELL'; tf: string; touches: number; low: number; high: number; psych?: number | null; etf: string; gpa: number; grade: string; time: number; setup?: string | null; at?: number }
+/** A radar alert (stage 1 of the spec): trend and AOI ok, S_AlexG >= 65 %, the LTF SoS in, only the engulfing missing.
+ * Sent once per AOI visit to Telegram and web push, and shown in the app (toast and bell, from /api/smc/signals). */
+export interface RadarAlert { id: string; symbol?: string; direction: 'BUY' | 'SELL'; tf: string; touches: number; low: number; high: number; psych?: number | null; etf: string; gpa: number; score?: number; grade: string; time: number; setup?: string | null; at?: number; sosLevel?: number; trend?: string }
 export interface Measured { trades: number; wins: number; winRate: number | null; totalR: number }
 export interface TeamStrategy { id: string; name: string; status: 'SIGNAL' | 'BLOCKED' | 'WATCHING' | 'IDLE' | 'OFF'; setup: TeamSetup | null;
   claimed?: string; measured?: Measured | null;
@@ -37,11 +39,11 @@ export interface TeamPlaybook { name: string; source?: string | null; from?: num
 export interface Team { success: boolean; symbol: string; at: number; lastCandle: number | null; marketOpen?: boolean; source?: string; error?: string;
   strategies: TeamStrategy[]; signals: TeamSetup[]; chart?: TeamChart; agents?: TeamAgent[]; playbook?: TeamPlaybook;
   /** the pair profile's H1 badge (e.g. "H1 range · Z -1.8σ · discount 18 %") */ badge?: string;
-  /** FXAlexG: the live read's GPA (0-100), grade (A+ / A / B / C+ / F), the 5 agents' consensus, the decision, the 9-point checklist */
+  /** FXAlexG: the live read's S_AlexG (0-160 %), grade (A+ / A / B / WAIT), the 5 agents' consensus, the decision, the 18 confluences */
   grade?: string; gpa?: number; consensus?: number; decision?: 'EXECUTE' | 'WAIT_FOR_TRIGGER' | 'WATCH_ONLY' | 'VETOED'; direction?: 'BUY' | 'SELL';
   setupType?: string | null; checklist?: Confluence[]; radar?: RadarAlert | null;
   /** what the validation can say about this pair's strategy (smc/tools/validate.py): never "profitable" from a few trades */
-  evidence?: Evidence; family?: 'trend-following' | 'counter-trend' | null; params?: { minRr: number; counterMinGpa: number; version: string } }
+  evidence?: Evidence; family?: 'swing' | 'day' | null; params?: { minRr: number; counterMinGpa: number; version: string } }
 export interface Evidence { state: 'insufficient data' | 'experimental' | 'validated for research'; oosTrades: number; needed: number; trades: number;
   expectancyR?: number | null; ci95?: [number, number] | null; source?: string | null; date?: string }
 
@@ -53,11 +55,26 @@ export const signalLevels = (s: TeamSetup) => {
   const d = decOf(s.symbol);
   return `Entry ${s.entry.toFixed(d)} · SL ${s.sl.toFixed(d)} · TP ${s.tp.toFixed(d)} · 1:${s.rr.toFixed(1)}`;
 };
+/** A radar alert's two lines, the same as Telegram's first and last: pair, side, the SoS level. */
+export const radarHead = (r: RadarAlert) => `📡 ${r.symbol ?? ''} ${r.direction} watch · ${r.tf} AOI`;
+export const radarLine = (r: RadarAlert) => {
+  const d = decOf(r.symbol);
+  return `${r.etf} SoS ${r.sosLevel != null ? `at ${r.sosLevel.toFixed(d)} ` : ''}· awaiting the engulfing · ${r.score ?? r.gpa}%`;
+};
 
 // Each pair's last good team read, kept for the whole session: a switch shows THAT pair's last read at once (never another
 // pair's: the key is the pair, and the read carries its own symbol), and the fresh read replaces it a moment later.
 const teams = new Map<string, Team>();
-const keep = (t: Team) => { if (t.success) teams.set(t.symbol, t); };
+const TEAM_CACHE_MS = 6 * 3600 * 1000;
+const keep = (t: Team) => { if (t.success) { teams.set(t.symbol, t); writeCache('team', t.symbol, t); } };
+/** This pair's last read: in memory, else the one this device kept from an earlier visit (shown at once, refreshed after). */
+const lastRead = (symbol: string): Team | null => {
+  const hit = teams.get(symbol);
+  if (hit) return hit;
+  const kept = readCache<Team>('team', symbol, TEAM_CACHE_MS);
+  if (kept && kept.symbol === symbol) { teams.set(symbol, kept); return kept; }
+  return null;
+};
 /** Every pair's last read in memory (the Sunday Swings watchlist ranks them). */
 export const cachedTeams = (): Team[] => [...teams.values()];
 
@@ -75,11 +92,11 @@ export async function prefetchTeams(symbols: readonly string[], signal?: AbortSi
 }
 
 export function useSmcTeam(symbol: string, ms = 30000): Team | null {
-  const [st, setSt] = useState<Team | null>(() => teams.get(symbol) ?? null);
+  const [st, setSt] = useState<Team | null>(() => lastRead(symbol));
   useEffect(() => {
     let alive = true;
     const ctrl = new AbortController();
-    setSt(teams.get(symbol) ?? null);  // this pair's last read at once, or nothing: never the previous pair's
+    setSt(lastRead(symbol));  // this pair's last read at once (memory or this device), or nothing: never the previous pair's
     let retry: ReturnType<typeof setTimeout> | null = null;
     const load = async () => {
       if (document.hidden) return;
@@ -87,7 +104,7 @@ export function useSmcTeam(symbol: string, ms = 30000): Team | null {
       try {
         const r = await apiFetch(`/api/smc/team?symbol=${encodeURIComponent(symbol)}`, { cache: 'no-store', signal: ctrl.signal });
         const j = await r.json();
-        if (alive && j.symbol === symbol) { keep(j); setSt(j.success ? j : teams.get(symbol) ?? j); ok = !!j.success; }
+        if (alive && j.symbol === symbol) { keep(j); setSt(j.success ? j : lastRead(symbol) ?? j); ok = !!j.success; }
       } catch { /* retried below */ }
       if (!ok && alive) retry = setTimeout(load, 5000);  // a failed read (server waking up, feed down) is retried soon
     };

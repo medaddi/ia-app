@@ -5,6 +5,8 @@
  * - Adds the session token saved at login.
  */
 
+import { clearCache } from './cache';
+
 export const API_URL = ((import.meta as any).env?.VITE_API_URL || "").replace(/\/$/, "");
 const TOKEN_KEY = "exunu_session_token";
 
@@ -15,7 +17,7 @@ export function getToken(): string {
 export function setToken(token: string | null) {
   try {
     if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
+    else { localStorage.removeItem(TOKEN_KEY); clearCache(); }  // signed out: the cached screens go too
   } catch { /* storage blocked: session lasts until reload */ }
 }
 

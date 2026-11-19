@@ -49,7 +49,8 @@ async def market_ticker(symbol: str = "XAU/USD"):
 @router.get("/market/prices")
 async def market_prices():
     """Every traded pair's live price in one request (each provider asked at most once a second, shared by all viewers)."""
-    syms = list(ASSETS)
+    from ..smc.desk import PAIRS as ALL_PAIRS
+    syms = list(dict.fromkeys([*ASSETS, *ALL_PAIRS]))  # every pair of the app: the dashboard's overview shows them all
     got = await asyncio.gather(*(fetch_live_price(s) for s in syms), return_exceptions=True)
     out = {}
     for s, p in zip(syms, got):

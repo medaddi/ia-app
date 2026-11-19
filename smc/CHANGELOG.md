@@ -404,3 +404,73 @@
   live /api/cron/status showed its last pass 67 s earlier with all 29 pairs read. Locally backend/.env keeps
   SCHEDULER_ENABLED=false, so a local server never sends.
 - Tests: 54 backend tests pass (an end-to-end test: three pairs find a trade at the same tick, all three arrive with exact numbers).
+
+## v2.4 · 2026-11-19 · FXAlexG only, pro design on desktop and phone, the app keeps its last data
+(The folder was a clean copy of a3a2e45; the owner asked for the whole list again on it. fd3551a's work was brought back
+first: radar without notifications, only the trade sent, short alerts, each user's risk and lot, faster start.)
+- FXAlexG only: the unused COT add-on (skill/cot.py) and the ICT-style chart overlays (FVG, BOS / CHoCH, premium /
+  discount, killzones, liquidity pools) are removed; the chart draws only the FXAlexG team's objects and the 50 EMA.
+- Charts: the zone in play as a light band with a short tag ("1W/1D zone · 12 touches"), the 1D levels as small tags, a
+  faint pair · timeframe watermark, the trade as "BUY 4110.40" / "SL … · 100 pips" / "TP … · 1:3.0" / "BE +1.5R";
+  "Details" shows the other FXAlexG zones, round numbers, 4H levels and the SoS line; under the chart one word: Live /
+  Delayed / Market closed; on a phone the toolbar is two rows and the top line shows only the close and the change.
+- Team card: one verdict, the grade bar (its 9 points on a tap), the 5 agents as small tiles (details on a tap), the 3
+  setups as short rows (a signal opens its plan with entry, SL, TP, R:R and your own lot), the rules behind "How it works".
+- Dashboard: 2 price cards per row on a phone (pair, price, change), shorter texts.
+- The app's cache (frontend/src/cache.ts, localStorage): the dashboard, each viewed pair's candles and team read are
+  kept on the device (12 per kind; dashboard 24 h, candles 2 h, teams 6 h), shown at once when the app opens and
+  refreshed behind; sign-out clears them.
+
+## v2.4.1 · 2026-11-19 · The market overview: every pair at a glance on the dashboard
+- The notifier saves a short summary of each pair at every pass (desk.summary: verdict, direction, grade and score, the
+  W1 / D1 / H4 trend, the 5 agents' statuses, the setup watched, the running trade, the last close); GET /api/smc/overview
+  returns all 29 in one read. When no pass ran for 3 minutes, a read-only refresh starts in the background (it sends nothing).
+- /api/market/prices now returns the live price of all 29 pairs (it returned 6).
+- Dashboard: "Market overview" replaces the 6 price cards: counters (trades now, waiting for the trigger, watching, all
+  pairs; a tap filters), then the pairs ranked (trades first, then waiting, then by score). Desktop: one table (pair, live
+  price, trend, grade and score bar, agents, status, the trade with entry / SL / TP / R:R and your own lot). Phone: a
+  compact card per pair. A tap opens the pair's chart; the list is kept on the device and shown at once.
+- Tests: 56 backend tests pass (the summary and the overview route).
+
+## v2.4.2 · 2026-11-19 · Every pair's trade with its lot; the risk setting on the dashboard
+- Proven by a test: while one pair has a trade running, every pair is still analysed at each pass and another pair's new
+  trade is sent at once; only a second trade on the SAME pair waits (one trade per pair).
+- My lot for every trade on the board: /api/me/sizing also sizes a trade the overview shows but that was never sent (found
+  before the server started, or past its 20-minute alert window), from MY risk and its own entry and stop (calculated, not
+  saved); a sent signal keeps its saved size.
+- "Risk per trade $" right on the dashboard's overview (the same private setting as My account and /risk in Telegram);
+  saving it updates every lot on screen at once.
+- Tests: 58 backend tests pass.
+
+## v3.0 · 2026-11-19 · The FXAlexG md of 2026-11-19, applied to the letter (the owner: "follow the md exactly")
+- Engine rebuilt (backend/app/smc/alexg.py): body-only Snake Trick elbows (k: W1 2, others 3), the structure that shifts
+  only on a close beyond HL / LH by 0.5 pip, S&F-SWING (W1 + D1, H4 with or pulling back) and S&F-DAY (D1 + H4 at a D1
+  AOI, no opposing W1 AOI within 1.5R); AOIs from W1 (156) / D1 (300) elbows, 12 pips to W_max, >= 3 D1 / >= 2 W1
+  touches 4 bars apart, W1 + D1 merged, the "every 500" level snapped within 8 pips; InAOI on the last 24 H1 candles
+  within max(8 pips, 0.12 ADR20); the 18-item S_AlexG (A+ >= 100, A 90, B 80, WAIT); SoS + Engulfing (0.85) on H1, then
+  M30, then M15; market at the close (R:R >= 2.5 and range <= 1.8 ATR14) else a limit at the candle's middle; SL
+  min(Z_low, L_swing) - max(5 pips, 2 spread) capped at 1.2 ADR20; TP min(structure - 5 pips, 3.5R), R:R >= 2.5; at
+  +1.5R the stop to the entry and 25 % banked. The 5 agents with the md's weights (0.25 / 0.25 / 0.25 / 0.15 / 0.10) and
+  statuses; seasonal risk 1 / 0.75 / 0.5 %; spread <= 15 % of the SL; news ±30 min. The old session / Thursday / Friday /
+  rollover rules are gone (not in the md). Setups: SF_SWING and SF_DAY (SF_BR / SF_BOUNCE / SF_COUNTER removed).
+  CHOICE where the md is silent (marked in the code): the pin bar / star sizes, the EMA / elbow / pattern tests at the
+  zone, a cluster under 12 pips widened to 12, the zone's own elbows not counted as opposing structure, a limit waits 24
+  candles, a trade still open after 30 days closes.
+- Notifications, as the md: 1 · the radar (trend ok, AOI ok, >= 65 %, the SoS in) once per AOI visit (a watermark), to
+  Telegram, web push and the app (toast and bell); 2 · the long SIGNAL_EXECUTE message of the md's example (a private
+  chat keeps its owner's own lot line); 3 · the trade manager's updates on: FILLED (limits), BREAKEVEN (+1.5R, 25 %
+  banked), TP_HIT, SL_HIT, BE_CLOSED, EXPIRED.
+- App: the team card shows the grade badge and the confluence bar 0 → 100 %+ with the 80 % (B) and 100 % (A+) lines;
+  the 2 setups; market / limit and the +1.5R step in the plan. /api/smc/signals also returns the radar alerts.
+- Backtest (smc/tools/playbook_test.py feed, VERIFIED, H1 trigger and H1 follow, 2 years, 29 pairs): 195 trades, win
+  36 %, -45.2R, PF 0.66. **The md's target (PF > 1.5, win >= 50 %) is not met.** Nothing was tuned to change that.
+- Tests: 63 backend tests pass (test_alexg.py rewritten for the md).
+
+## v3.0.1 · 2026-11-19 · Why it loses, and the fixes tested (nothing changed in the live app)
+- smc/LOSS_ANALYSIS.md: the SoS + Engulfing entry reaches +1R before -1R on 45 % of 5,170 triggers (a coin flip is
+  50 %); S_AlexG does not rank trades (80-99 % does worse than 40-59 %; the round level, D1 AOI and D1 / H4 elbows are
+  true on 85-98 % of triggers); 20-40 pip stops lose -0.37R per trade; S&F-DAY -35.2R.
+- smc/tools/fix_test.py: 81 combinations of 4 fixes (entry, stop floor, sync, score gate), chosen on the first 60 %,
+  checked on the last 40 %: none passes (the chosen one: PF 0.70 on the last 40 %); none made money on both halves.
+- alexg.VARIANT: the research switches, at the md's values (the live app is unchanged). Tests: 63 pass.
+

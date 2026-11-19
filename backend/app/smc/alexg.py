@@ -1,29 +1,27 @@
 """
-FXAlexG "Set & Forget": the ONE engine of the app, for gold and the 28 forex pairs. The user's spec (2026-11-11)
-"Complete strategic overhaul: FXAlexG Set & Forget, 5-agent desk, 3-stage notifications", applied to the letter.
-Pure price action: no tick volume, no M5 gap veto. M5 only follows the trades.
+FXAlexG "Set & Forget": the ONE engine of the app, for gold and the 28 forex pairs. The owner's spec (2026-11-19)
+"FXAlexG Set & Forget — Redesigned 5-Agent Architecture, Profitable Mathematical Engine, Notification Pipeline",
+applied to the letter. Pure price action on CLOSED candles (c.time + tf_sec <= now): no tick volume, no M5 gap veto.
+M5 only follows the trades.
 
-  3.1  No-Gap candles for every candle pattern: O' = C(t-1), H' = max(H, O', C), L' = min(L, O', C), C' = C
-  3.2  EMA 50 on closes for every timeframe; a tap = L' <= EMA + 0.15 ATR 14 and C' > EMA (bull), the mirror (bear)
-  3.3  line-chart structure on closes only: pivots C_i = max / min of [i-m, i+m] (m: W1 2, D1 3, H4 3); a trend turns only
-       on a close strictly beyond HL / LH; "HH is always in front of HL": HL = the lowest close between the break origin and
-       the new HH (the mirror for LL / LH)
-  3.4  AOIs on W1 (120 bars) and D1 (250 bars) only: close and wick pivots grouped into zones <= 0.35 ATR 14 (D1) thick;
-       a touch = price enters the zone from one side and moves >= 0.75 ATR 14 (D1) away on that side, touches 3+ candles
-       apart, support and resistance touches both count; >= 3 touches; a BUY zone lies inside the active bullish
-       [HL, HH] of D1 or W1 (a SELL zone inside [LL, LH]); a round number (50 / 100 pips, gold $25 / $50) within 10 pips
-  3.5  the closed confirmation on 2H / 1H / 30M / 15M at the AOI: a doji / pinbar (body <= 32 %, rejection wick >= 60 %),
-       an engulfing (close beyond the previous body, body >= 80 % of it and >= 50 % of its own range), the LTF SoS, a
-       double top / bottom or (inverse) H&S with a close beyond the neckline and a retest
-  3.6  the 100-point GPA (9 items) and its grades: A+ >= 90, A 80-89, B 75-79, C+ 70-74, below 70: F (NO_TRADE)
-  3.7  entry at the confirmation close (band ± 0.15 ATR 14 1H); SL = min(Z_low, swing) - 0.20 ATR 14 1H - spread; TP 7 pips
-       (the spec: 5 to 10) before the next opposing D1 / W1 structure or the round number just inside it, never an
-       arbitrary R multiple (the user, 2026-11-11); RR >= 2.0;
-       at +1.5 R the stop goes to the entry + 2 pips; a trade not in profit on Friday 20:00 UTC is closed
-  4    the 5 agents (trend_director, aoi_architect, confluence_grader, trigger_sniper, risk_guardian), the consensus
-       0.25 / 0.25 / 0.20 / 0.20 / 0.10 and the execution rule
-  setups  SF_BR (break & retest continuation), SF_BOUNCE (direct pro-trend AOI bounce, the 4th+ touch), SF_COUNTER
-          (1D shifted against the 1W, the weekly retracement leg)
+  3.1  body-only candles: B+ = max(O, C), B- = min(O, C), dB = B+ - B-, R = H - L, UW = H - B+, LW = B- - L.
+       Snake Trick elbows (k: W1 2, D1 / H4 / H1 / M30 / M15 3): an upper elbow at t when B+_t is the max of B+ over
+       [t-k, t+k] and a close of [t+1, t+k] is below it (P = B+_t, W = max H of [t-1, t+1]); the lower elbow mirrors it.
+       Structure S in {+1, -1}: bullish -> bearish iff a close < P(HL) - 0.5 pip, bearish -> bullish iff a close
+       > P(LH) + 0.5 pip. Sync(d): S&F-SWING  W1 = D1 = d (H4 = d, or H4 pulling back into the AOI);
+       S&F-DAY  D1 = H4 = d at a D1 AOI with no opposing W1 AOI within 1.5 R.
+  3.2  AOIs: elbows of W1 (last 156 bars) and D1 (last 300) clustered into zones 12 pips <= width <= W_max with >= 3 D1
+       touches (or >= 2 W1) >= 4 bars apart; overlapping W1 and D1 zones merged; the "every 500" level
+       round(Z_mid / step) * step within 8 pips widens the zone. InAOI: one of the last 24 H1 candles within
+       d_prox = max(8 pips, 0.12 ADR20) of the zone, the close beyond Z_distal (Z_low - 10 pips for a buy), the D1
+       close not more than 10 pips beyond the distal edge.
+  3.3  S_AlexG: 18 items, 160 % in all; A+ >= 100, A 90-99, B 80-89 (the minimum), WAIT < 80.
+  3.4  the two-step trigger on H1, then M30, then M15: SoS (a body close beyond the LTF LH / HL after the swing at
+       the AOI), then an Engulfing (C > O, C > B+_{t-1}, dB >= 0.85 dB_{t-1}) at the SoS or within 24 candles, above
+       L_swing. Market at the close when RR >= 2.5 and R <= 1.8 ATR14, else a limit at the candle's middle.
+  3.5  SL = min(Z_low, L_swing) - max(5 pips, 2 spread), at most 1.2 ADR20 from the entry; TP = min(opposing D1 / W1
+       structure - 5 pips, entry + 3.5 R), RR >= 2.5; at +1.5 R the stop goes to the entry and 25 % is banked.
+  4    the 5 agents (weights 0.25 / 0.25 / 0.25 / 0.15 / 0.10) and the execution gate.
 
 Every number the spec leaves open is marked CHOICE and was fixed before any result was seen.
 """
@@ -34,20 +32,34 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .playbook import DAY, H1S, H4S, M5S, M15S, NEWS_MIN, _Bar, _make, atr, ema, m5_index_at_close, resample, run
+from .playbook import DAY, H1S, H4S, M5S, M15S, NEWS_MIN, _Bar, _make, atr, ema, m5_index_at_close, resample
 
-W1S, H2S, M30S = 7 * DAY, 7200, 1800
-TF_SEC = {"W1": W1S, "D1": DAY, "H4": H4S, "H2": H2S, "H1": H1S, "M30": M30S, "M15": M15S}
-M_PIV = {"W1": 2, "D1": 3, "H4": 3, "H2": 3, "H1": 3, "M30": 3, "M15": 3}  # CHOICE: the LTFs use m = 3 like 1D / 4H
-N_AOI = {"W1": 120, "D1": 250}
-ENTRY_TFS = ("H2", "H1", "M30", "M15")
+W1S, M30S = 7 * DAY, 1800
+TF_SEC = {"W1": W1S, "D1": DAY, "H4": H4S, "H1": H1S, "M30": M30S, "M15": M15S}
+K = {"W1": 2, "D1": 3, "H4": 3, "H1": 3, "M30": 3, "M15": 3}
+N_AOI = {"W1": 156, "D1": 300}
+MIN_TOUCH = {"W1": 2, "D1": 3}
+TOUCH_GAP, MIN_W_PIPS, PSYCH_PIPS = 4, 12.0, 8.0
+PROX_PIPS, PROX_ADR, H1_WINDOW, DISTAL_PIPS, APPROACH_PIPS = 8.0, 0.12, 24, 10.0, 15.0
+ENTRY_TFS = ("H1", "M30", "M15")
+RETEST_BARS, ENGULF_RATIO, MARKET_ATR = 24, 0.85, 1.8
+BUF_PIPS, BUF_SPREAD, SL_MAX_ADR, FRONT_PIPS, TP_CAP_R, MIN_RR = 5.0, 2.0, 1.2, 5.0, 3.5, 2.5
+BE_R, PART, BE_OFF = 1.5, 0.25, 0.0  # at +1.5 R: the stop to the entry (+0), 25 % banked
+GRADE_MIN, RADAR_MIN, SPREAD_MAX, W1_OPP_R = 80, 65, 0.15, 1.5
+SWING_BARS = 24  # CHOICE: the swing before the SoS is looked for in the 24 candles up to it
+HISTORY_BARS = 40  # CHOICE: an HTF chart pattern is read on the last 40 candles, its last turn within 20
+LIMIT_BARS = 24  # CHOICE: a limit order waits 24 candles of its entry timeframe, then it is cancelled
+HOLD_DAYS = 30  # CHOICE: a trade still open after 30 days is closed at market (Set & Forget, no other time exit)
 STRATEGY_NAME = "FXAlexG Set & Forget"
-SETUPS = {"SF_BR": "Set & Forget — Break & Retest Continuation", "SF_BOUNCE": "Set & Forget — Direct AOI Structure Bounce",
-          "SF_COUNTER": "Set & Forget — Weekly Retracement Intraday Swing"}
-BE_R, BE_PIPS, MIN_RR, FRONT_RUN_PIPS = 1.5, 2.0, 2.0, 7.0  # the TP is always the structure's (no R cap: the user, 2026-11-11)
-SESSION = (6, 17)  # 06:00-17:00 UTC: pre-London, London, NY overlap
-RISK_BY_GRADE = {"A+": 1.0, "A": 1.0, "B": 0.75, "C+": 0.5}
-SOS_BARS, RECENT_BARS, SWING_BARS, REVERSAL_BARS, HOLD_DAYS = 24, 3, 12, 10, 30  # CHOICE (the spec does not size them)
+# Research switches (smc/tools/fix_test.py). The defaults ARE the md: the live app never changes them.
+#   entry  "md": market at the close when R:R >= 2.5 and the range is normal, else the 50 % limit;
+#          "mid": always the 50 % limit;  "neck": always a limit at the SoS neckline
+#   sl_floor_adr  0: the md's stop; x > 0: the stop at least x ADR20 from the entry (still <= 1.2 ADR20)
+#   sync   "md": S&F-SWING and S&F-DAY;  "swing": S&F-SWING only;  "full": W1 = D1 = H4 only
+#   gate   "md": S_AlexG >= 80;  "none": no score gate;  "strict": >= 50 without the near-always items (TRIVIAL)
+VARIANT = {"entry": "md", "sl_floor_adr": 0.0, "sync": "md", "gate": "md"}
+TRIVIAL = ("psych", "aoi_d1", "elbow_d1", "elbow_h4")
+SETUPS = {"SF_SWING": "S&F-SWING — W1 + D1 in sync", "SF_DAY": "S&F-DAY — D1 + H4 in sync"}
 CFG_DIR = Path(__file__).parent / "configs"
 _cfg: dict = {}
 
@@ -58,47 +70,31 @@ def config(key: str) -> dict:
     return _cfg[key]
 
 
+def season_risk(T: int) -> float:
+    """The seasonal risk: 1 % Jan-Mar and Oct-Dec, 0.75 % Apr-May and Aug-Sep, 0.5 % Jun-Jul."""
+    m = datetime.fromtimestamp(T, timezone.utc).month
+    return 0.5 if m in (6, 7) else 0.75 if m in (4, 5, 8, 9) else 1.0
+
+
 def hm(t: int) -> str:
     return datetime.fromtimestamp(t, timezone.utc).strftime("%H:%M")
 
 
 def badge(s: str) -> str:
-    """An agent's badge: at most 55 characters."""
-    return s if len(s) <= 55 else s[:54] + "…"
+    """An agent's badge: at most 60 characters."""
+    return s if len(s) <= 60 else s[:59] + "…"
 
 
 def fmt(v: float, pip: float) -> str:
     return f"{v:.{2 if pip >= 0.1 else 3 if pip >= 0.01 else 5}f}"
 
 
-# ---------------------------------------------------------------- 3.1 No-Gap candles
-def nogap(c) -> list:
-    out, prev = [], None
-    for x in c:
-        o = x.open if prev is None else prev.close
-        out.append(_Bar(x.time, o, max(x.high, o, x.close), min(x.low, o, x.close), x.close))
-        prev = x
-    return out
+def bp(x) -> float:
+    return max(x.open, x.close)
 
 
-def doji(x, d: int, zone: Optional[dict] = None) -> bool:
-    """A rejection doji / pinbar on a No-Gap candle: body <= 32 % of the range, the rejection wick >= 60 % of it."""
-    r = x.high - x.low
-    if r <= 0 or abs(x.close - x.open) / r > 0.32:
-        return False
-    if d > 0:
-        return min(x.open, x.close) - x.low >= 0.6 * r and (zone is None or x.close > zone["lo"])
-    return x.high - max(x.open, x.close) >= 0.6 * r and (zone is None or x.close < zone["hi"])
-
-
-def engulf(p, x, d: int) -> bool:
-    """An engulfing No-Gap candle: closes beyond the previous body, body >= 80 % of the previous body and >= 50 % of its range."""
-    r, b, pb = x.high - x.low, abs(x.close - x.open), abs(p.close - p.open)
-    if r <= 0:
-        return False
-    if d > 0:
-        return x.close > x.open and x.close > max(p.open, p.close) and b >= 0.8 * pb and b >= 0.5 * r
-    return x.close < x.open and x.close < min(p.open, p.close) and b >= 0.8 * pb and b >= 0.5 * r
+def bm(x) -> float:
+    return min(x.open, x.close)
 
 
 def weekly(d1) -> list:
@@ -114,97 +110,134 @@ def weekly(d1) -> list:
     return out
 
 
-# ---------------------------------------------------------------- 3.3 line-chart structure
-def pivots(v: list[float], m: int) -> tuple[list[bool], list[bool]]:
-    """hi[i] when v[i] is the max of [i-m, i+m], lo[i] the min. A pivot at i is known at the close of i + m."""
-    n = len(v)
-    hi, lo = [False] * n, [False] * n
-    for i in range(m, n - m):
-        w = v[i - m:i + m + 1]
-        hi[i], lo[i] = v[i] == max(w), v[i] == min(w)
-    return hi, lo
+# ---------------------------------------------------------------- the candle patterns
+def engulf(p, x, d: int) -> bool:
+    """3.4 step 2: C > O, C > B+(t-1), dB >= 0.85 dB(t-1) for a buy; the mirror for a sell."""
+    b, pb = abs(x.close - x.open), abs(p.close - p.open)
+    if d > 0:
+        return x.close > x.open and x.close > bp(p) and b >= ENGULF_RATIO * pb
+    return x.close < x.open and x.close < bm(p) and b >= ENGULF_RATIO * pb
 
 
-def structure(cl: list[float], m: int) -> dict:
-    """Per close: trend (+1 / -1 / 0 before the first break), HH, HL, LL, LH as (close, index), events
-    [(i, 'BOS' | 'SOS', dir, level)]. CHOICE where the spec is silent: the machine starts at the first close beyond a
-    confirmed pivot; after a break the new HH (LL) follows the leg's highest (lowest) close and is fixed by the next
-    confirmed pivot."""
-    n = len(cl)
-    ph, pl = pivots(cl, m)
-    out = {k: [None] * n for k in ("trend", "hh", "hl", "ll", "lh")}
+def pinbar(x, d: int) -> bool:
+    """CHOICE (the spec names the pin bar without sizing it): body <= 1/3 of the range, the rejection wick >= 60 % of it."""
+    r = x.high - x.low
+    if r <= 0 or abs(x.close - x.open) > r / 3:
+        return False
+    return (bm(x) - x.low >= 0.6 * r) if d > 0 else (x.high - bp(x) >= 0.6 * r)
+
+
+def star(a, b, c, d: int) -> bool:
+    """CHOICE: a morning (evening) star: a strong opposite candle (body >= half its range), a small one (body <= 30 % of
+    the first body), then a candle of the trade's side closing beyond the middle of the first body."""
+    r1, b1 = a.high - a.low, abs(a.close - a.open)
+    if r1 <= 0 or b1 < 0.5 * r1 or abs(b.close - b.open) > 0.3 * b1:
+        return False
+    mid = (a.open + a.close) / 2
+    if d > 0:
+        return a.close < a.open and c.close > c.open and c.close > mid
+    return a.close > a.open and c.close < c.open and c.close < mid
+
+
+# ---------------------------------------------------------------- 3.1 Snake Trick elbows and the structure
+def find_elbows(c, k: int) -> tuple[list[tuple], list[tuple]]:
+    """(upper, lower) elbows as (index, P, W). An elbow at t is known at the close of t + k."""
+    n = len(c)
+    B, Bm, C = [bp(x) for x in c], [bm(x) for x in c], [x.close for x in c]
+    up, dn = [], []
+    for t in range(k, n - k):
+        if B[t] == max(B[t - k:t + k + 1]) and min(C[t + 1:t + k + 1]) < B[t]:
+            up.append((t, B[t], max(x.high for x in c[t - 1:t + 2])))
+        if Bm[t] == min(Bm[t - k:t + k + 1]) and max(C[t + 1:t + k + 1]) > Bm[t]:
+            dn.append((t, Bm[t], min(x.low for x in c[t - 1:t + 2])))
+    return up, dn
+
+
+def trace_structure(c, up: list, dn: list, k: int, pip: float) -> dict:
+    """Per candle: S (+1 / -1, 0 before the first break), HH, HL, LL, LH as (P, index), and events
+    [(i, 'BOS' | 'SOS', dir, level)]. Shifts exactly as the spec: a close < P(HL) - 0.5 pip, a close > P(LH) + 0.5 pip.
+    CHOICE where the spec is silent: the machine starts at the first close beyond a confirmed elbow; a close beyond the
+    last confirmed elbow of the trend's side (a BOS) moves the protected HL to the lowest body of the pullback before it
+    (HH is always in front of HL), the mirror for LH."""
+    n, eps = len(c), 0.5 * pip
+    B, Bm = [bp(x) for x in c], [bm(x) for x in c]
+    out = {q: [None] * n for q in ("trend", "hh", "hl", "ll", "lh")}
     events = []
-    tr, hh, hl, ll, lh, pend, brk = 0, None, None, None, None, False, 0
-    lp_h = lp_l = None
+    tr, hh, hl, ll, lh, top, bot = 0, None, None, None, None, None, None
+    last_up = last_dn = None
+    ui = di = 0
 
     def lowest(a, b):
-        q = min(range(a, b), key=lambda u: cl[u])
-        return cl[q], q
+        q = min(range(a, b + 1), key=lambda u: Bm[u])
+        return Bm[q], q
 
     def highest(a, b):
-        q = max(range(a, b), key=lambda u: cl[u])
-        return cl[q], q
+        q = max(range(a, b + 1), key=lambda u: B[u])
+        return B[q], q
     for i in range(n):
-        j = i - m
-        if j >= 0 and ph[j]:
-            lp_h = (cl[j], j)
-        if j >= 0 and pl[j]:
-            lp_l = (cl[j], j)
-        x = cl[i]
+        while ui < len(up) and up[ui][0] + k <= i:
+            last_up = up[ui]
+            ui += 1
+            if tr == 1 and last_up[0] > hl[1]:
+                top = last_up
+        while di < len(dn) and dn[di][0] + k <= i:
+            last_dn = dn[di]
+            di += 1
+            if tr == -1 and last_dn[0] > lh[1]:
+                bot = last_dn
+        x = c[i].close
         if tr == 0:
-            if lp_h and x > lp_h[0]:
-                tr, hl, hh, pend, brk = 1, lowest(lp_h[1], i), (x, i), True, i
-                events.append((i, "BOS", 1, lp_h[0]))
-            elif lp_l and x < lp_l[0]:
-                tr, lh, ll, pend, brk = -1, highest(lp_l[1], i), (x, i), True, i
-                events.append((i, "BOS", -1, lp_l[0]))
+            if last_up and x > last_up[1] + eps:
+                tr, hl, top = 1, lowest(last_up[0], i), None
+                hh = highest(hl[1], i)
+                events.append((i, "BOS", 1, last_up[1]))
+            elif last_dn and x < last_dn[1] - eps:
+                tr, lh, bot = -1, highest(last_dn[0], i), None
+                ll = lowest(lh[1], i)
+                events.append((i, "BOS", -1, last_dn[1]))
         elif tr == 1:
-            if x < hl[0]:  # a close strictly below HL: bearish
+            if x < hl[0] - eps:
                 events.append((i, "SOS", -1, hl[0]))
-                tr, lh, ll, pend, brk = -1, highest(hl[1], i), (x, i), True, i
-            elif pend:
-                if x > hh[0]:
-                    hh = (x, i)
-                if lp_h and lp_h[1] >= brk:
-                    pend = False
-            elif x > hh[0]:
-                events.append((i, "BOS", 1, hh[0]))
-                hl, hh, pend, brk = lowest(hh[1], i), (x, i), True, i  # HL strictly behind the new HH
+                tr, lh, bot = -1, highest(hl[1], i), None
+                ll = lowest(lh[1], i)
+            elif top and x > top[1]:
+                events.append((i, "BOS", 1, top[1]))
+                hl, top = lowest(top[0], i), None
+                hh = highest(hl[1], i)
+            elif B[i] > hh[0]:
+                hh = (B[i], i)
         else:
-            if x > lh[0]:
+            if x > lh[0] + eps:
                 events.append((i, "SOS", 1, lh[0]))
-                tr, hl, hh, pend, brk = 1, lowest(lh[1], i), (x, i), True, i
-            elif pend:
-                if x < ll[0]:
-                    ll = (x, i)
-                if lp_l and lp_l[1] >= brk:
-                    pend = False
-            elif x < ll[0]:
-                events.append((i, "BOS", -1, ll[0]))
-                lh, ll, pend, brk = highest(ll[1], i), (x, i), True, i
+                tr, hl, top = 1, lowest(lh[1], i), None
+                hh = highest(hl[1], i)
+            elif bot and x < bot[1]:
+                events.append((i, "BOS", -1, bot[1]))
+                lh, bot = highest(bot[0], i), None
+                ll = lowest(lh[1], i)
+            elif Bm[i] < ll[0]:
+                ll = (Bm[i], i)
         out["trend"][i], out["hh"][i], out["hl"][i], out["ll"][i], out["lh"][i] = tr, hh, hl, ll, lh
     out["events"] = events
     return out
 
 
 class TF:
-    """One timeframe: candles, No-Gap candles, closes, structure, EMA 50, ATR 14, close and wick pivots."""
+    """One timeframe: candles, elbows, structure, EMA 50, ATR 14."""
 
-    def __init__(self, name: str, c):
-        self.name, self.c = name, c
-        self.g = nogap(c)
+    def __init__(self, name: str, c, pip: float):
+        self.name, self.c, self.pip = name, c, pip
         self.t = [x.time for x in c]
-        self.step, self.m = TF_SEC[name], M_PIV[name]
+        self.step, self.k = TF_SEC[name], K[name]
         self.cl = [x.close for x in c]
-        self.s = structure(self.cl, self.m)
+        self.up, self.dn = find_elbows(c, self.k)
+        self.s = trace_structure(c, self.up, self.dn, self.k, pip)
         self.e50 = ema(self.cl, 50)
         self.at = atr(c, 14)
-        self.ph, self.pl = pivots(self.cl, self.m)
-        self.wh = pivots([x.high for x in c], self.m)[0]
-        self.wl = pivots([x.low for x in c], self.m)[1]
-        self.ev_at = {}
+        self.sos_at: dict[int, list] = {}
         for i, kind, d, lv in self.s["events"]:
-            self.ev_at.setdefault(i, []).append((kind, d, lv))
+            if kind == "SOS":
+                self.sos_at.setdefault(i, []).append((d, lv))
 
     def idx(self, T: int) -> int:
         """The last candle closed at T."""
@@ -213,165 +246,174 @@ class TF:
     def trend(self, i: int) -> int:
         return self.s["trend"][i] if i >= 0 else 0
 
-    def range_of(self, i: int, d: int) -> Optional[tuple[float, float]]:
-        """The active dealing range of direction d: [HL, HH] (bull) or [LL, LH] (bear), when the trend is d."""
-        if i < 0 or self.s["trend"][i] != d:
-            return None
-        a, b = (self.s["hl"][i], self.s["hh"][i]) if d > 0 else (self.s["ll"][i], self.s["lh"][i])
-        return (a[0], b[0]) if a and b else None
-
-    def tap(self, q: int, d: int) -> bool:
-        """3.2: the No-Gap candle q taps and respects the EMA 50."""
-        e, a = self.e50[q], self.at[q]
-        if e is None or not a:
-            return False
-        x = self.g[q]
-        return (x.low <= e + 0.15 * a and x.close > e) if d > 0 else (x.high >= e - 0.15 * a and x.close < e)
+    def elbows(self, i: int, n: int) -> list[tuple]:
+        """The elbows known at the close of i among the last n candles: (index, P, kind) with kind +1 upper, -1 lower."""
+        lo = i - n + 1
+        out = [(q, p, 1) for q, p, _ in self.up if lo <= q and q + self.k <= i]
+        out += [(q, p, -1) for q, p, _ in self.dn if lo <= q and q + self.k <= i]
+        return out
 
 
-# ---------------------------------------------------------------- 3.4 AOIs
-def touches(c, n0: int, i: int, lo: float, hi: float, rev: float) -> tuple[int, list]:
-    """Touches of [lo, hi] in candles n0..i: a candle enters it from one side (the previous close beyond an edge) and, within
-    10 candles (CHOICE), price reaches rev beyond that edge before a close through the other edge; touches 3+ candles apart.
-    Returns (count, [(index, role)]) with role +1 = support (from above), -1 = resistance (from below)."""
-    n, last, roles = 0, -99, []
-    for q in range(max(n0, 1), i + 1):
-        x = c[q]
-        if not (x.low <= hi and x.high >= lo) or q - last < 3:
-            continue
-        pc = c[q - 1].close
-        side = 1 if pc > hi else -1 if pc < lo else 0
-        if not side:
-            continue
-        for r in range(q, min(q + REVERSAL_BARS, i) + 1):
-            y = c[r]
-            if side > 0:
-                if y.close < lo:
-                    break
-                if y.high >= hi + rev:
-                    n, last = n + 1, q
-                    roles.append((q, 1))
-                    break
-            else:
-                if y.close > hi:
-                    break
-                if y.low <= lo - rev:
-                    n, last = n + 1, q
-                    roles.append((q, -1))
-                    break
-    return n, roles
+# ---------------------------------------------------------------- 3.2 AOIs
+def spaced(idxs: list[int]) -> list[int]:
+    """The touches counted: elbow indexes at least 4 candles apart (in time order, greedy)."""
+    out = []
+    for q in sorted(idxs):
+        if not out or q - out[-1] >= TOUCH_GAP:
+            out.append(q)
+    return out
 
 
-def psych_near(lo: float, hi: float, pip: float, step: float) -> Optional[float]:
-    """The round number (every `step`: 50 pips, JPY 0.50, gold $25) inside the zone or within 10 pips of it, nearest its middle."""
-    mid = (lo + hi) / 2
-    p = round(mid / step) * step
-    for q in (p, p - step, p + step):
-        if lo - 10 * pip <= q <= hi + 10 * pip:
-            return round(q, 6)
-    return None
-
-
-def build_zones(tf: TF, i: int, atr_d: float, pip: float, step: float) -> list[dict]:
-    if i < 20 or not atr_d:
+def build_aois(tf: TF, i: int, pip: float, wmax: float) -> list[dict]:
+    """Zones of one timeframe at the close of i: the elbows' P clustered into [lo, hi] no wider than W_max with the
+    minimum of touches. CHOICE: of the clusters starting at an elbow, the one with the most touches (then the
+    narrowest) is kept; the zones kept never overlap (the most touches first); a cluster narrower than 12 pips is
+    widened to 12 around its middle (the spec's 12-pip floor)."""
+    if i < 2 * tf.k + 2:
         return []
-    n0 = max(0, i - N_AOI[tf.name] + 1)
-    c, m = tf.c, tf.m
-    pts = []
-    for q in range(max(n0, m), i - m + 1):  # pivots known at i
-        if tf.ph[q] or tf.pl[q]:
-            pts.append((tf.cl[q], True))
-        if tf.wh[q]:
-            pts.append((c[q].high, False))
-        if tf.wl[q]:
-            pts.append((c[q].low, False))
-    pts.sort()
-    thick, rev = 0.35 * atr_d, 0.75 * atr_d
-    seen, cands = set(), []
+    pts = sorted(tf.elbows(i, N_AOI[tf.name]), key=lambda e: e[1])
+    need, cands = MIN_TOUCH[tf.name], []
     for a in range(len(pts)):
-        if not pts[a][1]:  # CHOICE: zones are anchored on close pivots (the wicks widen them)
-            continue
-        grp = [p for p, _ in pts[a:] if p <= pts[a][0] + thick]
-        lo, hi = grp[0], grp[-1]
-        key = (round(lo / pip), round(hi / pip))
-        if key in seen:
-            continue
-        seen.add(key)
-        n, roles = touches(c, n0, i, lo, hi, rev)
-        if n >= 3:
-            cands.append({"lo": lo, "hi": hi, "touches": n, "roles": roles, "tfs": {tf.name}, "t0": c[roles[0][0]].time})
+        best = None
+        for b in range(a, len(pts)):
+            if (pts[b][1] - pts[a][1]) / pip > wmax:
+                break
+            grp = pts[a:b + 1]
+            hits = spaced([q for q, _, _ in grp])
+            if len(hits) >= need and (best is None or len(hits) > best[0]):
+                best = (len(hits), b, hits, grp)
+        if best:
+            n_, b, hits, grp = best
+            cands.append({"lo": pts[a][1], "hi": pts[b][1], "touches": n_, "hits": hits, "tfs": {tf.name},
+                          "roles": [(q, -kind) for q, _, kind in grp], "t0": tf.t[hits[0]]})
     cands.sort(key=lambda z: (-z["touches"], z["hi"] - z["lo"]))
     out = []
     for z in cands:
         if all(z["hi"] < y["lo"] or z["lo"] > y["hi"] for y in out):
             out.append(z)
     for z in out:
-        z["psych"] = psych_near(z["lo"], z["hi"], pip, step)
-        z["width"] = (z["hi"] - z["lo"]) / pip
+        if (z["hi"] - z["lo"]) / pip < MIN_W_PIPS:
+            mid = (z["hi"] + z["lo"]) / 2
+            z["lo"], z["hi"] = mid - MIN_W_PIPS * pip / 2, mid + MIN_W_PIPS * pip / 2
+        z["t_" + tf.name.lower()] = z["touches"]
     return out
 
 
 def merge_zones(w1: list[dict], d1: list[dict]) -> list[dict]:
-    """A W1 zone and a D1 zone that overlap are one W1+D1 zone (the strong AOI)."""
+    """A W1 zone and the D1 zones that overlap it are one W1+D1 zone."""
     out, used = [], set()
     for zw in w1:
-        z = dict(zw)
+        z = {**zw, "tfs": set(zw["tfs"]), "t_d1": 0}
         for q, zd in enumerate(d1):
             if zd["lo"] <= z["hi"] and zd["hi"] >= z["lo"]:
                 used.add(q)
-                z.update(lo=min(z["lo"], zd["lo"]), hi=max(z["hi"], zd["hi"]), touches=max(z["touches"], zd["touches"]),
-                         roles=sorted(z["roles"] + zd["roles"]), tfs={"W1", "D1"}, psych=z["psych"] or zd["psych"])
-        z["overlap"] = z["tfs"] == {"W1", "D1"}
+                z.update(lo=min(z["lo"], zd["lo"]), hi=max(z["hi"], zd["hi"]), t_d1=max(z["t_d1"], zd["touches"]),
+                         roles=sorted(z["roles"] + zd["roles"]), t0=min(z["t0"], zd["t0"]))
+                z["tfs"].add("D1")
+        z["touches"] = max(z["t_w1"], z["t_d1"])
         out.append(z)
     for q, zd in enumerate(d1):
         if q not in used:
-            out.append({**zd, "overlap": False})
+            out.append({**zd, "tfs": set(zd["tfs"]), "t_w1": 0})
     for z in out:
-        z["strong"] = z["overlap"] or z["touches"] >= 5
+        z["overlap"] = z["tfs"] == {"W1", "D1"}
     return out
 
 
-# ---------------------------------------------------------------- LTF patterns
-def pattern(e: TF, t: int, z: dict, d: int, tol: float) -> Optional[tuple[str, float]]:
-    """A double bottom / inverse H&S (long) or double top / H&S (short) on close pivots inside the AOI (± tol), the last
-    pivot within 20 candles (CHOICE), a close beyond the neckline after it and a retest of the neckline (within 0.15 ATR)
-    or of the AOI since. Returns (name, head / extreme) or None."""
-    a, b = z["lo"] - tol, z["hi"] + tol
-    src, opp = (e.pl, e.ph) if d > 0 else (e.ph, e.pl)
-    turns = [(e.cl[q], q) for q in range(max(t - 40, e.m), t - e.m + 1) if src[q]]
-    at = e.at[t] or 0
+def snap_psych(z: dict, pip: float, step: float) -> dict:
+    """The "every 500" rule: P = round(Z_mid / step) * step; inside [Z_low - 8 pips, Z_high + 8 pips] it widens the zone."""
+    p = round(round((z["lo"] + z["hi"]) / 2 / step) * step, 6)
+    if z["lo"] - PSYCH_PIPS * pip <= p <= z["hi"] + PSYCH_PIPS * pip:
+        z["lo"], z["hi"], z["psych"] = min(z["lo"], p), max(z["hi"], p), p
+    else:
+        z["psych"] = None
+    z["width"] = (z["hi"] - z["lo"]) / pip
+    return z
+
+
+def dist(lo: float, hi: float, z: dict) -> float:
+    """The distance between the price range [lo, hi] and the zone (0 when they overlap)."""
+    return max(z["lo"] - hi, lo - z["hi"], 0.0)
+
+
+# ---------------------------------------------------------------- HTF confluences at the zone
+def htf_ema(tf: TF, i: int, z: dict, d: int, prox: float) -> bool:
+    """CHOICE: the 50 EMA as dynamic support (resistance): at the zone (within d_prox) and the close on the trade's side."""
+    e = tf.e50[i] if i >= 0 else None
+    return e is not None and z["lo"] - prox <= e <= z["hi"] + prox and d * (tf.cl[i] - e) > 0
+
+
+def htf_elbow(tf: TF, i: int, z: dict, d: int, prox: float) -> bool:
+    """CHOICE: a prior structure elbow of this timeframe at the zone (within d_prox), rejected by one of the last 3
+    candles: it reached the elbow (within d_prox) and closed beyond it on the trade's side."""
+    if i < 3:
+        return False
+    for q, p, _ in tf.elbows(i - 3, N_AOI.get(tf.name, 300)):
+        if z["lo"] - prox <= p <= z["hi"] + prox:
+            for j in range(i - 2, i + 1):
+                x = tf.c[j]
+                if (x.low <= p + prox and x.close > p) if d > 0 else (x.high >= p - prox and x.close < p):
+                    return True
+    return False
+
+
+def htf_candle(tf: TF, i: int, z: dict, d: int, prox: float) -> Optional[str]:
+    """A pin bar, an engulfing or a star on one of the last 2 closed candles, at the zone (within d_prox)."""
+    for j in (i, i - 1):
+        if j < 2:
+            continue
+        x = tf.c[j]
+        if dist(x.low, x.high, z) > prox:
+            continue
+        if pinbar(x, d):
+            return "Pin bar"
+        if engulf(tf.c[j - 1], x, d):
+            return "Engulfing"
+        if star(tf.c[j - 2], tf.c[j - 1], x, d):
+            return "Morning star" if d > 0 else "Evening star"
+    return None
+
+
+def htf_pattern(tf: TF, i: int, z: dict, d: int, prox: float) -> Optional[str]:
+    """CHOICE: a double bottom / inverse H&S (buy) or double top / H&S (sell) on this timeframe's elbows at the zone
+    (within d_prox), in the last 40 candles, its last turn within 20, and a close beyond the neckline since."""
+    turns = sorted((q, p) for q, p, kind in tf.elbows(i, HISTORY_BARS) if kind == -d)
+    opp = sorted((q, p) for q, p, kind in tf.elbows(i, HISTORY_BARS) if kind == d)
     for n_ in (3, 2):
         if len(turns) < n_:
             continue
         ts = turns[-n_:]
-        if not all(a <= p <= b for p, _ in ts) or t - ts[-1][1] > 20:
+        if i - ts[-1][0] > 20 or not all(z["lo"] - prox <= p <= z["hi"] + prox for _, p in ts):
             continue
-        if n_ == 3 and not ((ts[1][0] < min(ts[0][0], ts[2][0])) if d > 0 else (ts[1][0] > max(ts[0][0], ts[2][0]))):
+        if n_ == 3 and not ((ts[1][1] < min(ts[0][1], ts[2][1])) if d > 0 else (ts[1][1] > max(ts[0][1], ts[2][1]))):
             continue
-        mids = [e.cl[q] for q in range(ts[0][1] + 1, ts[-1][1]) if opp[q]]
+        mids = [p for q, p in opp if ts[0][0] < q < ts[-1][0]]
         if not mids:
             continue
         neck = max(mids) if d > 0 else min(mids)
-        brk = next((q for q in range(ts[-1][1] + 1, t + 1) if ((e.cl[q] > neck) if d > 0 else (e.cl[q] < neck))), None)
-        if brk is None:
-            continue
-        if any(((e.c[q].low <= neck + 0.15 * at or e.c[q].low <= z["hi"]) if d > 0 else (e.c[q].high >= neck - 0.15 * at or e.c[q].high >= z["lo"]))
-               for q in range(brk + 1, t + 1)):
-            ext = min(p for p, _ in ts) if d > 0 else max(p for p, _ in ts)
-            name = ("Inverse H&S" if d > 0 else "H&S") if n_ == 3 else ("Double Bottom" if d > 0 else "Double Top")
-            return name, ext
+        if any((tf.cl[q] > neck) if d > 0 else (tf.cl[q] < neck) for q in range(ts[-1][0] + 1, i + 1)):
+            return ("Inverse H&S" if d > 0 else "H&S") if n_ == 3 else ("Double bottom" if d > 0 else "Double top")
     return None
 
 
-def sos_at(e: TF, t: int, z: dict, d: int, tol: float) -> Optional[dict]:
-    """The LTF Shift of Structure: the latest close beyond the LTF LH (long) / HL (short) in the last 24 candles that turned
-    the LTF trend d, with the AOI touched in the 12 candles before it (CHOICE: "while retracing into the AOI")."""
-    for s in range(t, max(t - SOS_BARS, 0) - 1, -1):
-        for kind, dd, lv in e.ev_at.get(s, []):
-            if kind == "SOS" and dd == d:
-                if any(e.c[q].low <= z["hi"] + tol and e.c[q].high >= z["lo"] - tol for q in range(max(s - SWING_BARS, 0), s + 1)):
-                    return {"index": s, "time": e.t[s] + e.step, "level": lv}
+# ---------------------------------------------------------------- 3.4 the LTF trigger
+def find_sos(e: TF, t: int, z: dict, d: int, prox: float) -> Optional[dict]:
+    """Step 1: the latest shift of the entry timeframe's structure to d in the last 24 candles (a body close beyond the
+    LTF LH / HL), whose swing (the lowest low of the 24 candles up to it for a buy) formed at the zone (within d_prox),
+    and never broken since (the retest stays above L_swing)."""
+    for s in range(t, max(t - RETEST_BARS, 1) - 1, -1):
+        for dd, lv in e.sos_at.get(s, []):
+            if dd != d:
+                continue
+            a = max(s - SWING_BARS, 0)
+            seg = range(a, s + 1)
+            q = min(seg, key=lambda u: e.c[u].low) if d > 0 else max(seg, key=lambda u: e.c[u].high)
+            swing = e.c[q].low if d > 0 else e.c[q].high
+            if dist(e.c[q].low, e.c[q].high, z) > prox:
                 return None
+            if any((e.c[u].low <= swing) if d > 0 else (e.c[u].high >= swing) for u in range(s + 1, t + 1)):
+                return None
+            return {"index": s, "time": e.t[s] + e.step, "level": lv, "swing": swing}
     return None
 
 
@@ -380,18 +422,19 @@ class Ctx:
     def __init__(self, key: str, m5, h1, d1, spread: Optional[float] = None):
         self.key, self.cfg = key, config(key)
         self.pip, self.psych = self.cfg["pip"], self.cfg.get("psych_step", 0.005)
+        self.wmax = float(self.cfg.get("max_aoi_pips", 60))
         self.spread = spread if spread else self.cfg["spread_pips"] * self.pip
         self.m5, self.t5 = m5, [x.time for x in m5]
-        self.tf = {"W1": TF("W1", weekly(d1)), "D1": TF("D1", d1), "H4": TF("H4", resample(h1, H4S)), "H2": TF("H2", resample(h1, H2S)),
-                   "H1": TF("H1", h1), "M30": TF("M30", resample(m5, M30S)), "M15": TF("M15", resample(m5, M15S))}
+        p = self.pip
+        self.tf = {"W1": TF("W1", weekly(d1), p), "D1": TF("D1", d1, p), "H4": TF("H4", resample(h1, H4S), p),
+                   "H1": TF("H1", h1, p), "M30": TF("M30", resample(m5, M30S), p), "M15": TF("M15", resample(m5, M15S), p)}
         self._aoi: dict = {}
 
     def aois(self, iw: int, id_: int) -> list[dict]:
         if (iw, id_) not in self._aoi:
-            d1 = self.tf["D1"]
-            atr_d = d1.at[id_] if id_ >= 0 else None
-            self._aoi[(iw, id_)] = merge_zones(build_zones(self.tf["W1"], iw, atr_d, self.pip, self.psych),
-                                               build_zones(d1, id_, atr_d, self.pip, self.psych))
+            zs = merge_zones(build_aois(self.tf["W1"], iw, self.pip, self.wmax) if iw >= 0 else [],
+                             build_aois(self.tf["D1"], id_, self.pip, self.wmax) if id_ >= 0 else [])
+            self._aoi[(iw, id_)] = [snap_psych(z, self.pip, self.psych) for z in zs]
         return self._aoi[(iw, id_)]
 
     def adr20(self, id_: int) -> Optional[float]:
@@ -414,27 +457,64 @@ def context(key: str, m5, h1, d1, spread: Optional[float] = None) -> Ctx:
     return _ctx[key][1]
 
 
-def bounded(z: dict, d: int, ranges: dict) -> bool:
-    """3.4.1: a BUY zone inside an active bullish [HL, HH] of W1 or D1 (a SELL zone inside [LL, LH])."""
-    for tfn in z["tfs"]:
-        r = ranges.get(tfn)
-        if r and r[0] <= z["lo"] and z["hi"] <= r[1]:
-            return True
-    return False
-
-
-GPA = [("w1", 10, "1W trend aligned"), ("d1", 10, "1D trend aligned"), ("h4", 10, "4H aligned (or 4H shift in the AOI)"),
-       ("aoi", 10, "Valid 1W / 1D AOI (>= 3 touches)"), ("strong", 10, "Strong AOI (1W+1D, >= 5 touches or psych)"),
-       ("ema_htf", 10, "1W / 1D / 4H 50 EMA confluence"), ("sos", 15, "LTF SoS or H&S / double top-bottom"),
-       ("candle", 15, "Closed LTF confirmation candle"), ("ltf_ema", 10, "LTF 50 EMA + active session")]
+CONF = [("sync", 20, "2+ consecutive TFs in sync"), ("aoi_w1", 10, "Active W1 AOI reaction"), ("aoi_d1", 10, "Active D1 AOI reaction"),
+        ("ema_w1", 5, "W1 50 EMA dynamic S/R"), ("ema_d1", 5, "D1 50 EMA dynamic S/R"), ("ema_h4", 5, "H4 50 EMA dynamic S/R"),
+        ("psych", 5, "Round psych 500 level inside AOI"), ("elbow_w1", 10, "W1 prior structure elbow rejection"),
+        ("elbow_d1", 10, "D1 prior structure elbow rejection"), ("elbow_h4", 5, "H4 prior structure elbow rejection"),
+        ("candle_w1", 10, "W1 candle rejection (pin bar / engulfing / star)"), ("candle_d1", 10, "D1 candle rejection (pin bar / engulfing / star)"),
+        ("candle_h4", 5, "H4 candle rejection (pin bar / engulfing / star)"), ("pattern_w1", 10, "W1 chart pattern (H&S / double top-bottom)"),
+        ("pattern_d1", 10, "D1 chart pattern (H&S / double top-bottom)"), ("pattern_h4", 10, "H4 chart pattern (H&S / double top-bottom)"),
+        ("sos", 10, "LTF shift of structure (SoS)"), ("engulf", 10, "LTF engulfing trigger")]
 
 
 def grade_of(score: int) -> str:
-    return "A+" if score >= 90 else "A" if score >= 80 else "B" if score >= 75 else "C+" if score >= 70 else "F"
+    return "A+" if score >= 100 else "A" if score >= 90 else "B" if score >= GRADE_MIN else "WAIT"
+
+
+def _plan(cx: Ctx, e: TF, q: int, z: dict, d: int, sos: dict, adr: Optional[float], iw: int, id_: int) -> dict:
+    """3.4 / 3.5: the order type, the entry, the stop, the +1.5 R step and the target from the engulfing candle q."""
+    pip, x = cx.pip, e.c[q]
+    buf = max(BUF_PIPS * pip, BUF_SPREAD * cx.spread)
+    base = (min(z["lo"], sos["swing"]) - buf) if d > 0 else (max(z["hi"], sos["swing"]) + buf)
+    levels = []  # the opposing D1 / W1 structure: their elbows of the trade's far side, and the opposing zones' near edges
+    for name, i in (("D1", id_), ("W1", iw)):
+        if i >= 0:
+            levels += [p for _, p, kind in cx.tf[name].elbows(i, N_AOI[name]) if kind == d]
+    for y in cx.aois(iw, id_):
+        levels.append(y["lo"] if d > 0 else y["hi"])
+    prox = max(PROX_PIPS * pip, PROX_ADR * adr) if adr else PROX_PIPS * pip
+    # CHOICE: the elbows that built the zone in play are not "opposing": only levels beyond it (and its d_prox) count
+    levels = [p for p in levels if ((p > z["hi"] + prox) if d > 0 else (p < z["lo"] - prox))]
+
+    def at(entry: float) -> dict:
+        sl = base
+        if adr and VARIANT["sl_floor_adr"] and (entry - sl) * d < VARIANT["sl_floor_adr"] * adr:
+            sl = entry - d * VARIANT["sl_floor_adr"] * adr
+        if adr and (entry - sl) * d > SL_MAX_ADR * adr:
+            sl = entry - d * SL_MAX_ADR * adr
+        risk = (entry - sl) * d
+        if risk <= 0:
+            return {"entry": entry, "sl": sl, "rr": 0.0}
+        ahead = [p for p in levels if (p - entry) * d > 0]
+        struct = (min(ahead) if d > 0 else max(ahead)) if ahead else None
+        cap = entry + d * TP_CAP_R * risk
+        tp = cap if struct is None else (min(struct - FRONT_PIPS * pip, cap) if d > 0 else max(struct + FRONT_PIPS * pip, cap))
+        return {"entry": entry, "sl": sl, "tp": tp, "tp1": entry + d * BE_R * risk, "rr": (tp - entry) * d / risk, "struct": struct, "risk": risk}
+    a14 = e.at[q] or 0
+    big = a14 > 0 and x.high - x.low > MARKET_ATR * a14
+    if VARIANT["entry"] == "neck":
+        lim = at(sos["level"])
+        return {**lim, "market": False, "band": (sos["level"], sos["level"]), "big": big}
+    mk = at(x.close)
+    if VARIANT["entry"] == "md" and mk["rr"] >= MIN_RR and not big:
+        return {**mk, "market": True, "band": (x.close, x.close), "big": big}
+    mid = (x.open + x.close) / 2
+    lim = at(mid)
+    return {**lim, "market": False, "band": (min(sos["level"], mid), max(sos["level"], mid)), "big": big}
 
 
 def evaluate(cx: Ctx, etf: str, t: int, d: int, news: Optional[list[int]] = None, exec_T: Optional[int] = None) -> dict:
-    """Everything the spec computes for direction d at the close of entry candle t of `etf` (executed at exec_T)."""
+    """Everything the spec computes for direction d at the close of candle t of `etf`."""
     pip = cx.pip
     e = cx.tf[etf]
     T = e.t[t] + e.step
@@ -442,205 +522,171 @@ def evaluate(cx: Ctx, etf: str, t: int, d: int, news: Optional[list[int]] = None
     w1, d1, h4, h1 = cx.tf["W1"], cx.tf["D1"], cx.tf["H4"], cx.tf["H1"]
     iw, id_, i4, ih = w1.idx(T), d1.idx(T), h4.idx(T), h1.idx(T)
     S = {"W1": w1.trend(iw), "D1": d1.trend(id_), "H4": h4.trend(i4)}
-    atr_d = d1.at[id_] if id_ >= 0 else None
-    tol = 0.3 * atr_d if atr_d else 30 * pip  # CHOICE: "at / approaching" the AOI = within 0.3 ATR 14 (D1), the spec's waiting distance
-    ranges = {"W1": w1.range_of(iw, d), "D1": d1.range_of(id_, d)}
+    adr = cx.adr20(id_)
+    prox = max(PROX_PIPS * pip, PROX_ADR * adr) if adr else PROX_PIPS * pip
     zones = cx.aois(iw, id_) if iw >= 0 and id_ >= 0 else []
-    usable = [z for z in zones if bounded(z, d, ranges)]
-    g = e.g
-    x = g[t]
-    recent = [e.c[q] for q in range(max(t - RECENT_BARS + 1, 0), t + 1)]
-    touching = [z for z in usable if any(y.low <= z["hi"] and y.high >= z["lo"] for y in recent)]
-    dist = lambda q: max(q["lo"] - x.close, x.close - q["hi"], 0)  # noqa: E731
-    z = min(touching, key=dist) if touching else None
-    near = min(usable, key=dist) if usable else None
-    r = {"dir": d, "etf": etf, "t": t, "T": T, "Tx": Tx, "S": S, "zone": z, "zones": zones, "usable": usable, "price": x.close,
-         "near": near, "near_atr": (dist(near) / atr_d) if near and atr_d else None, "atr_d": atr_d, "c": {}}
+    C = e.cl[t]
+    dclose = d1.cl[id_] if id_ >= 0 else C
+    win = h1.c[max(ih - H1_WINDOW + 1, 0):ih + 1] if ih >= 0 else []
+    distal = lambda z: (z["lo"] - DISTAL_PIPS * pip) if d > 0 else (z["hi"] + DISTAL_PIPS * pip)  # noqa: E731
+    touched = [z for z in zones if win and min(dist(y.low, y.high, z) for y in win) <= prox]
+    broken = [z for z in touched if d * (dclose - distal(z)) <= 0]
+    live = [z for z in touched if z not in broken and d * (C - distal(z)) > 0]
+    gap = lambda z: dist(C, C, z)  # noqa: E731
+    z = min(live, key=gap) if live else None
+    side = [y for y in zones if d * (C - distal(y)) > 0]  # the zones on the trade's side (support below a buy)
+    near = min(side, key=gap) if side else None
+    r = {"dir": d, "etf": etf, "t": t, "T": T, "Tx": Tx, "S": S, "zone": z, "zones": zones, "near": near, "price": C,
+         "near_pips": gap(near) / pip if near else None, "broken": bool(broken and not live), "prox": prox, "adr": adr, "c": {}}
+    full = S["W1"] == S["D1"] == S["H4"] == d
+    w1d1 = S["W1"] == d and S["D1"] == d
+    swing = w1d1 and (S["H4"] == d or z is not None)  # H4 with the trend, or pulling back into the AOI
+    day = S["D1"] == d and S["H4"] == d and (z is None or "D1" in z["tfs"])
+    r["sync_kind"] = "full" if full else "day" if day else "swing" if w1d1 else None
+    if VARIANT["sync"] == "swing":
+        day = False
+    elif VARIANT["sync"] == "full":
+        swing, day = swing and full, False
+    r["setup"] = "SF_SWING" if swing else "SF_DAY" if day else None
     c = r["c"]
+    items = {k: False for k, _, _ in CONF}
+    items["sync"] = bool(r["setup"])
     if z:
-        c["sos"] = sos_at(e, t, z, d, tol)
-        c["pattern"] = pattern(e, t, z, d, tol)
-        c["engulf"] = engulf(g[t - 1], x, d) if t > 0 else False
-        c["doji"] = doji(x, d, z)
-        c["doji_before"] = any(doji(g[q], d, z) for q in range(max(t - 3, 1), t))
-        c["ltf_ema"] = e.e50[t] is not None and d * (x.close - e.e50[t]) > 0
-        c["ema_htf"] = None
-        for tf, i in (("W1", iw), ("D1", id_), ("H4", i4)):
-            T_ = cx.tf[tf]
-            if i >= 1 and T_.e50[i] is not None and atr_d and z["lo"] - 0.5 * atr_d <= T_.e50[i] <= z["hi"] + 0.5 * atr_d \
-               and (T_.tap(i, d) or T_.tap(i - 1, d)):  # CHOICE: the EMA within 0.5 ATR (D1) of the AOI
-                c["ema_htf"] = tf
-                break
-        c["h4_shift"] = any(kind == "SOS" and dd == d for q in range(max(i4 - 5, 0), i4 + 1) for kind, dd, _ in h4.ev_at.get(q, []))
-    session = SESSION[0] <= (T % DAY) // H1S < SESSION[1]
-    items = {"w1": S["W1"] == d, "d1": S["D1"] == d, "h4": S["H4"] == d or bool(z and c.get("h4_shift")), "aoi": bool(z),
-             "strong": bool(z and (z["strong"] or z["psych"] is not None)), "ema_htf": bool(z and c.get("ema_htf")),
-             "sos": bool(z and (c.get("sos") or c.get("pattern"))), "candle": bool(z and (c.get("engulf") or c.get("doji"))),
-             "ltf_ema": bool(z and c.get("ltf_ema") and session)}
-    r["items"], r["session"] = items, session
-    r["gpa"] = sum(p for k, p, _ in GPA if items[k])
-    r["grade"] = grade_of(r["gpa"])
-    # the setup type
-    r["setup"] = ("SF_COUNTER" if S["W1"] != d else
-                  "SF_BR" if z and any(role == -d for _, role in z["roles"]) else "SF_BOUNCE") if S["D1"] == d else None
-    # 3.7: the plan
-    r["rr"] = 0.0
-    if z and (c.get("engulf") or c.get("doji")):
-        ai = ih if ih >= 0 else 0
-        atr1 = h1.at[ai] or (atr_d or 0) / 5
-        entry = x.close
-        seg = e.c[max(t - SWING_BARS, 0):t + 1]
-        swing = min(y.low for y in seg) if d > 0 else max(y.high for y in seg)
-        if c.get("pattern"):
-            swing = min(swing, c["pattern"][1]) if d > 0 else max(swing, c["pattern"][1])
-        sl = (min(z["lo"], swing) - 0.2 * atr1 - cx.spread) if d > 0 else (max(z["hi"], swing) + 0.2 * atr1 + cx.spread)
-        # the next OPPOSING structure: a zone whose last touch rejected price against the trade (resistance for a buy)
-        tg = [((q["lo"], q["hi"]) if d > 0 else (q["hi"], q["lo"])) for q in zones if q["roles"] and q["roles"][-1][1] == -d and
-              ((q["lo"] > entry) if d > 0 else (q["hi"] < entry))]  # (near edge, far edge)
-        for tf, i in ((d1, id_), (w1, iw)):
-            lv = tf.s["hh" if d > 0 else "ll"][i] if i >= 0 else None
-            if lv and (lv[0] - entry) * d > 0:
-                tg.append((lv[0], lv[0]))
-        if tg and (entry - sl) * d > 0:
-            near_edge, far_edge = min(tg) if d > 0 else max(tg)
-            target = near_edge
-            step = cx.psych
-            # the round number AT or just inside the target zone: between 10 pips before its near edge and its far edge
-            a_, b_ = (near_edge - 10 * pip, far_edge) if d > 0 else (far_edge, near_edge + 10 * pip)
-            k_lo, k_hi = int(a_ / step) - 1, int(b_ / step) + 2
-            ps = [k * step for k in range(k_lo, k_hi) if a_ <= k * step <= b_ and (k * step - entry) * d > 0]
-            p = (min(ps) if d > 0 else max(ps)) if ps else None
-            level = (min(target, p) if d > 0 else max(target, p)) if p else target
-            tp = level - d * FRONT_RUN_PIPS * pip
-            rr = (tp - entry) * d / ((entry - sl) * d)
-            r.update(entry=entry, sl=sl, tp=tp, tp1=entry + d * BE_R * (entry - sl) * d, rr=rr, target=target, psych_tp=p,
-                     band=(entry - 0.15 * atr1, entry + 0.15 * atr1), atr1=atr1)
-    risk = abs(r["entry"] - r["sl"]) if "entry" in r else None
+        items["aoi_w1"], items["aoi_d1"], items["psych"] = "W1" in z["tfs"], "D1" in z["tfs"], z["psych"] is not None
+        for name, i in (("W1", iw), ("D1", id_), ("H4", i4)):
+            tf, lo = cx.tf[name], name.lower()
+            items["ema_" + lo] = htf_ema(tf, i, z, d, prox)
+            items["elbow_" + lo] = htf_elbow(tf, i, z, d, prox)
+            c["candle_" + lo] = htf_candle(tf, i, z, d, prox)
+            c["pattern_" + lo] = htf_pattern(tf, i, z, d, prox)
+            items["candle_" + lo], items["pattern_" + lo] = bool(c["candle_" + lo]), bool(c["pattern_" + lo])
+        sos = find_sos(e, t, z, d, prox)
+        c["sos"] = sos
+        if sos:
+            q = next((u for u in range(t, sos["index"] - 1, -1) if u >= 1 and engulf(e.c[u - 1], e.c[u], d)), None)
+            c["engulf_at"] = q
+            items["sos"], items["engulf"] = True, q is not None
+            if q is not None:
+                r.update(_plan(cx, e, q, z, d, sos, adr, iw, id_))
+    r["items"] = items
+    r["score"] = sum(p for k, p, _ in CONF if items[k])
+    r["grade"] = grade_of(r["score"])
     r["news"] = [n for n in (news or []) if abs(n - Tx) <= NEWS_MIN * 60]
     r["news_checked"] = news is not None
-    tod = Tx % DAY
-    r["rollover"] = 21 * H1S + 45 * 60 <= tod < 22 * H1S + 15 * 60
-    r["spread_ratio"] = cx.spread / risk if risk else 0.0
-    r["weekday"] = datetime.fromtimestamp(Tx, timezone.utc).weekday()
-    r["exec_session"] = SESSION[0] <= tod // H1S < SESSION[1]
-    adr = cx.adr20(id_)
-    r["target_adr"] = (abs(r["tp"] - r["entry"]) / adr) if "entry" in r and adr else None
+    r["risk_pct"] = season_risk(Tx)
+    r["spread_ratio"] = cx.spread / r["risk"] if r.get("risk") else 0.0
+    # trading into an opposing W1 AOI within 1.5 R, or at a multi-year extreme (beyond every W1 body of the 156 weeks)
+    r["w1_block"] = None
+    if "entry" in r and r.get("risk"):
+        for y in zones:
+            edge = y["lo"] if d > 0 else y["hi"]
+            if "W1" in y["tfs"] and y is not z and 0 < (edge - r["entry"]) * d < W1_OPP_R * r["risk"]:
+                r["w1_block"] = f"Opposing W1 AOI {fmt(edge, pip)} within 1.5R"
+                break
+        if r["w1_block"] is None and iw >= 1:
+            wk = w1.c[max(0, iw - N_AOI['W1'] + 1):iw]
+            if wk and ((r["entry"] > max(bp(x) for x in wk)) if d > 0 else (r["entry"] < min(bm(x) for x in wk))):
+                r["w1_block"] = "At a multi-year extreme"
     return r
 
 
 # ---------------------------------------------------------------- 4 the 5 agents
-ROLES = [("trend", "trend_director", "HTF Trend Director", 0.25), ("aoi", "aoi_architect", "AOI & Psych Level Architect", 0.25),
-         ("confluence", "confluence_grader", "GPA Confluence Grader", 0.20), ("trigger", "trigger_sniper", "LTF Trigger Sniper", 0.20),
-         ("risk", "risk_guardian", "Session, News & R:R Guardian", 0.10)]
+ROLES = [("trend", "trend_director", "Trend & Structure Director", 0.25), ("aoi", "aoi_architect", "AOI & Location Architect", 0.25),
+         ("confluence", "confluence_grader", "Confluence & Grade Scorer", 0.25), ("trigger", "trigger_sniper", "SoS & Engulfing Sniper", 0.15),
+         ("risk", "risk_guardian", "Risk, RR & News Guardian", 0.10)]
 SIDE = {1: "Bullish", -1: "Bearish", 0: "Neutral"}
+SCORE_OF = {"ok": 100, "warn": 60, "wait": 30, "veto": 0}  # CHOICE: an agent's score from its status (the spec gives the weights only)
+
+
+def zone_name(z: dict) -> str:
+    return "W1+D1" if z["overlap"] else ("D1" if "D1" in z["tfs"] else "W1")
 
 
 def squad(r: dict, pip: float, usd_per_pip: float = 10.0) -> dict:
     d, c, S, z = r["dir"], r["c"], r["S"], r["zone"]
     f = lambda v: fmt(v, pip)  # noqa: E731
-    word = "BUY" if d > 0 else "SELL"
+    sd = SIDE[d]
     # 1 · trend_director
-    if S["W1"] == S["D1"] == S["H4"] == d:
-        t_st, t_sc, t_b = "ok", 100, f"1W/1D/4H {SIDE[d]} in sync · Pro-trend {word}"
-    elif S["W1"] == S["D1"] == d:
-        t_st, t_sc, t_b = "ok", 80, f"1W/1D {SIDE[d]} · 4H retracing into AOI"
-    elif S["D1"] == d:
-        t_st, t_sc, t_b = "warn", 70, f"1D shifted {SIDE[d]} for 1W retracement leg"
+    k = r["sync_kind"]
+    if r["w1_block"]:
+        t_st, t_b = "veto", r["w1_block"]
+    elif k == "full":
+        t_st, t_b = "ok", f"W1+D1+H4 {sd} Snake Sync"
+    elif k == "day":
+        t_st, t_b = "ok", f"D1+H4 {sd} Snake Sync (S&F-DAY)"
+    elif k == "swing":
+        t_st, t_b = "warn", f"W1+D1 {sd} · H4 pulling back"
     else:
-        t_st, t_sc, t_b = "veto", 25, "HTF structure conflicting · Stand aside"
-    trend = {"status": t_st, "score": t_sc, "badge": badge(t_b),
-             "details": [f"1W {SIDE[S['W1']]} · 1D {SIDE[S['D1']]} · 4H {SIDE[S['H4']]} (body closes only)",
-                         f"Direction read: {word} · setup {r['setup'] or 'none'}"]}
+        t_st, t_b = "wait", "No 2-timeframe sync"
+    trend = {"status": t_st, "badge": badge(t_b),
+             "details": [f"W1 {SIDE[S['W1']]} · D1 {SIDE[S['D1']]} · H4 {SIDE[S['H4']]} (body closes only)",
+                         f"Setup {SETUPS[r['setup']] if r['setup'] else 'none'}"]}
     # 2 · aoi_architect
-    if z and (z["overlap"] or z["touches"] >= 5) and z["psych"] is not None:
-        a_st, a_sc = "ok", 100
-        a_b = f"In {'1W+1D' if z['overlap'] else '1D' if 'D1' in z['tfs'] else '1W'} AOI · {z['touches']} touches · Psych {f(z['psych'])}"
-    elif z:
-        a_st, a_sc = "ok", 85
-        a_b = f"In {'1W+1D' if z['overlap'] else '1D' if 'D1' in z['tfs'] else '1W'} AOI @ {f((z['lo'] + z['hi']) / 2)} ({z['touches']} taps)"
-    elif r["near"]:
-        q = r["near"]
-        a_st, a_sc = "wait", 60
-        a_b = f"Waiting for pullback to {'1D' if 'D1' in q['tfs'] else '1W'} AOI @ {f((q['lo'] + q['hi']) / 2)} ({q['touches']} taps)"
+    if z:
+        a_st = "ok"
+        a_b = f"{zone_name(z)} AOI {f(z['lo'])}–{f(z['hi'])}" + (f" + Psych {f(z['psych'])}" if z["psych"] is not None else "")
+    elif r["broken"]:
+        a_st, a_b = "veto", "D1 closed > 10 pips beyond the AOI"
+    elif r["near"] and r["near_pips"] is not None and r["near_pips"] <= APPROACH_PIPS:
+        a_st, a_b = "warn", f"Approaching {zone_name(r['near'])} AOI · {r['near_pips']:.0f} pips"
     else:
-        a_st, a_sc, a_b = "veto", 0, "No valid 3-touch 1W/1D AOI in range"
-    aoi = {"status": a_st, "score": a_sc, "badge": badge(a_b),
-           "details": [f"{len(r['usable'])} AOI(s) inside the active {'[HL, HH]' if d > 0 else '[LL, LH]'} · {len(r['zones'])} on 1W / 1D in all"] +
-                      ([f"Zone {f(z['lo'])} – {f(z['hi'])} · {z['width']:.0f} pips · roles {'S/R flip' if len({x for _, x in z['roles']}) > 1 else 'one side'}"] if z else []) +
-                      ([f"Nearest {r['near_atr']:.2f} ATR (1D) away"] if r["near_atr"] is not None and not z else [])}
+        a_st, a_b = "wait", "No man's land" + (f" · {zone_name(r['near'])} AOI {r['near_pips']:.0f} pips away" if r["near"] else "")
+    aoi = {"status": a_st, "badge": badge(a_b),
+           "details": [f"{len(r['zones'])} AOI(s) on W1 / D1 · interaction window {r['prox'] / pip:.0f} pips"] +
+                      ([f"{zone_name(z)} {f(z['lo'])} – {f(z['hi'])} · {z['touches']} touches · {z['width']:.0f} pips"] if z else [])}
     # 3 · confluence_grader
-    gp, items = r["gpa"], r["items"]
-    hits = sum(1 for k, _, _ in GPA if items[k])
-    if gp >= 70:
-        g_st = "ok"
-        g_b = f"Grade {r['grade']} ({gp}%) · {hits}/9 Confluences" + (" + 50 EMA tap" if items["ema_htf"] else "") if gp >= 80 else \
-            f"Grade {r['grade']} ({gp}%) · Passes min GPA threshold"
-    elif gp >= 55:
-        g_st, g_b = "wait", f"Grade D ({gp}%) · Waiting for LTF EMA & trigger"
-    else:
-        g_st, g_b = "veto", f"Grade F ({gp}%) · Below the 70% minimum"
-    conf = {"status": g_st, "score": gp, "badge": badge(g_b), "grade": r["grade"],
-            "details": [f"{'✅' if items[k] else '▫️'} {lab} (+{p})" for k, p, lab in GPA]}
+    sc = r["score"]
+    g_st = "ok" if sc >= GRADE_MIN else "warn" if sc >= RADAR_MIN else "wait"
+    conf = {"status": g_st, "badge": badge(f"Grade {r['grade']} ({sc}%)" + (" confirmed" if g_st == "ok" else "")), "grade": r["grade"], "score100": sc,
+            "details": [f"{'✅' if r['items'][q] else '▫️'} {lab} (+{p}%)" for q, p, lab in CONF]}
     # 4 · trigger_sniper
-    eng, dj, sos = c.get("engulf"), c.get("doji"), c.get("sos") or c.get("pattern")
-    tfw = r["etf"]
-    if z and eng and c.get("doji_before") and sos and c.get("ltf_ema"):
-        s_st, s_sc, s_b = "ok", 100, f"{tfw} {SIDE[d]} Engulfing + SoS closed {'above' if d > 0 else 'below'} 50 EMA"
-    elif z and (eng or (dj and sos)):
-        s_st, s_sc = "ok", 85
-        s_b = f"{tfw} {SIDE[d]} {'Engulfing' if eng else 'Doji rejection + SoS'} at AOI"
-    elif z and sos:
-        s_st, s_sc, s_b = "wait", 65, f"Inside AOI + SoS · Awaiting {tfw} Engulfing close"
+    sos, eq = c.get("sos"), c.get("engulf_at")
+    etf = r["etf"]
+    if sos and eq is not None:
+        s_st, s_b = "ok", f"{etf} SoS + {sd} Engulfing"
+    elif sos:
+        s_st, s_b = "warn", f"{etf} SoS at {f(sos['level'])} · awaiting Engulfing"
     else:
-        s_st, s_sc, s_b = "wait", 40, "No LTF reaction inside AOI yet"
-    trig = {"status": s_st, "score": s_sc, "badge": badge(s_b),
-            "details": [f"{r['etf']} · engulfing {bool(eng)} · doji {bool(dj)} (before {bool(c.get('doji_before'))}) · LTF 50 EMA side {bool(c.get('ltf_ema'))}",
-                        f"SoS {'at ' + f(c['sos']['level']) if c.get('sos') else 'no'} · pattern {c['pattern'][0] if c.get('pattern') else 'none'}"]}
+        s_st, s_b = "wait", "Awaiting the LTF SoS" if z else "Awaiting the AOI"
+    trig = {"status": s_st, "badge": badge(s_b),
+            "details": [f"{etf} · SoS {'at ' + f(sos['level']) + ' · swing ' + f(sos['swing']) if sos else 'no'} · engulfing {eq is not None}"]}
     # 5 · risk_guardian
-    wd = r["weekday"]
     news_txt = "news not checked" if not r["news_checked"] else (f"News {hm(r['news'][0])} UTC" if r["news"] else "Clear news")
-    if "entry" in r and r["rr"] < MIN_RR:
-        k_st, k_b = "veto", f"R:R {r['rr']:.1f} < 2.0 to the next 1D/1W structure"
-    elif r["news"]:
-        k_st, k_b = "veto", f"High-impact news at {hm(r['news'][0])} UTC (±30 min)"
-    elif r["rollover"]:
-        k_st, k_b = "veto", "Daily rollover 21:45-22:15 UTC"
-    elif "entry" in r and r["spread_ratio"] > 0.25:
-        k_st, k_b = "veto", f"Spread {r['spread_ratio'] * 100:.0f}% of SL (> 25%)"
-    elif wd == 4:
-        k_st, k_b = "veto", "Friday cutoff · No new swing entries"
-    elif wd >= 5:
-        k_st, k_b = "wait", "Weekend · market closed"
-    elif wd == 3 and "entry" in r and not (r["gpa"] >= 80 and r["target_adr"] is not None and r["target_adr"] <= 1.2):
-        k_st, k_b = "veto", "Thursday · needs Grade A+/A and TP <= 1.2 ADR"
-    elif not r["exec_session"]:
-        k_st, k_b = "wait", ("Confirmation formed · Waiting for 06:00 UTC London pre-open" if "entry" in r else
-                             "Outside 06:00-17:00 UTC · entries wait for London")
-    elif "entry" not in r:
+    rk = r["risk_pct"]
+    if "entry" not in r:
         k_st, k_b = "wait", f"Nothing to size yet · {news_txt}"
+    elif r["rr"] < MIN_RR:
+        k_st, k_b = "veto", f"R:R {r['rr']:.2f} < 2.5"
+    elif r["spread_ratio"] > SPREAD_MAX:
+        k_st, k_b = "veto", f"Spread {r['spread_ratio'] * 100:.0f}% of SL (> 15%)"
+    elif r["news"]:
+        k_st, k_b = "veto", f"High-impact news {hm(r['news'][0])} UTC (±30 min)"
+    elif rk <= 0.5:
+        k_st, k_b = "warn", f"{r['rr']:.1f}R · Summer 0.5% regime · {news_txt}"
     else:
-        k_st, k_b = "ok", f"R:R {r['rr']:.1f} · Spread {r['spread_ratio'] * 100:.1f}% of SL · {news_txt}"
-    k_sc = 0 if k_st == "veto" else 50 if k_st == "wait" else 85 if wd == 3 else 100
-    rk = RISK_BY_GRADE.get(r["grade"], 0.0)
-    risk = {"status": k_st, "score": k_sc, "badge": badge(k_b), "risk_percent": rk,
-            "details": [f"{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][wd]} {hm(r['Tx'])} UTC · session 06:00-17:00 · {news_txt}",
-                        f"Risk {rk:g} % for grade {r['grade']} · R:R floor 2.0 · spread cap 25 % of SL"]}
-    if "entry" in r:
-        slp = abs(r["entry"] - r["sl"]) / pip
+        k_st, k_b = "ok", f"{r['rr']:.1f}R · Spread {r['spread_ratio'] * 100:.1f}% of SL · {news_txt}"
+    risk = {"status": k_st, "badge": badge(k_b), "risk_percent": rk,
+            "details": [f"Seasonal risk {rk:g}% · R:R floor 2.5 · spread cap 15% of SL · news ±30 min · {news_txt}"]}
+    if "entry" in r and r.get("risk"):
+        slp = r["risk"] / pip
         lots = int(10000 * rk / 100 / (slp * usd_per_pip) * 100) / 100 if slp else 0
         risk.update(entry=r["entry"], stop_loss=r["sl"], break_even_trigger=r["tp1"], take_profit=r["tp"], rr=round(r["rr"], 2),
-                    sl_pips=round(slp, 1), position_size_lots=lots)
+                    sl_pips=round(slp, 1), position_size_lots=lots, market=r["market"])
     agents = {"trend_director": trend, "aoi_architect": aoi, "confluence_grader": conf, "trigger_sniper": trig, "risk_guardian": risk}
-    cons = round(sum(w * agents[k]["score"] for _, k, _, w in ROLES))
-    veto = [k for k, a in agents.items() if a["status"] == "veto"]
-    execute = bool(cons >= 70 and r["gpa"] >= 70 and not veto and trig["status"] == "ok" and risk["status"] == "ok")
-    decision = "EXECUTE" if execute else "VETOED" if veto else "WAIT_FOR_TRIGGER" if z else "WATCH_ONLY"
-    radar = bool(trend["status"] == "ok" and aoi["status"] == "ok" and sos and not (eng or (dj and sos)))
+    for name, a in agents.items():
+        a["score"] = min(100, sc) if name == "confluence_grader" else SCORE_OF[a["status"]]
+    cons = round(sum(w * agents[n]["score"] for _, n, _, w in ROLES))
+    veto = [n for n, a in agents.items() if a["status"] == "veto"]
+    g = VARIANT["gate"]
+    gate_ok = sc >= GRADE_MIN if g == "md" else True if g == "none" else         sum(p for q, p, _ in CONF if r["items"][q] and q not in TRIVIAL) >= 50
+    execute = bool(r["setup"] and gate_ok and sos and eq is not None and "entry" in r and r["rr"] >= MIN_RR and not veto)
+    decision = "EXECUTE" if execute else "VETOED" if veto and z else "WAIT_FOR_TRIGGER" if z else "WATCH_ONLY"
+    radar = bool(t_st == "ok" and a_st == "ok" and sc >= RADAR_MIN and s_st == "warn")
     return {"agents": agents, "consensus": cons, "vetoes": veto, "execute": execute, "decision": decision, "radar": radar}
 
 
 def checklist_of(r: dict) -> list[dict]:
-    return [{"key": k, "label": lab, "pts": p, "ok": bool(r["items"][k])} for k, p, lab in GPA]
+    return [{"key": k, "label": lab, "pts": p, "ok": bool(r["items"][k])} for k, p, lab in CONF]
 
 
 # ---------------------------------------------------------------- the scan (history and live)
@@ -649,92 +695,71 @@ def news_times(key: str, events) -> list[int]:
     return sorted({int(e["time"]) for e in (events or []) if e.get("currency") in cur})
 
 
-def _defer(cx: Ctx, T: int) -> Optional[int]:
-    """A confirmation outside 06:00-17:00 UTC executes at the next 06:00 UTC (CHOICE: 17:00-21:00 too). The M5 index
-    whose close is that 06:00, or None when the candles do not reach it yet."""
-    if SESSION[0] <= (T % DAY) // H1S < SESSION[1]:
-        return m5_index_at_close(cx.t5, T)
-    D = T - T % DAY
-    nxt = D + SESSION[0] * H1S if (T % DAY) < SESSION[0] * H1S else D + DAY + SESSION[0] * H1S
-    k = m5_index_at_close(cx.t5, nxt)
-    return k if k is not None and cx.m5[k].time + M5S >= nxt else None
-
-
-def scan(key: str, m5, h1, cost: float, events=None, d1=None, research: Optional[dict] = None, spread: Optional[float] = None) -> tuple[list, list]:
-    """Every closed confirmation at an AOI on the candles given, each with its plan, its result followed on M5, its
-    checklist and `pass` (the execution rule)."""
+def scan(key: str, m5, h1, cost: float, events=None, d1=None, research: Optional[dict] = None, spread: Optional[float] = None,
+         entry_tfs: tuple = ENTRY_TFS) -> tuple[list, list]:
+    """Every closed two-step trigger (SoS + Engulfing) at an AOI on the candles given, each with its plan, its result
+    followed on `m5`, its checklist and `pass` (the execution gate). One trade per pair at a time."""
     if not d1 or len(h1) < 200 or len(m5) < 300:
         return [], []
     cx = context(key, m5, h1, d1, spread)
     pip = cx.pip
     nw = news_times(key, events) if events is not None else None
-    out, seen = [], set()
-    end = m5[-1].time + M5S
-    for etf in ENTRY_TFS:
+    fstep = min(b.time - a.time for a, b in zip(m5[-50:-1], m5[-49:]))  # the follow candles' step (M5 live)
+    pv = cx.cfg.get("pip_value_usd_per_lot", 10.0)
+    out, seen, passed = [], set(), set()
+    end = m5[-1].time + fstep
+    for etf in entry_tfs:
         e = cx.tf[etf]
         for t in range(60, len(e.c)):
-            if e.t[t] + e.step > end:
+            T = e.t[t] + e.step
+            if T > end:
                 break
             for d in (1, -1):
-                if not (engulf(e.g[t - 1], e.g[t], d) or doji(e.g[t], d)):  # the cheapest condition first
+                if not engulf(e.c[t - 1], e.c[t], d) or not any(dd == d for s in range(max(t - RETEST_BARS, 0), t + 1) for dd, _ in e.sos_at.get(s, [])):
+                    continue  # the cheapest conditions first: an engulfing now and a SoS of its side in the last 24 candles
+                k0 = m5_index_at_close(cx.t5, T)
+                if k0 is None or T - (cx.m5[k0].time + fstep) > e.step:  # the follow candles must reach the trigger's close
                     continue
-                T = e.t[t] + e.step
-                k0 = _defer(cx, T)
-                if k0 is None:
+                r = evaluate(cx, etf, t, d, nw, T)
+                if not (r["zone"] and "entry" in r and r["c"].get("engulf_at") == t):
                     continue
-                Tx = cx.m5[k0].time + M5S
-                r = evaluate(cx, etf, t, d, nw, Tx)
-                if not (r["zone"] and "entry" in r):
+                z, sos = r["zone"], r["c"]["sos"]
+                wave = (round(z["lo"] / pip), d, sos["time"])  # one trade per AOI visit (the SoS wave)
+                if wave in passed or (wave, etf) in seen:
                     continue
-                z = r["zone"]
-                vis = (round(z["lo"] / pip), d, cx.tf["D1"].idx(T))  # one setup per AOI visit per day
-                if vis in seen:
-                    continue
-                sq = squad(r, pip, cx.cfg.get("pip_value_usd_per_lot", 10.0))
-                if sq["agents"]["trigger_sniper"]["status"] != "ok":
-                    continue
-                seen.add(vis)
-                entry = r["entry"]
-                if Tx != T:  # deferred to 06:00: the price then must still be inside the entry band and above the stop
-                    px = cx.m5[k0].close
-                    lo_seg = min(y.low for y in cx.m5[m5_index_at_close(cx.t5, T) or k0:k0 + 1]) if d > 0 else None
-                    hi_seg = max(y.high for y in cx.m5[m5_index_at_close(cx.t5, T) or k0:k0 + 1]) if d < 0 else None
-                    if not (r["band"][0] <= px <= r["band"][1]) or (d > 0 and lo_seg <= r["sl"]) or (d < 0 and hi_seg >= r["sl"]):
-                        continue
-                    entry = px
-                    risk_ = (entry - r["sl"]) * d
-                    if risk_ <= 0:
-                        continue
-                    r.update(entry=entry, tp1=entry + d * BE_R * risk_, rr=(r["tp"] - entry) * d / risk_)
-                    sq = squad(r, pip, cx.cfg.get("pip_value_usd_per_lot", 10.0))
-                steps = [(f"1W {r['S']['W1']:+d} · 1D {r['S']['D1']:+d} · 4H {r['S']['H4']:+d}", r["S"]["D1"] == d, r["setup"] or ""),
-                         (f"In {'1W+1D' if z['overlap'] else '+'.join(sorted(z['tfs']))} AOI {fmt(z['lo'], pip)}-{fmt(z['hi'], pip)} ({z['touches']} touches)", True, ""),
-                         (f"{etf} closed confirmation", True, "engulfing" if r["c"].get("engulf") else "doji"),
-                         (f"GPA {r['gpa']} % (grade {r['grade']})", r["gpa"] >= 70, ""), (f"R:R {r['rr']:.2f} >= 2.0", r["rr"] >= MIN_RR, "")]
-                s = _make(key, r["setup"] or "SF_BOUNCE", d, m5, k0, entry, r["sl"], r["tp1"], r["tp"], 0.0, True, 0, Tx + HOLD_DAYS * DAY, steps,
-                          {"aoi": (z["lo"], z["hi"], z["t0"]), "sos": (r["c"]["sos"]["level"], r["c"]["sos"]["time"]) if r["c"].get("sos") else None},
-                          cost, zone=r["band"], be_off=BE_PIPS * pip)
+                seen.add((wave, etf))
+                sq = squad(r, pip, pv)
+                steps = [(f"W1 {r['S']['W1']:+d} · D1 {r['S']['D1']:+d} · H4 {r['S']['H4']:+d}", bool(r["setup"]), r["setup"] or ""),
+                         (f"In {zone_name(z)} AOI {fmt(z['lo'], pip)}-{fmt(z['hi'], pip)} ({z['touches']} touches)", True, ""),
+                         (f"{etf} SoS at {fmt(sos['level'], pip)}", True, ""), (f"{etf} engulfing close", True, ""),
+                         (f"S_AlexG {r['score']}% (grade {r['grade']})", r["score"] >= GRADE_MIN, ""), (f"R:R {r['rr']:.2f} >= 2.5", r["rr"] >= MIN_RR, "")]
+                expiry = 0 if r["market"] else max(1, LIMIT_BARS * e.step // fstep)
+                s = _make(key, r["setup"] or "SF_SWING", d, m5, k0, r["entry"], r["sl"], r["tp1"], r["tp"], PART, r["market"], expiry,
+                          T + HOLD_DAYS * DAY, steps, {"aoi": (z["lo"], z["hi"], z["t0"]), "sos": (sos["level"], sos["time"])}, cost,
+                          zone=r["band"], be_off=BE_OFF)
                 if not s:
                     continue
-                s["result"] = run(m5, k0, d, entry, r["sl"], r["tp1"], r["tp"], 0.0, True, 0, s["holdUntil"], cost, None, None, None,
-                                  BE_PIPS * pip, None, 0, True)
-                rk = RISK_BY_GRADE.get(r["grade"], 0.0)
-                s.update(gpa=r["gpa"], grade=r["grade"], setupType=r["setup"], riskPct=rk, etf=etf, consensus=sq["consensus"], vetoes=sq["vetoes"],
-                         checklistGpa=checklist_of(r), confirmedAt=T, deferred=Tx != T, fridayExit=True,
+                s.update(gpa=r["score"], score=r["score"], grade=r["grade"], setupType=r["setup"], riskPct=r["risk_pct"], etf=etf,
+                         consensus=sq["consensus"], vetoes=sq["vetoes"], checklistGpa=checklist_of(r), confirmedAt=T, fridayExit=False,
                          desk=[{"key": k2, "role": role, "status": sq["agents"][name]["status"], "badge": sq["agents"][name]["badge"],
                                 "score": sq["agents"][name]["score"]} for k2, name, role, _ in ROLES],
                          zoneInfo={"low": z["lo"], "high": z["hi"], "tfs": sorted(z["tfs"], reverse=True), "touches": z["touches"],
                                    "width": round(z["width"]), "psych": z["psych"], "overlap": z["overlap"]},
-                         psychTp=r.get("psych_tp"), slPips=round(abs(entry - r["sl"]) / pip, 1), tpPips=round(abs(r["tp"] - entry) / pip, 1),
-                         bePips=round(abs(r["tp1"] - entry) / pip, 1))
-                s["checklist"] = [(f"1 · Consensus >= 70 ({sq['consensus']})", sq["consensus"] >= 70, ""),
-                                  (f"2 · GPA >= 70 % ({r['gpa']} %, grade {r['grade']})", r["gpa"] >= 70, ""),
-                                  ("3 · No agent in veto", not sq["vetoes"], ", ".join(sq["vetoes"]) or "none"),
-                                  ("4 · Trigger sniper and risk guardian ok", sq["agents"]["trigger_sniper"]["status"] == "ok" and
-                                   sq["agents"]["risk_guardian"]["status"] == "ok", sq["agents"]["risk_guardian"]["badge"])]
+                         sos={"level": sos["level"], "time": sos["time"], "swing": sos["swing"]}, struct=r.get("struct"),
+                         slPips=round(r["risk"] / pip, 1), tpPips=round(abs(r["tp"] - r["entry"]) / pip, 1),
+                         bePips=round(abs(r["tp1"] - r["entry"]) / pip, 1), spreadPct=round(r["spread_ratio"] * 100, 1),
+                         lots10k=sq["agents"]["risk_guardian"].get("position_size_lots"), newsClear=r["news_checked"] and not r["news"],
+                         newsChecked=r["news_checked"], syncKind=r["sync_kind"],
+                         confirmations={k3: r["c"].get(k3) for k3 in ("candle_w1", "candle_d1", "candle_h4", "pattern_w1", "pattern_d1", "pattern_h4")})
+                s["checklist"] = [("1 · Timeframes in sync", bool(r["setup"]), r["setup"] or "no sync"),
+                                  (f"2 · S_AlexG >= 80 % ({r['score']} %, grade {r['grade']})", r["score"] >= GRADE_MIN, ""),
+                                  ("3 · SoS + Engulfing", True, etf),
+                                  (f"4 · R:R >= 2.5 and no veto ({r['rr']:.2f})", r["rr"] >= MIN_RR and not sq["vetoes"], ", ".join(sq["vetoes"]) or "none")]
                 s["pass"] = sq["execute"]
+                if s["pass"]:
+                    passed.add(wave)
                 out.append(s)
-    out.sort(key=lambda s: (s["time"], ENTRY_TFS.index(s["etf"])))
+    out.sort(key=lambda s: (s["time"], entry_tfs.index(s["etf"])))
     busy = 0
     for s in out:
         if not s["pass"]:
@@ -743,7 +768,7 @@ def scan(key: str, m5, h1, cost: float, events=None, d1=None, research: Optional
             s["pass"] = False
             s["checklist"].append(("5 · One trade per pair at a time", False, "the previous trade is still open"))
             continue
-        busy = m5[s["result"]["at"]].time + M5S if "at" in s["result"] else 1 << 62
+        busy = m5[s["result"]["at"]].time + fstep if "at" in s["result"] else 1 << 62
     return out, []
 
 
@@ -756,7 +781,7 @@ def report(key: str, m5, h1, now: int, setups: list, news_events, d1, usd_per_pi
     live = [s for s in setups if s["result"]["state"] in ("PENDING", "ACTIVE") and s["pass"]]
     cand = live[-1] if live else None
     best = None
-    for etf in ENTRY_TFS:  # the read now: each entry timeframe's last closed candle, both directions; the most advanced one
+    for etf in ENTRY_TFS:  # H1, then M30, then M15: each one's last closed candle, both directions; the most advanced read
         e = cx.tf[etf]
         t = e.idx(m5[-1].time + M5S)
         if t < 60:
@@ -764,7 +789,7 @@ def report(key: str, m5, h1, now: int, setups: list, news_events, d1, usd_per_pi
         for d in (1, -1):
             r = evaluate(cx, etf, t, d, nw, now)
             c = r["c"]
-            rank = (r["S"]["D1"] == d, bool(r["zone"]), bool(c.get("engulf") or c.get("doji")), bool(c.get("sos")), r["gpa"], -ENTRY_TFS.index(etf))
+            rank = (bool(r["setup"]), bool(r["zone"]), bool(c.get("sos")), c.get("engulf_at") is not None, r["score"], -ENTRY_TFS.index(etf))
             if best is None or rank > best[0]:
                 best = (rank, r)
     r = best[1]
@@ -772,23 +797,24 @@ def report(key: str, m5, h1, now: int, setups: list, news_events, d1, usd_per_pi
         e = cx.tf[cand["etf"]]
         tt = e.idx(cand["confirmedAt"])
         if tt >= 60:
-            r = evaluate(cx, cand["etf"], tt, cand["dir"], nw, cand["time"])
-            if "entry" in r:
-                r.update(entry=cand["entry"], tp1=cand["tp1"], rr=cand["rr"])
+            r2 = evaluate(cx, cand["etf"], tt, cand["dir"], nw, cand["confirmedAt"])
+            if "entry" in r2:
+                r = r2
     sq = squad(r, pip, pv)
     execute = bool(cand) and sq["execute"]
     decision = sq["decision"] if (execute or sq["decision"] != "EXECUTE") else "WAIT_FOR_TRIGGER"
     d, c, z = r["dir"], r["c"], r["zone"]
     radar = None
-    if sq["radar"] and z:
-        st = c["sos"]["time"] if c.get("sos") else r["T"]
+    if sq["radar"] and z and c.get("sos"):
+        st = c["sos"]["time"]
         radar = {"id": f"RADAR-{key}-{'B' if d > 0 else 'S'}-{round(z['lo'] / pip)}-{st}", "direction": "BUY" if d > 0 else "SELL",
-                 "tf": "1W+1D" if z["overlap"] else ("1D" if "D1" in z["tfs"] else "1W"), "touches": z["touches"], "low": z["lo"], "high": z["hi"],
-                 "psych": z["psych"], "etf": r["etf"], "gpa": r["gpa"], "grade": r["grade"], "time": st, "setup": r["setup"]}
+                 "tf": zone_name(z), "touches": z["touches"], "low": z["lo"], "high": z["hi"], "psych": z["psych"], "etf": r["etf"],
+                 "gpa": r["score"], "score": r["score"], "grade": r["grade"], "time": st, "setup": r["setup"], "sosLevel": c["sos"]["level"],
+                 "trend": "+".join(n for n in ("W1", "D1", "H4") if r["S"][n] == d)}
     contract = {"pair": cx.cfg["symbol"], "strategy_name": STRATEGY_NAME, "setup_type": r["setup"],
                 "timestamp_utc": datetime.fromtimestamp(m5[-1].time + M5S, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "direction": "BUY" if d > 0 else "SELL", "consensus_score": sq["consensus"], "gpa_score": r["gpa"], "grade": r["grade"],
-                "final_decision": decision, "checklist": checklist_of(r), "agents": sq["agents"]}
+                "direction": "BUY" if d > 0 else "SELL", "consensus_score": sq["consensus"], "gpa_score": r["score"], "alexg_score": r["score"],
+                "grade": r["grade"], "final_decision": decision, "pass": execute, "checklist": checklist_of(r), "agents": sq["agents"]}
     ui = [{"key": k, "id": name, "name": role, "role": role, "status": sq["agents"][name]["status"], "finding": sq["agents"][name]["badge"],
            "badge": sq["agents"][name]["badge"], "score": sq["agents"][name]["score"], "weight": w, "lines": sq["agents"][name]["details"],
            "details": sq["agents"][name]["details"]} for k, name, role, w in ROLES]
@@ -796,9 +822,10 @@ def report(key: str, m5, h1, now: int, setups: list, news_events, d1, usd_per_pi
 
 
 # ---------------------------------------------------------------- the chart
-def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[float] = None) -> dict:
-    """1W / 1D AOI boxes (touches, psych), the round number line, the 1D and 4H body-close HH / HL / LH / LL, the LTF SoS
-    line. The EMA 50 is drawn by the chart itself on every timeframe."""
+def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[float] = None, focus: Optional[dict] = None) -> dict:
+    """What the chart draws. ESSENTIAL (always shown): the zone in play (`focus`) or, with none, the zone around the
+    price, the nearest below and the nearest above; the D1 structure levels. DETAIL (`detail: True`, shown with the
+    chart's "Details" switch): the other zones, the round numbers, the H4 levels, the HH / HL markers, the H1 SoS line."""
     cx = context(key, m5, h1, d1, spread)
     pip = cx.pip
     w1, dd, h4 = cx.tf["W1"], cx.tf["D1"], cx.tf["H4"]
@@ -806,13 +833,21 @@ def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[fl
     end = m5[-1].time + M5S
     px = m5[-1].close
     boxes, segs, labels = [], [], []
-    zs = sorted(cx.aois(iw, id_), key=lambda z: max(z["lo"] - px, px - z["hi"], 0))[:8] if iw >= 0 and id_ >= 0 else []
+    zs = sorted(cx.aois(iw, id_), key=lambda z: dist(px, px, z))[:8] if iw >= 0 and id_ >= 0 else []
+    same = lambda a, b: abs(a["lo"] - b["lo"]) < pip / 2 and abs(a["hi"] - b["hi"]) < pip / 2  # noqa: E731
+    if focus and not any(same(focus, z) for z in zs):
+        zs = [focus, *zs]
+    if focus:
+        main = [focus]
+    else:
+        below, above = [z for z in zs if z["hi"] < px], [z for z in zs if z["lo"] > px]
+        main = [z for z in zs if z["lo"] <= px <= z["hi"]][:1] + below[:1] + above[:1]
     for z in zs:
         tfl = "1W/1D" if z["overlap"] else ("1D" if "D1" in z["tfs"] else "1W")
         boxes.append({"from": z["t0"], "to": end + 6 * H1S, "top": r_fn(z["hi"]), "bottom": r_fn(z["lo"]), "kind": "ob", "dir": 1 if z["hi"] < px else -1,
-                      "label": f"{tfl} AOI · {z['touches']} Touches" + (f" · Psych {fmt(z['psych'], pip)}" if z["psych"] is not None else "")})
+                      "label": f"{tfl} zone · {z['touches']} touches", "detail": not any(same(z, q) for q in main)})
         if z["psych"] is not None:
-            segs.append({"from": z["t0"], "to": end, "price": r_fn(z["psych"]), "kind": "eq", "dir": 0, "label": f"Psych {fmt(z['psych'], pip)}"})
+            segs.append({"from": z["t0"], "to": end, "price": r_fn(z["psych"]), "kind": "eq", "dir": 0, "label": f"Psych {fmt(z['psych'], pip)}", "detail": True})
     for tf, i in ((dd, id_), (h4, i4)):
         if i < 0:
             continue
@@ -822,16 +857,16 @@ def draw_objects(key: str, m5, h1, d1, now: int, r_fn=round, spread: Optional[fl
         for name, k, dirn in names:
             lv = st[k][i]
             if lv and lv[1] >= i - 150:
-                segs.append({"from": tf.t[lv[1]], "to": end, "price": r_fn(lv[0]), "kind": "liquidity", "dir": dirn, "label": f"{tf.name.replace('D1', '1D').replace('H4', '4H')} {name}"})
-                labels.append({"time": tf.t[lv[1]], "price": r_fn(lv[0]), "text": name, "above": dirn > 0, "kind": "structure"})
+                segs.append({"from": tf.t[lv[1]], "to": end, "price": r_fn(lv[0]), "kind": "liquidity", "dir": dirn,
+                             "label": f"{tf.name.replace('D1', '1D').replace('H4', '4H')} {name}", "detail": tf.name != "D1"})
+                labels.append({"time": tf.t[lv[1]], "price": r_fn(lv[0]), "text": name, "above": dirn > 0, "kind": "structure", "detail": True})
     e = cx.tf["H1"]
     t = e.idx(end)
     if t > 60 and id_ >= 0:
-        atr_d = dd.at[id_] or 0
+        adr = cx.adr20(id_)
+        prox = max(PROX_PIPS * pip, PROX_ADR * adr) if adr else PROX_PIPS * pip
         for d in (1, -1):
-            for z in zs:
-                res = sos_at(e, t, z, d, 0.3 * atr_d)
-                if res:
-                    segs.append({"from": res["time"] - 6 * H1S, "to": end, "price": r_fn(res["level"]), "kind": "bos", "dir": d, "label": "1H SoS"})
-                    break
+            res = next((x for x in (find_sos(e, t, z, d, prox) for z in zs) if x), None)
+            if res:
+                segs.append({"from": res["time"] - 6 * H1S, "to": end, "price": r_fn(res["level"]), "kind": "bos", "dir": d, "label": "1H SoS", "detail": True})
     return {"boxes": boxes, "segments": segs, "labels": labels, "lines": []}

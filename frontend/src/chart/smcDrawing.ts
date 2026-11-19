@@ -9,11 +9,13 @@ import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { PdZone, SessionBand } from './smcOverlay';
 import type { IChartApi, IPrimitivePaneRenderer, IPrimitivePaneView, ISeriesApi, ISeriesPrimitive, SeriesAttachedParameter, Time } from 'lightweight-charts';
 
-export interface DrawBox { from: number; to: number; top: number; bottom: number; kind: 'ob' | 'fvg'; dir: number; label: string }
-export interface DrawSegment { from: number; to: number; price: number; kind: 'bos' | 'choch' | 'sweep' | 'idm' | 'eq' | 'liquidity' | 'session'; dir: number; label: string }
-export interface DrawLabel { time: number; price: number; text: string; above: boolean; kind: string }
+/** `detail`: a secondary object, drawn only when the chart's "Details" switch is on (off by default). */
+export interface DrawBox { from: number; to: number; top: number; bottom: number; kind: 'ob' | 'fvg'; dir: number; label: string; detail?: boolean }
+export interface DrawSegment { from: number; to: number; price: number; kind: 'bos' | 'choch' | 'sweep' | 'idm' | 'eq' | 'liquidity' | 'session'; dir: number; label: string; detail?: boolean }
+export interface DrawLabel { time: number; price: number; text: string; above: boolean; kind: string; detail?: boolean }
+/** The proposed trade of a research signal (never an order): entry, stop, target, the break-even step, with their numbers. */
 export interface DrawTrade { from: number; to: number; entry: number; zone?: [number, number] | null; sl: number; tp: number; dir: number; label: string;
-  slPips?: number; tpPips?: number; rr?: number; risk?: string }
+  slPips?: number; tpPips?: number; rr?: number; risk?: string; tp1?: number | null; beR?: number; decimals?: number }
 /** An indicator line: [time, value] points, drawn as a polyline. */
 export interface DrawLine { points: [number, number][]; color: string; label: string; dash?: boolean }
 /** A time window of the strategy (e.g. the Silver Bullet hour): a shaded band over the whole height. */
@@ -151,25 +153,42 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
         if (started && l.label && lx > 0 && lx <= W) this.tag(ctx, Math.min(lx, W) - 6, ly - 9, l.label, l.color, 'right');  // inside, above its line's end
       }
 
-      // 1. the trade: TP area and SL area from the signal on
+      // 1. the proposed trade: a light target area and stop area, then three labelled lines (entry, stop, target) and the
+      //    break-even step. Its labels are placed first, so nothing else may cover a risk level.
       if (d.trade) {
         const t = d.trade;
         const x0 = this.x(t.from), x1 = this.x(t.to), ye = this.y(t.entry), ys = this.y(t.sl), yt = this.y(t.tp);
         if (x0 !== null && x1 !== null && ye !== null && ys !== null && yt !== null) {
           const a = clampX(x0), b = clampX(x1);
-          ctx.fillStyle = 'rgba(22,199,132,0.16)'; ctx.fillRect(a, Math.min(ye, yt), b - a, Math.abs(yt - ye));
-          ctx.fillStyle = 'rgba(234,57,67,0.16)'; ctx.fillRect(a, Math.min(ye, ys), b - a, Math.abs(ys - ye));
-          // the entry ZONE (a band, not one price): the limit is its near edge, the trade is on once price is inside
-          const zt = t.zone ? this.y(t.zone[1]) : null, zb = t.zone ? this.y(t.zone[0]) : null;
-          if (zt !== null && zb !== null) {
-            ctx.fillStyle = 'rgba(212,175,55,0.22)'; ctx.fillRect(a, Math.min(zt, zb), b - a, Math.max(2, Math.abs(zb - zt)));
+          const px = (v: number) => v.toFixed(t.decimals ?? 2);
+          const ENTRY = '#D4AF37', SL = '#F87171', TP = '#4ADE80';
+          ctx.fillStyle = 'rgba(22,199,132,0.10)'; ctx.fillRect(a, Math.min(ye, yt), b - a, Math.abs(yt - ye));
+          ctx.fillStyle = 'rgba(234,57,67,0.10)'; ctx.fillRect(a, Math.min(ye, ys), b - a, Math.abs(ys - ye));
+          const line = (y: number, color: string, dash: number[] = []) => {
+            ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(dash);
+            ctx.beginPath(); ctx.moveTo(a, y); ctx.lineTo(b, y); ctx.stroke(); ctx.setLineDash([]);
+          };
+          line(ye, ENTRY); line(ys, SL); line(yt, TP);
+          const inward = (y: number) => y + (y > ye ? -9 : 9);  // a stop / target label sits just inside its line, never off the chart
+          // a label starts at the trade's left edge; when the trade begins too close to the right edge for the text to fit,
+          // it is written to the LEFT of that edge instead, so no level is ever cut by the price axis
+          // (on a narrow chart with no room on either side: from the chart's left edge, so the role and the price are read first)
+          const put = (y: number, s: string, color: string) => {
+            const w = ctx.measureText(s).width;
+            if (a + 6 + w <= W - 4) this.tag(ctx, Math.max(a + 6, 6), y, s, color, 'left');
+            else if (a - 6 - w >= 4) this.tag(ctx, a - 6, y, s, color, 'right');
+            else this.tag(ctx, 6, y, s, color, 'left');
+          };
+          // few words: the side and the entry, the stop with its pips, the target with its R:R
+          put(ye + (t.dir > 0 ? 9 : -9), `${t.dir > 0 ? 'BUY' : 'SELL'} ${px(t.entry)}`, ENTRY);
+          put(inward(ys), `SL ${px(t.sl)}${t.slPips !== undefined ? ` · ${Math.round(t.slPips)} pips` : ''}`, SL);
+          put(inward(yt), `TP ${px(t.tp)}${t.rr !== undefined ? ` · 1:${t.rr.toFixed(1)}` : ''}`, TP);
+          const yb = t.tp1 != null ? this.y(t.tp1) : null;
+          if (yb !== null && t.tp1 != null) {
+            ctx.strokeStyle = 'rgba(212,175,55,0.7)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(a, yb); ctx.lineTo(b, yb); ctx.stroke(); ctx.setLineDash([]);
+            put(yb + (t.dir > 0 ? 9 : -9), `BE +${t.beR ?? 1.5}R`, '#D4AF37');
           }
-          ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
-          ctx.beginPath(); ctx.moveTo(a, ye); ctx.lineTo(b, ye); ctx.stroke();
-          this.tag(ctx, a + 6, ye + (t.dir > 0 ? 10 : -10), t.label, '#D4AF37', 'left');
-          // the position tool's numbers: the stop's pips and risk, the target's R:R
-          if (t.slPips !== undefined) this.tag(ctx, a + 6, (ye + ys) / 2, `SL ${t.slPips.toFixed(1)} pips${t.risk ? ` · ${t.risk}` : ''}`, '#F87171', 'left');
-          if (t.rr !== undefined) this.tag(ctx, a + 6, (ye + yt) / 2, `TP ${t.tpPips !== undefined ? `${t.tpPips.toFixed(1)} pips · ` : ''}1:${t.rr.toFixed(1)} RR`, '#4ADE80', 'left');
         }
       }
 
@@ -181,22 +200,18 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
         if (b - a < 2) continue;
         const bull = z.dir > 0;
         const ob = z.kind === 'ob';
-        ctx.fillStyle = ob ? (bull ? 'rgba(22,199,132,0.22)' : 'rgba(234,57,67,0.24)') : (bull ? 'rgba(22,199,132,0.10)' : 'rgba(234,57,67,0.10)');
-        ctx.fillRect(a, y0, b - a, y1 - y0);
-        ctx.strokeStyle = bull ? 'rgba(22,199,132,0.75)' : 'rgba(234,57,67,0.75)';
+        const rgb = bull ? '22,199,132' : '234,57,67';
+        const top = Math.min(y0, y1), h = Math.abs(y1 - y0);
+        // a light band, a thin line on its two edges only (no box outline): calm, and the candles stay readable through it
+        ctx.fillStyle = `rgba(${rgb},${ob ? 0.11 : 0.06})`;
+        ctx.fillRect(a, top, b - a, h);
+        ctx.strokeStyle = `rgba(${rgb},${ob ? 0.55 : 0.35})`;
         ctx.lineWidth = 1; ctx.setLineDash(ob ? [] : [4, 3]);
-        ctx.strokeRect(a + 0.5, y0 + 0.5, b - a - 1, y1 - y0 - 1);
+        ctx.beginPath(); ctx.moveTo(a, top + 0.5); ctx.lineTo(b, top + 0.5); ctx.moveTo(a, top + h - 0.5); ctx.lineTo(b, top + h - 0.5); ctx.stroke();
         ctx.setLineDash([]);
-        const h = Math.abs(y1 - y0);
-        const cy = (y0 + y1) / 2;
-        // the name inside the box near its right end (next to the live candles); above it when the box is too thin
-        const label = h >= 13 ? z.label : z.label.replace(' Order Block', ' OB');
-        const right = Math.min(b, W - 4) - 8;
-        if (h >= 13) {
-          this.tag(ctx, right, cy, label, text, 'right');
-        } else {
-          this.tag(ctx, right, Math.min(y0, y1) - 8, label, bull ? '#4ADE80' : '#F87171', 'right');
-        }
+        // its name as a small tag at the band's right end, inside it when it fits, else just above it
+        const right = Math.min(b, W - 4) - 6;
+        this.pill(ctx, right, h >= 18 ? top + h / 2 : top - 10, z.label, bull ? '#4ADE80' : '#F87171', 'right');
       }
 
       // 3. segments: BOS / CHoCH / IDM / sweep / levels, the label centred above (or below) the line
@@ -217,7 +232,7 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
         if (s.kind === 'bos' || s.kind === 'choch' || s.kind === 'idm') {
           this.tag(ctx, (a + b) / 2, y + (s.dir > 0 ? -9 : 9), s.label, color, 'center');
         } else {
-          this.tag(ctx, b - 4, y - 8, s.label, color, 'right');  // a level: its name at the right end
+          this.pill(ctx, Math.min(b, W - 4) - 6, y - 9, s.label, color, 'right');  // a level: its name as a small tag at the right end
         }
       }
 
@@ -230,6 +245,30 @@ export class SmcDrawingPrimitive implements ISeriesPrimitive<Time> {
         ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
       }
     });
+  }
+
+  /** A small rounded tag (a dark plate, a colored mark on its left and the text): how a pro chart names its levels. Like
+   *  tag(), it never covers another label: moved by a line, else left out. */
+  private pill(ctx: CanvasRenderingContext2D, x: number, y: number, s: string, color: string, align: CanvasTextAlign) {
+    ctx.font = "600 10.5px Inter, ui-sans-serif, system-ui, sans-serif";
+    const w = ctx.measureText(s).width + 12, h = 16;
+    let x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+    x0 = Math.max(2, x0);
+    const hits = (yy: number) => this.placed.some(r => x0 < r.x1 && x0 + w > r.x0 && yy - h / 2 < r.y1 && yy + h / 2 > r.y0);
+    const yy = [y, y - 18, y + 18, y - 36, y + 36].find(v => !hits(v));
+    if (yy === undefined) { ctx.font = "600 11px Inter, ui-sans-serif, system-ui, sans-serif"; return; }
+    this.placed.push({ x0: x0 - 2, x1: x0 + w + 2, y0: yy - h / 2 - 1, y1: yy + h / 2 + 1 });
+    const dark = this.theme === 'dark';
+    ctx.fillStyle = dark ? 'rgba(13,16,23,0.88)' : 'rgba(255,255,255,0.92)';
+    ctx.beginPath();
+    (ctx as any).roundRect ? (ctx as any).roundRect(x0, yy - h / 2, w, h, 4) : ctx.rect(x0, yy - h / 2, w, h);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.fillRect(x0, yy - h / 2 + 3, 2, h - 6);
+    ctx.fillStyle = dark ? '#E5E7EB' : '#1F2937';
+    ctx.textAlign = 'left';
+    ctx.fillText(s, x0 + 7, yy + 0.5);
+    ctx.font = "600 11px Inter, ui-sans-serif, system-ui, sans-serif";
   }
 
   /** A label with a soft dark halo, readable over candles. It never covers another label: moved by a line, else left out. */

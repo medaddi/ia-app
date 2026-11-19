@@ -179,7 +179,17 @@ async def my_sizing(signal_id: str, u: User = Depends(current_user), db: Session
     from ..smc.sizing import size_for
     sig = db.get(Signal, signal_id)
     if sig is None or not sig.id.startswith("SMC-") or sig.state == "BLOCKED":
-        return {"status": "unavailable", "reason": "this setup has not been sent as a signal yet: its size appears once it is sent", "signalId": signal_id}
+        # a trade the dashboard shows but that was not sent (found before the server started, or its alert window passed):
+        # my lot from MY risk and its own entry and stop, calculated now and not saved
+        from ..smc.desk import BY_SYMBOL
+        from ..smc.notify import overview
+        from ..smc.sizing import compute, conversion, valid_risk
+        live = next((p for p in overview()["pairs"] if (p.get("signal") or {}).get("id") == signal_id), None)
+        if not live:
+            return {"status": "unavailable", "reason": "this trade is not on the board any more", "signalId": signal_id}
+        s, risk = live["signal"], valid_risk(u.risk_usd)
+        out = compute(BY_SYMBOL[live["symbol"]], s["entry"], s["sl"], risk, await conversion(live["symbol"]) if risk is not None else {})
+        return {**out, "signalId": signal_id, "saved": False}
     return await size_for(db, u, sig)
 
 

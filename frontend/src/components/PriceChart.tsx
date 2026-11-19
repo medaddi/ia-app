@@ -14,7 +14,7 @@ import {
 import { Expand, Layers, Maximize2, Minimize2, Shapes } from 'lucide-react';
 import type { InstrumentSymbol } from '../instruments';
 import { SmcDrawingPrimitive, type SmcDrawing } from '../chart/smcDrawing';
-import { computeSmc } from '../chart/smcOverlay';
+import { emaLine } from '../chart/smcOverlay';
 
 /**
  * A pair's clean chart: candles, volume, the forming candle following the live price, a legend and the timeframe buttons.
@@ -38,6 +38,7 @@ interface PriceChartProps {
   lang?: string;
   levels?: ChartLevel[];  // the setup's entry / SL / TP, as axis labels
   drawing?: SmcDrawing | null;  // the team's analysis
+  extra?: React.ReactNode;  // one more control for the toolbar (the terminal's Top 5 switch)
   tabValue?: string;  // the selected tab when it is not this chart's own timeframe (the H1 + M5 split view)
   compact?: boolean;  // a shorter chart (one of two in the split view)
 }
@@ -55,7 +56,7 @@ const PAL = {
 type Theme = keyof typeof PAL;
 const readTheme = (): Theme => (typeof document !== 'undefined' && !document.documentElement.classList.contains('dark') ? 'light' : 'dark');
 
-export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimals, timeframe, timeframes, onTimeframeChange, livePrice = null, quote = null, updatedAt, lang = 'en', levels = [], drawing = null, tabValue, compact = false }) => {
+export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimals, timeframe, timeframes, onTimeframeChange, livePrice = null, quote = null, updatedAt, lang = 'en', levels = [], drawing = null, tabValue, compact = false, extra = null }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -63,12 +64,13 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
   const volRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const fitKeyRef = useRef('');
   const drawRef = useRef<SmcDrawingPrimitive | null>(null);
-  // the team's analysis on / off, kept per browser
-  const [showTeam, setShowTeam] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_team') !== '0'; } catch { return true; } });
-  const toggleTeam = () => setShowTeam(v => { try { localStorage.setItem('ld_chart_team', v ? '0' : '1'); } catch { /* storage blocked */ } return !v; });
-  // the SMC overlays (premium / discount, BOS / CHoCH, sessions, BSL / SSL, FVGs) on / off, kept per browser
-  const [showSmc, setShowSmc] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_smc') !== '0'; } catch { return true; } });
-  const toggleSmc = () => setShowSmc(v => { try { localStorage.setItem('ld_chart_smc', v ? '0' : '1'); } catch { /* storage blocked */ } return !v; });
+  // A calm chart by default: candles, the zone in play, the 1D structure levels, the proposed trade and the 50 EMA.
+  // "Details" (off by default, kept per browser) adds the team's secondary objects: the other zones, round numbers, 4H
+  // levels, HH / HL markers and the SoS line. Only FXAlexG objects are drawn.
+  const [showDetails, setShowDetails] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_details') === '1'; } catch { return false; } });
+  const toggleDetails = () => setShowDetails(v => { try { localStorage.setItem('ld_chart_details', v ? '0' : '1'); } catch { /* storage blocked */ } return !v; });
+  const [showEma, setShowEma] = useState<boolean>(() => { try { return localStorage.getItem('ld_chart_ema') !== '0'; } catch { return true; } });
+  const toggleEma = () => setShowEma(v => { try { localStorage.setItem('ld_chart_ema', v ? '0' : '1'); } catch { /* storage blocked */ } return !v; });
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [full, setFull] = useState(false);
   const [hover, setHover] = useState<PriceCandle | null>(null);
@@ -237,13 +239,17 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
   }, [levelKey, theme, decimals, symbol]);
 
   // The SMC overlays of THIS timeframe's candles, and the team's analysis: placed by time on the candles shown
-  const smc = useMemo(() => (showSmc ? computeSmc(bars, tfSec) : null), [bars, tfSec, showSmc]);
+  const ema = useMemo(() => (showEma ? emaLine(bars, tfSec) : null), [bars, tfSec, showEma]);
   useEffect(() => {
-    const team: SmcDrawing = showTeam && drawing ? drawing : { boxes: [], segments: [], labels: [], lines: [], windows: [], trade: drawing?.trade ?? null };
-    const merged: SmcDrawing = smc ? { ...team, pd: smc.pd, sessions: smc.sessions, boxes: [...smc.boxes, ...team.boxes], segments: [...smc.segments, ...team.segments],
-      lines: [...smc.lines, ...(team.lines ?? [])] } : team;
-    drawRef.current?.update(merged, bars.map(b => b.time), tfSec, theme);
-  }, [drawing, showTeam, smc, bars, tfSec, theme]);
+    const keep = <T extends { detail?: boolean }>(xs: T[]) => (showDetails ? xs : xs.filter(x => !x.detail));
+    const team: SmcDrawing = drawing ? { ...drawing, boxes: keep(drawing.boxes), segments: keep(drawing.segments), labels: keep(drawing.labels) }
+      : { boxes: [], segments: [], labels: [], lines: [], windows: [], trade: null };
+    const lines = [...(ema ? [ema] : []), ...(team.lines ?? [])];
+    // only the FXAlexG team's objects (and the 50 EMA): no other method's overlays on the chart
+    drawRef.current?.update({ ...team, lines }, bars.map(b => b.time), tfSec, theme);
+  }, [drawing, showDetails, ema, bars, tfSec, theme]);
+  const hasTrade = !!drawing?.trade;
+  const hasZone = !!drawing?.boxes.some(b => !b.detail);
 
   // A new pair / timeframe: forget the old crosshair
   useEffect(() => { chartRef.current?.clearCrosshairPosition(); setHover(null); }, [symbol, timeframe]);
@@ -264,7 +270,8 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
           <span className="text-sm font-semibold text-white font-mono">{symbol}</span>
           <span className="px-1.5 py-0.5 rounded bg-surface-2 text-[11px] font-mono text-gold-300">{timeframe}</span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* the timeframes first: on a phone they make one row, the switches (Top 5, EMA 50, Details…) the next */}
           <div role="tablist" aria-label={t('Timeframe', 'Unité de temps', 'الفريم')} className="flex items-center rounded-lg bg-surface-2 border border-line p-0.5">
             {timeframes.map(tf => (
               <button key={tf} role="tab" aria-selected={tf === (tabValue ?? timeframe)} onClick={() => onTimeframeChange(tf)}
@@ -273,13 +280,15 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
               </button>
             ))}
           </div>
-          <button onClick={toggleSmc} aria-pressed={showSmc} title={t('SMC overlays', 'Repères SMC', 'رسومات SMC')}
-            className={`h-9 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-xs cursor-pointer ${showSmc ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white hover:bg-surface-2'}`}>
-            <Shapes className="w-4 h-4" /><span className="hidden sm:inline">SMC</span>
+          {extra}
+          <button onClick={toggleEma} aria-pressed={showEma} title={t('50 EMA (a secondary confluence, never a signal by itself)', 'EMA 50 (confluence secondaire, jamais un signal seule)', 'EMA 50 (تأكيد ثانوي، عمرها ما إشارة بوحدها)')}
+            className={`h-9 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-xs cursor-pointer ${showEma ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white hover:bg-surface-2'}`}>
+            <Shapes className="w-4 h-4" /><span>EMA 50</span>
           </button>
-          <button onClick={toggleTeam} aria-pressed={showTeam} title={t('The team analysis', 'L’analyse de l’équipe', 'التحليل ديال الفريق')}
-            className={`h-9 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-xs cursor-pointer ${showTeam ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white hover:bg-surface-2'}`}>
-            <Layers className="w-4 h-4" /><span className="hidden sm:inline">{t('Analysis', 'Analyse', 'التحليل')}</span>
+          <button onClick={toggleDetails} aria-pressed={showDetails}
+            title={t('Details: the other zones, round numbers, 4H levels', 'Détails : autres zones, chiffres ronds, niveaux 4H', 'التفاصيل: المناطق الأخرى، الأرقام المدورة، مستويات 4H')}
+            className={`h-9 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-xs cursor-pointer ${showDetails ? 'border-gold-500/40 bg-gold-500/10 text-gold-200' : 'border-line text-slate-400 hover:text-white hover:bg-surface-2'}`}>
+            <Layers className="w-4 h-4" /><span>{t('Details', 'Détails', 'التفاصيل')}</span>
           </button>
           <button onClick={resetView} className="h-9 w-9 flex items-center justify-center rounded-lg border border-line text-slate-400 hover:text-white hover:bg-surface-2 cursor-pointer"
             aria-label={t('Reset view', 'Recentrer', 'رجع العرض')} title={t('Reset view', 'Recentrer', 'رجع العرض')}>
@@ -296,13 +305,16 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
       {/* Chart */}
       <div className={`relative ${full ? 'flex-1' : compact ? 'h-[46vh] min-h-[320px] max-h-[560px]' : 'h-[62vh] min-h-[380px] max-h-[720px]'}`}>
         <div ref={containerRef} className="absolute inset-0" />
+        <div className="absolute inset-0 z-[1] flex items-center justify-center pointer-events-none select-none" aria-hidden="true">
+          <span className={`font-mono font-bold tracking-wider text-[clamp(28px,6vw,64px)] ${theme === 'dark' ? 'text-white/[0.04]' : 'text-black/[0.05]'}`}>{symbol} · {timeframe}</span>
+        </div>
         {ohlc && (
           <div className="absolute z-10 top-2 start-2 pointer-events-none font-mono text-[11px] leading-5 px-2 py-1 rounded-md bg-surface/70 backdrop-blur-sm" aria-hidden="true">
             <div className="flex flex-wrap gap-x-2">
               <span className="text-slate-200 font-semibold">{symbol} · {timeframe}</span>
-              <span className="text-slate-500">O <span className="text-slate-200">{fmt(ohlc.open)}</span></span>
-              <span className="text-slate-500">H <span className="text-slate-200">{fmt(ohlc.high)}</span></span>
-              <span className="text-slate-500">L <span className="text-slate-200">{fmt(ohlc.low)}</span></span>
+              <span className="hidden sm:inline text-slate-500">O <span className="text-slate-200">{fmt(ohlc.open)}</span></span>
+              <span className="hidden sm:inline text-slate-500">H <span className="text-slate-200">{fmt(ohlc.high)}</span></span>
+              <span className="hidden sm:inline text-slate-500">L <span className="text-slate-200">{fmt(ohlc.low)}</span></span>
               <span className="text-slate-500">C <span className={ohlc.close >= ohlc.open ? 'text-emerald-400' : 'text-rose-400'}>{fmt(ohlc.close)}</span></span>
               {chg !== null && <span className={chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{chg >= 0 ? '+' : ''}{chg.toFixed(2)}%</span>}
             </div>
@@ -313,16 +325,30 @@ export const PriceChart: React.FC<PriceChartProps> = ({ symbol, candles, decimal
         )}
       </div>
 
-      {/* Provenance */}
-      <div className="px-3 sm:px-4 py-2 border-t border-line text-[11px]">
-        <span className="font-mono text-slate-500 truncate">
-          {age !== null && <span className={age > 15 ? 'text-rose-300' : 'text-emerald-400'}>{age > 15 ? `● ${t('Stale', 'Ancien', 'قديم')} · ${age}s` : '● Live'}</span>}
-          {age !== null && quoteAge !== null && (
-            <span className={quoteAge > 120 ? 'text-amber-300' : 'text-slate-400'} title={quote?.source}>
-              {' · '}{t('price', 'prix', 'الثمن')} {quoteAge < 90 ? `${quoteAge} s` : `${Math.round(quoteAge / 60)} min`}{quote?.source ? ` · ${quote.source.replace('Interbank ', '')}` : ''}
+      {/* Legend: one small, constant key for what is on the chart */}
+      <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 sm:px-4 pt-2 text-[11px] text-slate-400" aria-label={t('Legend', 'Légende', 'المفتاح')}>
+        {hasTrade && <>
+          <li className="inline-flex items-center gap-1"><span className="w-4 h-0.5 bg-[#D4AF37]" aria-hidden="true" />{t('Entry', 'Entrée', 'الدخول')}</li>
+          <li className="inline-flex items-center gap-1"><span className="w-4 h-0.5 bg-[#F87171]" aria-hidden="true" />{t('Stop', 'Stop', 'الستوب')}</li>
+          <li className="inline-flex items-center gap-1"><span className="w-4 h-0.5 bg-[#4ADE80]" aria-hidden="true" />{t('Target', 'Objectif', 'الهدف')}</li>
+        </>}
+        {hasZone && <li className="inline-flex items-center gap-1"><span className="w-3 h-2.5 rounded-sm border border-emerald-500/70 bg-emerald-500/20" aria-hidden="true" />{t('Zone', 'Zone', 'المنطقة')}</li>}
+        {!!drawing && <li className="inline-flex items-center gap-1"><span className="w-4 border-t border-dotted border-[#F472B6]" aria-hidden="true" />{t('1D levels', 'Niveaux 1D', 'مستويات 1D')}</li>}
+        {showEma && <li className="inline-flex items-center gap-1"><span className="w-4 h-0.5 bg-[#3b82f6]" aria-hidden="true" />50 EMA</li>}
+      </ul>
+      {/* one word: live, or the market is closed / the feed is late; the source and the price age only in the tooltip */}
+      <div className="px-3 sm:px-4 py-2 border-t border-line text-[11px] mt-2">
+        {age !== null && (() => {
+          const closed = quoteAge !== null && quoteAge > 30 * 60;
+          const late = !closed && (age > 15 || (quoteAge !== null && quoteAge > 120));
+          const tip = `${quote?.source ?? ''}${quoteAge !== null ? ` · ${t('price', 'prix', 'الثمن')} ${quoteAge < 90 ? `${quoteAge} s` : `${Math.round(quoteAge / 60)} min`}` : ''}`;
+          return (
+            <span title={tip} className={`inline-flex items-center gap-1.5 font-medium ${closed ? 'text-slate-400' : late ? 'text-amber-300' : 'text-emerald-400'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${closed ? 'bg-slate-500' : late ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} aria-hidden="true" />
+              {closed ? t('Market closed', 'Marché fermé', 'السوق مغلق') : late ? t('Delayed', 'Retardé', 'متأخر') : t('Live', 'En direct', 'مباشر')}
             </span>
-          )}
-        </span>
+          );
+        })()}
       </div>
     </div>
   );

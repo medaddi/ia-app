@@ -1,0 +1,3049 @@
+{
+ "XAUUSD": {
+  "from": 1789099200,
+  "to": 1795113000,
+  "triggers": 11,
+  "passed": 4,
+  "open": 0,
+  "all": {
+   "trades": 4,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -4.05,
+   "expectancyR": -1.012,
+   "grossWinR": 0,
+   "grossLossR": 4.048
+  },
+  "pf": 0.0,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M15": {
+    "trades": 4,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -4.05,
+    "expectancyR": -1.012,
+    "grossWinR": 0,
+    "grossLossR": 4.048
+   }
+  },
+  "trades": [
+   {
+    "time": 1789351200,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.01
+   },
+   {
+    "time": 1789365600,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.02
+   },
+   {
+    "time": 1789991100,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.01
+   },
+   {
+    "time": 1790036100,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.48,
+    "state": "LOSS",
+    "r": -1.01
+   }
+  ]
+ },
+ "EURUSD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 129,
+  "passed": 2,
+  "open": 0,
+  "all": {
+   "trades": 2,
+   "wins": 2,
+   "winRate": 100,
+   "totalR": 3.3,
+   "expectancyR": 1.648,
+   "grossWinR": 3.295,
+   "grossLossR": 0
+  },
+  "pf": null,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 2.98,
+    "expectancyR": 2.976,
+    "grossWinR": 2.976,
+    "grossLossR": 0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 0.32,
+    "expectancyR": 0.319,
+    "grossWinR": 0.319,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   }
+  },
+  "trades": [
+   {
+    "time": 1788768000,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 120,
+    "market": false,
+    "rr": 2.56,
+    "state": "WIN",
+    "r": 0.32
+   },
+   {
+    "time": 1790294400,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 2.98
+   }
+  ]
+ },
+ "GBPUSD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 170,
+  "passed": 4,
+  "open": 0,
+  "all": {
+   "trades": 4,
+   "wins": 3,
+   "winRate": 75,
+   "totalR": 6.15,
+   "expectancyR": 1.538,
+   "grossWinR": 7.21,
+   "grossLossR": 1.056
+  },
+  "pf": 6.83,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 2.64,
+    "expectancyR": 2.639,
+    "grossWinR": 2.639,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 3,
+    "wins": 2,
+    "winRate": 67,
+    "totalR": 3.51,
+    "expectancyR": 1.171,
+    "grossWinR": 4.57,
+    "grossLossR": 1.056
+   }
+  },
+  "trades": [
+   {
+    "time": 1788132600,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 115,
+    "market": true,
+    "rr": 3.29,
+    "state": "LOSS",
+    "r": -1.06
+   },
+   {
+    "time": 1792453500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 2.68,
+    "state": "WIN",
+    "r": 2.31
+   },
+   {
+    "time": 1793199600,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 110,
+    "market": false,
+    "rr": 3.11,
+    "state": "WIN",
+    "r": 2.64
+   },
+   {
+    "time": 1793595600,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 2.64,
+    "state": "WIN",
+    "r": 2.26
+   }
+  ]
+ },
+ "USDJPY": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 201,
+  "passed": 7,
+  "open": 0,
+  "all": {
+   "trades": 7,
+   "wins": 1,
+   "winRate": 14,
+   "totalR": -3.58,
+   "expectancyR": -0.512,
+   "grossWinR": 2.896,
+   "grossLossR": 6.477
+  },
+  "pf": 0.45,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 2.9,
+    "expectancyR": 2.896,
+    "grossWinR": 2.896,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 6,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -6.48,
+    "expectancyR": -1.08,
+    "grossWinR": 0,
+    "grossLossR": 6.477
+   }
+  },
+  "trades": [
+   {
+    "time": 1790137800,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 3.29,
+    "state": "LOSS",
+    "r": -1.09
+   },
+   {
+    "time": 1790254800,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.06
+   },
+   {
+    "time": 1790289000,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 3.43,
+    "state": "WIN",
+    "r": 2.9
+   },
+   {
+    "time": 1793075400,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 110,
+    "market": false,
+    "rr": 2.87,
+    "state": "LOSS",
+    "r": -1.07
+   },
+   {
+    "time": 1793091600,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 110,
+    "market": true,
+    "rr": 3.08,
+    "state": "LOSS",
+    "r": -1.07
+   },
+   {
+    "time": 1794345300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 120,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.11
+   },
+   {
+    "time": 1794535200,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "B",
+    "score": 85,
+    "market": false,
+    "rr": 2.74,
+    "state": "LOSS",
+    "r": -1.07
+   }
+  ]
+ },
+ "USDCAD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 174,
+  "passed": 4,
+  "open": 0,
+  "all": {
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -0.69,
+   "expectancyR": -0.173,
+   "grossWinR": 2.501,
+   "grossLossR": 3.191
+  },
+  "pf": 0.78,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.08,
+    "expectancyR": -1.079,
+    "grossWinR": 0,
+    "grossLossR": 1.079
+   },
+   "M30": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M15": {
+    "trades": 3,
+    "wins": 1,
+    "winRate": 33,
+    "totalR": 0.39,
+    "expectancyR": 0.13,
+    "grossWinR": 2.501,
+    "grossLossR": 2.113
+   }
+  },
+  "trades": [
+   {
+    "time": 1789020000,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_DAY",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.08
+   },
+   {
+    "time": 1790122500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 2.9,
+    "state": "WIN",
+    "r": 2.5
+   },
+   {
+    "time": 1791792900,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": false,
+    "rr": 2.65,
+    "state": "LOSS",
+    "r": -1.04
+   },
+   {
+    "time": 1792980900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.07
+   }
+  ]
+ },
+ "USDCHF": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 117,
+  "passed": 4,
+  "open": 0,
+  "all": {
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -0.76,
+   "expectancyR": -0.19,
+   "grossWinR": 2.478,
+   "grossLossR": 3.239
+  },
+  "pf": 0.77,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 2.48,
+    "expectancyR": 2.478,
+    "grossWinR": 2.478,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 3,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -3.24,
+    "expectancyR": -1.08,
+    "grossWinR": 0,
+    "grossLossR": 3.239
+   }
+  },
+  "trades": [
+   {
+    "time": 1788329700,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 110,
+    "market": false,
+    "rr": 3.12,
+    "state": "LOSS",
+    "r": -1.09
+   },
+   {
+    "time": 1789074000,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 115,
+    "market": false,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.08
+   },
+   {
+    "time": 1792422900,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 3.02,
+    "state": "LOSS",
+    "r": -1.07
+   },
+   {
+    "time": 1792717200,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 2.96,
+    "state": "WIN",
+    "r": 2.48
+   }
+  ]
+ },
+ "AUDUSD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 189,
+  "passed": 4,
+  "open": 0,
+  "all": {
+   "trades": 4,
+   "wins": 2,
+   "winRate": 50,
+   "totalR": 0.53,
+   "expectancyR": 0.132,
+   "grossWinR": 2.656,
+   "grossLossR": 2.129
+  },
+  "pf": 1.25,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.05,
+    "expectancyR": -1.051,
+    "grossWinR": 0,
+    "grossLossR": 1.051
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 0.32,
+    "expectancyR": 0.318,
+    "grossWinR": 0.318,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 2,
+    "wins": 1,
+    "winRate": 50,
+    "totalR": 1.26,
+    "expectancyR": 0.63,
+    "grossWinR": 2.338,
+    "grossLossR": 1.078
+   }
+  },
+  "trades": [
+   {
+    "time": 1789524000,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_DAY",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 2.61,
+    "state": "WIN",
+    "r": 0.32
+   },
+   {
+    "time": 1791369900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "B",
+    "score": 80,
+    "market": false,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.08
+   },
+   {
+    "time": 1793714400,
+    "dir": 1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": false,
+    "rr": 2.84,
+    "state": "LOSS",
+    "r": -1.05
+   },
+   {
+    "time": 1794442500,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 2.66,
+    "state": "WIN",
+    "r": 2.34
+   }
+  ]
+ },
+ "NZDUSD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 208,
+  "passed": 5,
+  "open": 0,
+  "all": {
+   "trades": 5,
+   "wins": 4,
+   "winRate": 80,
+   "totalR": 4.93,
+   "expectancyR": 0.986,
+   "grossWinR": 6.034,
+   "grossLossR": 1.103
+  },
+  "pf": 5.47,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 2,
+    "wins": 2,
+    "winRate": 100,
+    "totalR": 0.59,
+    "expectancyR": 0.293,
+    "grossWinR": 0.585,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 3,
+    "wins": 2,
+    "winRate": 67,
+    "totalR": 4.35,
+    "expectancyR": 1.448,
+    "grossWinR": 5.448,
+    "grossLossR": 1.103
+   }
+  },
+  "trades": [
+   {
+    "time": 1788833700,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 2.99,
+    "state": "WIN",
+    "r": 2.53
+   },
+   {
+    "time": 1790809200,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 2.52,
+    "state": "WIN",
+    "r": 0.33
+   },
+   {
+    "time": 1792567800,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_DAY",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.26
+   },
+   {
+    "time": 1792709100,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.1
+   },
+   {
+    "time": 1794303900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 2.92
+   }
+  ]
+ },
+ "GBPJPY": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 168,
+  "passed": 12,
+  "open": 2,
+  "all": {
+   "trades": 10,
+   "wins": 3,
+   "winRate": 30,
+   "totalR": -4.83,
+   "expectancyR": -0.483,
+   "grossWinR": 2.888,
+   "grossLossR": 7.718
+  },
+  "pf": 0.37,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.09,
+    "expectancyR": -1.088,
+    "grossWinR": 0,
+    "grossLossR": 1.088
+   },
+   "M30": {
+    "trades": 4,
+    "wins": 2,
+    "winRate": 50,
+    "totalR": 0.48,
+    "expectancyR": 0.12,
+    "grossWinR": 2.665,
+    "grossLossR": 2.185
+   },
+   "M15": {
+    "trades": 5,
+    "wins": 1,
+    "winRate": 20,
+    "totalR": -4.22,
+    "expectancyR": -0.845,
+    "grossWinR": 0.223,
+    "grossLossR": 4.446
+   }
+  },
+  "trades": [
+   {
+    "time": 1790064000,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": false,
+    "rr": 3.5,
+    "state": "MISSED",
+    "r": 0.0
+   },
+   {
+    "time": 1790294400,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 2.81,
+    "state": "WIN",
+    "r": 2.4
+   },
+   {
+    "time": 1791925200,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 3.19,
+    "state": "LOSS",
+    "r": -1.14
+   },
+   {
+    "time": 1792164600,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": false,
+    "rr": 2.96,
+    "state": "WIN",
+    "r": 0.26
+   },
+   {
+    "time": 1792392300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": false,
+    "rr": 2.64,
+    "state": "LOSS",
+    "r": -1.12
+   },
+   {
+    "time": 1792443600,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.13
+   },
+   {
+    "time": 1793304900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": false,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.22
+   },
+   {
+    "time": 1793322000,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": false,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.09
+   },
+   {
+    "time": 1793365200,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 115,
+    "market": false,
+    "rr": 2.74,
+    "state": "LOSS",
+    "r": -1.05
+   },
+   {
+    "time": 1793643300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 2.74,
+    "state": "LOSS",
+    "r": -1.1
+   },
+   {
+    "time": 1793889900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 3.5,
+    "state": "MISSED",
+    "r": 0.0
+   },
+   {
+    "time": 1794210300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 2.69,
+    "state": "LOSS",
+    "r": -1.1
+   }
+  ]
+ },
+ "GBPAUD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 204,
+  "passed": 5,
+  "open": 0,
+  "all": {
+   "trades": 5,
+   "wins": 2,
+   "winRate": 40,
+   "totalR": -0.07,
+   "expectancyR": -0.013,
+   "grossWinR": 3.176,
+   "grossLossR": 3.242
+  },
+  "pf": 0.98,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.1,
+    "expectancyR": -1.097,
+    "grossWinR": 0,
+    "grossLossR": 1.097
+   },
+   "M30": {
+    "trades": 2,
+    "wins": 1,
+    "winRate": 50,
+    "totalR": 1.89,
+    "expectancyR": 0.945,
+    "grossWinR": 2.934,
+    "grossLossR": 1.044
+   },
+   "M15": {
+    "trades": 2,
+    "wins": 1,
+    "winRate": 50,
+    "totalR": -0.86,
+    "expectancyR": -0.43,
+    "grossWinR": 0.241,
+    "grossLossR": 1.101
+   }
+  },
+  "trades": [
+   {
+    "time": 1788858000,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 2.57,
+    "state": "LOSS",
+    "r": -1.1
+   },
+   {
+    "time": 1789074900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": false,
+    "rr": 2.56,
+    "state": "WIN",
+    "r": 0.24
+   },
+   {
+    "time": 1789952400,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 3.17,
+    "state": "LOSS",
+    "r": -1.1
+   },
+   {
+    "time": 1794272400,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 2.6,
+    "state": "LOSS",
+    "r": -1.04
+   },
+   {
+    "time": 1794438000,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 2.93
+   }
+  ]
+ },
+ "GBPNZD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 108,
+  "passed": 1,
+  "open": 0,
+  "all": {
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 0.26,
+   "expectancyR": 0.265,
+   "grossWinR": 0.265,
+   "grossLossR": 0
+  },
+  "pf": null,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M15": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 0.26,
+    "expectancyR": 0.265,
+    "grossWinR": 0.265,
+    "grossLossR": 0
+   }
+  },
+  "trades": [
+   {
+    "time": 1789582500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 2.57,
+    "state": "WIN",
+    "r": 0.26
+   }
+  ]
+ },
+ "GBPCAD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 210,
+  "passed": 2,
+  "open": 0,
+  "all": {
+   "trades": 2,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -2.23,
+   "expectancyR": -1.117,
+   "grossWinR": 0,
+   "grossLossR": 2.233
+  },
+  "pf": 0.0,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 2,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -2.23,
+    "expectancyR": -1.117,
+    "grossWinR": 0,
+    "grossLossR": 2.233
+   },
+   "M15": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   }
+  },
+  "trades": [
+   {
+    "time": 1793019600,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.12
+   },
+   {
+    "time": 1794569400,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.11
+   }
+  ]
+ },
+ "GBPCHF": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 214,
+  "passed": 6,
+  "open": 0,
+  "all": {
+   "trades": 6,
+   "wins": 4,
+   "winRate": 67,
+   "totalR": 0.91,
+   "expectancyR": 0.151,
+   "grossWinR": 3.151,
+   "grossLossR": 2.243
+  },
+  "pf": 1.4,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.1,
+    "expectancyR": -1.101,
+    "grossWinR": 0,
+    "grossLossR": 1.101
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 0.27,
+    "expectancyR": 0.27,
+    "grossWinR": 0.27,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 4,
+    "wins": 3,
+    "winRate": 75,
+    "totalR": 1.74,
+    "expectancyR": 0.435,
+    "grossWinR": 2.88,
+    "grossLossR": 1.142
+   }
+  },
+  "trades": [
+   {
+    "time": 1788444900,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 2.84,
+    "state": "WIN",
+    "r": 2.39
+   },
+   {
+    "time": 1789576200,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 2.71,
+    "state": "WIN",
+    "r": 0.22
+   },
+   {
+    "time": 1789683300,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": false,
+    "rr": 2.66,
+    "state": "LOSS",
+    "r": -1.14
+   },
+   {
+    "time": 1791760500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": false,
+    "rr": 2.54,
+    "state": "WIN",
+    "r": 0.27
+   },
+   {
+    "time": 1792108800,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.27
+   },
+   {
+    "time": 1793286000,
+    "dir": 1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 2.98,
+    "state": "LOSS",
+    "r": -1.1
+   }
+  ]
+ },
+ "EURGBP": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 188,
+  "passed": 5,
+  "open": 0,
+  "all": {
+   "trades": 5,
+   "wins": 1,
+   "winRate": 20,
+   "totalR": -1.5,
+   "expectancyR": -0.3,
+   "grossWinR": 2.83,
+   "grossLossR": 4.331
+  },
+  "pf": 0.65,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.07,
+    "expectancyR": -1.068,
+    "grossWinR": 0,
+    "grossLossR": 1.068
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.11,
+    "expectancyR": -1.109,
+    "grossWinR": 0,
+    "grossLossR": 1.109
+   },
+   "M15": {
+    "trades": 3,
+    "wins": 1,
+    "winRate": 33,
+    "totalR": 0.68,
+    "expectancyR": 0.226,
+    "grossWinR": 2.83,
+    "grossLossR": 2.153
+   }
+  },
+  "trades": [
+   {
+    "time": 1788348600,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 125,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.07
+   },
+   {
+    "time": 1789737300,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 110,
+    "market": true,
+    "rr": 2.74,
+    "state": "LOSS",
+    "r": -1.08
+   },
+   {
+    "time": 1789757100,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 2.83
+   },
+   {
+    "time": 1790654400,
+    "dir": 1,
+    "etf": "H1",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 120,
+    "market": true,
+    "rr": 2.9,
+    "state": "LOSS",
+    "r": -1.07
+   },
+   {
+    "time": 1794877200,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.11
+   }
+  ]
+ },
+ "EURJPY": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 109,
+  "passed": 2,
+  "open": 0,
+  "all": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": 1.41,
+   "expectancyR": 0.705,
+   "grossWinR": 2.471,
+   "grossLossR": 1.06
+  },
+  "pf": 2.33,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 2.47,
+    "expectancyR": 2.471,
+    "grossWinR": 2.471,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.06,
+    "expectancyR": -1.06,
+    "grossWinR": 0,
+    "grossLossR": 1.06
+   }
+  },
+  "trades": [
+   {
+    "time": 1791311400,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 2.87,
+    "state": "WIN",
+    "r": 2.47
+   },
+   {
+    "time": 1793656800,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 2.94,
+    "state": "LOSS",
+    "r": -1.06
+   }
+  ]
+ },
+ "EURAUD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 163,
+  "passed": 3,
+  "open": 0,
+  "all": {
+   "trades": 3,
+   "wins": 1,
+   "winRate": 33,
+   "totalR": -0.0,
+   "expectancyR": -0.001,
+   "grossWinR": 2.149,
+   "grossLossR": 2.153
+  },
+  "pf": 1.0,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 2.15,
+    "expectancyR": 2.149,
+    "grossWinR": 2.149,
+    "grossLossR": 0
+   },
+   "M30": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M15": {
+    "trades": 2,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -2.15,
+    "expectancyR": -1.076,
+    "grossWinR": 0,
+    "grossLossR": 2.153
+   }
+  },
+  "trades": [
+   {
+    "time": 1789088400,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 110,
+    "market": false,
+    "rr": 2.53,
+    "state": "WIN",
+    "r": 2.15
+   },
+   {
+    "time": 1792038600,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.12
+   },
+   {
+    "time": 1793706300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.03
+   }
+  ]
+ },
+ "EURNZD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 234,
+  "passed": 4,
+  "open": 0,
+  "all": {
+   "trades": 4,
+   "wins": 2,
+   "winRate": 50,
+   "totalR": 0.28,
+   "expectancyR": 0.069,
+   "grossWinR": 2.564,
+   "grossLossR": 2.286
+  },
+  "pf": 1.12,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.13,
+    "expectancyR": -1.132,
+    "grossWinR": 0,
+    "grossLossR": 1.132
+   },
+   "M15": {
+    "trades": 3,
+    "wins": 2,
+    "winRate": 67,
+    "totalR": 1.41,
+    "expectancyR": 0.47,
+    "grossWinR": 2.564,
+    "grossLossR": 1.154
+   }
+  },
+  "trades": [
+   {
+    "time": 1788178500,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.45,
+    "state": "LOSS",
+    "r": -1.15
+   },
+   {
+    "time": 1789132500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "B",
+    "score": 85,
+    "market": false,
+    "rr": 2.84,
+    "state": "WIN",
+    "r": 2.34
+   },
+   {
+    "time": 1794474900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": false,
+    "rr": 3.47,
+    "state": "WIN",
+    "r": 0.22
+   },
+   {
+    "time": 1794571200,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.09,
+    "state": "LOSS",
+    "r": -1.13
+   }
+  ]
+ },
+ "EURCAD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 175,
+  "passed": 5,
+  "open": 1,
+  "all": {
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -0.47,
+   "expectancyR": -0.118,
+   "grossWinR": 2.951,
+   "grossLossR": 3.425
+  },
+  "pf": 0.86,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 2.95,
+    "expectancyR": 2.951,
+    "grossWinR": 2.951,
+    "grossLossR": 0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.11,
+    "expectancyR": -1.109,
+    "grossWinR": 0,
+    "grossLossR": 1.109
+   },
+   "M15": {
+    "trades": 2,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -2.32,
+    "expectancyR": -1.158,
+    "grossWinR": 0,
+    "grossLossR": 2.315
+   }
+  },
+  "trades": [
+   {
+    "time": 1789073100,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": false,
+    "rr": 2.76,
+    "state": "LOSS",
+    "r": -1.16
+   },
+   {
+    "time": 1791505800,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.11
+   },
+   {
+    "time": 1791795600,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 2.95
+   },
+   {
+    "time": 1793631600,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": false,
+    "rr": 3.5,
+    "state": "EXPIRED",
+    "r": 0.0
+   },
+   {
+    "time": 1793728800,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.16
+   }
+  ]
+ },
+ "EURCHF": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 273,
+  "passed": 6,
+  "open": 0,
+  "all": {
+   "trades": 6,
+   "wins": 1,
+   "winRate": 17,
+   "totalR": -3.05,
+   "expectancyR": -0.509,
+   "grossWinR": 2.27,
+   "grossLossR": 5.325
+  },
+  "pf": 0.43,
+  "byTf": {
+   "H1": {
+    "trades": 3,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -3.19,
+    "expectancyR": -1.065,
+    "grossWinR": 0,
+    "grossLossR": 3.195
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.04,
+    "expectancyR": -1.043,
+    "grossWinR": 0,
+    "grossLossR": 1.043
+   },
+   "M15": {
+    "trades": 2,
+    "wins": 1,
+    "winRate": 50,
+    "totalR": 1.18,
+    "expectancyR": 0.592,
+    "grossWinR": 2.27,
+    "grossLossR": 1.087
+   }
+  },
+  "trades": [
+   {
+    "time": 1787904000,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 2.8,
+    "state": "LOSS",
+    "r": -1.06
+   },
+   {
+    "time": 1788506100,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 2.64,
+    "state": "WIN",
+    "r": 2.27
+   },
+   {
+    "time": 1789599600,
+    "dir": 1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.05
+   },
+   {
+    "time": 1790172000,
+    "dir": 1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 110,
+    "market": false,
+    "rr": 3.07,
+    "state": "LOSS",
+    "r": -1.09
+   },
+   {
+    "time": 1790665200,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 110,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.04
+   },
+   {
+    "time": 1794901500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 120,
+    "market": false,
+    "rr": 2.59,
+    "state": "LOSS",
+    "r": -1.09
+   }
+  ]
+ },
+ "AUDJPY": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 157,
+  "passed": 10,
+  "open": 0,
+  "all": {
+   "trades": 10,
+   "wins": 3,
+   "winRate": 30,
+   "totalR": -2.55,
+   "expectancyR": -0.255,
+   "grossWinR": 5.049,
+   "grossLossR": 7.603
+  },
+  "pf": 0.66,
+  "byTf": {
+   "H1": {
+    "trades": 2,
+    "wins": 1,
+    "winRate": 50,
+    "totalR": 1.39,
+    "expectancyR": 0.693,
+    "grossWinR": 2.45,
+    "grossLossR": 1.064
+   },
+   "M30": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M15": {
+    "trades": 8,
+    "wins": 2,
+    "winRate": 25,
+    "totalR": -3.94,
+    "expectancyR": -0.492,
+    "grossWinR": 2.599,
+    "grossLossR": 6.539
+   }
+  },
+  "trades": [
+   {
+    "time": 1787932800,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": false,
+    "rr": 2.87,
+    "state": "WIN",
+    "r": 2.45
+   },
+   {
+    "time": 1789108200,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": false,
+    "rr": 2.53,
+    "state": "LOSS",
+    "r": -1.06
+   },
+   {
+    "time": 1789143300,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.07
+   },
+   {
+    "time": 1789506900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.11
+   },
+   {
+    "time": 1789542000,
+    "dir": -1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 3.4,
+    "state": "LOSS",
+    "r": -1.06
+   },
+   {
+    "time": 1790957700,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.08
+   },
+   {
+    "time": 1791319500,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 2.69,
+    "state": "WIN",
+    "r": 2.31
+   },
+   {
+    "time": 1791549900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 2.5,
+    "state": "WIN",
+    "r": 0.29
+   },
+   {
+    "time": 1792446300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": false,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.14
+   },
+   {
+    "time": 1792458900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": false,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.08
+   }
+  ]
+ },
+ "AUDCAD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 239,
+  "passed": 8,
+  "open": 0,
+  "all": {
+   "trades": 8,
+   "wins": 4,
+   "winRate": 50,
+   "totalR": -1.18,
+   "expectancyR": -0.147,
+   "grossWinR": 3.162,
+   "grossLossR": 4.34
+  },
+  "pf": 0.73,
+  "byTf": {
+   "H1": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 0.33,
+    "expectancyR": 0.329,
+    "grossWinR": 0.329,
+    "grossLossR": 0
+   },
+   "M30": {
+    "trades": 2,
+    "wins": 1,
+    "winRate": 50,
+    "totalR": 1.13,
+    "expectancyR": 0.563,
+    "grossWinR": 2.227,
+    "grossLossR": 1.101
+   },
+   "M15": {
+    "trades": 5,
+    "wins": 2,
+    "winRate": 40,
+    "totalR": -2.63,
+    "expectancyR": -0.527,
+    "grossWinR": 0.606,
+    "grossLossR": 3.239
+   }
+  },
+  "trades": [
+   {
+    "time": 1788410700,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 110,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.33
+   },
+   {
+    "time": 1789081200,
+    "dir": 1,
+    "etf": "H1",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 120,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.33
+   },
+   {
+    "time": 1790230500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 130,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.04
+   },
+   {
+    "time": 1790793900,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 130,
+    "market": true,
+    "rr": 2.9,
+    "state": "LOSS",
+    "r": -1.06
+   },
+   {
+    "time": 1792537200,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.13
+   },
+   {
+    "time": 1794265200,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.28
+   },
+   {
+    "time": 1794385800,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.1
+   },
+   {
+    "time": 1794461400,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 120,
+    "market": true,
+    "rr": 2.53,
+    "state": "WIN",
+    "r": 2.23
+   }
+  ]
+ },
+ "AUDCHF": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 233,
+  "passed": 5,
+  "open": 1,
+  "all": {
+   "trades": 4,
+   "wins": 2,
+   "winRate": 50,
+   "totalR": -1.71,
+   "expectancyR": -0.428,
+   "grossWinR": 0.519,
+   "grossLossR": 2.232
+  },
+  "pf": 0.23,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.12,
+    "expectancyR": -1.122,
+    "grossWinR": 0,
+    "grossLossR": 1.122
+   },
+   "M15": {
+    "trades": 3,
+    "wins": 2,
+    "winRate": 67,
+    "totalR": -0.59,
+    "expectancyR": -0.197,
+    "grossWinR": 0.519,
+    "grossLossR": 1.11
+   }
+  },
+  "trades": [
+   {
+    "time": 1789087500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 2.64,
+    "state": "WIN",
+    "r": 0.26
+   },
+   {
+    "time": 1793289600,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": false,
+    "rr": 2.79,
+    "state": "LOSS",
+    "r": -1.11
+   },
+   {
+    "time": 1794261600,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_DAY",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.22,
+    "state": "LOSS",
+    "r": -1.12
+   },
+   {
+    "time": 1794521700,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 105,
+    "market": false,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.26
+   },
+   {
+    "time": 1795013100,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 2.57,
+    "state": "ACTIVE",
+    "r": 0.0
+   }
+  ]
+ },
+ "AUDNZD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 83,
+  "passed": 3,
+  "open": 0,
+  "all": {
+   "trades": 3,
+   "wins": 2,
+   "winRate": 67,
+   "totalR": 1.93,
+   "expectancyR": 0.644,
+   "grossWinR": 3.09,
+   "grossLossR": 1.157
+  },
+  "pf": 2.67,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 0.26,
+    "expectancyR": 0.256,
+    "grossWinR": 0.256,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 2,
+    "wins": 1,
+    "winRate": 50,
+    "totalR": 1.68,
+    "expectancyR": 0.839,
+    "grossWinR": 2.834,
+    "grossLossR": 1.157
+   }
+  },
+  "trades": [
+   {
+    "time": 1792133100,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 3.34,
+    "state": "LOSS",
+    "r": -1.16
+   },
+   {
+    "time": 1792162800,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": false,
+    "rr": 2.59,
+    "state": "WIN",
+    "r": 0.26
+   },
+   {
+    "time": 1794960900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 2.83
+   }
+  ]
+ },
+ "NZDJPY": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 192,
+  "passed": 0,
+  "open": 0,
+  "all": {
+   "trades": 0,
+   "wins": 0,
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
+  },
+  "pf": null,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M15": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   }
+  },
+  "trades": []
+ },
+ "NZDCAD": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 259,
+  "passed": 4,
+  "open": 1,
+  "all": {
+   "trades": 3,
+   "wins": 3,
+   "winRate": 100,
+   "totalR": 0.8,
+   "expectancyR": 0.268,
+   "grossWinR": 0.803,
+   "grossLossR": 0
+  },
+  "pf": null,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 1,
+    "winRate": 100,
+    "totalR": 0.24,
+    "expectancyR": 0.245,
+    "grossWinR": 0.245,
+    "grossLossR": 0
+   },
+   "M15": {
+    "trades": 2,
+    "wins": 2,
+    "winRate": 100,
+    "totalR": 0.56,
+    "expectancyR": 0.279,
+    "grossWinR": 0.558,
+    "grossLossR": 0
+   }
+  },
+  "trades": [
+   {
+    "time": 1789032600,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.24
+   },
+   {
+    "time": 1789150500,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.24
+   },
+   {
+    "time": 1793311200,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": false,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.31
+   },
+   {
+    "time": 1794317400,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 115,
+    "market": true,
+    "rr": 3.28,
+    "state": "ACTIVE",
+    "r": 0.0
+   }
+  ]
+ },
+ "NZDCHF": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 268,
+  "passed": 6,
+  "open": 0,
+  "all": {
+   "trades": 6,
+   "wins": 2,
+   "winRate": 33,
+   "totalR": -4.11,
+   "expectancyR": -0.685,
+   "grossWinR": 0.438,
+   "grossLossR": 4.55
+  },
+  "pf": 0.1,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M15": {
+    "trades": 6,
+    "wins": 2,
+    "winRate": 33,
+    "totalR": -4.11,
+    "expectancyR": -0.685,
+    "grossWinR": 0.438,
+    "grossLossR": 4.55
+   }
+  },
+  "trades": [
+   {
+    "time": 1788131700,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.11
+   },
+   {
+    "time": 1788216300,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.11
+   },
+   {
+    "time": 1789078500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 115,
+    "market": true,
+    "rr": 2.75,
+    "state": "WIN",
+    "r": 0.23
+   },
+   {
+    "time": 1790126100,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.21
+   },
+   {
+    "time": 1790216100,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.15
+   },
+   {
+    "time": 1790258400,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.17
+   }
+  ]
+ },
+ "CADJPY": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 177,
+  "passed": 7,
+  "open": 1,
+  "all": {
+   "trades": 6,
+   "wins": 4,
+   "winRate": 67,
+   "totalR": 2.95,
+   "expectancyR": 0.492,
+   "grossWinR": 5.172,
+   "grossLossR": 2.222
+  },
+  "pf": 2.33,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 2,
+    "wins": 1,
+    "winRate": 50,
+    "totalR": 1.05,
+    "expectancyR": 0.525,
+    "grossWinR": 2.149,
+    "grossLossR": 1.099
+   },
+   "M15": {
+    "trades": 4,
+    "wins": 3,
+    "winRate": 75,
+    "totalR": 1.9,
+    "expectancyR": 0.475,
+    "grossWinR": 3.024,
+    "grossLossR": 1.122
+   }
+  },
+  "trades": [
+   {
+    "time": 1788233400,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 2.53,
+    "state": "WIN",
+    "r": 2.15
+   },
+   {
+    "time": 1790208000,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.2
+   },
+   {
+    "time": 1790898300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 85,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.27
+   },
+   {
+    "time": 1791509400,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.1
+   },
+   {
+    "time": 1793148300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": false,
+    "rr": 3.5,
+    "state": "EXPIRED",
+    "r": 0.0
+   },
+   {
+    "time": 1794463200,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 105,
+    "market": false,
+    "rr": 2.57,
+    "state": "LOSS",
+    "r": -1.12
+   },
+   {
+    "time": 1794552300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": false,
+    "rr": 3.06,
+    "state": "WIN",
+    "r": 2.55
+   }
+  ]
+ },
+ "CADCHF": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 306,
+  "passed": 9,
+  "open": 0,
+  "all": {
+   "trades": 9,
+   "wins": 2,
+   "winRate": 22,
+   "totalR": -5.32,
+   "expectancyR": -0.591,
+   "grossWinR": 2.403,
+   "grossLossR": 7.726
+  },
+  "pf": 0.31,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 1,
+    "wins": 0,
+    "winRate": 0,
+    "totalR": -1.08,
+    "expectancyR": -1.08,
+    "grossWinR": 0,
+    "grossLossR": 1.08
+   },
+   "M15": {
+    "trades": 8,
+    "wins": 2,
+    "winRate": 25,
+    "totalR": -4.24,
+    "expectancyR": -0.53,
+    "grossWinR": 2.403,
+    "grossLossR": 6.646
+   }
+  },
+  "trades": [
+   {
+    "time": 1789118100,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.12
+   },
+   {
+    "time": 1789414200,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A",
+    "score": 95,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.13
+   },
+   {
+    "time": 1790137800,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A",
+    "score": 90,
+    "market": true,
+    "rr": 3.37,
+    "state": "LOSS",
+    "r": -1.1
+   },
+   {
+    "time": 1790691300,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 100,
+    "market": false,
+    "rr": 2.58,
+    "state": "WIN",
+    "r": 2.19
+   },
+   {
+    "time": 1791504900,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 105,
+    "market": true,
+    "rr": 3.5,
+    "state": "WIN",
+    "r": 0.21
+   },
+   {
+    "time": 1791829800,
+    "dir": -1,
+    "etf": "M15",
+    "setup": "SF_DAY",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.14
+   },
+   {
+    "time": 1793343600,
+    "dir": 1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 100,
+    "market": true,
+    "rr": 2.68,
+    "state": "LOSS",
+    "r": -1.08
+   },
+   {
+    "time": 1793700900,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 120,
+    "market": true,
+    "rr": 3.5,
+    "state": "LOSS",
+    "r": -1.08
+   },
+   {
+    "time": 1793875500,
+    "dir": 1,
+    "etf": "M15",
+    "setup": "SF_SWING",
+    "grade": "A+",
+    "score": 120,
+    "market": true,
+    "rr": 3.44,
+    "state": "LOSS",
+    "r": -1.08
+   }
+  ]
+ },
+ "CHFJPY": {
+  "from": 1787871600,
+  "to": 1795113300,
+  "triggers": 58,
+  "passed": 1,
+  "open": 1,
+  "all": {
+   "trades": 0,
+   "wins": 0,
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
+  },
+  "pf": null,
+  "byTf": {
+   "H1": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M30": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   },
+   "M15": {
+    "trades": 0,
+    "wins": 0,
+    "winRate": null,
+    "totalR": 0.0,
+    "expectancyR": null,
+    "grossWinR": 0.0,
+    "grossLossR": 0.0
+   }
+  },
+  "trades": [
+   {
+    "time": 1793147400,
+    "dir": -1,
+    "etf": "M30",
+    "setup": "SF_SWING",
+    "grade": "B",
+    "score": 80,
+    "market": false,
+    "rr": 2.97,
+    "state": "MISSED",
+    "r": 0.0
+   }
+  ]
+ }
+}

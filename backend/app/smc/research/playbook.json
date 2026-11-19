@@ -1,85 +1,86 @@
 {
  "XAUUSD": {
-  "source": "dukascopy",
-  "from": 1762300800,
-  "split": 1781274060,
-  "to": 1793922900,
+  "source": "COMEX GC=F adjusted to spot (basis +2.5)",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
   "news": {
    "events": 652
   },
-  "triggers": 130,
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 1,
   "grades": {
-   "F": 76,
-   "C+": 19,
-   "A": 16,
-   "B": 10,
-   "A+": 9
+   "WAIT": 1
+  },
+  "blockedBy": {
+   "risk_guardian": 1
   },
   "all": {
-   "trades": 1,
+   "trades": 0,
    "wins": 0,
-   "winRate": 0,
-   "totalR": -1.01,
-   "expectancyR": -1.009,
-   "grossWinR": 0,
-   "grossLossR": 1.009
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
   },
   "in": {
    "trades": 0,
    "wins": 0,
    "winRate": null,
    "totalR": 0.0,
-   "expectancyR": null
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
   },
   "out": {
-   "trades": 1,
+   "trades": 0,
    "wins": 0,
-   "winRate": 0,
-   "totalR": -1.01,
-   "expectancyR": -1.009,
-   "grossWinR": 0,
-   "grossLossR": 1.009
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
   },
-  "withoutNewsRule": {
-   "trades": 1,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -1.01,
-   "expectancyR": -1.009,
-   "grossWinR": 0,
-   "grossLossR": 1.009
-  },
-  "pf": 0.0,
+  "pf": null,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 1
+   "sl": 0
   },
   "strategies": {
-   "SF_BR": {
-    "name": "Set & Forget \u2014 Break & Retest Continuation",
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 49,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "in": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": null,
     "exits": {
@@ -88,400 +89,306 @@
      "sl": 0
     }
    },
-   "SF_BOUNCE": {
-    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 10,
+    "setups": 0,
     "all": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "in": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": null,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
      "sl": 0
-    }
-   },
-   "SF_COUNTER": {
-    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 71,
-    "all": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -1.01,
-     "expectancyR": -1.009,
-     "grossWinR": 0,
-     "grossLossR": 1.009
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
-    },
-    "out": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -1.01,
-     "expectancyR": -1.009,
-     "grossWinR": 0,
-     "grossLossR": 1.009
-    },
-    "pf": 0.0,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 1
     }
    }
   }
  },
  "EURUSD": {
-  "source": "dukascopy",
-  "from": 1762300800,
-  "split": 1781274060,
-  "to": 1793922900,
+  "source": "Yahoo Finance EURUSD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
   "news": {
    "events": 652
   },
-  "triggers": 162,
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 202,
   "grades": {
-   "F": 90,
-   "A": 21,
-   "C+": 13,
-   "B": 22,
-   "A+": 16
+   "WAIT": 66,
+   "A+": 51,
+   "B": 45,
+   "A": 40
+  },
+  "blockedBy": {
+   "trend_director": 92,
+   "risk_guardian": 178,
+   "gate (score / sync / one per pair)": 14
   },
   "all": {
-   "trades": 4,
-   "wins": 1,
-   "winRate": 25,
-   "totalR": -0.41,
-   "expectancyR": -0.104,
-   "grossWinR": 2.736,
-   "grossLossR": 3.15
+   "trades": 10,
+   "wins": 5,
+   "winRate": 50,
+   "totalR": -0.84,
+   "expectancyR": -0.084,
+   "grossWinR": 4.343,
+   "grossLossR": 5.187
   },
   "in": {
-   "trades": 2,
-   "wins": 0,
-   "winRate": 0,
+   "trades": 6,
+   "wins": 3,
+   "winRate": 50,
    "totalR": -2.09,
-   "expectancyR": -1.045,
-   "grossWinR": 0,
-   "grossLossR": 2.089
+   "expectancyR": -0.349,
+   "grossWinR": 1.027,
+   "grossLossR": 3.122
   },
   "out": {
-   "trades": 2,
-   "wins": 1,
-   "winRate": 50,
-   "totalR": 1.67,
-   "expectancyR": 0.837,
-   "grossWinR": 2.736,
-   "grossLossR": 1.061
-  },
-  "withoutNewsRule": {
    "trades": 4,
-   "wins": 1,
-   "winRate": 25,
-   "totalR": -0.41,
-   "expectancyR": -0.104,
-   "grossWinR": 2.736,
-   "grossLossR": 3.15
+   "wins": 2,
+   "winRate": 50,
+   "totalR": 1.25,
+   "expectancyR": 0.313,
+   "grossWinR": 3.316,
+   "grossLossR": 2.065
   },
-  "pf": 0.87,
+  "pf": 0.84,
   "exits": {
    "tp": 1,
-   "be_after_1_5R": 0,
-   "sl": 3
+   "be_after_1_5R": 4,
+   "sl": 5
   },
   "strategies": {
-   "SF_BR": {
-    "name": "Set & Forget \u2014 Break & Retest Continuation",
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 89,
+    "setups": 184,
     "all": {
+     "trades": 5,
+     "wins": 3,
+     "winRate": 60,
+     "totalR": 1.57,
+     "expectancyR": 0.315,
+     "grossWinR": 3.655,
+     "grossLossR": 2.082
+    },
+    "in": {
      "trades": 3,
      "wins": 1,
      "winRate": 33,
-     "totalR": 0.65,
-     "expectancyR": 0.215,
-     "grossWinR": 2.736,
-     "grossLossR": 2.089
-    },
-    "in": {
-     "trades": 2,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -2.09,
-     "expectancyR": -1.045,
-     "grossWinR": 0,
-     "grossLossR": 2.089
+     "totalR": -1.74,
+     "expectancyR": -0.581,
+     "grossWinR": 0.339,
+     "grossLossR": 2.082
     },
     "out": {
-     "trades": 1,
-     "wins": 1,
+     "trades": 2,
+     "wins": 2,
      "winRate": 100,
-     "totalR": 2.74,
-     "expectancyR": 2.736,
-     "grossWinR": 2.736,
+     "totalR": 3.32,
+     "expectancyR": 1.658,
+     "grossWinR": 3.316,
      "grossLossR": 0
     },
-    "pf": 1.31,
+    "pf": 1.76,
     "exits": {
      "tp": 1,
-     "be_after_1_5R": 0,
+     "be_after_1_5R": 2,
      "sl": 2
     }
    },
-   "SF_BOUNCE": {
-    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 25,
+    "setups": 18,
     "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "trades": 5,
+     "wins": 2,
+     "winRate": 40,
+     "totalR": -2.42,
+     "expectancyR": -0.483,
+     "grossWinR": 0.688,
+     "grossLossR": 3.105
     },
     "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "trades": 3,
+     "wins": 2,
+     "winRate": 67,
+     "totalR": -0.35,
+     "expectancyR": -0.117,
+     "grossWinR": 0.688,
+     "grossLossR": 1.04
     },
     "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "SF_COUNTER": {
-    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 48,
-    "all": {
-     "trades": 1,
+     "trades": 2,
      "wins": 0,
      "winRate": 0,
-     "totalR": -1.06,
-     "expectancyR": -1.061,
+     "totalR": -2.07,
+     "expectancyR": -1.033,
      "grossWinR": 0,
-     "grossLossR": 1.061
+     "grossLossR": 2.065
     },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
-    },
-    "out": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -1.06,
-     "expectancyR": -1.061,
-     "grossWinR": 0,
-     "grossLossR": 1.061
-    },
-    "pf": 0.0,
+    "pf": 0.22,
     "exits": {
      "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 1
+     "be_after_1_5R": 2,
+     "sl": 3
     }
    }
   }
  },
  "GBPUSD": {
-  "source": "dukascopy",
-  "from": 1762300800,
-  "split": 1781274060,
-  "to": 1793922900,
+  "source": "Yahoo Finance GBPUSD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
   "news": {
    "events": 652
   },
-  "triggers": 193,
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 210,
   "grades": {
-   "F": 99,
-   "B": 37,
-   "A": 22,
-   "C+": 20,
-   "A+": 15
+   "B": 41,
+   "A+": 55,
+   "WAIT": 79,
+   "A": 35
+  },
+  "blockedBy": {
+   "trend_director": 111,
+   "risk_guardian": 197,
+   "gate (score / sync / one per pair)": 9
   },
   "all": {
-   "trades": 6,
+   "trades": 3,
    "wins": 2,
-   "winRate": 33,
-   "totalR": 3.98,
-   "expectancyR": 0.664,
-   "grossWinR": 7.26,
-   "grossLossR": 3.276
+   "winRate": 67,
+   "totalR": 2.2,
+   "expectancyR": 0.735,
+   "grossWinR": 3.245,
+   "grossLossR": 1.041
   },
   "in": {
-   "trades": 2,
-   "wins": 1,
-   "winRate": 50,
-   "totalR": 4.0,
-   "expectancyR": 2.0,
-   "grossWinR": 5.036,
-   "grossLossR": 1.037
+   "trades": 3,
+   "wins": 2,
+   "winRate": 67,
+   "totalR": 2.2,
+   "expectancyR": 0.735,
+   "grossWinR": 3.245,
+   "grossLossR": 1.041
   },
   "out": {
-   "trades": 4,
-   "wins": 1,
-   "winRate": 25,
-   "totalR": -0.02,
-   "expectancyR": -0.004,
-   "grossWinR": 2.224,
-   "grossLossR": 2.24
+   "trades": 0,
+   "wins": 0,
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
   },
-  "withoutNewsRule": {
-   "trades": 7,
-   "wins": 2,
-   "winRate": 29,
-   "totalR": 2.91,
-   "expectancyR": 0.416,
-   "grossWinR": 7.26,
-   "grossLossR": 4.349
-  },
-  "pf": 2.22,
+  "pf": 3.12,
   "exits": {
-   "tp": 2,
+   "tp": 1,
    "be_after_1_5R": 1,
-   "sl": 3
+   "sl": 1
   },
   "strategies": {
-   "SF_BR": {
-    "name": "Set & Forget \u2014 Break & Retest Continuation",
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 80,
+    "setups": 184,
     "all": {
-     "trades": 5,
-     "wins": 2,
-     "winRate": 40,
-     "totalR": 3.97,
-     "expectancyR": 0.794,
-     "grossWinR": 7.248,
-     "grossLossR": 3.276
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 1.88,
+     "expectancyR": 0.94,
+     "grossWinR": 2.921,
+     "grossLossR": 1.041
     },
     "in": {
      "trades": 2,
      "wins": 1,
      "winRate": 50,
-     "totalR": 4.0,
-     "expectancyR": 2.0,
-     "grossWinR": 5.036,
-     "grossLossR": 1.037
+     "totalR": 1.88,
+     "expectancyR": 0.94,
+     "grossWinR": 2.921,
+     "grossLossR": 1.041
     },
     "out": {
-     "trades": 3,
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": 2.81,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 26,
+    "all": {
+     "trades": 1,
      "wins": 1,
-     "winRate": 33,
-     "totalR": -0.03,
-     "expectancyR": -0.009,
-     "grossWinR": 2.212,
-     "grossLossR": 2.24
-    },
-    "pf": 2.21,
-    "exits": {
-     "tp": 2,
-     "be_after_1_5R": 0,
-     "sl": 3
-    }
-   },
-   "SF_BOUNCE": {
-    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 41,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "winRate": 100,
+     "totalR": 0.32,
+     "expectancyR": 0.325,
+     "grossWinR": 0.325,
+     "grossLossR": 0
     },
     "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.32,
+     "expectancyR": 0.325,
+     "grossWinR": 0.325,
+     "grossLossR": 0
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "SF_COUNTER": {
-    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 72,
-    "all": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": 0.01,
-     "expectancyR": 0.011,
-     "grossWinR": 0.011,
-     "grossLossR": 0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
-    },
-    "out": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": 0.01,
-     "expectancyR": 0.011,
-     "grossWinR": 0.011,
-     "grossLossR": 0
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": null,
     "exits": {
@@ -492,55 +399,1000 @@
    }
   }
  },
- "EURCHF": {
-  "source": "dukascopy",
-  "from": 1762300800,
-  "split": 1781274060,
-  "to": 1793922900,
+ "USDJPY": {
+  "source": "Yahoo Finance USDJPY=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
   "news": {
    "events": 652
   },
-  "triggers": 75,
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 208,
   "grades": {
-   "F": 46,
-   "A+": 12,
-   "A": 7,
-   "B": 6,
-   "C+": 4
+   "A": 38,
+   "WAIT": 82,
+   "B": 38,
+   "A+": 50
+  },
+  "blockedBy": {
+   "risk_guardian": 187,
+   "trend_director": 88,
+   "gate (score / sync / one per pair)": 9
+  },
+  "all": {
+   "trades": 11,
+   "wins": 5,
+   "winRate": 45,
+   "totalR": -0.68,
+   "expectancyR": -0.062,
+   "grossWinR": 5.481,
+   "grossLossR": 6.164
+  },
+  "in": {
+   "trades": 9,
+   "wins": 3,
+   "winRate": 33,
+   "totalR": -5.18,
+   "expectancyR": -0.575,
+   "grossWinR": 0.987,
+   "grossLossR": 6.164
+  },
+  "out": {
+   "trades": 2,
+   "wins": 2,
+   "winRate": 100,
+   "totalR": 4.49,
+   "expectancyR": 2.247,
+   "grossWinR": 4.494,
+   "grossLossR": 0
+  },
+  "pf": 0.89,
+  "exits": {
+   "tp": 2,
+   "be_after_1_5R": 3,
+   "sl": 6
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 190,
+    "all": {
+     "trades": 10,
+     "wins": 4,
+     "winRate": 40,
+     "totalR": -1.03,
+     "expectancyR": -0.103,
+     "grossWinR": 5.138,
+     "grossLossR": 6.164
+    },
+    "in": {
+     "trades": 8,
+     "wins": 2,
+     "winRate": 25,
+     "totalR": -5.52,
+     "expectancyR": -0.69,
+     "grossWinR": 0.644,
+     "grossLossR": 6.164
+    },
+    "out": {
+     "trades": 2,
+     "wins": 2,
+     "winRate": 100,
+     "totalR": 4.49,
+     "expectancyR": 2.247,
+     "grossWinR": 4.494,
+     "grossLossR": 0
+    },
+    "pf": 0.83,
+    "exits": {
+     "tp": 2,
+     "be_after_1_5R": 2,
+     "sl": 6
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 18,
+    "all": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.34,
+     "expectancyR": 0.343,
+     "grossWinR": 0.343,
+     "grossLossR": 0
+    },
+    "in": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.34,
+     "expectancyR": 0.343,
+     "grossWinR": 0.343,
+     "grossLossR": 0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 0
+    }
+   }
+  }
+ },
+ "USDCAD": {
+  "source": "Yahoo Finance USDCAD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 258,
+  "grades": {
+   "A+": 76,
+   "B": 45,
+   "WAIT": 79,
+   "A": 58
+  },
+  "blockedBy": {
+   "trend_director": 132,
+   "risk_guardian": 221,
+   "gate (score / sync / one per pair)": 22
+  },
+  "all": {
+   "trades": 10,
+   "wins": 3,
+   "winRate": 30,
+   "totalR": -3.89,
+   "expectancyR": -0.389,
+   "grossWinR": 3.536,
+   "grossLossR": 7.428
+  },
+  "in": {
+   "trades": 6,
+   "wins": 2,
+   "winRate": 33,
+   "totalR": -0.94,
+   "expectancyR": -0.156,
+   "grossWinR": 3.272,
+   "grossLossR": 4.207
+  },
+  "out": {
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -2.96,
+   "expectancyR": -0.739,
+   "grossWinR": 0.265,
+   "grossLossR": 3.221
+  },
+  "pf": 0.48,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 2,
+   "sl": 7
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 231,
+    "all": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -1.78,
+     "expectancyR": -0.593,
+     "grossWinR": 0.331,
+     "grossLossR": 2.111
+    },
+    "in": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.72,
+     "expectancyR": -0.359,
+     "grossWinR": 0.331,
+     "grossLossR": 1.048
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.06,
+     "expectancyR": -1.062,
+     "grossWinR": 0,
+     "grossLossR": 1.062
+    },
+    "pf": 0.16,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 2
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 27,
+    "all": {
+     "trades": 7,
+     "wins": 2,
+     "winRate": 29,
+     "totalR": -2.11,
+     "expectancyR": -0.302,
+     "grossWinR": 3.205,
+     "grossLossR": 5.318
+    },
+    "in": {
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -0.22,
+     "expectancyR": -0.055,
+     "grossWinR": 2.941,
+     "grossLossR": 3.159
+    },
+    "out": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -1.89,
+     "expectancyR": -0.631,
+     "grossWinR": 0.265,
+     "grossLossR": 2.159
+    },
+    "pf": 0.6,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 1,
+     "sl": 5
+    }
+   }
+  }
+ },
+ "USDCHF": {
+  "source": "Yahoo Finance USDCHF=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 215,
+  "grades": {
+   "B": 37,
+   "A": 50,
+   "A+": 65,
+   "WAIT": 63
+  },
+  "blockedBy": {
+   "risk_guardian": 191,
+   "trend_director": 73,
+   "gate (score / sync / one per pair)": 13
+  },
+  "all": {
+   "trades": 8,
+   "wins": 4,
+   "winRate": 50,
+   "totalR": 4.33,
+   "expectancyR": 0.541,
+   "grossWinR": 8.561,
+   "grossLossR": 4.231
+  },
+  "in": {
+   "trades": 6,
+   "wins": 3,
+   "winRate": 50,
+   "totalR": 5.07,
+   "expectancyR": 0.845,
+   "grossWinR": 8.225,
+   "grossLossR": 3.157
+  },
+  "out": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": -0.74,
+   "expectancyR": -0.369,
+   "grossWinR": 0.337,
+   "grossLossR": 1.074
+  },
+  "pf": 2.02,
+  "exits": {
+   "tp": 3,
+   "be_after_1_5R": 1,
+   "sl": 4
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 192,
+    "all": {
+     "trades": 6,
+     "wins": 4,
+     "winRate": 67,
+     "totalR": 6.42,
+     "expectancyR": 1.07,
+     "grossWinR": 8.561,
+     "grossLossR": 2.139
+    },
+    "in": {
+     "trades": 4,
+     "wins": 3,
+     "winRate": 75,
+     "totalR": 7.16,
+     "expectancyR": 1.79,
+     "grossWinR": 8.225,
+     "grossLossR": 1.065
+    },
+    "out": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.74,
+     "expectancyR": -0.369,
+     "grossWinR": 0.337,
+     "grossLossR": 1.074
+    },
+    "pf": 4.0,
+    "exits": {
+     "tp": 3,
+     "be_after_1_5R": 1,
+     "sl": 2
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 23,
+    "all": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.09,
+     "expectancyR": -1.046,
+     "grossWinR": 0,
+     "grossLossR": 2.092
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.09,
+     "expectancyR": -1.046,
+     "grossWinR": 0,
+     "grossLossR": 2.092
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 2
+    }
+   }
+  }
+ },
+ "AUDUSD": {
+  "source": "Yahoo Finance AUDUSD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 237,
+  "grades": {
+   "A+": 91,
+   "B": 52,
+   "WAIT": 43,
+   "A": 51
+  },
+  "blockedBy": {
+   "trend_director": 116,
+   "risk_guardian": 211,
+   "gate (score / sync / one per pair)": 20
+  },
+  "all": {
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -2.83,
+   "expectancyR": -0.707,
+   "grossWinR": 0.335,
+   "grossLossR": 3.163
+  },
+  "in": {
+   "trades": 3,
+   "wins": 1,
+   "winRate": 33,
+   "totalR": -1.78,
+   "expectancyR": -0.592,
+   "grossWinR": 0.335,
+   "grossLossR": 2.111
+  },
+  "out": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.05,
+   "expectancyR": -1.051,
+   "grossWinR": 0,
+   "grossLossR": 1.051
+  },
+  "pf": 0.11,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 1,
+   "sl": 3
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 208,
+    "all": {
+     "trades": 3,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -3.16,
+     "expectancyR": -1.054,
+     "grossWinR": 0,
+     "grossLossR": 3.163
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.11,
+     "expectancyR": -1.056,
+     "grossWinR": 0,
+     "grossLossR": 2.111
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.05,
+     "expectancyR": -1.051,
+     "grossWinR": 0,
+     "grossLossR": 1.051
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 3
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 29,
+    "all": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.34,
+     "expectancyR": 0.335,
+     "grossWinR": 0.335,
+     "grossLossR": 0
+    },
+    "in": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.34,
+     "expectancyR": 0.335,
+     "grossWinR": 0.335,
+     "grossLossR": 0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 0
+    }
+   }
+  }
+ },
+ "NZDUSD": {
+  "source": "Yahoo Finance NZDUSD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 265,
+  "grades": {
+   "WAIT": 55,
+   "A+": 113,
+   "A": 43,
+   "B": 54
+  },
+  "blockedBy": {
+   "trend_director": 163,
+   "risk_guardian": 226,
+   "gate (score / sync / one per pair)": 22
+  },
+  "all": {
+   "trades": 9,
+   "wins": 2,
+   "winRate": 22,
+   "totalR": -4.08,
+   "expectancyR": -0.453,
+   "grossWinR": 3.308,
+   "grossLossR": 7.383
+  },
+  "in": {
+   "trades": 5,
+   "wins": 2,
+   "winRate": 40,
+   "totalR": 0.11,
+   "expectancyR": 0.023,
+   "grossWinR": 3.308,
+   "grossLossR": 3.195
+  },
+  "out": {
+   "trades": 4,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -4.19,
+   "expectancyR": -1.047,
+   "grossWinR": 0,
+   "grossLossR": 4.188
+  },
+  "pf": 0.45,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 1,
+   "sl": 7
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 241,
+    "all": {
+     "trades": 7,
+     "wins": 2,
+     "winRate": 29,
+     "totalR": -1.99,
+     "expectancyR": -0.284,
+     "grossWinR": 3.308,
+     "grossLossR": 5.297
+    },
+    "in": {
+     "trades": 4,
+     "wins": 2,
+     "winRate": 50,
+     "totalR": 1.15,
+     "expectancyR": 0.287,
+     "grossWinR": 3.308,
+     "grossLossR": 2.158
+    },
+    "out": {
+     "trades": 3,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -3.14,
+     "expectancyR": -1.046,
+     "grossWinR": 0,
+     "grossLossR": 3.139
+    },
+    "pf": 0.62,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 1,
+     "sl": 5
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 24,
+    "all": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.09,
+     "expectancyR": -1.043,
+     "grossWinR": 0,
+     "grossLossR": 2.086
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.037,
+     "grossWinR": 0,
+     "grossLossR": 1.037
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.05,
+     "expectancyR": -1.049,
+     "grossWinR": 0,
+     "grossLossR": 1.049
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 2
+    }
+   }
+  }
+ },
+ "GBPJPY": {
+  "source": "Yahoo Finance GBPJPY=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 178,
+  "grades": {
+   "WAIT": 66,
+   "A": 39,
+   "A+": 35,
+   "B": 38
+  },
+  "blockedBy": {
+   "risk_guardian": 164,
+   "trend_director": 52,
+   "gate (score / sync / one per pair)": 8
+  },
+  "all": {
+   "trades": 5,
+   "wins": 4,
+   "winRate": 80,
+   "totalR": 4.4,
+   "expectancyR": 0.879,
+   "grossWinR": 5.485,
+   "grossLossR": 1.088
+  },
+  "in": {
+   "trades": 4,
+   "wins": 4,
+   "winRate": 100,
+   "totalR": 5.48,
+   "expectancyR": 1.371,
+   "grossWinR": 5.485,
+   "grossLossR": 0
+  },
+  "out": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.09,
+   "expectancyR": -1.088,
+   "grossWinR": 0,
+   "grossLossR": 1.088
+  },
+  "pf": 5.04,
+  "exits": {
+   "tp": 2,
+   "be_after_1_5R": 2,
+   "sl": 1
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 160,
+    "all": {
+     "trades": 5,
+     "wins": 4,
+     "winRate": 80,
+     "totalR": 4.4,
+     "expectancyR": 0.879,
+     "grossWinR": 5.485,
+     "grossLossR": 1.088
+    },
+    "in": {
+     "trades": 4,
+     "wins": 4,
+     "winRate": 100,
+     "totalR": 5.48,
+     "expectancyR": 1.371,
+     "grossWinR": 5.485,
+     "grossLossR": 0
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.09,
+     "expectancyR": -1.088,
+     "grossWinR": 0,
+     "grossLossR": 1.088
+    },
+    "pf": 5.04,
+    "exits": {
+     "tp": 2,
+     "be_after_1_5R": 2,
+     "sl": 1
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 18,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   }
+  }
+ },
+ "GBPAUD": {
+  "source": "Yahoo Finance GBPAUD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 175,
+  "grades": {
+   "A+": 30,
+   "WAIT": 81,
+   "A": 26,
+   "B": 38
+  },
+  "blockedBy": {
+   "trend_director": 52,
+   "risk_guardian": 152,
+   "gate (score / sync / one per pair)": 14
+  },
+  "all": {
+   "trades": 7,
+   "wins": 4,
+   "winRate": 57,
+   "totalR": 2.18,
+   "expectancyR": 0.311,
+   "grossWinR": 5.417,
+   "grossLossR": 3.239
+  },
+  "in": {
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 2.59,
+   "expectancyR": 2.589,
+   "grossWinR": 2.589,
+   "grossLossR": 0
+  },
+  "out": {
+   "trades": 6,
+   "wins": 3,
+   "winRate": 50,
+   "totalR": -0.41,
+   "expectancyR": -0.068,
+   "grossWinR": 2.828,
+   "grossLossR": 3.239
+  },
+  "pf": 1.67,
+  "exits": {
+   "tp": 2,
+   "be_after_1_5R": 2,
+   "sl": 3
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 166,
+    "all": {
+     "trades": 7,
+     "wins": 4,
+     "winRate": 57,
+     "totalR": 2.18,
+     "expectancyR": 0.311,
+     "grossWinR": 5.417,
+     "grossLossR": 3.239
+    },
+    "in": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 2.59,
+     "expectancyR": 2.589,
+     "grossWinR": 2.589,
+     "grossLossR": 0
+    },
+    "out": {
+     "trades": 6,
+     "wins": 3,
+     "winRate": 50,
+     "totalR": -0.41,
+     "expectancyR": -0.068,
+     "grossWinR": 2.828,
+     "grossLossR": 3.239
+    },
+    "pf": 1.67,
+    "exits": {
+     "tp": 2,
+     "be_after_1_5R": 2,
+     "sl": 3
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 9,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   }
+  }
+ },
+ "GBPNZD": {
+  "source": "Yahoo Finance GBPNZD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 148,
+  "grades": {
+   "A+": 25,
+   "B": 43,
+   "WAIT": 64,
+   "A": 16
+  },
+  "blockedBy": {
+   "risk_guardian": 141,
+   "gate (score / sync / one per pair)": 2,
+   "trend_director": 52
   },
   "all": {
    "trades": 1,
    "wins": 0,
    "winRate": 0,
-   "totalR": -1.11,
-   "expectancyR": -1.108,
+   "totalR": -1.12,
+   "expectancyR": -1.121,
    "grossWinR": 0,
-   "grossLossR": 1.108
+   "grossLossR": 1.121
   },
   "in": {
    "trades": 1,
    "wins": 0,
    "winRate": 0,
-   "totalR": -1.11,
-   "expectancyR": -1.108,
+   "totalR": -1.12,
+   "expectancyR": -1.121,
    "grossWinR": 0,
-   "grossLossR": 1.108
+   "grossLossR": 1.121
   },
   "out": {
    "trades": 0,
    "wins": 0,
    "winRate": null,
    "totalR": 0.0,
-   "expectancyR": null
-  },
-  "withoutNewsRule": {
-   "trades": 1,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -1.11,
-   "expectancyR": -1.108,
-   "grossWinR": 0,
-   "grossLossR": 1.108
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
   },
   "pf": 0.0,
   "exits": {
@@ -549,30 +1401,36 @@
    "sl": 1
   },
   "strategies": {
-   "SF_BR": {
-    "name": "Set & Forget \u2014 Break & Retest Continuation",
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 20,
+    "setups": 122,
     "all": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "in": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": null,
     "exits": {
@@ -581,66 +1439,36 @@
      "sl": 0
     }
    },
-   "SF_BOUNCE": {
-    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 6,
+    "setups": 26,
     "all": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "winRate": 0,
+     "totalR": -1.12,
+     "expectancyR": -1.121,
+     "grossWinR": 0,
+     "grossLossR": 1.121
     },
     "in": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "winRate": 0,
+     "totalR": -1.12,
+     "expectancyR": -1.121,
+     "grossWinR": 0,
+     "grossLossR": 1.121
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "SF_COUNTER": {
-    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 49,
-    "all": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -1.11,
-     "expectancyR": -1.108,
-     "grossWinR": 0,
-     "grossLossR": 1.108
-    },
-    "in": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -1.11,
-     "expectancyR": -1.108,
-     "grossWinR": 0,
-     "grossLossR": 1.108
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": 0.0,
     "exits": {
@@ -651,93 +1479,768 @@
    }
   }
  },
- "AUDCAD": {
-  "source": "dukascopy",
-  "from": 1762300800,
-  "split": 1781274060,
-  "to": 1793922900,
+ "GBPCAD": {
+  "source": "Yahoo Finance GBPCAD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
   "news": {
    "events": 652
   },
-  "triggers": 140,
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 224,
   "grades": {
-   "F": 79,
-   "C+": 14,
-   "B": 17,
-   "A+": 8,
-   "A": 22
+   "WAIT": 69,
+   "A+": 69,
+   "A": 37,
+   "B": 49
+  },
+  "blockedBy": {
+   "risk_guardian": 201,
+   "trend_director": 116,
+   "gate (score / sync / one per pair)": 9
   },
   "all": {
-   "trades": 3,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -3.39,
-   "expectancyR": -1.129,
-   "grossWinR": 0,
-   "grossLossR": 3.386
+   "trades": 4,
+   "wins": 3,
+   "winRate": 75,
+   "totalR": 1.74,
+   "expectancyR": 0.436,
+   "grossWinR": 2.784,
+   "grossLossR": 1.04
   },
   "in": {
-   "trades": 2,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -2.28,
-   "expectancyR": -1.139,
-   "grossWinR": 0,
-   "grossLossR": 2.278
-  },
-  "out": {
    "trades": 1,
    "wins": 0,
    "winRate": 0,
-   "totalR": -1.11,
-   "expectancyR": -1.108,
+   "totalR": -1.04,
+   "expectancyR": -1.04,
    "grossWinR": 0,
-   "grossLossR": 1.108
+   "grossLossR": 1.04
   },
-  "withoutNewsRule": {
+  "out": {
    "trades": 3,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -3.39,
-   "expectancyR": -1.129,
-   "grossWinR": 0,
-   "grossLossR": 3.386
+   "wins": 3,
+   "winRate": 100,
+   "totalR": 2.78,
+   "expectancyR": 0.928,
+   "grossWinR": 2.784,
+   "grossLossR": 0
   },
-  "pf": 0.0,
+  "pf": 2.68,
   "exits": {
-   "tp": 0,
-   "be_after_1_5R": 0,
-   "sl": 3
+   "tp": 1,
+   "be_after_1_5R": 2,
+   "sl": 1
   },
   "strategies": {
-   "SF_BR": {
-    "name": "Set & Forget \u2014 Break & Retest Continuation",
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 56,
+    "setups": 193,
     "all": {
-     "trades": 2,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -2.28,
-     "expectancyR": -1.139,
-     "grossWinR": 0,
-     "grossLossR": 2.278
+     "trades": 3,
+     "wins": 3,
+     "winRate": 100,
+     "totalR": 2.78,
+     "expectancyR": 0.928,
+     "grossWinR": 2.784,
+     "grossLossR": 0
     },
     "in": {
-     "trades": 2,
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 3,
+     "wins": 3,
+     "winRate": 100,
+     "totalR": 2.78,
+     "expectancyR": 0.928,
+     "grossWinR": 2.784,
+     "grossLossR": 0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 2,
+     "sl": 0
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 31,
+    "all": {
+     "trades": 1,
      "wins": 0,
      "winRate": 0,
-     "totalR": -2.28,
-     "expectancyR": -1.139,
+     "totalR": -1.04,
+     "expectancyR": -1.04,
      "grossWinR": 0,
-     "grossLossR": 2.278
+     "grossLossR": 1.04
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.04,
+     "grossWinR": 0,
+     "grossLossR": 1.04
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   }
+  }
+ },
+ "GBPCHF": {
+  "source": "Yahoo Finance GBPCHF=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 260,
+  "grades": {
+   "A+": 99,
+   "B": 53,
+   "A": 50,
+   "WAIT": 58
+  },
+  "blockedBy": {
+   "trend_director": 108,
+   "risk_guardian": 229,
+   "gate (score / sync / one per pair)": 17
+  },
+  "all": {
+   "trades": 5,
+   "wins": 1,
+   "winRate": 20,
+   "totalR": -4.14,
+   "expectancyR": -0.828,
+   "grossWinR": 0.281,
+   "grossLossR": 4.42
+  },
+  "in": {
+   "trades": 3,
+   "wins": 1,
+   "winRate": 33,
+   "totalR": -1.96,
+   "expectancyR": -0.652,
+   "grossWinR": 0.281,
+   "grossLossR": 2.237
+  },
+  "out": {
+   "trades": 2,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -2.18,
+   "expectancyR": -1.091,
+   "grossWinR": 0,
+   "grossLossR": 2.183
+  },
+  "pf": 0.06,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 1,
+   "sl": 4
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 243,
+    "all": {
+     "trades": 5,
+     "wins": 1,
+     "winRate": 20,
+     "totalR": -4.14,
+     "expectancyR": -0.828,
+     "grossWinR": 0.281,
+     "grossLossR": 4.42
+    },
+    "in": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -1.96,
+     "expectancyR": -0.652,
+     "grossWinR": 0.281,
+     "grossLossR": 2.237
+    },
+    "out": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.18,
+     "expectancyR": -1.091,
+     "grossWinR": 0,
+     "grossLossR": 2.183
+    },
+    "pf": 0.06,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 4
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 17,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   }
+  }
+ },
+ "EURGBP": {
+  "source": "Yahoo Finance EURGBP=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 283,
+  "grades": {
+   "B": 49,
+   "A": 55,
+   "WAIT": 38,
+   "A+": 141
+  },
+  "blockedBy": {
+   "trend_director": 114,
+   "risk_guardian": 220,
+   "gate (score / sync / one per pair)": 38
+  },
+  "all": {
+   "trades": 14,
+   "wins": 3,
+   "winRate": 21,
+   "totalR": -4.52,
+   "expectancyR": -0.323,
+   "grossWinR": 7.282,
+   "grossLossR": 11.806
+  },
+  "in": {
+   "trades": 10,
+   "wins": 3,
+   "winRate": 30,
+   "totalR": -0.2,
+   "expectancyR": -0.02,
+   "grossWinR": 7.282,
+   "grossLossR": 7.483
+  },
+  "out": {
+   "trades": 4,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -4.32,
+   "expectancyR": -1.081,
+   "grossWinR": 0,
+   "grossLossR": 4.323
+  },
+  "pf": 0.62,
+  "exits": {
+   "tp": 3,
+   "be_after_1_5R": 0,
+   "sl": 11
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 253,
+    "all": {
+     "trades": 8,
+     "wins": 3,
+     "winRate": 38,
+     "totalR": 1.9,
+     "expectancyR": 0.238,
+     "grossWinR": 7.282,
+     "grossLossR": 5.379
+    },
+    "in": {
+     "trades": 7,
+     "wins": 3,
+     "winRate": 43,
+     "totalR": 3.0,
+     "expectancyR": 0.429,
+     "grossWinR": 7.282,
+     "grossLossR": 4.282
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.1,
+     "expectancyR": -1.097,
+     "grossWinR": 0,
+     "grossLossR": 1.097
+    },
+    "pf": 1.35,
+    "exits": {
+     "tp": 3,
+     "be_after_1_5R": 0,
+     "sl": 5
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 30,
+    "all": {
+     "trades": 6,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -6.43,
+     "expectancyR": -1.071,
+     "grossWinR": 0,
+     "grossLossR": 6.427
+    },
+    "in": {
+     "trades": 3,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -3.2,
+     "expectancyR": -1.067,
+     "grossWinR": 0,
+     "grossLossR": 3.201
+    },
+    "out": {
+     "trades": 3,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -3.23,
+     "expectancyR": -1.075,
+     "grossWinR": 0,
+     "grossLossR": 3.226
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 6
+    }
+   }
+  }
+ },
+ "EURJPY": {
+  "source": "Yahoo Finance EURJPY=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 182,
+  "grades": {
+   "B": 43,
+   "A+": 41,
+   "WAIT": 62,
+   "A": 36
+  },
+  "blockedBy": {
+   "trend_director": 66,
+   "risk_guardian": 170,
+   "gate (score / sync / one per pair)": 9
+  },
+  "all": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": -0.74,
+   "expectancyR": -0.371,
+   "grossWinR": 0.338,
+   "grossLossR": 1.081
+  },
+  "in": {
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 0.34,
+   "expectancyR": 0.338,
+   "grossWinR": 0.338,
+   "grossLossR": 0
+  },
+  "out": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.08,
+   "expectancyR": -1.081,
+   "grossWinR": 0,
+   "grossLossR": 1.081
+  },
+  "pf": 0.31,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 1,
+   "sl": 1
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 168,
+    "all": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.74,
+     "expectancyR": -0.371,
+     "grossWinR": 0.338,
+     "grossLossR": 1.081
+    },
+    "in": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.34,
+     "expectancyR": 0.338,
+     "grossWinR": 0.338,
+     "grossLossR": 0
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.08,
+     "expectancyR": -1.081,
+     "grossWinR": 0,
+     "grossLossR": 1.081
+    },
+    "pf": 0.31,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 1
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 14,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   }
+  }
+ },
+ "EURAUD": {
+  "source": "Yahoo Finance EURAUD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 183,
+  "grades": {
+   "A": 33,
+   "WAIT": 69,
+   "B": 32,
+   "A+": 49
+  },
+  "blockedBy": {
+   "trend_director": 102,
+   "risk_guardian": 171,
+   "gate (score / sync / one per pair)": 7
+  },
+  "all": {
+   "trades": 3,
+   "wins": 1,
+   "winRate": 33,
+   "totalR": -0.02,
+   "expectancyR": -0.005,
+   "grossWinR": 2.149,
+   "grossLossR": 2.166
+  },
+  "in": {
+   "trades": 1,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -1.14,
+   "expectancyR": -1.136,
+   "grossWinR": 0,
+   "grossLossR": 1.136
+  },
+  "out": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": 1.12,
+   "expectancyR": 0.56,
+   "grossWinR": 2.149,
+   "grossLossR": 1.029
+  },
+  "pf": 0.99,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 0,
+   "sl": 2
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 166,
+    "all": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 1.12,
+     "expectancyR": 0.56,
+     "grossWinR": 2.149,
+     "grossLossR": 1.029
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 1.12,
+     "expectancyR": 0.56,
+     "grossWinR": 2.149,
+     "grossLossR": 1.029
+    },
+    "pf": 2.09,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 17,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.14,
+     "expectancyR": -1.136,
+     "grossWinR": 0,
+     "grossLossR": 1.136
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.14,
+     "expectancyR": -1.136,
+     "grossWinR": 0,
+     "grossLossR": 1.136
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   }
+  }
+ },
+ "EURNZD": {
+  "source": "Yahoo Finance EURNZD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 132,
+  "grades": {
+   "WAIT": 57,
+   "A+": 26,
+   "B": 28,
+   "A": 21
+  },
+  "blockedBy": {
+   "trend_director": 73,
+   "risk_guardian": 127,
+   "gate (score / sync / one per pair)": 1
+  },
+  "all": {
+   "trades": 2,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -2.14,
+   "expectancyR": -1.072,
+   "grossWinR": 0,
+   "grossLossR": 2.144
+  },
+  "in": {
+   "trades": 2,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -2.14,
+   "expectancyR": -1.072,
+   "grossWinR": 0,
+   "grossLossR": 2.144
+  },
+  "out": {
+   "trades": 0,
+   "wins": 0,
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
+  },
+  "pf": 0.0,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 0,
+   "sl": 2
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 118,
+    "all": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.14,
+     "expectancyR": -1.072,
+     "grossWinR": 0,
+     "grossLossR": 2.144
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.14,
+     "expectancyR": -1.072,
+     "grossWinR": 0,
+     "grossLossR": 2.144
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": 0.0,
     "exits": {
@@ -746,30 +2249,36 @@
      "sl": 2
     }
    },
-   "SF_BOUNCE": {
-    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 25,
+    "setups": 14,
     "all": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "in": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": null,
     "exits": {
@@ -777,35 +2286,674 @@
      "be_after_1_5R": 0,
      "sl": 0
     }
-   },
-   "SF_COUNTER": {
-    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
+   }
+  }
+ },
+ "EURCAD": {
+  "source": "Yahoo Finance EURCAD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 266,
+  "grades": {
+   "A+": 77,
+   "WAIT": 79,
+   "B": 54,
+   "A": 56
+  },
+  "blockedBy": {
+   "trend_director": 118,
+   "risk_guardian": 225,
+   "gate (score / sync / one per pair)": 25
+  },
+  "all": {
+   "trades": 10,
+   "wins": 2,
+   "winRate": 20,
+   "totalR": -5.54,
+   "expectancyR": -0.554,
+   "grossWinR": 3.243,
+   "grossLossR": 8.788
+  },
+  "in": {
+   "trades": 4,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -4.39,
+   "expectancyR": -1.097,
+   "grossWinR": 0,
+   "grossLossR": 4.388
+  },
+  "out": {
+   "trades": 6,
+   "wins": 2,
+   "winRate": 33,
+   "totalR": -1.16,
+   "expectancyR": -0.193,
+   "grossWinR": 3.243,
+   "grossLossR": 4.4
+  },
+  "pf": 0.37,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 1,
+   "sl": 8
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 59,
+    "setups": 234,
     "all": {
+     "trades": 8,
+     "wins": 1,
+     "winRate": 12,
+     "totalR": -4.73,
+     "expectancyR": -0.591,
+     "grossWinR": 2.951,
+     "grossLossR": 7.681
+    },
+    "in": {
+     "trades": 3,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -3.28,
+     "expectancyR": -1.094,
+     "grossWinR": 0,
+     "grossLossR": 3.281
+    },
+    "out": {
+     "trades": 5,
+     "wins": 1,
+     "winRate": 20,
+     "totalR": -1.45,
+     "expectancyR": -0.29,
+     "grossWinR": 2.951,
+     "grossLossR": 4.4
+    },
+    "pf": 0.38,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 0,
+     "sl": 7
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 32,
+    "all": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.81,
+     "expectancyR": -0.407,
+     "grossWinR": 0.292,
+     "grossLossR": 1.107
+    },
+    "in": {
      "trades": 1,
      "wins": 0,
      "winRate": 0,
      "totalR": -1.11,
-     "expectancyR": -1.108,
+     "expectancyR": -1.107,
      "grossWinR": 0,
-     "grossLossR": 1.108
+     "grossLossR": 1.107
+    },
+    "out": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.29,
+     "expectancyR": 0.292,
+     "grossWinR": 0.292,
+     "grossLossR": 0
+    },
+    "pf": 0.26,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 1
+    }
+   }
+  }
+ },
+ "EURCHF": {
+  "source": "Yahoo Finance EURCHF=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 339,
+  "grades": {
+   "A+": 125,
+   "B": 60,
+   "A": 70,
+   "WAIT": 84
+  },
+  "blockedBy": {
+   "risk_guardian": 287,
+   "gate (score / sync / one per pair)": 29,
+   "trend_director": 167
+  },
+  "all": {
+   "trades": 15,
+   "wins": 4,
+   "winRate": 27,
+   "totalR": -8.65,
+   "expectancyR": -0.577,
+   "grossWinR": 3.153,
+   "grossLossR": 11.804
+  },
+  "in": {
+   "trades": 7,
+   "wins": 3,
+   "winRate": 43,
+   "totalR": -1.46,
+   "expectancyR": -0.209,
+   "grossWinR": 2.875,
+   "grossLossR": 4.338
+  },
+  "out": {
+   "trades": 8,
+   "wins": 1,
+   "winRate": 12,
+   "totalR": -7.19,
+   "expectancyR": -0.899,
+   "grossWinR": 0.278,
+   "grossLossR": 7.466
+  },
+  "pf": 0.27,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 3,
+   "sl": 11
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 288,
+    "all": {
+     "trades": 7,
+     "wins": 2,
+     "winRate": 29,
+     "totalR": -4.82,
+     "expectancyR": -0.689,
+     "grossWinR": 0.523,
+     "grossLossR": 5.343
+    },
+    "in": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -1.92,
+     "expectancyR": -0.639,
+     "grossWinR": 0.246,
+     "grossLossR": 2.164
+    },
+    "out": {
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -2.9,
+     "expectancyR": -0.725,
+     "grossWinR": 0.278,
+     "grossLossR": 3.179
+    },
+    "pf": 0.1,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 2,
+     "sl": 5
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 51,
+    "all": {
+     "trades": 8,
+     "wins": 2,
+     "winRate": 25,
+     "totalR": -3.83,
+     "expectancyR": -0.479,
+     "grossWinR": 2.629,
+     "grossLossR": 6.461
+    },
+    "in": {
+     "trades": 4,
+     "wins": 2,
+     "winRate": 50,
+     "totalR": 0.46,
+     "expectancyR": 0.114,
+     "grossWinR": 2.629,
+     "grossLossR": 2.174
+    },
+    "out": {
+     "trades": 4,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -4.29,
+     "expectancyR": -1.072,
+     "grossWinR": 0,
+     "grossLossR": 4.287
+    },
+    "pf": 0.41,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 1,
+     "sl": 6
+    }
+   }
+  }
+ },
+ "AUDJPY": {
+  "source": "Yahoo Finance AUDJPY=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 203,
+  "grades": {
+   "B": 46,
+   "WAIT": 69,
+   "A": 34,
+   "A+": 54
+  },
+  "blockedBy": {
+   "risk_guardian": 184,
+   "trend_director": 110,
+   "gate (score / sync / one per pair)": 11
+  },
+  "all": {
+   "trades": 6,
+   "wins": 1,
+   "winRate": 17,
+   "totalR": -2.87,
+   "expectancyR": -0.479,
+   "grossWinR": 2.45,
+   "grossLossR": 5.321
+  },
+  "in": {
+   "trades": 3,
+   "wins": 0,
+   "winRate": 0,
+   "totalR": -3.19,
+   "expectancyR": -1.064,
+   "grossWinR": 0,
+   "grossLossR": 3.192
+  },
+  "out": {
+   "trades": 3,
+   "wins": 1,
+   "winRate": 33,
+   "totalR": 0.32,
+   "expectancyR": 0.107,
+   "grossWinR": 2.45,
+   "grossLossR": 2.129
+  },
+  "pf": 0.46,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 0,
+   "sl": 5
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 185,
+    "all": {
+     "trades": 6,
+     "wins": 1,
+     "winRate": 17,
+     "totalR": -2.87,
+     "expectancyR": -0.479,
+     "grossWinR": 2.45,
+     "grossLossR": 5.321
+    },
+    "in": {
+     "trades": 3,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -3.19,
+     "expectancyR": -1.064,
+     "grossWinR": 0,
+     "grossLossR": 3.192
+    },
+    "out": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": 0.32,
+     "expectancyR": 0.107,
+     "grossWinR": 2.45,
+     "grossLossR": 2.129
+    },
+    "pf": 0.46,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 0,
+     "sl": 5
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 18,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "in": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   }
+  }
+ },
+ "AUDCAD": {
+  "source": "Yahoo Finance AUDCAD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 287,
+  "grades": {
+   "A+": 126,
+   "B": 42,
+   "A": 63,
+   "WAIT": 56
+  },
+  "blockedBy": {
+   "trend_director": 174,
+   "risk_guardian": 244,
+   "gate (score / sync / one per pair)": 23
+  },
+  "all": {
+   "trades": 8,
+   "wins": 2,
+   "winRate": 25,
+   "totalR": -3.68,
+   "expectancyR": -0.46,
+   "grossWinR": 2.739,
+   "grossLossR": 6.417
+  },
+  "in": {
+   "trades": 6,
+   "wins": 1,
+   "winRate": 17,
+   "totalR": -3.18,
+   "expectancyR": -0.529,
+   "grossWinR": 2.196,
+   "grossLossR": 5.372
+  },
+  "out": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": -0.5,
+   "expectancyR": -0.25,
+   "grossWinR": 0.544,
+   "grossLossR": 1.045
+  },
+  "pf": 0.43,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 1,
+   "sl": 6
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 253,
+    "all": {
+     "trades": 5,
+     "wins": 1,
+     "winRate": 20,
+     "totalR": -2.05,
+     "expectancyR": -0.41,
+     "grossWinR": 2.196,
+     "grossLossR": 4.247
+    },
+    "in": {
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -1.01,
+     "expectancyR": -0.252,
+     "grossWinR": 2.196,
+     "grossLossR": 3.202
     },
     "out": {
      "trades": 1,
      "wins": 0,
      "winRate": 0,
-     "totalR": -1.11,
-     "expectancyR": -1.108,
+     "totalR": -1.04,
+     "expectancyR": -1.045,
      "grossWinR": 0,
-     "grossLossR": 1.108
+     "grossLossR": 1.045
+    },
+    "pf": 0.52,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 0,
+     "sl": 4
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 34,
+    "all": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -1.63,
+     "expectancyR": -0.542,
+     "grossWinR": 0.544,
+     "grossLossR": 2.17
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.17,
+     "expectancyR": -1.085,
+     "grossWinR": 0,
+     "grossLossR": 2.17
+    },
+    "out": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.54,
+     "expectancyR": 0.544,
+     "grossWinR": 0.544,
+     "grossLossR": 0
+    },
+    "pf": 0.25,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 2
+    }
+   }
+  }
+ },
+ "AUDCHF": {
+  "source": "Yahoo Finance AUDCHF=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 285,
+  "grades": {
+   "B": 51,
+   "WAIT": 68,
+   "A+": 105,
+   "A": 61
+  },
+  "blockedBy": {
+   "trend_director": 120,
+   "risk_guardian": 253,
+   "gate (score / sync / one per pair)": 16
+  },
+  "all": {
+   "trades": 11,
+   "wins": 4,
+   "winRate": 36,
+   "totalR": -3.91,
+   "expectancyR": -0.355,
+   "grossWinR": 3.85,
+   "grossLossR": 7.76
+  },
+  "in": {
+   "trades": 7,
+   "wins": 2,
+   "winRate": 29,
+   "totalR": -2.24,
+   "expectancyR": -0.321,
+   "grossWinR": 3.249,
+   "grossLossR": 5.492
+  },
+  "out": {
+   "trades": 4,
+   "wins": 2,
+   "winRate": 50,
+   "totalR": -1.67,
+   "expectancyR": -0.416,
+   "grossWinR": 0.602,
+   "grossLossR": 2.268
+  },
+  "pf": 0.5,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 3,
+   "sl": 7
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 271,
+    "all": {
+     "trades": 10,
+     "wins": 4,
+     "winRate": 40,
+     "totalR": -2.78,
+     "expectancyR": -0.278,
+     "grossWinR": 3.85,
+     "grossLossR": 6.634
+    },
+    "in": {
+     "trades": 6,
+     "wins": 2,
+     "winRate": 33,
+     "totalR": -1.12,
+     "expectancyR": -0.186,
+     "grossWinR": 3.249,
+     "grossLossR": 4.366
+    },
+    "out": {
+     "trades": 4,
+     "wins": 2,
+     "winRate": 50,
+     "totalR": -1.67,
+     "expectancyR": -0.416,
+     "grossWinR": 0.602,
+     "grossLossR": 2.268
+    },
+    "pf": 0.58,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 3,
+     "sl": 6
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 14,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.13,
+     "expectancyR": -1.126,
+     "grossWinR": 0,
+     "grossLossR": 1.126
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.13,
+     "expectancyR": -1.126,
+     "grossWinR": 0,
+     "grossLossR": 1.126
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": 0.0,
     "exits": {
@@ -816,91 +2964,131 @@
    }
   }
  },
- "AUDCHF": {
-  "source": "dukascopy",
-  "from": 1762300800,
-  "split": 1781274060,
-  "to": 1793922900,
+ "AUDNZD": {
+  "source": "Yahoo Finance AUDNZD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
   "news": {
    "events": 652
   },
-  "triggers": 78,
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 220,
   "grades": {
-   "F": 39,
-   "A+": 12,
-   "A": 12,
-   "C+": 10,
-   "B": 5
+   "WAIT": 57,
+   "B": 48,
+   "A+": 69,
+   "A": 46
+  },
+  "blockedBy": {
+   "risk_guardian": 189,
+   "trend_director": 103,
+   "gate (score / sync / one per pair)": 14
   },
   "all": {
-   "trades": 1,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -1.2,
-   "expectancyR": -1.203,
-   "grossWinR": 0,
-   "grossLossR": 1.203
+   "trades": 4,
+   "wins": 3,
+   "winRate": 75,
+   "totalR": 2.19,
+   "expectancyR": 0.548,
+   "grossWinR": 3.33,
+   "grossLossR": 1.139
   },
   "in": {
+   "trades": 4,
+   "wins": 3,
+   "winRate": 75,
+   "totalR": 2.19,
+   "expectancyR": 0.548,
+   "grossWinR": 3.33,
+   "grossLossR": 1.139
+  },
+  "out": {
    "trades": 0,
    "wins": 0,
    "winRate": null,
    "totalR": 0.0,
-   "expectancyR": null
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
   },
-  "out": {
-   "trades": 1,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -1.2,
-   "expectancyR": -1.203,
-   "grossWinR": 0,
-   "grossLossR": 1.203
-  },
-  "withoutNewsRule": {
-   "trades": 1,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -1.2,
-   "expectancyR": -1.203,
-   "grossWinR": 0,
-   "grossLossR": 1.203
-  },
-  "pf": 0.0,
+  "pf": 2.92,
   "exits": {
-   "tp": 0,
-   "be_after_1_5R": 0,
+   "tp": 1,
+   "be_after_1_5R": 2,
    "sl": 1
   },
   "strategies": {
-   "SF_BR": {
-    "name": "Set & Forget \u2014 Break & Retest Continuation",
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 35,
+    "setups": 195,
     "all": {
-     "trades": 1,
-     "wins": 0,
-     "winRate": 0,
-     "totalR": -1.2,
-     "expectancyR": -1.203,
-     "grossWinR": 0,
-     "grossLossR": 1.203
+     "trades": 3,
+     "wins": 3,
+     "winRate": 100,
+     "totalR": 3.33,
+     "expectancyR": 1.11,
+     "grossWinR": 3.33,
+     "grossLossR": 0
     },
     "in": {
+     "trades": 3,
+     "wins": 3,
+     "winRate": 100,
+     "totalR": 3.33,
+     "expectancyR": 1.11,
+     "grossWinR": 3.33,
+     "grossLossR": 0
+    },
+    "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
-    "out": {
+    "pf": null,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 2,
+     "sl": 0
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 25,
+    "all": {
      "trades": 1,
      "wins": 0,
      "winRate": 0,
-     "totalR": -1.2,
-     "expectancyR": -1.203,
+     "totalR": -1.14,
+     "expectancyR": -1.139,
      "grossWinR": 0,
-     "grossLossR": 1.203
+     "grossLossR": 1.139
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.14,
+     "expectancyR": -1.139,
+     "grossWinR": 0,
+     "grossLossR": 1.139
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": 0.0,
     "exits": {
@@ -908,31 +3096,539 @@
      "be_after_1_5R": 0,
      "sl": 1
     }
-   },
-   "SF_BOUNCE": {
-    "name": "Set & Forget \u2014 Direct AOI Structure Bounce",
+   }
+  }
+ },
+ "NZDJPY": {
+  "source": "Yahoo Finance NZDJPY=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 260,
+  "grades": {
+   "B": 64,
+   "WAIT": 76,
+   "A": 45,
+   "A+": 75
+  },
+  "blockedBy": {
+   "trend_director": 186,
+   "risk_guardian": 240,
+   "gate (score / sync / one per pair)": 14
+  },
+  "all": {
+   "trades": 5,
+   "wins": 2,
+   "winRate": 40,
+   "totalR": -2.75,
+   "expectancyR": -0.551,
+   "grossWinR": 0.566,
+   "grossLossR": 3.32
+  },
+  "in": {
+   "trades": 3,
+   "wins": 1,
+   "winRate": 33,
+   "totalR": -1.92,
+   "expectancyR": -0.639,
+   "grossWinR": 0.297,
+   "grossLossR": 2.215
+  },
+  "out": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": -0.84,
+   "expectancyR": -0.418,
+   "grossWinR": 0.269,
+   "grossLossR": 1.106
+  },
+  "pf": 0.17,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 2,
+   "sl": 3
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 5,
+    "setups": 249,
     "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "trades": 4,
+     "wins": 2,
+     "winRate": 50,
+     "totalR": -1.65,
+     "expectancyR": -0.412,
+     "grossWinR": 0.566,
+     "grossLossR": 2.216
     },
     "in": {
-     "trades": 0,
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.81,
+     "expectancyR": -0.407,
+     "grossWinR": 0.297,
+     "grossLossR": 1.11
+    },
+    "out": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.84,
+     "expectancyR": -0.418,
+     "grossWinR": 0.269,
+     "grossLossR": 1.106
+    },
+    "pf": 0.26,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 2,
+     "sl": 2
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 11,
+    "all": {
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "winRate": 0,
+     "totalR": -1.1,
+     "expectancyR": -1.105,
+     "grossWinR": 0,
+     "grossLossR": 1.105
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.1,
+     "expectancyR": -1.105,
+     "grossWinR": 0,
+     "grossLossR": 1.105
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   }
+  }
+ },
+ "NZDCAD": {
+  "source": "Yahoo Finance NZDCAD=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 316,
+  "grades": {
+   "A+": 131,
+   "WAIT": 45,
+   "A": 72,
+   "B": 68
+  },
+  "blockedBy": {
+   "trend_director": 228,
+   "risk_guardian": 270,
+   "gate (score / sync / one per pair)": 23
+  },
+  "all": {
+   "trades": 7,
+   "wins": 3,
+   "winRate": 43,
+   "totalR": -1.74,
+   "expectancyR": -0.248,
+   "grossWinR": 2.688,
+   "grossLossR": 4.425
+  },
+  "in": {
+   "trades": 6,
+   "wins": 2,
+   "winRate": 33,
+   "totalR": -1.99,
+   "expectancyR": -0.332,
+   "grossWinR": 2.433,
+   "grossLossR": 4.425
+  },
+  "out": {
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 0.25,
+   "expectancyR": 0.255,
+   "grossWinR": 0.255,
+   "grossLossR": 0
+  },
+  "pf": 0.61,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 2,
+   "sl": 4
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 287,
+    "all": {
+     "trades": 4,
+     "wins": 2,
+     "winRate": 50,
+     "totalR": 0.28,
+     "expectancyR": 0.07,
+     "grossWinR": 2.433,
+     "grossLossR": 2.152
+    },
+    "in": {
+     "trades": 4,
+     "wins": 2,
+     "winRate": 50,
+     "totalR": 0.28,
+     "expectancyR": 0.07,
+     "grossWinR": 2.433,
+     "grossLossR": 2.152
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": 1.13,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 1,
+     "sl": 2
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 29,
+    "all": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -2.02,
+     "expectancyR": -0.673,
+     "grossWinR": 0.255,
+     "grossLossR": 2.272
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.27,
+     "expectancyR": -1.136,
+     "grossWinR": 0,
+     "grossLossR": 2.272
+    },
+    "out": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.25,
+     "expectancyR": 0.255,
+     "grossWinR": 0.255,
+     "grossLossR": 0
+    },
+    "pf": 0.11,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 2
+    }
+   }
+  }
+ },
+ "NZDCHF": {
+  "source": "Yahoo Finance NZDCHF=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 227,
+  "grades": {
+   "A+": 100,
+   "WAIT": 43,
+   "A": 52,
+   "B": 32
+  },
+  "blockedBy": {
+   "risk_guardian": 192,
+   "gate (score / sync / one per pair)": 20,
+   "trend_director": 93
+  },
+  "all": {
+   "trades": 11,
+   "wins": 4,
+   "winRate": 36,
+   "totalR": -1.59,
+   "expectancyR": -0.145,
+   "grossWinR": 6.319,
+   "grossLossR": 7.912
+  },
+  "in": {
+   "trades": 5,
+   "wins": 3,
+   "winRate": 60,
+   "totalR": 3.77,
+   "expectancyR": 0.753,
+   "grossWinR": 6.062,
+   "grossLossR": 2.295
+  },
+  "out": {
+   "trades": 6,
+   "wins": 1,
+   "winRate": 17,
+   "totalR": -5.36,
+   "expectancyR": -0.893,
+   "grossWinR": 0.257,
+   "grossLossR": 5.618
+  },
+  "pf": 0.8,
+  "exits": {
+   "tp": 2,
+   "be_after_1_5R": 2,
+   "sl": 7
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 210,
+    "all": {
+     "trades": 6,
+     "wins": 3,
+     "winRate": 50,
+     "totalR": 2.61,
+     "expectancyR": 0.436,
+     "grossWinR": 6.062,
+     "grossLossR": 3.449
+    },
+    "in": {
+     "trades": 4,
+     "wins": 3,
+     "winRate": 75,
+     "totalR": 4.89,
+     "expectancyR": 1.223,
+     "grossWinR": 6.062,
+     "grossLossR": 1.17
+    },
+    "out": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.28,
+     "expectancyR": -1.14,
+     "grossWinR": 0,
+     "grossLossR": 2.279
+    },
+    "pf": 1.76,
+    "exits": {
+     "tp": 2,
+     "be_after_1_5R": 1,
+     "sl": 3
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 17,
+    "all": {
+     "trades": 5,
+     "wins": 1,
+     "winRate": 20,
+     "totalR": -4.21,
+     "expectancyR": -0.841,
+     "grossWinR": 0.257,
+     "grossLossR": 4.463
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.12,
+     "expectancyR": -1.125,
+     "grossWinR": 0,
+     "grossLossR": 1.125
+    },
+    "out": {
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -3.08,
+     "expectancyR": -0.77,
+     "grossWinR": 0.257,
+     "grossLossR": 3.339
+    },
+    "pf": 0.06,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 4
+    }
+   }
+  }
+ },
+ "CADJPY": {
+  "source": "Yahoo Finance CADJPY=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 240,
+  "grades": {
+   "B": 46,
+   "WAIT": 92,
+   "A": 42,
+   "A+": 60
+  },
+  "blockedBy": {
+   "trend_director": 111,
+   "risk_guardian": 222,
+   "gate (score / sync / one per pair)": 15
+  },
+  "all": {
+   "trades": 3,
+   "wins": 2,
+   "winRate": 67,
+   "totalR": 0.48,
+   "expectancyR": 0.16,
+   "grossWinR": 1.604,
+   "grossLossR": 1.124
+  },
+  "in": {
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 1.36,
+   "expectancyR": 1.358,
+   "grossWinR": 1.358,
+   "grossLossR": 0
+  },
+  "out": {
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": -0.88,
+   "expectancyR": -0.439,
+   "grossWinR": 0.246,
+   "grossLossR": 1.124
+  },
+  "pf": 1.43,
+  "exits": {
+   "tp": 1,
+   "be_after_1_5R": 1,
+   "sl": 1
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 220,
+    "all": {
+     "trades": 3,
+     "wins": 2,
+     "winRate": 67,
+     "totalR": 0.48,
+     "expectancyR": 0.16,
+     "grossWinR": 1.604,
+     "grossLossR": 1.124
+    },
+    "in": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 1.36,
+     "expectancyR": 1.358,
+     "grossWinR": 1.358,
+     "grossLossR": 0
+    },
+    "out": {
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": -0.88,
+     "expectancyR": -0.439,
+     "grossWinR": 0.246,
+     "grossLossR": 1.124
+    },
+    "pf": 1.43,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 1,
+     "sl": 1
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 20,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": null,
     "exits": {
@@ -940,31 +3636,269 @@
      "be_after_1_5R": 0,
      "sl": 0
     }
-   },
-   "SF_COUNTER": {
-    "name": "Set & Forget \u2014 Weekly Retracement Intraday Swing",
+   }
+  }
+ },
+ "CADCHF": {
+  "source": "Yahoo Finance CADCHF=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 317,
+  "grades": {
+   "A+": 139,
+   "B": 56,
+   "WAIT": 48,
+   "A": 74
+  },
+  "blockedBy": {
+   "risk_guardian": 222,
+   "trend_director": 127,
+   "gate (score / sync / one per pair)": 52
+  },
+  "all": {
+   "trades": 16,
+   "wins": 4,
+   "winRate": 25,
+   "totalR": -7.28,
+   "expectancyR": -0.455,
+   "grossWinR": 5.801,
+   "grossLossR": 13.084
+  },
+  "in": {
+   "trades": 9,
+   "wins": 3,
+   "winRate": 33,
+   "totalR": -1.0,
+   "expectancyR": -0.111,
+   "grossWinR": 5.568,
+   "grossLossR": 6.569
+  },
+  "out": {
+   "trades": 7,
+   "wins": 1,
+   "winRate": 14,
+   "totalR": -6.28,
+   "expectancyR": -0.897,
+   "grossWinR": 0.233,
+   "grossLossR": 6.516
+  },
+  "pf": 0.44,
+  "exits": {
+   "tp": 2,
+   "be_after_1_5R": 2,
+   "sl": 12
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 38,
+    "setups": 293,
     "all": {
-     "trades": 0,
+     "trades": 13,
+     "wins": 3,
+     "winRate": 23,
+     "totalR": -5.35,
+     "expectancyR": -0.411,
+     "grossWinR": 5.568,
+     "grossLossR": 10.914
+    },
+    "in": {
+     "trades": 7,
+     "wins": 3,
+     "winRate": 43,
+     "totalR": 1.17,
+     "expectancyR": 0.167,
+     "grossWinR": 5.568,
+     "grossLossR": 4.399
+    },
+    "out": {
+     "trades": 6,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null
+     "winRate": 0,
+     "totalR": -6.52,
+     "expectancyR": -1.086,
+     "grossWinR": 0,
+     "grossLossR": 6.516
+    },
+    "pf": 0.51,
+    "exits": {
+     "tp": 2,
+     "be_after_1_5R": 1,
+     "sl": 10
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 24,
+    "all": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": -1.94,
+     "expectancyR": -0.645,
+     "grossWinR": 0.233,
+     "grossLossR": 2.17
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.17,
+     "expectancyR": -1.085,
+     "grossWinR": 0,
+     "grossLossR": 2.17
+    },
+    "out": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.23,
+     "expectancyR": 0.233,
+     "grossWinR": 0.233,
+     "grossLossR": 0
+    },
+    "pf": 0.11,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 2
+    }
+   }
+  }
+ },
+ "CHFJPY": {
+  "source": "Yahoo Finance CHFJPY=X",
+  "from": 1732039200,
+  "split": 1769880240,
+  "to": 1795107600,
+  "news": {
+   "events": 652
+  },
+  "entryTfs": [
+   "H1"
+  ],
+  "triggers": 129,
+  "grades": {
+   "WAIT": 65,
+   "B": 20,
+   "A+": 31,
+   "A": 13
+  },
+  "blockedBy": {
+   "risk_guardian": 123,
+   "trend_director": 38,
+   "gate (score / sync / one per pair)": 4
+  },
+  "all": {
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 0.3,
+   "expectancyR": 0.303,
+   "grossWinR": 0.303,
+   "grossLossR": 0
+  },
+  "in": {
+   "trades": 0,
+   "wins": 0,
+   "winRate": null,
+   "totalR": 0.0,
+   "expectancyR": null,
+   "grossWinR": 0.0,
+   "grossLossR": 0.0
+  },
+  "out": {
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 0.3,
+   "expectancyR": 0.303,
+   "grossWinR": 0.303,
+   "grossLossR": 0
+  },
+  "pf": null,
+  "exits": {
+   "tp": 0,
+   "be_after_1_5R": 1,
+   "sl": 0
+  },
+  "strategies": {
+   "SF_SWING": {
+    "name": "S&F-SWING \u2014 W1 + D1 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 117,
+    "all": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.3,
+     "expectancyR": 0.303,
+     "grossWinR": 0.303,
+     "grossLossR": 0
     },
     "in": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 0.3,
+     "expectancyR": 0.303,
+     "grossWinR": 0.303,
+     "grossLossR": 0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 1,
+     "sl": 0
+    }
+   },
+   "SF_DAY": {
+    "name": "S&F-DAY \u2014 D1 + H4 in sync",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 12,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
      "totalR": 0.0,
-     "expectancyR": null
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
     },
     "pf": null,
     "exits": {

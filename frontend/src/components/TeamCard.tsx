@@ -1,42 +1,72 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Check, ChevronDown, Crosshair, Gauge, Hourglass, MapPin, OctagonX, Shield, TrendingUp, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Crosshair, Gauge, Hourglass, Info, MapPin, OctagonX, Shield, TrendingUp, Users, X } from 'lucide-react';
 import { tr } from './ui';
 import type { Language } from '../types';
 import type { Team, TeamAgent, TeamSetup } from '../smcTeam';
 import { NotificationBell } from './NotificationBell';
 import { SizeLine, useMySizing } from './RiskSizing';
 
-// the 5 FXAlexG agents
+/**
+ * The pair's FXAlexG team under its chart, kept short: one verdict (no trade / watching / waiting / signal) with the grade
+ * badge and the confluence bar (0 → 100 %+, the 80 % Grade B line), the 5 agents as compact tiles (tap one for its
+ * details), the 2 setups (S&F-SWING, S&F-DAY) as short rows (a signal opens its plan), and the rules folded behind
+ * "How it works". Words stay few: the details are one tap away. Research signals, never orders.
+ */
 const AGENT_ICON = { trend: TrendingUp, aoi: MapPin, confluence: Gauge, trigger: Crosshair, risk: Shield };
 const GRADE_TONE: Record<string, string> = { 'A+': 'bg-emerald-500/20 text-emerald-200 ring-emerald-500/40', A: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30',
-  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', 'C+': 'bg-amber-500/15 text-amber-200 ring-amber-500/30', F: 'bg-white/[0.04] text-slate-400 ring-line' };
-
+  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', WAIT: 'bg-white/[0.04] text-slate-400 ring-line' };
+const BAR_MAX = 120;  // the bar shows 0 → 120 %: the 80 % (Grade B) and 100 % (A+) lines inside it, a higher score fills it
 const TONE = { SIGNAL: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30', BLOCKED: 'bg-amber-500/10 text-amber-200 ring-amber-500/25',
-  WATCHING: 'bg-sky-500/10 text-sky-200 ring-sky-500/25', IDLE: 'bg-white/[0.03] text-slate-400 ring-line', OFF: 'bg-white/[0.02] text-slate-600 ring-line' };
+  WATCHING: 'bg-sky-500/10 text-sky-200 ring-sky-500/25', IDLE: 'bg-white/[0.03] text-slate-500 ring-line', OFF: 'bg-white/[0.02] text-slate-600 ring-line' };
 const hm = (t: number) => new Date(t * 1000).toISOString().slice(11, 16);
 /** My own lot for a signal (from my USD risk and the signal's stop; never another user's): from /api/me/sizing. */
 const MySize: React.FC<{ id: string; lang: Language }> = ({ id, lang }) => <SizeLine s={useMySizing(id)} lang={lang} />;
 
-/** The pair's team under its chart: its own playbook strategy, and each setup with its levels and the 5 questions (research, not advice). */
+const StatusIcon: React.FC<{ status: TeamAgent['status']; className?: string }> = ({ status, className = 'w-4 h-4' }) =>
+  status === 'ok' ? <Check className={`${className} text-emerald-400`} aria-hidden="true" />
+    : status === 'veto' ? <OctagonX className={`${className} text-rose-400`} aria-hidden="true" />
+    : status === 'warn' ? <AlertTriangle className={`${className} text-amber-400`} aria-hidden="true" />
+    : <Hourglass className={`${className} text-slate-500`} aria-hidden="true" />;
+
 export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: number; lang: Language }> = ({ team, symbol, decimals, lang }) => {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
   const [open, setOpen] = useState<string | null>(null);
+  const toggle = (k: string) => setOpen(o => (o === k ? null : k));
   const f = (v: number) => v.toFixed(decimals);
-  const status = (s: string) => ({ SIGNAL: t('Setup', 'Setup', 'سيتاب'), BLOCKED: t('Blocked', 'Bloqué', 'محبوس'), WATCHING: t('Watching', 'En veille', 'كيراقب'), IDLE: t('Idle', 'Rien', 'والو'), OFF: t('Off for this pair', 'Désactivée', 'مطفية') } as Record<string, string>)[s];
+  // short names: a word each, the full role shows in the details
+  const agentName = (k: string) => ({ trend: t('Trend', 'Tendance', 'الترند'), aoi: t('Zone', 'Zone', 'المنطقة'), confluence: t('Score', 'Score', 'السكور'),
+    trigger: t('Trigger', 'Entrée', 'الزناد'), risk: t('Risk', 'Risque', 'الريسك') } as Record<string, string>)[k] ?? k;
+  const statusWord = (s: TeamAgent['status']) => ({ ok: t('OK', 'OK', 'مزيان'), warn: t('Caution', 'Attention', 'انتباه'), wait: t('Waiting', 'En attente', 'كيتسنا'), veto: t('Veto', 'Veto', 'فيتو') })[s];
+  const setupName = (id: string, name: string) => ({ SF_SWING: t('Swing · W1 + D1', 'Swing · W1 + D1', 'سوينغ · W1 + D1'),
+    SF_DAY: t('Day · D1 + H4', 'Day · D1 + H4', 'داي · D1 + H4') } as Record<string, string>)[id] ?? name;
+  const rowStatus = (s: string) => ({ SIGNAL: t('Signal', 'Signal', 'إشارة'), BLOCKED: t('Blocked', 'Bloqué', 'محبوس'), WATCHING: t('Watching', 'En veille', 'كيراقب'), IDLE: t('Nothing', 'Rien', 'والو'), OFF: t('Off', 'Désactivée', 'مطفية') } as Record<string, string>)[s];
+  const verdict = ({
+    EXECUTE: { word: t('Signal', 'Signal', 'إشارة'), tone: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/40' },
+    WAIT_FOR_TRIGGER: { word: t('Waiting for the trigger', 'Attend le déclencheur', 'كيتسنا الزناد'), tone: 'bg-sky-500/10 text-sky-200 ring-sky-500/30' },
+    WATCH_ONLY: { word: t('Watching', 'En veille', 'كيراقب'), tone: 'bg-white/[0.04] text-slate-300 ring-line' },
+    VETOED: { word: t('No trade', 'Pas de trade', 'ما كاين تريد'), tone: 'bg-rose-500/10 text-rose-200 ring-rose-500/25' },
+  } as Record<string, { word: string; tone: string }>)[team?.decision ?? 'WATCH_ONLY'];
+
   const setupBox = (s: TeamSetup) => (
-    <div className={`mt-2 rounded-lg border px-3 py-2 ${s.pass ? 'border-emerald-500/40 bg-emerald-500/[0.05]' : 'border-line bg-white/[0.02]'}`}>
-      <p className="text-xs font-mono text-slate-200">
-        <span className={`font-bold ${s.direction === 'BUY' ? 'text-emerald-300' : 'text-rose-300'}`}>{s.market
-          ? (s.direction === 'BUY' ? t('BUY at market', 'ACHAT au marché', 'شرا ف السوق') : t('SELL at market', 'VENTE au marché', 'بيع ف السوق'))
-          : (s.direction === 'BUY' ? t('BUY zone', 'Zone d’achat', 'منطقة الشرا') : t('SELL zone', 'Zone de vente', 'منطقة البيع'))}</span> {!s.market && s.zone ? `${f(s.zone[0])} – ${f(s.zone[1])}` : f(s.entry)} ·
-        <span className="text-rose-300"> SL {f(s.sl)}</span> ·{s.tp1 != null && <span className="text-emerald-200"> TP1 {f(s.tp1)} ({Math.round((s.part ?? 1) * 100)} %) ·</span>} <span className="text-emerald-300">TP {f(s.tp)}</span> · 1:{s.rr}{s.rrBest && s.rrBest > s.rr ? `–${s.rrBest}` : ''}
+    <div className={`mt-2 rounded-lg border px-3 py-2.5 ${s.pass ? 'border-emerald-500/40 bg-emerald-500/[0.05]' : 'border-line bg-white/[0.02]'}`}>
+      <p className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className={`px-1.5 py-0.5 rounded font-bold ${s.direction === 'BUY' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-rose-500/15 text-rose-200'}`}>{s.direction}</span>
+        {s.etf && <span className="px-1.5 py-0.5 rounded bg-surface-2 font-mono text-[11px] text-gold-300">{s.etf}</span>}
+        {s.grade && <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ring-1 ring-inset ${GRADE_TONE[s.grade] ?? GRADE_TONE.WAIT}`}>{s.grade}{s.score != null ? ` · ${s.score}%` : ''}</span>}
+        {s.market != null && <span className="px-1.5 py-0.5 rounded bg-surface-2 text-[10px] font-semibold text-slate-300">{s.market ? t('Market', 'Marché', 'ماركت') : t('Limit', 'Limite', 'ليميت')}</span>}
+        <span className="ms-auto font-mono text-[11px] text-slate-500">{hm(s.time)} UTC</span>
       </p>
-      {s.market ? <p className="mt-0.5 text-[11px] text-slate-400">{t('Entered at the close of the trigger candle, as the playbook says.', 'Entrée à la clôture de la bougie de déclenchement, comme le dit le guide.', 'الدخول مع إغلاق شمعة الزناد، كيما كيقول الدليل.')}</p>
-      : <p className="mt-0.5 text-[11px] text-slate-400">{t(`Limit at ${f(s.entry)}, the near edge: price only has to come into the zone, not touch one exact price.`,
-        `Limite à ${f(s.entry)}, le bord proche : le prix doit seulement entrer dans la zone, pas toucher un prix exact.`,
-        `الليميت ف ${f(s.entry)}، الطرف القريب: الثمن خاصو غير يدخل للمنطقة، ماشي يقيس نقطة بالضبط.`)}</p>}
-      <div className="mt-1"><MySize id={s.id} lang={lang} /></div>
-      {!s.market && <p className="mt-0.5 text-[11px] text-slate-500">{t('valid until', 'valable jusqu’à', 'صالح حتى')} {hm(s.validUntil)} UTC</p>}
+      <dl className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono text-xs">
+        {[[t('Entry', 'Entrée', 'الدخول'), f(s.entry), 'text-gold-300'], ['SL', f(s.sl), 'text-rose-300'], ['TP', f(s.tp), 'text-emerald-300'], ['R:R', `1:${s.rr}`, 'text-slate-400']].map(([k, v, c]) => (
+          <div key={k} className="rounded-md bg-white/[0.03] px-2 py-1.5">
+            <dt className={`text-[10px] uppercase tracking-wider ${c}`}>{k}</dt>
+            <dd className="text-slate-100">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-1.5"><MySize id={s.id} lang={lang} /></div>
+      {s.tp1 != null && <p className="mt-0.5 text-[11px] text-slate-400">+1.5R <span className="font-mono text-slate-200">{f(s.tp1)}</span>: {t('stop to entry, 25 % banked', 'stop à l’entrée, 25 % encaissés', 'الستوب للدخول، 25 % مضمونة')}</p>}
+      {!s.market && s.zone && <p className="mt-0.5 text-[11px] text-slate-400">{t('Limit zone', 'Zone limite', 'منطقة الليميت')} <span className="font-mono text-slate-200">{f(s.zone[0])} – {f(s.zone[1])}</span></p>}
       <ul className="mt-1.5 grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
         {s.checklist.map(c => (
           <li key={c.q} className="flex items-start gap-1 text-[11px]" title={c.detail}>
@@ -47,136 +77,119 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
       </ul>
     </div>
   );
+
+  const agents = team?.success ? team.agents ?? [] : [];
+  const picked = agents.find(a => open === `agent-${a.key}`);
+  const score = team?.gpa ?? 0;
+  const grade = team?.grade ?? 'WAIT';
+  const checklist = team?.checklist ?? [];
+
   return (
     <section className="mt-4 rounded-[var(--radius-card)] glass border p-4" aria-labelledby="team-card-title">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="team-card-title" className="flex items-center gap-2 text-sm font-semibold text-white">
-          <span className="icon-tile icon-tile-gold w-7 h-7" aria-hidden="true"><Users className="w-4 h-4" /></span>
-          {t('Pair team', 'Équipe de la paire', 'فريق الزوج')} <span className="text-[11px] font-normal text-slate-500">{symbol}{team?.playbook ? ` · ${team.playbook.name}` : ""}</span>
+      <header className="flex items-center justify-between gap-2">
+        <h3 id="team-card-title" className="flex items-center gap-2 min-w-0 text-sm font-semibold text-white">
+          <span className="icon-tile icon-tile-gold w-7 h-7 shrink-0" aria-hidden="true"><Users className="w-4 h-4" /></span>
+          <span className="truncate">{t('Team', 'Équipe', 'الفريق')} <span className="font-mono text-slate-400">{symbol}</span></span>
         </h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {team?.success && team.chart && (
-            <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-semibold ring-1 ring-inset ${team.chart.trend === 'BULLISH' ? 'bg-emerald-500/10 text-emerald-200 ring-emerald-500/25' : team.chart.trend === 'BEARISH' ? 'bg-rose-500/10 text-rose-200 ring-rose-500/25' : 'bg-white/[0.03] text-slate-400 ring-line'}`}>
-              {team.badge ?? <>H1 {team.chart.trend === 'BULLISH' ? t('bullish', 'haussier', 'صاعد') : team.chart.trend === 'BEARISH' ? t('bearish', 'baissier', 'هابط') : t('undefined', 'indéfini', 'غير محدد')} · {team.chart.premium ? 'premium' : 'discount'}</>}
-            </span>
-          )}
+        <div className="flex items-center gap-2 shrink-0">
+          {team?.success && verdict && <span className={`px-2 py-1 rounded-md text-[11px] font-semibold ring-1 ring-inset whitespace-nowrap ${verdict.tone}`}>{verdict.word}</span>}
           <NotificationBell lang={lang} />
-          {team?.success && team.lastCandle && <span className="text-[11px] font-mono text-slate-500">{t('last M5 close', 'dernière clôture M5', 'آخر إغلاق M5')} {hm(team.lastCandle + 300)} UTC</span>}
         </div>
       </header>
-      {!team && <div className="mt-3 h-20 rounded-lg bg-white/[0.03] animate-pulse" aria-busy="true" />}
+
+      {!team && <div className="mt-3 h-24 rounded-lg bg-white/[0.03] animate-pulse" aria-busy="true" />}
       {team && !team.success && <p className="mt-3 text-xs text-amber-300">{team.error}</p>}
-      {team?.success && team.agents && (
-        <ul className="mt-3 space-y-1.5" aria-label={t('The team\u2019s agents', 'Les agents de l\u2019équipe', 'الوكلاء ديال الفريق')}>
-          {team.agents.map((a: TeamAgent) => {
-            const Icon = AGENT_ICON[a.key];
-            const lead = false;  // five equal specialists: no lead row
-            return (
-              <li key={a.key} className={`rounded-lg border px-3 py-2 ${lead ? (a.status === 'ok' ? 'border-emerald-500/40 bg-emerald-500/[0.06]' : 'border-gold-500/30 bg-gold-500/[0.04]') : 'border-line bg-white/[0.02]'}`}>
-                <button type="button" onClick={() => setOpen(o => (o === a.key ? null : a.key))} aria-expanded={open === a.key} className="w-full flex items-center gap-2 text-start cursor-pointer">
-                  <Icon className={`w-4 h-4 shrink-0 ${lead ? 'text-gold-300' : 'text-slate-400'}`} aria-hidden="true" />
-                  <span className={`shrink-0 text-xs font-semibold ${lead ? 'text-gold-100' : 'text-slate-200'}`}>{a.role}</span>
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">{a.finding}</span>
-                  {a.score != null && <span className="hidden sm:inline shrink-0 font-mono text-[10px] text-slate-400">{a.score}</span>}
-                  {a.weight != null && <span className="hidden sm:inline shrink-0 font-mono text-[10px] text-slate-500">×{Math.round(a.weight * 100)}%</span>}
-                  {a.status === 'ok' ? <Check className="w-4 h-4 shrink-0 text-emerald-400" aria-label={t('signs off', 'valide', 'موافق')} />
-                    : a.status === 'veto' ? <OctagonX className="w-4 h-4 shrink-0 text-rose-400" aria-label={t('veto', 'veto', 'فيتو')} />
-                    : a.status === 'warn' ? <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" aria-label={t('objection', 'objection', 'اعتراض')} />
-                    : <Hourglass className="w-4 h-4 shrink-0 text-slate-500" aria-label={t('waiting', 'en attente', 'كيتسنا')} />}
-                  <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${open === a.key ? 'rotate-180' : ''}`} aria-hidden="true" />
-                </button>
-                {open === a.key && (
-                  <ul className="mt-1.5 ms-6 space-y-0.5">
-                    {a.lines.map((l, k) => <li key={k} className="text-[11px] text-slate-300 leading-snug">{l}</li>)}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {team?.success && team.gpa != null && (() => {
-        const score = team.gpa ?? 0;
-        const grade = team.grade ?? 'F';
-        const all = team.checklist ?? [];
-        const decision = ({ EXECUTE: 'EXECUTE', WAIT_FOR_TRIGGER: t('WAIT FOR TRIGGER', 'ATTEND LE DÉCLENCHEUR', 'كيتسنا الزناد'),
-          WATCH_ONLY: t('WATCH ONLY', 'SURVEILLANCE', 'مراقبة فقط'), VETOED: 'VETO' } as Record<string, string>)[team.decision ?? 'WATCH_ONLY'];
-        return (
-          <div className="mt-3 rounded-lg border border-line bg-white/[0.02] px-3 py-2.5">
-            <button type="button" onClick={() => setOpen(o => (o === 'gpa' ? null : 'gpa'))} aria-expanded={open === 'gpa'} className="w-full text-start cursor-pointer">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`px-2 py-0.5 rounded-md text-xs font-bold ring-1 ring-inset ${GRADE_TONE[grade] ?? GRADE_TONE.F}`}>
-                  {grade === 'F' ? t('Grade F · NO TRADE', 'Grade F · PAS DE TRADE', 'Grade F · ما كاين تريد') : `Grade ${grade}`}
-                </span>
-                <span className="font-mono text-xs text-slate-200">GPA {score}%</span>
-                <span className="text-[11px] text-slate-500">{team.direction}{team.setupType ? ` · ${team.setupType}` : ''} · {t('consensus', 'consensus', 'الإجماع')} {team.consensus ?? 0}/100 · {all.filter(c => c.ok).length}/9</span>
-                <span className="ms-auto text-[11px] font-semibold text-slate-300">{decision}</span>
-                <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${open === 'gpa' ? 'rotate-180' : ''}`} aria-hidden="true" />
-              </div>
-              <div className="relative mt-2 h-2 rounded-full bg-white/[0.06]" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={score}
-                aria-label={t('GPA score, a trade needs 70 % (C+)', 'Score GPA, un trade demande 70 % (C+)', 'سكور GPA، التريد خاصو 70 % (C+)')}>
-                <div className={`h-full rounded-full ${score >= 80 ? 'bg-emerald-400' : score >= 70 ? 'bg-gold-400' : score >= 55 ? 'bg-amber-400' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, score)}%` }} />
-                <span className="absolute -top-1 h-4 w-px bg-gold-300" style={{ insetInlineStart: '70%' }} aria-hidden="true" />
-                <span className="absolute -top-1 h-4 w-px bg-white/30" style={{ insetInlineStart: '90%' }} aria-hidden="true" />
-              </div>
-              <div className="relative mt-1 h-3 text-[10px] font-mono text-slate-500" aria-hidden="true">
-                <span className="absolute start-0">0%</span>
-                <span className="absolute -translate-x-1/2 text-gold-300" style={{ insetInlineStart: '70%' }}>70% C+</span>
-                <span className="absolute -translate-x-1/2" style={{ insetInlineStart: '90%' }}>90% A+</span>
-              </div>
-            </button>
-            {open === 'gpa' && (
-              <ul className="mt-2 grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
-                {all.map(c => (
-                  <li key={c.key} className="flex items-start gap-1 text-[11px]">
-                    {c.ok ? <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" aria-label={t('yes', 'oui', 'آه')} /> : <X className="w-3.5 h-3.5 shrink-0 text-slate-600" aria-label={t('no', 'non', 'لا')} />}
-                    <span className={c.ok ? 'text-slate-200' : 'text-slate-500'}>{c.label} <span className="font-mono">+{c.pts}</span></span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })()}
-      {team?.success && (
-        <div className="mt-4">
-          <p className="text-[11px] uppercase tracking-wider text-slate-500">{t('Set & Forget setup', 'Setup Set & Forget', 'السيتاب Set & Forget')}</p>
+
+      {/* the grade: one bar (0 → 100 %+, the 80 % Grade B line), the 18 confluences on a tap */}
+      {team?.success && team.gpa != null && (
+        <div className="mt-3 rounded-lg border border-line bg-white/[0.02] px-3 py-2.5">
+          <button type="button" onClick={() => toggle('gpa')} aria-expanded={open === 'gpa'} className="w-full text-start cursor-pointer">
+            <div className="flex items-center gap-2">
+              <span className={`px-2 py-0.5 rounded-md text-xs font-bold ring-1 ring-inset ${GRADE_TONE[grade] ?? GRADE_TONE.WAIT}`}>{grade === 'WAIT' ? 'WAIT' : `${t('Grade', 'Grade', 'Grade')} ${grade}`}</span>
+              <span className="font-mono text-xs text-slate-200">{score}%</span>
+              {team.direction && <span className={`text-[11px] font-semibold ${team.direction === 'BUY' ? 'text-emerald-300' : 'text-rose-300'}`}>{team.direction}</span>}
+              {team.badge && <span className="hidden sm:inline font-mono text-[11px] text-slate-500 truncate">{team.badge.split(' · ')[0]}</span>}
+              <ChevronDown className={`ms-auto w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${open === 'gpa' ? 'rotate-180' : ''}`} aria-hidden="true" />
+            </div>
+            <div className="relative mt-2 h-1.5 rounded-full bg-white/[0.06]" role="meter" aria-valuemin={0} aria-valuemax={160} aria-valuenow={score}
+              aria-label={t('Confluence score, a trade needs 80 %', 'Score de confluence, un trade demande 80 %', 'سكور التوافقات، التريد خاصو 80 %')}>
+              <div className={`h-full rounded-full ${score >= 100 ? 'bg-emerald-400' : score >= 80 ? 'bg-emerald-500/80' : score >= 65 ? 'bg-amber-400' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, (score / BAR_MAX) * 100)}%` }} />
+              <span className="absolute -top-1 h-3.5 w-px bg-gold-300" style={{ insetInlineStart: `${(80 / BAR_MAX) * 100}%` }} title="80 % · B" aria-hidden="true" />
+              <span className="absolute -top-1 h-3.5 w-px bg-emerald-300/70" style={{ insetInlineStart: `${(100 / BAR_MAX) * 100}%` }} title="100 % · A+" aria-hidden="true" />
+            </div>
+            <div className="relative mt-1 h-3 text-[9px] font-mono text-slate-500" aria-hidden="true">
+              <span className="absolute -translate-x-1/2" style={{ insetInlineStart: `${(80 / BAR_MAX) * 100}%` }}>80 B</span>
+              <span className="absolute -translate-x-1/2" style={{ insetInlineStart: `${(100 / BAR_MAX) * 100}%` }}>100 A+</span>
+            </div>
+          </button>
+          {open === 'gpa' && (
+            <ul className="mt-2.5 grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
+              {checklist.map(c => (
+                <li key={c.key} className="flex items-start gap-1 text-[11px]">
+                  {c.ok ? <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" aria-label={t('yes', 'oui', 'آه')} /> : <X className="w-3.5 h-3.5 shrink-0 text-slate-600" aria-label={t('no', 'non', 'لا')} />}
+                  <span className={c.ok ? 'text-slate-200' : 'text-slate-500'}>{c.label} <span className="font-mono">+{c.pts}</span></span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
-      {team?.success && team.strategies.length === 0 && (
-        <p className="mt-1.5 rounded-lg border border-line bg-white/[0.02] px-3 py-2 text-xs text-slate-400">
-          {t('No strategy passed the one-year test for this pair (win rate ≥ 55 % and profit in both halves): the team keeps its analysis and sends no setup.',
-            'Aucune stratégie n’a passé le test d’un an pour cette paire (réussite ≥ 55 % et gain sur les deux moitiés) : l’équipe garde son analyse et n’envoie aucun setup.',
-            'حتى استراتيجية ما دوزات التيست ديال عام ف هاد الزوج (ربح ≥ 55 % ومربحة ف جوج الأجزاء): الفريق كيخلي التحليل وما كيصيفط حتى سيتاب.')}
-        </p>
+
+      {/* the 5 agents: a tile each (icon, one word, its status); tap one for what it found */}
+      {agents.length > 0 && (
+        <>
+          <ul className="mt-3 grid grid-cols-5 gap-1.5" aria-label={t('The team’s agents', 'Les agents de l’équipe', 'الوكلاء ديال الفريق')}>
+            {agents.map(a => {
+              const Icon = AGENT_ICON[a.key as keyof typeof AGENT_ICON] ?? Shield;
+              const on = open === `agent-${a.key}`;
+              return (
+                <li key={a.key}>
+                  <button type="button" onClick={() => toggle(`agent-${a.key}`)} aria-expanded={on} title={`${a.role} · ${statusWord(a.status)}`}
+                    className={`w-full h-full flex flex-col items-center gap-1 rounded-lg border px-1 py-2 cursor-pointer transition-colors ${on ? 'border-gold-500/40 bg-gold-500/[0.06]' : 'border-line bg-white/[0.02] hover:bg-white/[0.05]'}`}>
+                    <span className="relative">
+                      <Icon className="w-4 h-4 text-slate-300" aria-hidden="true" />
+                      <span className="absolute -top-1.5 -end-2.5"><StatusIcon status={a.status} className="w-3 h-3" /></span>
+                    </span>
+                    <span className="text-[11px] leading-tight text-slate-200 text-center">{agentName(a.key)}</span>
+                    <span className="sr-only">{statusWord(a.status)}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {picked && (
+            <div className="mt-1.5 rounded-lg border border-line bg-white/[0.02] px-3 py-2">
+              <p className="flex items-center gap-2 text-xs">
+                <StatusIcon status={picked.status} className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-semibold text-slate-100">{picked.role}</span>
+                {picked.score != null && <span className="ms-auto font-mono text-[11px] text-slate-400">{picked.score}/100</span>}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-300">{picked.finding}</p>
+              <ul className="mt-1 space-y-0.5">{picked.lines.map((l, k) => <li key={k} className="text-[11px] text-slate-500 leading-snug">{l}</li>)}</ul>
+            </div>
+          )}
+        </>
       )}
-      {team?.success && (
-        <ul className="mt-1.5 space-y-1.5">
+
+      {/* the 2 setups: a short row each; a signal opens its plan */}
+      {team?.success && team.strategies.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
           {team.strategies.map(s => {
             const next = s.watch?.steps.find(x => !x.ok);
-            const fails = s.setup?.checklist.filter(c => !c.ok).length ?? 0;
+            const live = s.status === 'SIGNAL' || s.status === 'BLOCKED' || s.status === 'WATCHING';
+            const on = open === s.id || (open === null && s.status === 'SIGNAL');  // a signal shows its plan at once
             return (
-              <li key={s.id} className="rounded-lg border border-line bg-white/[0.02] px-3 py-2">
-                <button type="button" onClick={() => setOpen(o => (o === s.id ? null : s.id))} aria-expanded={open === s.id}
-                  className="w-full flex items-center gap-2 text-start cursor-pointer">
-                  {s.id !== 'P' && <span className="font-mono text-xs text-gold-300 w-6">{s.id}</span>}
-                  <span className="min-w-0 flex-1 truncate text-xs text-slate-200">{s.name}</span>
+              <li key={s.id} className={`rounded-lg border px-3 py-2 ${s.status === 'SIGNAL' ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-line bg-white/[0.02]'}`}>
+                <button type="button" onClick={() => toggle(s.id)} aria-expanded={on} className="w-full flex items-center gap-2 text-start cursor-pointer">
+                  <span className={`min-w-0 flex-1 truncate text-xs ${live ? 'text-slate-100' : 'text-slate-400'}`}>{setupName(s.id, s.name)}</span>
                   <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[11px] font-semibold ring-1 ring-inset ${TONE[s.status]}`}>
-                    {status(s.status)}{s.setup ? ` · ${s.setup.direction}` : ''}{s.status === 'BLOCKED' ? ` · ${fails} ✗` : ''}
+                    {rowStatus(s.status)}{s.setup ? ` · ${s.setup.direction}` : ''}
                   </span>
-                  <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${open === s.id ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${on ? 'rotate-180' : ''}`} aria-hidden="true" />
                 </button>
-                {s.claimed && (
-                  <p className="mt-0.5 text-[11px] text-slate-500">
-                    {t('guide', 'guide', 'الدليل')}: <span className="text-slate-300">{s.claimed}</span> ·{' '}
-                    {s.measured && s.measured.trades > 0
-                      ? <>{t('test (1 year)', 'test (1 an)', 'التيست (عام)')}: <span className={`font-mono ${s.measured.totalR > 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{s.measured.winRate} %</span> {t('on', 'sur', 'على')} {s.measured.trades} · {s.measured.totalR >= 0 ? '+' : ''}{s.measured.totalR}R</>
-                      : <span className="text-amber-300">{t('no trade in the test year', 'aucun trade sur l’année testée', 'حتى صفقة ف عام التيست')}</span>}
-                  </p>
-                )}
-                {s.status === 'WATCHING' && open !== s.id && next && <p className="mt-0.5 text-[11px] text-slate-500 truncate">{t('waiting for', 'attend', 'كيتسنا')}: {next.step}</p>}
-                {open === s.id && (
-                  <div className="ms-8">
+                {s.status === 'WATCHING' && !on && next && <p className="mt-0.5 text-[11px] text-slate-500 truncate">{t('waiting for', 'attend', 'كيتسنا')}: {next.step}</p>}
+                {on && (
+                  <div>
                     {s.setup && setupBox(s.setup)}
                     {s.watch && (
                       <ul className="mt-1.5 space-y-0.5">
@@ -189,6 +202,9 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
                       </ul>
                     )}
                     {!s.setup && !s.watch && <p className="mt-1 text-[11px] text-slate-500">{t('Nothing forming on the last 6 hours.', 'Rien en formation sur les 6 dernières heures.', 'حتى حاجة كتكون ف آخر 6 ساعات.')}</p>}
+                    {s.measured && s.measured.trades > 0 && (
+                      <p className="mt-1 text-[11px] text-slate-500">{t('Backtest', 'Backtest', 'باكتيست')}: <span className={`font-mono ${s.measured.totalR > 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{s.measured.winRate} %</span> {t('on', 'sur', 'على')} {s.measured.trades} · {s.measured.totalR >= 0 ? '+' : ''}{s.measured.totalR}R</p>
+                    )}
                   </div>
                 )}
               </li>
@@ -196,11 +212,21 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
           })}
         </ul>
       )}
-      <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">
-        {t('A setup is sent to Telegram, your phone and this app once, when the 5 agents agree (consensus 70+, GPA 70 %+ = grade C+ or better, no veto, a closed LTF trigger, R:R 1:2 or more, the session, day and news rules). A radar alert comes earlier, when only the engulfing close is missing. Research, not financial advice.',
-          'Un setup est envoyé sur Telegram, votre téléphone et cette app une seule fois, quand les 5 agents sont d’accord (consensus 70+, GPA 70 %+ = grade C+ ou mieux, aucun veto, un déclencheur LTF clôturé, gain 1:2 ou plus, les règles de session, de jour et de news). Une alerte radar arrive avant, quand il ne manque que la bougie englobante. Recherche, pas un conseil.',
-          'السيتاب كيتصيفط لتيليغرام وللتيليفون ولهاد التطبيق مرة وحدة، ملي 5 agents كيتفقو (إجماع 70+، GPA 70 %+ يعني C+ ولا حسن، حتى فيتو، زناد LTF مسدود، ربح 1:2 ولا كثر، وقواعد السيشن والنهار والأخبار). تنبيه الرادار كيجي قبل، ملي كتبقى غير الشمعة الابتلاعية. بحث، ماشي نصيحة.')}
-      </p>
+
+      {/* the rules, folded: one tap */}
+      <div className="mt-3 flex items-center justify-between gap-2 text-[10px] text-slate-500">
+        <button type="button" onClick={() => toggle('how')} aria-expanded={open === 'how'} className="inline-flex items-center gap-1 cursor-pointer hover:text-slate-300">
+          <Info className="w-3 h-3" aria-hidden="true" />{t('How it works', 'Comment ça marche', 'كيفاش خدام')}
+        </button>
+        <span className="truncate">{t('Signals only · not advice', 'Signaux seulement · pas un conseil', 'إشارات فقط · ماشي نصيحة')}{team?.success && team.lastCandle ? ` · M5 ${hm(team.lastCandle + 300)} UTC` : ''}</span>
+      </div>
+      {open === 'how' && (
+        <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
+          {t('A radar alert comes when price is at a W1 / D1 zone with the trend in sync, 65 %+ confluence and the H1 / M30 / M15 shift of structure. The trade is sent once when the engulfing closes: 80 %+ (Grade B), at least 1:2.5, no veto, no news within 30 min. At +1.5R the stop goes to the entry and 25 % is banked. Your lot comes from your own USD risk (My account). The app never places an order.',
+            'Une alerte radar arrive quand le prix est sur une zone W1 / D1 avec la tendance alignée, 65 %+ de confluence et le changement de structure H1 / M30 / M15. Le trade est envoyé une fois à la clôture de l’engulfing : 80 %+ (Grade B), au moins 1:2,5, aucun veto, pas de news à 30 min. À +1,5R le stop passe à l’entrée et 25 % sont encaissés. Votre lot vient de votre propre risque en USD (Mon compte). L’app ne passe jamais d’ordre.',
+            'تنبيه الرادار كيجي ملي الثمن كيكون ف منطقة W1 / D1 والترند متزامن، 65 %+ توافقات وكسر الهيكلة ف H1 / M30 / M15. الصفقة كتتصيفط مرة وحدة ملي كتسد شمعة الابتلاع: 80 %+ (Grade B)، على الأقل 1:2.5، حتى فيتو، حتى خبر ف 30 دقيقة. ف +1.5R الستوب كيمشي للدخول و25 % كتتضمن. اللوت ديالك كيجي من الريسك ديالك بالدولار (حسابي). التطبيق عمرو ما كيدير أمر.')}
+        </p>
+      )}
     </section>
   );
 };

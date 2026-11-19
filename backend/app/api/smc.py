@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..auth import current_user
 from ..market.data import canonical
 from ..smc.desk import BY_SYMBOL, team
-from ..smc.notify import recent
+import asyncio
+
+from ..smc.notify import overview, recent, recent_radar, refresh_overview
 
 router = APIRouter(prefix="/api")
 
@@ -26,6 +28,17 @@ def smc_results(_=Depends(current_user)):
     return {"success": True, **results()}
 
 
+@router.get("/smc/overview")
+async def smc_overview(_=Depends(current_user)):
+    """Every pair's state at a glance (the dashboard): the summaries the notifier saves each minute. When none is fresh
+    (no pass for 3 minutes), a read-only refresh starts in the background (it sends nothing) and the last ones are returned."""
+    o = overview()
+    if o["ageSec"] is None or o["ageSec"] > 180:
+        asyncio.get_running_loop().create_task(refresh_overview())
+        o["refreshing"] = True
+    return {"success": True, **o}
+
+
 @router.get("/smc/signals")
 def smc_signals(_=Depends(current_user)):
-    return {"success": True, "signals": recent()}  # the sent setups (the live feed); radar reads are not notifications
+    return {"success": True, "signals": recent(), "radar": recent_radar()}  # the live feed: the sent setups and the radar alerts

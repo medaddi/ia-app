@@ -141,7 +141,7 @@ def test_each_user_gets_their_own_saved_size_from_the_signals_stop(client, users
 
 def test_a_setup_not_sent_has_no_size(client, users):
     z = client.get("/api/me/sizing/SMC-EURUSD-SF_BR-1-B", headers=users["alice"]).json()
-    assert z["status"] == "unavailable" and "not been sent" in z["reason"]
+    assert z["status"] == "unavailable" and "not on the board" in z["reason"]  # neither sent nor shown: no lot
 
 
 # ---------------------------------------------------------------- the copy payload and the import
@@ -186,10 +186,12 @@ def test_the_shared_telegram_message_carries_no_risk_and_a_private_chat_gets_its
          "time": t, "etf": "M15", "grade": "A"}
     asyncio.run(notify.broadcast("XAU/USD", notify.message(s, "XAU/USD", 2), "t", "b", "x", s))
     group_text = sent["-100777"][0]
-    assert "Your size" not in group_text and "$" not in group_text  # the admin group: market data only
+    # the admin group: market data only (the spec's generic "lots per $10k", never anyone's own risk or lot)
+    assert "Your lot" not in group_text and "$250" not in group_text and "$40" not in group_text and "per $10k" in group_text
     assert "Your lot <code>0.24</code> · risk $250" in sent["1001"][0] and "$40" not in sent["1001"][0]  # alice: hers only
     assert "Your lot <code>0.03</code> · risk $40" in sent["1002"][0] and "$250" not in sent["1002"][0]  # bob: his only
-    assert sent["1001"][0].splitlines()[-1] == "<i>Signal only · no order placed</i>" and len(sent["1001"][0].splitlines()) == 4
+    lines = sent["1001"][0].splitlines()  # her lot just above the last line (the research note)
+    assert lines[-1].startswith("<i>Research software") and lines[-2].startswith("👤 Your lot") and lines[0].startswith("🎯 <b>FXAlexG SET")
     with SessionLocal() as db:
         set_setting(db, "telegram", {})
         for u in db.query(User).filter(User.username.in_(["alice", "bob"])):
@@ -255,12 +257,13 @@ def test_a_slow_price_provider_never_holds_a_screen(monkeypatch):
     data._price_cache.pop("EUR/USD", None)
 
 
-def test_only_the_signal_is_announced_the_trade_follower_is_silent():
-    assert notify.TRADE_UPDATES is False
+def test_the_three_stages_are_on_radar_signal_and_trade_updates():
+    """The spec 5 (the owner chose "follow the md exactly"): the radar, the signal and the trade manager's updates are sent."""
+    assert notify.TRADE_UPDATES is True
     assert asyncio.run(notify._quiet("XAU/USD", "text", "t", "b", "tag")) == {"telegram": 0, "push": 0}
     import inspect
     src = inspect.getsource(notify.tick)
-    assert "manage_all(broadcast if TRADE_UPDATES else _quiet)" in src and "radar_message" not in src and not hasattr(notify, "radar_message")
+    assert "manage_all(broadcast if TRADE_UPDATES else _quiet)" in src and "radar_message(" in src and "_radar_new(" in src
 
 
 def test_three_pairs_find_a_trade_in_the_same_minute_and_all_three_arrive_with_exact_numbers(monkeypatch):
@@ -300,7 +303,7 @@ def test_three_pairs_find_a_trade_in_the_same_minute_and_all_three_arrive_with_e
     want = {"XAU/USD": ("2350.40", "2357.10", "2330.30"), "EUR/USD": ("1.10123", "1.09923", "1.10623"), "GBP/JPY": ("190.123", "189.623", "191.623")}
     for pair, text, title, body in sent:
         e, sl, tp = want[pair]
-        assert f"Entry <code>{e}</code> · SL <code>{sl}</code> · TP <code>{tp}</code>" in text  # Telegram
+        assert f"@ <code>{e}</code>" in text and f"Stop Loss:</b> <code>{sl}</code>" in text and f"</b> <code>{tp}</code>" in text  # Telegram
         assert f"Entry {e} · SL {sl} · TP {tp}" in body and title.startswith(f"🎯 {pair} {found[pair]['direction']} · {found[pair]['etf']}")  # push
     feed = {x["symbol"]: x for x in notify.recent()}  # what the app's toast and bell read
     for pair, s in found.items():
@@ -309,3 +312,85 @@ def test_three_pairs_find_a_trade_in_the_same_minute_and_all_three_arrive_with_e
         for s in found.values():
             row = db.get(Signal, s["id"])
             assert (row.entry, row.sl, row.tp2, row.signal_time) == (s["entry"], s["sl"], s["tp"], T)  # the saved trade = the sent one
+
+
+def test_the_overview_summarises_every_pair_with_its_running_trade():
+    """The dashboard's overview: one summary per pair (verdict, trend, grade, agents, the running trade), saved by the notifier."""
+    from app.smc import desk
+    t = {"success": True, "at": 1, "decision": "EXECUTE", "direction": "BUY", "grade": "A", "gpa": 85, "consensus": 88, "setupType": "SF_BR",
+         "badge": "W1 ↑ D1 ↓ H4 ↑ · GPA 85% (A)", "agents": [{"status": "ok"}, {"status": "ok"}, {"status": "ok"}, {"status": "warn"}, {"status": "ok"}],
+         "signals": [],  # the alert is no longer fresh, the trade still runs
+         "strategies": [{"id": "SF_BR", "status": "SIGNAL", "setup": {"id": "SMC-EURUSD-SF_BR-1-B", "direction": "BUY", "entry": 1.1, "sl": 1.098,
+                                                                       "tp": 1.106, "rr": 3.0, "etf": "H1", "time": 1, "grade": "A", "setupType": "SF_BR"}}]}
+    s = desk.summary("EUR/USD", t)
+    assert s["trend"] == {"W1": 1, "D1": -1, "H4": 1} and s["agents"] == ["ok", "ok", "ok", "warn", "ok"] and s["decimals"] == 5
+    assert s["signal"]["entry"] == 1.1 and s["signal"]["rr"] == 3.0 and s["decision"] == "EXECUTE" and s["grade"] == "A"
+    assert desk.summary("EUR/USD", {**t, "strategies": [], "decision": "VETOED"})["signal"] is None
+
+
+def test_the_overview_route_needs_a_login_and_returns_the_saved_pairs(client, users):
+    from app.db import SessionLocal
+    from app.store import set_setting
+    with SessionLocal() as db:
+        set_setting(db, "overview", {"at": int(time.time()), "pairs": {"EUR/USD": {"symbol": "EUR/USD", "decision": "VETOED"}, "XAU/USD": {"symbol": "XAU/USD", "decision": "EXECUTE"}}})
+    assert client.get("/api/smc/overview").status_code == 401
+    r = client.get("/api/smc/overview", headers=users["bob"]).json()
+    assert r["success"] and [p["symbol"] for p in r["pairs"]] == ["XAU/USD", "EUR/USD"] and r["ageSec"] <= 5  # the app's pair order
+
+
+def test_an_open_trade_on_one_pair_never_stops_another_pairs_trade(monkeypatch):
+    """XAU/USD has a trade running; a minute later EUR/USD finds one: it is sent. A second XAU/USD trade while the first
+    still runs is not (one trade per pair), and the analysis of every pair goes on at each pass."""
+    from app.db import SessionLocal
+    from app.models import Signal
+    with SessionLocal() as db:
+        db.query(Signal).filter(Signal.id.like("SMC-%")).delete(synchronize_session=False)
+        db.commit()
+    T = int(time.time()) - 600
+    T -= T % 300
+
+    def sig(pair, side, e, sl, tp, t):
+        key = pair.replace("/", "")
+        return {"id": f"SMC-{key}-SF_BR-{t}-{'B' if side == 'BUY' else 'S'}", "strategy": "SF_BR", "setupType": "SF_BR", "name": "x", "direction": side,
+                "time": t, "entry": e, "sl": sl, "tp": tp, "tp1": None, "part": 0.0, "market": True, "zone": [e, e], "rr": 2.5, "validUntil": t, "expiry": 0,
+                "holdUntil": t + 86400, "liveUntil": t + 86400, "state": "ACTIVE", "pass": True, "checklist": [], "steps": [], "lots": {"1000": 0, "10000": 0},
+                "grade": "A", "gpa": 85, "etf": "H1", "draw": {}}
+    found = {"XAU/USD": [sig("XAU/USD", "SELL", 2350.4, 2357.1, 2330.3, T)]}
+    read = []
+
+    async def fake_team(pair, fresh=False):
+        read.append(pair)
+        return {"success": True, "signals": found.get(pair, []), "decision": "EXECUTE" if pair in found else "WATCH_ONLY"}
+    sent = []
+
+    async def fake_broadcast(pair, text, title, body, tag, signal=None):
+        sent.append(pair)
+        return {"telegram": 1, "push": 1}
+    monkeypatch.setattr(notify, "team", fake_team)
+    monkeypatch.setattr(notify, "broadcast", fake_broadcast)
+    monkeypatch.setattr(notify, "market_session_status", lambda p: {"isOpen": True})
+    asyncio.run(notify.tick())
+    assert sent == ["XAU/USD"]
+    found["EUR/USD"] = [sig("EUR/USD", "BUY", 1.10123, 1.09923, 1.10623, T + 300)]   # another pair, while gold's trade runs
+    found["XAU/USD"] = [sig("XAU/USD", "BUY", 2352.0, 2345.0, 2370.0, T + 300)]      # and a second gold trade
+    read.clear()
+    res = asyncio.run(notify.tick())
+    assert sent == ["XAU/USD", "EUR/USD"]  # EUR/USD sent; the second gold trade is not (gold's first one still runs)
+    assert "BLOCKED" in res["XAU/USD"] and "duplicate" in res["XAU/USD"]
+    assert len(set(read)) == len(desk.PAIRS)  # every pair was analysed again at this pass
+
+
+def test_a_trade_on_the_board_that_was_not_sent_still_gets_my_lot(client, users):
+    """The overview shows a running trade that was never sent (found before the server started): each user still sees
+    their own lot for it, from their own risk and the trade's entry and stop (calculated, not saved)."""
+    from app.db import SessionLocal
+    from app.store import set_setting
+    sid = "SMC-XAUUSD-SF_BR-1794000000-S"
+    with SessionLocal() as db:
+        set_setting(db, "overview", {"at": int(time.time()), "pairs": {"XAU/USD": {"symbol": "XAU/USD", "decision": "EXECUTE",
+                    "signal": {"id": sid, "direction": "SELL", "entry": 2350.40, "sl": 2360.40, "tp": 2330.30, "rr": 2.0}}}})
+    a = client.get(f"/api/me/sizing/{sid}", headers=users["alice"]).json()
+    b = client.get(f"/api/me/sizing/{sid}", headers=users["bob"]).json()
+    assert a["status"] == b["status"] == "ok" and not a["saved"] and a["riskUsd"] != b["riskUsd"]
+    assert a["lots"] == int(a["riskUsd"] / 1030 * 100) / 100 and b["lots"] == int(b["riskUsd"] / 1030 * 100) / 100  # $10 stop on 100 oz + $30 costs
+    assert client.get("/api/me/sizing/SMC-XAUUSD-SF_BR-1-S", headers=users["bob"]).json()["status"] == "unavailable"

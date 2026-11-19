@@ -1,19 +1,21 @@
+import { readCache, writeCache } from '../cache';
 import { markDataReady } from '../splash';
 import React, { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { Clock, Newspaper, Radar, Users } from 'lucide-react';
+import { Clock, Newspaper, Users } from 'lucide-react';
 import { apiJson } from '../api';
 import { Language, MarketAsset, NewsItem } from '../types';
 import { tr } from './ui';
-import { useLivePrice } from '../livePrices';
 import { marketOpenNow } from '../instruments';
-import { PairFlags } from './PairFlags';
+import { PairsOverview } from './PairsOverview';
 import type { TeamSetup } from '../smcTeam';
 
 /**
- * The dashboard: every pair's live price and 24 h move, the setups the pair teams sent, the market clock and the news.
+ * The dashboard: every pair's FXAlexG state at a glance (PairsOverview), the trades sent and their results, the market
+ * clock and the news.
  */
 const REFRESH_MS = 30000;
+const DASH_CACHE_MS = 24 * 3600 * 1000;
 const EASE = [0.22, 1, 0.36, 1] as const; // ease-out: fast start, soft landing
 
 function sessionNow(nowMs: number) {
@@ -56,21 +58,15 @@ function Chip({ kind, children }: { kind: 'open' | 'none'; children: React.React
   return <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md ring-1 ring-inset text-[11px] font-medium whitespace-nowrap ${c}`}>{children}</span>;
 }
 
-function LivePriceText({ symbol, fallback, decimals }: { symbol: string; fallback: number; decimals: number }) {
-  const live = useLivePrice(symbol);
-  const p = live?.price ?? fallback;
-  const prev = React.useRef(p);
-  const dir = p > prev.current ? 'text-emerald-300' : p < prev.current ? 'text-rose-300' : 'text-slate-200';
-  React.useEffect(() => { prev.current = p; }, [p]);
-  return <div className={`font-mono text-lg tabular-nums transition-colors duration-300 ${dir}`}>{p ? p.toFixed(decimals) : '—'}</div>;
-}
-
 export function DashboardView({ lang, username, onOpenChart }: { lang: Language; username?: string; onOpenChart: (symbol: string) => void }) {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
-  const [assets, setAssets] = useState<MarketAsset[] | null>(null);
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [sent, setSent] = useState<TeamSetup[]>([]);
-  const [results, setResults] = useState<{ trades: number; wins: number; losses: number; breakeven: number; winRate: number | null; totalR: number } | null>(null);
+  // the last values this device saw (an earlier visit) are shown at once; the fresh ones replace them a moment later
+  const kept = <T,>(k: string): T | null => readCache<T>('dash', k, DASH_CACHE_MS);
+  const [assets, setAssets] = useState<MarketAsset[] | null>(() => kept<MarketAsset[]>('assets'));
+  const [news, setNews] = useState<NewsItem[]>(() => kept<NewsItem[]>('news') ?? []);
+  const [sent, setSent] = useState<TeamSetup[]>(() => kept<TeamSetup[]>('sent') ?? []);
+  const [results, setResults] = useState<{ trades: number; wins: number; losses: number; breakeven: number; winRate: number | null; totalR: number } | null>(() => kept('results'));
+  useEffect(() => { if (assets) markDataReady(); }, []);  // the cached screen is there: the intro can go
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
 
@@ -80,13 +76,14 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
       if (document.hidden) return;
       try {
         // each part fills in as soon as its own answer arrives: the screen never waits for the slowest one
-        apiJson<{ news: NewsItem[] }>('/api/news').then(n => { if (!stop) setNews(n.news); }).catch(() => {});
-        apiJson<{ signals: TeamSetup[] }>('/api/smc/signals').then(g => { if (!stop) setSent(g.signals); }).catch(() => {});
+        apiJson<{ news: NewsItem[] }>('/api/news').then(n => { if (!stop) { setNews(n.news); writeCache('dash', 'news', n.news); } }).catch(() => {});
+        apiJson<{ signals: TeamSetup[] }>('/api/smc/signals').then(g => { if (!stop) { setSent(g.signals); writeCache('dash', 'sent', g.signals); } }).catch(() => {});
         apiJson<{ all: { trades: number; wins: number; losses: number; breakeven: number; winRate: number | null; totalR: number } }>('/api/smc/results')
-          .then(x => { if (!stop) setResults(x.all); }).catch(() => {});
+          .then(x => { if (!stop) { setResults(x.all); writeCache('dash', 'results', x.all); } }).catch(() => {});
         const a = await apiJson<{ assets: MarketAsset[] }>('/api/market/assets');
         if (stop) return;
         setAssets(a.assets);
+        writeCache('dash', 'assets', a.assets);
         setError(null);
         markDataReady();
       } catch (e: any) {
@@ -125,42 +122,15 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
         </div>
       </Reveal>
 
-      {/* Pairs */}
+      {/* Every pair's FXAlexG state at a glance: no need to open each one */}
       <Reveal i={1}>
-        <Panel icon={<Radar className="w-4 h-4" />} title={t('Pairs', 'Paires', 'الأزواج')}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {assets.map((m, i) => {
-              const up = m.change24h >= 0;
-              return (
-                <motion.div key={m.symbol} role="button" tabIndex={0} onClick={() => onOpenChart(m.symbol)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenChart(m.symbol); } }}
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: Math.min(i, 9) * 0.04 }}
-                  className="text-left rounded-xl border border-line bg-surface p-3.5 cursor-pointer transition-[border-color,transform,background-color] duration-200 hover:-translate-y-0.5 hover:border-gold-500/40 focus-visible:outline-2 focus-visible:outline-gold-400">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 font-mono font-semibold text-white"><PairFlags symbol={m.symbol as any} size={18} />{m.symbol}</div>
-                      <LivePriceText symbol={m.symbol} fallback={m.price} decimals={m.decimalPlaces} />
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Chip kind={m.isMarketOpen ? 'open' : 'none'}>{m.isMarketOpen ? t('Open', 'Ouvert', 'مفتوح') : t('Closed', 'Fermé', 'مغلق')}</Chip>
-                      <span className={`font-mono text-xs tabular-nums ${up ? 'text-emerald-400' : 'text-rose-400'}`}>{up ? '▲' : '▼'} {up ? '+' : ''}{m.change24h.toFixed(2)}%</span>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex justify-between font-mono text-[11px] text-slate-500">
-                    <span>24h H {m.high24h ? m.high24h.toFixed(m.decimalPlaces) : '—'}</span>
-                    <span>L {m.low24h ? m.low24h.toFixed(m.decimalPlaces) : '—'}</span>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </Panel>
+        <PairsOverview lang={lang} onOpenChart={onOpenChart} />
       </Reveal>
 
       {/* What the pair teams sent (each setup once, to Telegram and the phone) */}
       <Reveal i={2}>
-        <Panel icon={<Users className="w-4 h-4" />} title={t('Team setups', 'Setups des équipes', 'سيتابات الفرق')}
-          right={<span className="text-[11px] text-slate-500">{t('research, not advice', 'recherche, pas un conseil', 'بحث، ماشي نصيحة')}</span>}>
+        <Panel icon={<Users className="w-4 h-4" />} title={t('Results & sent trades', 'Résultats & trades envoyés', 'النتائج والصفقات المرسلة')}
+          right={<span className="text-[11px] text-slate-500">{t('signals, not advice', 'signaux, pas un conseil', 'إشارات، ماشي نصيحة')}</span>}>
           {/* the teams' REAL results: each setup sent, followed by the trade manager to its end */}
           <div className="mb-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
             {[
@@ -175,8 +145,7 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
               </div>
             ))}
           </div>
-          {results && results.trades < 30 && <p className="mb-2 text-[11px] text-slate-500">{t('Fewer than 30 closed trades: too few to judge the teams.', 'Moins de 30 trades clôturés : trop peu pour juger les équipes.', 'أقل من 30 صفقة سدات: قليل بزاف باش نحكمو على الفرق.')}</p>}
-          {sent.length === 0 ? <p className="text-xs text-slate-500">{t('No setup has passed its questions yet.', 'Aucun setup n’a encore passé ses questions.', 'حتى سيتاب ما دوز الأسئلة ديالو باقي.')}</p> : (
+          {sent.length === 0 ? <p className="text-xs text-slate-500">{t('No trade sent yet.', 'Aucun trade envoyé pour le moment.', 'حتى صفقة ما تصيفطات باقي.')}</p> : (
             <ul className="space-y-1.5">
               {sent.slice(0, 8).map(x => {
                 const dec = x.symbol === 'XAU/USD' ? 2 : 5;

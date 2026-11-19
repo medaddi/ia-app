@@ -70,15 +70,66 @@ export function SizeLine({ s, lang, decimals }: { s: Sizing | null; lang: Langua
 }
 
 /** My lot for one sent signal, from /api/me/sizing (my saved snapshot, or computed from my risk and saved). */
+/** Told to every lot on screen when the user saves a new risk: a size that was unavailable is asked again (a saved size stays). */
+const RISK_EVENT = 'ld-risk-changed';
+
 export function useMySizing(signalId: string | null | undefined): Sizing | null {
   const [s, setS] = useState<Sizing | null>(null);
+  const [rev, setRev] = useState(0);
+  useEffect(() => {
+    const on = () => setRev(r => r + 1);
+    window.addEventListener(RISK_EVENT, on);
+    return () => window.removeEventListener(RISK_EVENT, on);
+  }, []);
   useEffect(() => {
     if (!signalId) { setS(null); return; }
     let alive = true;
-    setS(null);
+    if (!rev) setS(null);
     apiJson<Sizing>(`/api/me/sizing/${encodeURIComponent(signalId)}`).then(r => { if (alive) setS(r); })
       .catch(e => { if (alive) setS({ status: 'unavailable', reason: e.message }); });
     return () => { alive = false; };
-  }, [signalId]);
+  }, [signalId, rev]);
   return s;
+}
+
+/**
+ * My risk per trade, in one line (the dashboard's overview): the amount, and a field to change it. Saving updates every
+ * lot on screen at once. The same setting as My account → "My risk per trade" (one value per user, private).
+ */
+export function RiskInline({ lang }: { lang: Language }) {
+  const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
+  const [saved, setSaved] = useState<number | null | undefined>(undefined);
+  const [edit, setEdit] = useState(false);
+  const [val, setVal] = useState('');
+  const [err, setErr] = useState(false);
+  useEffect(() => { apiJson<{ riskUsd: number | null }>('/api/me/risk').then(r => { setSaved(r.riskUsd); if (r.riskUsd == null) setEdit(true); }).catch(() => setSaved(null)); }, []);
+  const n = Number(val.replace(',', '.'));
+  const ok = val.trim() !== '' && Number.isFinite(n) && n > 0 && n <= 1_000_000;
+  const save = async () => {
+    try {
+      const r = await apiJson<{ riskUsd: number | null }>('/api/me/risk', { method: 'PUT', body: JSON.stringify({ riskUsd: n }) });
+      setSaved(r.riskUsd); setEdit(false); setErr(false);
+      window.dispatchEvent(new CustomEvent(RISK_EVENT));
+    } catch { setErr(true); }
+  };
+  if (saved === undefined) return null;
+  if (!edit) {
+    return (
+      <button type="button" onClick={() => { setVal(saved != null ? String(saved) : ''); setEdit(true); }}
+        className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-line text-[11px] text-slate-300 hover:border-gold-500/40 cursor-pointer"
+        title={t('Your risk per trade: every lot is calculated from it', 'Votre risque par trade : chaque lot en est calculé', 'الريسك ديالك لكل صفقة: كل لوت كيتحسب منو')}>
+        <Scale className="w-3.5 h-3.5 text-gold-300" aria-hidden="true" />{t('Risk', 'Risque', 'الريسك')} <span className="font-mono text-gold-200">${saved}</span>
+      </button>
+    );
+  }
+  return (
+    <form className="inline-flex items-center gap-1.5" onSubmit={e => { e.preventDefault(); if (ok) save(); }}>
+      <label className="inline-flex items-center gap-1.5 h-8 ps-2.5 pe-1 rounded-lg border border-gold-500/40 bg-gold-500/[0.05] text-[11px] text-slate-300">
+        <Scale className="w-3.5 h-3.5 text-gold-300" aria-hidden="true" />{t('Risk per trade $', 'Risque par trade $', 'الريسك لكل صفقة $')}
+        <input autoFocus={saved != null} inputMode="decimal" value={val} onChange={e => setVal(e.target.value)} placeholder="50" aria-invalid={(val !== '' && !ok) || err}
+          className="w-16 bg-transparent font-mono text-gold-100 outline-none placeholder:text-slate-600" />
+      </label>
+      <button type="submit" disabled={!ok} className="h-8 px-2.5 rounded-lg text-[11px] font-semibold text-ink-strong bg-gold-gradient disabled:opacity-40 cursor-pointer">{t('Save', 'OK', 'سجل')}</button>
+    </form>
+  );
 }

@@ -1,8 +1,8 @@
 """
 Each pair's team, live, on the pair's latest closed candles with the pair's own config (configs/<PAIR>.json).
-Every team runs FXAlexG Set & Forget (alexg.py: SF_BR, SF_BOUNCE, SF_COUNTER) with its 5 agents: trend_director,
+Every team runs FXAlexG Set & Forget (alexg.py: S&F-SWING and S&F-DAY) with its 5 agents: trend_director,
 aoi_architect, confluence_grader, trigger_sniper, risk_guardian. Each setup type says one of:
-  SIGNAL    a setup the desk executes (consensus >= 70, GPA >= 70 %, no veto, trigger and guardian ok), its trade running
+  SIGNAL    a setup the desk executes (sync, S_AlexG >= 80 %, SoS + Engulfing, R:R >= 2.5, no veto), its trade running
   BLOCKED   a recent two-step trigger that failed the gate (the failed lines are given)
   WATCHING  inside the AOI with the SoS, the engulfing close awaited (the radar)
   IDLE      nothing forming
@@ -59,6 +59,9 @@ def _setup_json(pair: str, cfg: dict, s: dict) -> dict:
     lots = {"1000": lots_for(cfg, s["entry"], s["sl"], 1000, rk), "10000": lots_for(cfg, s["entry"], s["sl"], 10000, rk)}
     g = s.get("geo") or {}
     zones = [{"label": "AOI", "top": g["aoi"][1], "bottom": g["aoi"][0], "from": g["aoi"][2]}] if g.get("aoi") else []
+    zi = s.get("zoneInfo") or {}
+    invalidation = (f"{'Below' if s['dir'] > 0 else 'Above'} {rd(s['sl'])}: price through the AOI ({rd(zi.get('low'))} – {rd(zi.get('high'))}) "
+                    "and the last swing, plus a volatility buffer and the spread") if zi else None
     return {"id": setup_id(pair, s), "strategy": s["sid"], "name": playbook.NAMES[pair.replace("/", "")][s["sid"]],
             "direction": "BUY" if s["dir"] > 0 else "SELL", "time": s["time"], "entry": rd(s["entry"]), "sl": rd(s["sl"]), "tp": rd(s["tp"]),
             "tp1": rd(s["tp1"]), "part": s["part"], "market": s["market"], "zone": [rd(min(s["zone"])), rd(max(s["zone"]))],
@@ -67,13 +70,16 @@ def _setup_json(pair: str, cfg: dict, s: dict) -> dict:
             "state": s["result"]["state"], "pass": s["pass"], "checklist": [{"q": a, "ok": ok, "detail": det} for a, ok, det in s["checklist"]],
             "steps": [{"step": a, "ok": ok, "detail": det} for a, ok, det in s["steps"]], "lots": lots, "riskPct": rk,
             "grade": s.get("grade"), "gpa": s.get("gpa"), "consensus": s.get("consensus"), "setupType": s.get("setupType"), "etf": s.get("etf"),
+            "family": "swing" if s.get("setupType") == "SF_SWING" else "day", "invalidation": invalidation,
+            "score": s.get("score"), "sos": s.get("sos"), "struct": s.get("struct"), "spreadPct": s.get("spreadPct"), "lots10k": s.get("lots10k"),
+            "newsClear": s.get("newsClear"), "newsChecked": s.get("newsChecked"), "syncKind": s.get("syncKind"), "confirmations": s.get("confirmations"),
             "checklistGpa": s.get("checklistGpa"), "desk": s.get("desk"), "zoneInfo": s.get("zoneInfo"), "slPips": s.get("slPips"),
             "tpPips": s.get("tpPips"), "bePips": s.get("bePips"), "psychTp": s.get("psychTp"), "fridayExit": s.get("fridayExit"),
             "draw": {"entry": s["entry"], "sl": s["sl"], "tp": s["tp"], "zone": [min(s["zone"]), max(s["zone"])], "zones": zones, "from": s["time"]}}
 
 
 def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = None, d1=None) -> dict:
-    """The team's answer from closed candles (W1 / D1 / H4 / H2 / H1 / M30 / M15 decide; M5 only follows the trades)."""
+    """The team's answer from closed candles (W1 / D1 / H4 / H1 / M30 / M15 decide; M5 only follows the trades)."""
     key = pair.replace("/", "")
     cost = (cfg["spread_pips"] + cfg["slippage_pips"]) * cfg["pip"]
     spread = cfg.get("live_spread") or None
@@ -89,7 +95,7 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
     pr = (PLAY_RESULTS.get(key) or {}).get("strategies", {})
     radar = rep["radar"]
     rows = []
-    for sid in playbook.STRATEGIES[key]:  # SF_BR, SF_BOUNCE, SF_COUNTER
+    for sid in playbook.STRATEGIES[key]:  # SF_SWING, SF_DAY
         row = {"id": sid, "name": playbook.NAMES[key][sid], "status": "IDLE", "setup": None, "watch": None,
                "claimed": playbook.CLAIMED[(key, sid)], "measured": (pr.get(sid) or {}).get("all")}
         mine_good = [s for s in good if s["sid"] == sid]
@@ -100,7 +106,7 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
             row.update(status="BLOCKED", setup=_setup_json(pair, cfg, mine_live[-1]))
         elif radar and radar.get("setup") == sid:
             row.update(status="WATCHING", watch={"time": radar["time"], "direction": radar["direction"], "steps": [
-                {"step": "HTF trend in sync", "ok": True, "detail": ""},
+                {"step": f"{radar['trend']} in sync", "ok": True, "detail": ""},
                 {"step": f"Inside {radar['tf']} AOI ({radar['touches']} touches)", "ok": True, "detail": ""},
                 {"step": f"{radar['etf']} Shift of Structure", "ok": True, "detail": ""},
                 {"step": "LTF Engulfing close", "ok": False, "detail": "awaited"}]})
@@ -109,14 +115,13 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
     r = rep["read"]
     h4 = r["S"]["H4"]
     chart = {"trend": "BULLISH" if h4 > 0 else "BEARISH" if h4 < 0 else "UNDEFINED", "premium": False, "windows": [],
-             **alexg.draw_objects(key, m5, h1, d1, now, lambda v: round(v, cfg["decimals"]), spread), "trade": None}
+             **alexg.draw_objects(key, m5, h1, d1, now, lambda v: round(v, cfg["decimals"]), spread, r["zone"] or r["near"]), "trade": None}
     signals = []
     if shown:
         d = 1 if shown["direction"] == "BUY" else -1
         chart["trade"] = {"from": shown["time"], "to": max(shown["time"] + 24 * 3600, now + 6 * 3600), "entry": shown["entry"], "zone": shown["zone"],
-                          "sl": shown["sl"], "tp": shown["tp"], "dir": d, "label": f"Set & Forget {shown['direction']} · {shown['grade']} · 1:{shown['rr']}"}
-        chart["segments"].append({"from": shown["time"], "to": chart["trade"]["to"], "price": shown["tp1"], "kind": "liquidity", "dir": d,
-                                  "label": "+1.5R · stop to entry + 2 pips"})
+                          "sl": shown["sl"], "tp": shown["tp"], "dir": d, "rr": shown["rr"], "tp1": shown["tp1"],
+                          "label": f"{shown['direction']} · {shown['setupType']} · {shown.get('etf') or ''} · grade {shown['grade']} (signal)"}
         if now - shown["time"] <= FRESH_SEC:  # a market entry is alerted only while its price is fresh
             signals = [shown]
     c = rep["contract"]
@@ -124,9 +129,34 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
     return {"success": True, "symbol": pair, "at": now, "lastCandle": m5[-1].time if m5 else None, "strategies": rows, "signals": signals,
             "chart": chart, "playbook": {"name": playbook.STRATEGY_NAME, "source": (PLAY_RESULTS.get(key) or {}).get("source"),
                                          "from": (PLAY_RESULTS.get(key) or {}).get("from"), "to": (PLAY_RESULTS.get(key) or {}).get("to")},
-            "badge": f"{arrows} · GPA {c['gpa_score']}% ({c['grade']})", "grade": c["grade"], "gpa": c["gpa_score"], "consensus": c["consensus_score"],
+            "badge": f"{arrows} · S_AlexG {c['gpa_score']}% ({c['grade']})", "grade": c["grade"], "gpa": c["gpa_score"], "consensus": c["consensus_score"],
             "decision": c["final_decision"], "direction": c["direction"], "setupType": c["setup_type"], "checklist": c["checklist"],
             "radar": radar, "news": news, "pairReport": c, "agents": rep["agents"]}
+
+
+_ARROW = {"↑": 1, "↓": -1}
+
+
+def summary(pair: str, t: dict) -> dict:
+    """One pair's state in a few fields, for the dashboard's overview of all the pairs (saved by the notifier every minute):
+    the verdict, the direction, the grade and its score, the W1 / D1 / H4 trend, the 5 agents' statuses, the setup being
+    watched, the trade if there is one, and the last close."""
+    trend = {}
+    for tok in (t.get("badge") or "").split(" · ")[0].split():
+        if tok in _ARROW and trend.get("_k"):
+            trend[trend.pop("_k")] = _ARROW[tok]
+        elif tok in ("W1", "D1", "H4"):
+            trend["_k"] = tok
+    trend.pop("_k", None)
+    # the pair's current trade: the setup row the desk executes (a trade still running, even once its alert is no longer fresh)
+    sig = next((r["setup"] for r in t.get("strategies") or [] if r.get("status") == "SIGNAL" and r.get("setup")), None) or (t.get("signals") or [None])[0]
+    watching = next((r["id"] for r in t.get("strategies") or [] if r.get("status") == "WATCHING"), None)
+    live = LIVE.get(pair)
+    return {"symbol": pair, "at": t.get("at"), "decision": t.get("decision"), "direction": t.get("direction"), "grade": t.get("grade"),
+            "gpa": t.get("gpa"), "consensus": t.get("consensus"), "setupType": t.get("setupType"), "trend": trend,
+            "agents": [a.get("status") for a in t.get("agents") or []], "watching": watching, "marketOpen": t.get("marketOpen"),
+            "price": live[0][-1].close if live and live[0] else None, "decimals": BY_SYMBOL[pair]["decimals"],
+            "signal": {k: sig.get(k) for k in ("id", "direction", "entry", "sl", "tp", "rr", "etf", "time", "grade", "setupType")} if sig else None}
 
 
 def pair_currencies(pair: str) -> set[str]:
@@ -195,7 +225,7 @@ async def team(pair: str, fresh: bool = False) -> dict:
             if len(m5) >= 300 and len(h1) >= 300:
                 pv, news = await asyncio.gather(_pip_value(pair, cfg), _news(pair))
                 # the strategy maths is CPU work (about a second cold): in a worker thread, one read at a time, so the server
-                # keeps answering the prices and the candles meanwhile instead of making them wait behind it
+                # keeps answering the chart's candles and the prices meanwhile instead of making them wait behind it
                 async with _cpu():
                     out = await asyncio.to_thread(read_team, pair, {**pv, "live_spread": m5s.get("spread") or 0.0}, m5, h1, now, news, d1)
                 out["marketOpen"] = market_session_status(pair)["isOpen"]

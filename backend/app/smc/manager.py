@@ -3,13 +3,14 @@ The trade manager (the FXAlexG spec, 5.3): every minute it follows each setup th
 closed M5 candles, with the SAME function as the backtest (playbook.run), and tells each step once, on Telegram, as a
 web push and in the app:
 
-  ✅ FILLED                    the entry is on
-  🛡️ BREAKEVEN LOCKED (+1.5R)  price reached +1.5 R: the stop goes to the entry + 2 pips (a risk-free trade)
-  🎯 TAKE PROFIT HIT (+X R)    the front-run target
-  🛑 STOP LOSS HIT (-1 R)      the structural stop
-  ⏱️ CLOSED / EXPIRED          break-even close, the Friday 20:00 UTC exit when not in profit, or a cancelled order
+  🟢 FILLED               a limit order filled (a market order is on at its signal: no line)
+  🛡️ BREAKEVEN (+1.5R)    price reached +1.5 R: the stop goes to the entry, 25 % banked (+0.375 R): a risk-free trade
+  🏆 TP_HIT (+X R)        the Set & Forget target
+  🔴 SL_HIT (-1.0R)       the structural stop
+  ⚪ BE_CLOSED            the stop at the entry hit after +1.5 R (the 25 % banked is kept)
+  ⏱️ EXPIRED              a limit cancelled (unfilled, news, or the target reached first)
 
-Since 2026-11-13 these steps are saved but not sent (notify.TRADE_UPDATES = False): only the signal is announced.
+notify.TRADE_UPDATES (True, the spec) sends them; False keeps them silent (the results are saved either way).
 
 Each step is saved with the setup (signals.params["events"]) so it is never sent twice; the result (outcome, R) is saved
 when the trade ends: the app's real results and win rate (/api/smc/results) come from here. It places nothing.
@@ -27,13 +28,13 @@ from .desk import BY_SYMBOL, LIVE
 
 DONE = {"WIN", "LOSS", "BE", "TIME", "EXPIRED", "MISSED", "CLOSED"}
 WORDS = {
-    "FILLED": ("✅ FILLED", "price tapped the entry zone: the trade is on"),
-    "TP1": ("🛡️ BREAKEVEN LOCKED (+1.5R)", "price reached +1.5R: the stop moved to the entry + 2 pips (risk-free Set & Forget)"),
-    "TP": ("🎯 TAKE PROFIT HIT", "the full target is reached"),
-    "STOP": ("🛑 STOP LOSS HIT", "the structural stop is hit"),
-    "BE_STOP": ("⏱️ CLOSED at break-even", "the locked stop (entry + 2 pips) is hit"),
-    "TIME": ("⏱️ CLOSED (Friday 20:00 UTC)", "not in profit before the weekend: closed at market"),
-    "EXPIRED": ("⏱️ EXPIRED", "the order is cancelled"),
+    "FILLED": ("🟢 FILLED", "Limit order filled: the trade is on"),
+    "TP1": ("🛡️ BREAKEVEN (+1.5R)", "SL moved to Break-Even at +1.5R · 25% banked (+0.375R) · Risk-Free Trade"),
+    "TP": ("🏆 TP_HIT", "the Set & Forget target is hit"),
+    "STOP": ("🔴 SL_HIT", "the structural stop is hit"),
+    "BE_STOP": ("⚪ BE_CLOSED", "the break-even stop is hit (the 25% banked is kept)"),
+    "TIME": ("⏱️ CLOSED", "held 30 days: closed at market"),
+    "EXPIRED": ("⏱️ EXPIRED", "the limit order is cancelled"),
     "MISSED": ("⏱️ EXPIRED", "price reached the target before the entry: the order is cancelled"),
 }
 SILENT = {"BE"}  # run() logs the stop move next to TP1: one message says both
@@ -71,7 +72,7 @@ def message(pair: str, p: dict, kind: str, price: float, out: dict) -> str:
         tail = f" ({out['r']:+.2f}R)"
     elif kind == "TP1":
         d = 1 if p["direction"] == "BUY" else -1
-        tail = f" · stop to <code>{p['entry'] + d * p.get('beOff', 0.0):.{dec}f}</code>"
+        tail = f" · SL moved to Break-Even <code>{p['entry'] + d * p.get('beOff', 0.0):.{dec}f}</code> · 25% banked"
     else:
         tail = f" at <code>{price:.{dec}f}</code>"
     return f"{head} · <b>{pair} {p['direction']}</b>{tail}"
@@ -97,7 +98,7 @@ async def manage_all(send) -> dict:
             if key in done:
                 continue
             done.add(key)
-            if kind in SILENT:
+            if kind in SILENT or (kind == "FILLED" and p.get("market")):  # a market order: on at its signal, no FILLED line
                 continue
             new.append(kind)
             await send(pair, message(pair, p, kind, price, out), f"{WORDS.get(kind, (kind, ''))[0]} · {p['direction']} {pair}",

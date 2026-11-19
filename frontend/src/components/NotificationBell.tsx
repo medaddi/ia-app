@@ -4,11 +4,11 @@ import { apiJson } from '../api';
 import { testPush } from '../notifications';
 import { tr } from './ui';
 import type { Language } from '../types';
-import { signalHead, signalLevels, type TeamSetup } from '../smcTeam';
+import { radarHead, radarLine, signalHead, signalLevels, type RadarAlert, type TeamSetup } from '../smcTeam';
 
 /**
- * The in-app notification bell: the live feed of the desk's alerts (Set & Forget signals with their trade updates; radar
- * reads are not alerts) from /api/smc/signals, and the two test buttons: a Telegram message to this account's
+ * The in-app notification bell: the live feed of the desk's alerts (Set & Forget signals with their trade results, and
+ * the radar alerts) from /api/smc/signals, and the two test buttons: a Telegram message to this account's
  * linked chat (/api/telegram/test-me) and a web push to this browser (/api/push/test).
  */
 interface Item { id: string; symbol: string; title: string; detail: string; time: number }
@@ -25,12 +25,13 @@ export const NotificationBell: React.FC<{ lang: Language }> = ({ lang }) => {
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    apiJson<{ signals?: TeamSetup[] }>('/api/smc/signals').then(j => {
+    apiJson<{ signals?: TeamSetup[]; radar?: RadarAlert[] }>('/api/smc/signals').then(j => {
       if (!alive) return;
       const sig: Item[] = (j.signals ?? []).map(s => ({ id: s.id, symbol: s.symbol ?? '', time: s.time,
         title: `🎯 ${signalHead(s)}`,
         detail: `${signalLevels(s)}${s.resultR != null ? ` · ${s.resultR > 0 ? '+' : ''}${s.resultR}R` : ''}` }));
-      setItems(sig.sort((a, b) => b.time - a.time).slice(0, 20));
+      const rad: Item[] = (j.radar ?? []).map(r => ({ id: r.id, symbol: r.symbol ?? '', time: r.at ?? r.time, title: radarHead(r), detail: radarLine(r) }));
+      setItems([...sig, ...rad].sort((a, b) => b.time - a.time).slice(0, 20));
     }).catch(() => setItems([]));
     const close = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('mousedown', close);
