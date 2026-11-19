@@ -13,8 +13,11 @@ _engine_options = {"pool_pre_ping": True}
 if _url.startswith("sqlite"):
     _engine_options["connect_args"] = {"check_same_thread": False}
 elif _serverless_postgres:
-    # Reuse one connection per warm Vercel function and avoid burst connections during scale-out.
-    _engine_options.update(pool_size=1, max_overflow=0, pool_timeout=10, pool_recycle=300)
+    # A warm Vercel function serves several requests at once (Fluid compute), and one request can hold two sessions (the
+    # login check's and the route's own): one connection made them queue and time out (QueuePool limit of size 1, seen
+    # on 2026-11-19 on /api/smc/signals, /overview, /results, /market/assets and the cron tick). A small pool per
+    # function, on Neon's pooled endpoint (pgbouncer) that takes thousands of client connections.
+    _engine_options.update(pool_size=3, max_overflow=7, pool_timeout=20, pool_recycle=300)
 engine = create_engine(
     _url,
     **_engine_options,
