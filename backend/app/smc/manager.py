@@ -123,10 +123,50 @@ async def manage_all(send) -> dict:
     return report
 
 
-def results(limit: int = 200) -> dict:
-    """The teams' real results from the trades they sent and followed: win rate, R, per pair (VERIFIED from the log)."""
+def history_since(db) -> int:
+    """When the app's history starts: the first time this is asked (the owner, 2026-11-19: "count from now"), saved once
+    so every later count starts from the same moment. Trades sent before it are kept in the database, never counted."""
+    from ..store import get_setting, set_setting
+    h = get_setting(db, "history")
+    if not h.get("since"):
+        h = {"since": int(time.time())}
+        set_setting(db, "history", h)
+    return int(h["since"])
+
+
+def history(limit: int = 500) -> dict:
+    """Every trade sent since the history began (newest first) with its state and result, the counts (given, running,
+    closed, won / break-even / lost, not filled), the win rate (won / closed) and the R total, and the win rate and R
+    after each closed trade (oldest first): what the app's history shows."""
     with SessionLocal() as db:
-        rows = db.scalars(select(Signal).where(Signal.id.like("SMC-%"), Signal.state == "CLOSED").order_by(Signal.signal_time.desc()).limit(limit)).all()
+        since = history_since(db)
+        rows = db.scalars(select(Signal).where(Signal.id.like("SMC-%"), Signal.state != "BLOCKED", Signal.signal_time >= since)
+                          .order_by(Signal.signal_time.desc()).limit(limit)).all()
+        items = [{"id": r.id, "symbol": r.symbol, "direction": r.direction, "time": r.signal_time, "entry": r.entry, "sl": r.sl, "tp": r.tp2,
+                  "rr": r.rr_tp2, "state": r.state, "outcome": r.outcome, "resultR": r.r_multiple, "exitTime": r.exit_time,
+                  "setupType": (r.payload or {}).get("setupType"), "grade": (r.payload or {}).get("grade"), "etf": (r.payload or {}).get("etf"),
+                  "score": (r.payload or {}).get("score") or (r.payload or {}).get("gpa"), "market": (r.payload or {}).get("market")} for r in rows]
+    closed = sorted((x for x in items if x["state"] == "CLOSED"), key=lambda x: x["exitTime"] or x["time"])
+    wins = sum(1 for x in closed if x["outcome"] == "WIN")
+    curve, w, tot = [], 0, 0.0
+    for k, x in enumerate(closed, 1):
+        w += x["outcome"] == "WIN"
+        tot += x["resultR"] or 0.0
+        curve.append({"time": x["exitTime"] or x["time"], "winRate": round(100 * w / k), "totalR": round(tot, 2)})
+    summary = {"given": len(items), "running": sum(1 for x in items if x["state"] in ("PENDING", "OPEN")), "closed": len(closed),
+               "wins": wins, "breakeven": sum(1 for x in closed if x["outcome"] == "BREAKEVEN"),
+               "losses": sum(1 for x in closed if x["outcome"] == "LOSS"), "notFilled": sum(1 for x in items if x["state"] in ("EXPIRED", "MISSED")),
+               "winRate": round(100 * wins / len(closed)) if closed else None, "totalR": round(sum(x["resultR"] or 0.0 for x in closed), 2)}
+    return {"since": since, "summary": summary, "curve": curve, "items": items}
+
+
+def results(limit: int = 200) -> dict:
+    """The teams' real results from the trades they sent and followed since the history began: win rate, R, per pair
+    (VERIFIED from the log)."""
+    with SessionLocal() as db:
+        since = history_since(db)
+        rows = db.scalars(select(Signal).where(Signal.id.like("SMC-%"), Signal.state == "CLOSED", Signal.signal_time >= since)
+                          .order_by(Signal.signal_time.desc()).limit(limit)).all()
         closed = [(r.symbol, r.outcome, r.r_multiple or 0.0) for r in rows]
 
     def agg(xs):

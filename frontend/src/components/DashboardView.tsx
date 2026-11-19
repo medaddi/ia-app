@@ -8,7 +8,7 @@ import { Language, MarketAsset, NewsItem } from '../types';
 import { tr } from './ui';
 import { marketOpenNow } from '../instruments';
 import { PairsOverview } from './PairsOverview';
-import type { TeamSetup } from '../smcTeam';
+import { TradeHistory } from './TradeHistory';
 
 /**
  * The dashboard: every pair's FXAlexG state at a glance (PairsOverview), the trades sent and their results, the market
@@ -64,8 +64,6 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
   const kept = <T,>(k: string): T | null => readCache<T>('dash', k, DASH_CACHE_MS);
   const [assets, setAssets] = useState<MarketAsset[] | null>(() => kept<MarketAsset[]>('assets'));
   const [news, setNews] = useState<NewsItem[]>(() => kept<NewsItem[]>('news') ?? []);
-  const [sent, setSent] = useState<TeamSetup[]>(() => kept<TeamSetup[]>('sent') ?? []);
-  const [results, setResults] = useState<{ trades: number; wins: number; losses: number; breakeven: number; winRate: number | null; totalR: number } | null>(() => kept('results'));
   useEffect(() => { if (assets) markDataReady(); }, []);  // the cached screen is there: the intro can go
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
@@ -77,9 +75,6 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
       try {
         // each part fills in as soon as its own answer arrives: the screen never waits for the slowest one
         apiJson<{ news: NewsItem[] }>('/api/news').then(n => { if (!stop) { setNews(n.news); writeCache('dash', 'news', n.news); } }).catch(() => {});
-        apiJson<{ signals: TeamSetup[] }>('/api/smc/signals').then(g => { if (!stop) { setSent(g.signals); writeCache('dash', 'sent', g.signals); } }).catch(() => {});
-        apiJson<{ all: { trades: number; wins: number; losses: number; breakeven: number; winRate: number | null; totalR: number } }>('/api/smc/results')
-          .then(x => { if (!stop) { setResults(x.all); writeCache('dash', 'results', x.all); } }).catch(() => {});
         const a = await apiJson<{ assets: MarketAsset[] }>('/api/market/assets');
         if (stop) return;
         setAssets(a.assets);
@@ -129,44 +124,10 @@ export function DashboardView({ lang, username, onOpenChart }: { lang: Language;
 
       {/* What the pair teams sent (each setup once, to Telegram and the phone) */}
       <Reveal i={2}>
-        <Panel icon={<Users className="w-4 h-4" />} title={t('Results & sent trades', 'Résultats & trades envoyés', 'النتائج والصفقات المرسلة')}
+        <Panel icon={<Users className="w-4 h-4" />} title={t('History & win rate', 'Historique & taux de réussite', 'التاريخ ونسبة الربح')}
           right={<span className="text-[11px] text-slate-500">{t('signals, not advice', 'signaux, pas un conseil', 'إشارات، ماشي نصيحة')}</span>}>
-          {/* the teams' REAL results: each setup sent, followed by the trade manager to its end */}
-          <div className="mb-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-            {[
-              [t('Closed trades', 'Trades clôturés', 'صفقات سدات'), results ? String(results.trades) : '—', 'text-white'],
-              [t('Win rate', 'Taux de réussite', 'نسبة الربح'), results?.winRate != null ? `${results.winRate} %` : '—', 'text-gold-200'],
-              [t('Won · BE · lost', 'Gagnés · BE · perdus', 'ربح · BE · خسارة'), results ? `${results.wins} · ${results.breakeven} · ${results.losses}` : '—', 'text-slate-200'],
-              [t('Result', 'Résultat', 'النتيجة'), results ? `${results.totalR >= 0 ? '+' : ''}${results.totalR}R` : '—', results && results.totalR < 0 ? 'text-rose-300' : 'text-emerald-300'],
-            ].map(([label, value, tone]) => (
-              <div key={label} className="rounded-xl bg-surface border border-line p-2.5">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
-                <div className={`mt-1 font-mono text-sm font-semibold ${tone}`}>{value}</div>
-              </div>
-            ))}
-          </div>
-          {sent.length === 0 ? <p className="text-xs text-slate-500">{t('No trade sent yet.', 'Aucun trade envoyé pour le moment.', 'حتى صفقة ما تصيفطات باقي.')}</p> : (
-            <ul className="space-y-1.5">
-              {sent.slice(0, 8).map(x => {
-                const dec = x.symbol === 'XAU/USD' ? 2 : 5;
-                return (
-                  <li key={x.id}>
-                    <button type="button" onClick={() => onOpenChart(x.symbol!)} className="w-full flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-line bg-surface px-3 py-2 text-xs font-mono text-start cursor-pointer hover:border-gold-500/40">
-                      <span className="text-slate-500">{new Date(x.time * 1000).toISOString().slice(5, 16).replace('T', ' ')}</span>
-                      <span className="text-white font-semibold">{x.symbol}</span>
-                      <span className="text-gold-300">{x.strategy}</span>
-                      <span className={x.direction === 'BUY' ? 'text-emerald-300' : 'text-rose-300'}>{x.direction} {x.entry.toFixed(dec)}</span>
-                      <span className="text-slate-400">SL {x.sl.toFixed(dec)} · TP {x.tp.toFixed(dec)} · 1:{x.rr}</span>
-                      <span className={`ms-auto ${x.outcome === 'WIN' ? 'text-emerald-300' : x.outcome === 'LOSS' ? 'text-rose-300' : x.status === 'OPEN' ? 'text-sky-300' : 'text-slate-400'}`}>
-                        {x.status === 'CLOSED' ? `${x.outcome === 'WIN' ? t('won', 'gagné', 'ربح') : x.outcome === 'LOSS' ? t('lost', 'perdu', 'خسارة') : 'BE'} ${x.resultR != null ? `${x.resultR >= 0 ? '+' : ''}${x.resultR.toFixed(2)}R` : ''}`
-                          : x.status === 'OPEN' ? t('in trade', 'en cours', 'خدامة') : x.status === 'EXPIRED' ? t('expired', 'expiré', 'سالا') : x.status === 'MISSED' ? t('missed', 'raté', 'فاتت') : t('pending', 'en attente', 'كتسنا')}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          {/* the history: every trade sent since it began, its result and the win rate */}
+          <TradeHistory lang={lang} onOpenChart={onOpenChart} />
         </Panel>
       </Reveal>
 

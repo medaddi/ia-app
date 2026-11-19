@@ -28,6 +28,14 @@ def smc_results(_=Depends(current_user)):
     return {"success": True, **results()}
 
 
+@router.get("/smc/history")
+def smc_history(_=Depends(current_user)):
+    """The app's history: every trade sent since the history began, its result, the win rate and the R total."""
+    from ..smc.manager import history
+
+    return {"success": True, **history()}
+
+
 @router.get("/smc/overview")
 async def smc_overview(_=Depends(current_user)):
     """Every pair's state at a glance (the dashboard): the summaries the notifier saves each minute. When none is fresh

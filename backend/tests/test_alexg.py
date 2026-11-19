@@ -342,6 +342,7 @@ def _clean():
         db.query(Signal).filter(Signal.id.like("SMC-%")).delete(synchronize_session=False)
         db.query(Watermark).filter(Watermark.ref == "RADAR").delete(synchronize_session=False)
         set_setting(db, "radar", {"items": []})
+        set_setting(db, "history", {"since": 1})  # the test trades are dated in the past: count them
         db.commit()
 
 
@@ -454,3 +455,45 @@ def test_the_manager_tells_a_limit_fill_then_the_target(monkeypatch):
     assert out[s["id"]] == ["FILLED", "TP"] and sent[0].startswith("🟢 FILLED") and sent[1].startswith("🏆 TP_HIT")
     res = manager.results()
     assert res["all"]["wins"] == 1 and abs(res["all"]["totalR"] - 3.5) < 1e-6
+
+
+def test_the_history_counts_every_trade_from_its_start_with_the_win_rate():
+    _clean()
+    from app.db import SessionLocal
+    from app.store import set_setting
+    T = T0 + 9 * 3600 - (T0 + 9 * 3600) % 300
+    old = _sig(f"SMC-EURUSD-SF_SWING-{T - 86400}-B", T - 86400)
+    win = _sig(f"SMC-GBPUSD-SF_SWING-{T}-B", T)
+    loss = _sig(f"SMC-USDJPY-SF_DAY-{T + 300}-S", T + 300, direction="SELL", entry=150.0, sl=150.5, tp=148.25, tp1=149.25)
+    run_ = _sig(f"SMC-AUDUSD-SF_SWING-{T + 600}-B", T + 600)
+    for p, s in (("EUR/USD", old), ("GBP/USD", win), ("USD/JPY", loss), ("AUD/USD", run_)):
+        assert notify._claim(p, s)
+    with SessionLocal() as db:
+        set_setting(db, "history", {"since": T})  # the history starts after the first trade: that one is never counted
+        from app.models import Signal
+        for sid, out, r in ((win["id"], "WIN", 3.1), (loss["id"], "LOSS", -1.02)):
+            row = db.get(Signal, sid)
+            row.state, row.outcome, row.r_multiple, row.exit_time = "CLOSED", out, r, T + 3600
+        db.get(Signal, run_["id"]).state = "OPEN"
+        db.commit()
+    h = manager.history()
+    assert h["since"] == T and [x["symbol"] for x in h["items"]] == ["AUD/USD", "USD/JPY", "GBP/USD"]  # newest first, from the start only
+    assert h["summary"] == {"given": 3, "running": 1, "closed": 2, "wins": 1, "breakeven": 0, "losses": 1, "notFilled": 0, "winRate": 50,
+                            "totalR": 2.08}
+    assert [c["winRate"] for c in h["curve"]] == [100, 50] or [c["winRate"] for c in h["curve"]] == [0, 50]
+    assert manager.results()["all"]["trades"] == 2  # the dashboard's cards count from the same start
+    from app.api import smc as smc_api
+    assert smc_api.smc_history(None)["summary"]["winRate"] == 50
+
+
+def test_the_history_starts_the_first_time_it_is_asked():
+    from app.db import SessionLocal
+    from app.store import set_setting
+    import time as _t
+    with SessionLocal() as db:
+        set_setting(db, "history", {"since": 0})
+        db.commit()
+        t0 = _t.time()
+        a = manager.history_since(db)
+        assert abs(a - t0) < 5 and manager.history_since(db) == a  # set once, then the same
+
