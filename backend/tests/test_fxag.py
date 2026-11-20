@@ -274,6 +274,29 @@ def test_market_with_rr_under_2_but_limit_over_2_2_becomes_e3():
     assert o["orderType"] == "LIMIT_PULLBACK" and o["model"] == "E3"
 
 
+def test_e3_takes_the_sos_neckline_when_it_is_inside_the_body_and_gives_more_rr():
+    candle = _Bar(T0, 1.1000, 1.1105, 1.0998, 1.1100)  # huge: body 100 pips > 1.6 x 40
+    plan_at = lambda e: {"entry": e, "rr": (1.1300 - e) / (e - 1.0960), "risk": e - 1.0960, "trap": False, "slWide": False, "tp": 1.13}  # noqa: E731
+    deep = order({"candle": candle, "atr": 0.0040, "model": "E1", "sos": {"level": 1.1030}}, 1, plan_at, 0)
+    assert deep["orderType"] == "LIMIT_PULLBACK" and abs(deep["entry"] - 1.1030) < 1e-9  # deeper than 50 %: higher R:R
+    shallow = order({"candle": candle, "atr": 0.0040, "model": "E1", "sos": {"level": 1.1080}}, 1, plan_at, 0)
+    assert abs(shallow["entry"] - 1.1050) < 1e-9  # the 50 % is better
+    outside = order({"candle": candle, "atr": 0.0040, "model": "E1", "sos": {"level": 1.0990}}, 1, plan_at, 0)
+    assert abs(outside["entry"] - 1.1050) < 1e-9  # a neckline outside the body is not used
+
+
+def test_s13_a_short_hole_is_tolerated_more_than_3_missing_bars_is_unsafe():
+    from app.smc.fxag.strategy.data import health
+    t0 = 1_790_000_000 - 1_790_000_000 % 86400 + 86400 * 2  # a weekday
+    while datetime.fromtimestamp(t0, timezone.utc).weekday() not in (1, 2):
+        t0 += 86400
+    mk = lambda skip: [_Bar(t0 + h * 3600, 1, 1, 1, 1) for h in range(20) if h not in skip]  # noqa: E731
+    T = t0 + 20 * 3600
+    assert health(mk(set()), [], T)["ok"]
+    assert health(mk({8, 9, 10}), [], T)["ok"]          # 3 missing bars: tolerated
+    assert not health(mk({8, 9, 10, 11}), [], T)["ok"]  # 4 missing bars: DATA_OR_SPREAD_UNSAFE
+
+
 # ---------------------------------------------------------------- step 3 risk
 def _sts(atr_h1=0.0010, atr_d=0.0100, atr_h4=0.0030, d_elbows=(), w_elbows=()):
     mk = lambda a, el: SimpleNamespace(atr=[a] * 5, elbows_at=lambda i, _e=list(el): _e)  # noqa: E731

@@ -70,13 +70,13 @@ def snapshot(m5: list, h1: list, d_hist: list | None = None) -> dict:
 
 
 def health(h1: list, m5: list, T: int) -> dict:
-    """HealthStatus: H1 gaps and duplicates in the last 24 hours before T (a weekend is not a gap), and the data's end."""
+    """HealthStatus (S13): H1 holes of more than 3 missing bars and duplicates in the last 24 hours before T (a weekend is not a gap), and the data's end."""
     recent = [x for x in h1 if T - 24 * 3600 <= x.time < T]
     gaps, dups = [], 0
     for a, b in zip(recent, recent[1:]):
         if b.time == a.time:
             dups += 1
-        elif b.time - a.time > 3600 and not (trading_day(a.time).weekday() >= 4 and b.time - a.time >= 24 * 3600):
+        elif b.time - a.time > 4 * 3600 and not (trading_day(a.time).weekday() >= 4 and b.time - a.time >= 24 * 3600):
             gaps.append((a.time + 3600, b.time))
     return {"gaps": gaps, "duplicates": dups, "h1End": h1[-1].time + 3600 if h1 else None, "m5End": m5[-1].time + M5S if m5 else None,
             "ok": not gaps and not dups}

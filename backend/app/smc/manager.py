@@ -6,7 +6,7 @@ Telegram, as a web push and in the app:
   🟢 FILLED     a limit (50 % pullback) filled; a market order is on at its signal: no line
   🏆 TP_HIT     the structural target
   🔴 SL_HIT     the structural stop
-  ⏱️ EXPIRED    a limit not filled in its 6 hours (or the target reached first)
+  ⏱️ EXPIRED    a limit not filled in its 8 hours (or the target reached first)
 
 Set & Forget: the SL and TP are locked (SET_AND_FORGET_LOCKED): no break-even, no trailing, no partial, no early close.
 Each step is saved with the trade (signals.params["events"]) so it is never sent twice; the result (outcome, R) is saved

@@ -3,7 +3,8 @@ Agent 1 · entry (blueprint 2.6): the Shift of Structure on M15 / M30 / H1 (a bo
 0.5 pip, after the counter-trend swing that touched the AOI), the clean engulfing on M30 / H1 / H2 / H4, and the three
 execution models:
   E1  SoS, then a pullback (1-8 candles of the engulfing timeframe), then the engulfing  -> MARKET
-  E2  an H1 / H2 / H4 engulfing that closes beyond the last M15 / M30 micro LH / HL itself (the SoS is inside it) -> MARKET
+  E2  an H1 / H2 / H4 engulfing that closes beyond the last M15 / M30 micro LH / HL itself -> MARKET (DISABLED: 16 % win, -9.1R
+      in the 60-day test; see smc/FXAG_V2_REPORT.md)
   E3  a huge engulfing (> 1.6 ATR14) or one whose close gives R:R < 2.0 while the 50 % limit gives >= 2.2 -> LIMIT, 8 h
 """
 
@@ -89,14 +90,22 @@ def triggers(sts: dict, T: int, z: dict, d: int, dprox: float) -> list[dict]:
 
 def order(tr: dict, d: int, plan_at, h4_atr: float) -> dict:
     """E3: the huge-engulfing rule. Market at the close when the candle is normal (body <= 1.6 ATR14) and R:R >= 2.0; else a LIMIT
-    at the 50 % retracement of the body (valid 8 h) when its R:R >= 2.2; else nothing."""
+    at the 50 % retracement of the body, or at the SoS neckline when that is better (valid 8 h), when its R:R >= 2.2; else nothing."""
     x = tr["candle"]
     huge = tr["atr"] > 0 and body(x) > HUGE_BODY_ATR * tr["atr"]
     mk = plan_at(x.close)
     if mk and not huge and mk["rr"] >= MIN_RR:
         return {**mk, "orderType": "MARKET", "market": True, "huge": False, "model": tr["model"]}
-    lim_px = x.close - 0.5 * (x.close - x.open)
-    lim = plan_at(lim_px)
-    if lim and lim["rr"] >= LIMIT_RR and (huge or (mk is not None and mk["rr"] < MIN_RR)):
+    if not (huge or (mk is not None and mk["rr"] < MIN_RR)):
+        return {"reject": "RR_BELOW_MIN", "huge": huge, "rr_close": mk["rr"] if mk else None}
+    # the limit at the 50 % of the body, "or at the SoS neckline if better": the neckline is used when it lies inside the
+    # engulfing's body (between its open and its close) and gives the higher R:R (CHOICE: "better" = the higher R:R)
+    opts = [plan_at(x.close - 0.5 * (x.close - x.open))]
+    lv = (tr.get("sos") or {}).get("level")
+    if lv is not None and min(x.open, x.close) < lv < max(x.open, x.close):
+        opts.append(plan_at(lv))
+    opts = [o for o in opts if o and o.get("tp") is not None and o["rr"] >= LIMIT_RR]
+    if opts:
+        lim = max(opts, key=lambda o: o["rr"])
         return {**lim, "orderType": "LIMIT_PULLBACK", "market": False, "huge": huge, "model": "E3"}
     return {"reject": "RR_BELOW_MIN", "huge": huge, "rr_close": mk["rr"] if mk else None}

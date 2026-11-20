@@ -54,3 +54,13 @@ a positive expectancy), but the quality targets (win >= 55 %, PF >= 2.0, E >= +0
 of the period loses. 59 trades over 70 days in a single market regime is a small sample; it neither proves nor disproves the edge.
 Honest options: (1) run it live as signals only and let the history / win rate measure it, (2) drop E2 (the 16 % model) and
 re-test, (3) keep calibrating on structural filters with more data (Dukascopy M5 for 24 months would allow the blueprint's real test).
+
+## Re-audit against the blueprint (2026-11-20)
+
+The blueprint file was re-read line by line against the code. Three gaps were fixed:
+
+- **S13**: a data hole now vetoes only above 3 missing H1 bars (it vetoed any hole).
+- **E3**: the limit goes to the SoS neckline instead of the 50 % of the body when the neckline lies inside the engulfing's body and gives the higher R:R ("ou au niveau de la neckline SoS si meilleur").
+- `manager.py` said limits expire after 6 h; the code and the blueprint use 8 h (text only).
+
+E2 stays disabled (16 % win in the 60-day test). After the fixes: 60 days 51 trades, win 37 %, +10.8R, PF 1.32; 2 years (H1) 29 trades, win 24 %, -2.2R, PF 0.90. The quality gates are still not met. 155 tests pass.
