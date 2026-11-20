@@ -1,6 +1,7 @@
 """
-Telegram bot: the link between a Telegram chat and an app account, and a few information commands (news, market hours).
-It sends no analysis and no trade: the app's analysis is being rebuilt.
+Telegram bot: the link between a Telegram chat and an app account, and the commands that mirror the app's screens:
+the trades (open now, the history and win rate, the pairs waiting for their trigger), my account and my risk, the market
+clock and the news. Short answers, one line per item. The trades themselves are sent by smc/notify.py.
 """
 
 import asyncio
@@ -221,26 +222,33 @@ def unlink_chat(db: Session, chat_id: Optional[str]) -> None:
 # ---------------------------------------------------------------- commands
 
 SECTIONS = [
-    ("📊 Market", [
-        ("news", "Next high-impact news"),
-        ("market", "Market hours and session"),
+    ("📈 Trades", [
+        ("trades", "Trades running now"),
+        ("history", "History and win rate"),
+        ("pairs", "Pairs waiting for their trigger"),
     ]),
     ("👤 My account", [
+        ("risk", "My risk per trade in USD, e.g. /risk 50"),
+        ("account", "My account"),
         ("connect", "Link this Telegram to my app account"),
-        ("status", "My account"),
-        ("risk", "My USD risk per trade, e.g. /risk 50"),
     ]),
-    ("ℹ️ Info", [
+    ("📊 Market", [
+        ("market", "Market open or closed, session"),
+        ("news", "Next high-impact news"),
+    ]),
+    ("ℹ️ Help", [
         ("help", "All commands"),
     ]),
 ]
 COMMANDS = [("start", "Start / link my account"), *(c for _, cmds in SECTIONS for c in cmds)]
 LINE = "━━━━━━━━━━━━━━"
 HELP = "🤖 <b>LiquidityDissection</b>\n" + LINE + "\n\n" + "\n\n".join(
-    f"<b>{title}</b>\n" + "\n".join(f"/{c}\n<i>{d}</i>" for c, d in cmds) for title, cmds in SECTIONS)
-DESCRIPTION = "LiquidityDissection: gold and forex. Press Start, then link this Telegram to your app account."
-SHORT_DESCRIPTION = "LiquidityDissection · gold & forex."
+    f"<b>{title}</b>\n" + "\n".join(f"/{c} · {d}" for c, d in cmds) for title, cmds in SECTIONS)
+DESCRIPTION = "LiquidityDissection: gold and forex signals (signals only, not advice). Press Start, then link this Telegram to your app account."
+SHORT_DESCRIPTION = "LiquidityDissection · gold & forex signals."
 NEWS_CCYS = {"USD", *(c for pair in PAIRS for c in pair.split("/"))}
+ALIASES = {"/status": "/account", "/me": "/account", "/time": "/market", "/session": "/market", "/open": "/trades", "/winrate": "/history",
+           "/stats": "/history", "/watch": "/pairs"}
 
 
 async def set_commands(token: str) -> None:
@@ -281,6 +289,55 @@ def _market_text() -> str:
             "<i>Gold and forex: Sunday 22:00 → Friday 21:00 UTC.</i>")
 
 
+def _dec(pair: str) -> int:
+    from ..smc.desk import BY_SYMBOL
+    return BY_SYMBOL.get(pair, {}).get("decimals", 5)
+
+
+def _trades_text() -> str:
+    """The trades running now (sent, not ended): one line each, as the app's history shows them."""
+    from ..smc.manager import history
+    items = [x for x in history()["items"] if x["state"] in ("PENDING", "OPEN")]
+    if not items:
+        return "📈 <b>Trades running</b>\nNone right now."
+    out = []
+    for x in items:
+        d = _dec(x["symbol"])
+        side = x["direction"] + (" LIMIT" if x.get("market") is False and x["state"] == "PENDING" else "")
+        out.append(f"{'🟢' if x['direction'] == 'BUY' else '🔴'} <b>{x['symbol']} {side}</b> · Entry {x['entry']:.{d}f} · SL {x['sl']:.{d}f} · TP {x['tp']:.{d}f}")
+    return f"📈 <b>Trades running ({len(items)})</b>\n" + "\n".join(out)
+
+
+def _history_text() -> str:
+    """The app's history card: trades given, win rate, won / lost, the R total, and the last closed trades."""
+    from ..smc.manager import history
+    h = history()
+    sm = h["summary"]
+    since = datetime.fromtimestamp(h["since"], timezone.utc).strftime("%Y-%m-%d")
+    wr = f"{sm['winRate']}%" if sm["winRate"] is not None else "—"
+    lines = [f"📊 <b>History</b> · since {since}",
+             f"Trades {sm['given']} · running {sm['running']}",
+             f"Win rate <b>{wr}</b> · won {sm['wins']} · lost {sm['losses']}",
+             f"Result <b>{sm['totalR']:+g}R</b>"]
+    last = [x for x in h["items"] if x["state"] == "CLOSED"][:5]
+    if last:
+        lines.append("")
+        lines += [f"{'✅' if (x['resultR'] or 0) > 0 else '❌'} {x['symbol']} {x['direction']} · {(x['resultR'] or 0):+.2f}R" for x in last]
+    return "\n".join(lines)
+
+
+def _pairs_text() -> str:
+    """The pairs the app shows as "waiting for the trigger": at a zone, the entry not confirmed yet."""
+    from ..smc.notify import overview
+    ps = [p for p in overview()["pairs"] if p.get("decision") == "WAIT_FOR_TRIGGER" and not p.get("signal")]
+    if not ps:
+        return "⏳ <b>Pairs waiting</b>\nNone right now."
+    ps.sort(key=lambda p: -(p.get("gpa") or 0))
+    out = [f"{'🟢' if p.get('direction') == 'BUY' else '🔴' if p.get('direction') == 'SELL' else '⚪'} {p['symbol']}"
+           + (f" {p['direction']}" if p.get("direction") in ("BUY", "SELL") else "") + f" · {p.get('grade') or '—'} {p.get('gpa') or 0}%" for p in ps]
+    return f"⏳ <b>Pairs waiting ({len(ps)})</b>\n" + "\n".join(out)
+
+
 async def handle_update(token: str, upd: dict) -> None:
     msg = upd.get("message") or {}
     text = (msg.get("text") or "").strip()
@@ -292,6 +349,7 @@ async def handle_update(token: str, upd: dict) -> None:
     # how the app names this Telegram once linked: "Ali · @ali_fx"
     display = " · ".join(x for x in (sender.get("first_name") or "", f"@{sender['username']}" if sender.get("username") else "") if x)[:120]
     cmd = text.split()[0].split("@")[0].lower()
+    cmd = ALIASES.get(cmd, cmd)
     markup: Optional[dict] = None
     with SessionLocal() as db:
         account = account_of(db, chat_id)  # the app account linked to this chat (active, approved)
@@ -302,18 +360,24 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = (f"✅ Connected to <b>{html.escape(account.username)}</b>.\n"
                      "One Telegram per account: to use another one, unlink this one in the app (My account).")
         elif cmd == "/start":
-            reply = f"👋 Welcome back, <b>{html.escape(account.username)}</b>\n✅ Your account is connected\n\n📋 /help · all commands"
+            reply = f"👋 Welcome back, <b>{html.escape(account.username)}</b>\n✅ Your account is connected\n\n" + HELP
         elif cmd == "/help":
             reply = HELP
         elif cmd == "/myid":
             reply = f"🆔 Your chat id: <code>{chat_id}</code>"
-        elif cmd in ("/market", "/time", "/session"):
+        elif cmd == "/market":
             reply = _market_text()
         elif cmd == "/news":
             reply = await _news_text()
-        elif not account:
+        elif not account:  # the trades and the account need a linked, approved account
             reply, markup = connect_button(db, chat_id, display)
             reply = "🔒 <b>Connect your app account first</b>\n\n" + reply
+        elif cmd == "/trades":
+            reply = _trades_text()
+        elif cmd == "/history":
+            reply = _history_text()
+        elif cmd == "/pairs":
+            reply = _pairs_text()
         elif cmd == "/risk":  # this linked account's own USD risk per trade: each signal then shows its own lot
             from ..smc.sizing import valid_risk
             arg = text.split()[1] if len(text.split()) > 1 else None
@@ -329,9 +393,12 @@ async def handle_update(token: str, upd: dict) -> None:
                     account.risk_usd = v
                     db.commit()
                     reply = f"✅ Risk per trade: <b>${v:g}</b>\nYour next signals show your lot for it (already-sized signals keep theirs)."
-        elif cmd == "/status":
+        elif cmd == "/account":
+            from ..smc.sizing import valid_risk
             full = " ".join(x for x in (account.first_name, account.last_name) if x)
-            reply = f"👤 <b>My account</b>\n{LINE}\n👤 Account: <b>{html.escape(account.username)}</b>" + (f" · {html.escape(full)}" if full else "")
+            risk = valid_risk(account.risk_usd)
+            reply = (f"👤 <b>{html.escape(account.username)}</b>" + (f" · {html.escape(full)}" if full else "")
+                     + f"\nRisk per trade: <b>{f'${risk:g}' if risk is not None else 'not set (/risk 50)'}</b>\n✅ Telegram connected")
         else:
             reply = HELP
     await send_message(token, chat_id, reply, markup)

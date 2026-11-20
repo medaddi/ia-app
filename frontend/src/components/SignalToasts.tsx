@@ -3,7 +3,7 @@ import { Radar, Target, X } from 'lucide-react';
 import { apiJson } from '../api';
 import { tr } from './ui';
 import type { Language } from '../types';
-import { radarHead, radarLine, signalHead, signalLevels, type RadarAlert, type TeamSetup } from '../smcTeam';
+import { radarHead, radarLine, signalLine, type RadarAlert, type TeamSetup } from '../smcTeam';
 
 /**
  * The in-app live feed: every 20 s it reads /api/smc/signals; a Set & Forget signal or a radar alert it has not shown yet
@@ -13,7 +13,7 @@ import { radarHead, radarLine, signalHead, signalLevels, type RadarAlert, type T
 const POLL_MS = 20000;
 const SEEN_KEY = 'ld_seen_alerts';
 const KEEP_MS = 30000;
-interface Toast { id: string; symbol: string; title: string; body: string; lot?: string; radar?: boolean }
+interface Toast { id: string; symbol: string; title: string; body: string; setup?: TeamSetup; radar?: boolean }
 
 const loadSeen = (): Set<string> => { try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch { return new Set(); } };
 const saveSeen = (s: Set<string>) => { try { localStorage.setItem(SEEN_KEY, JSON.stringify([...s].slice(-200))); } catch { /* storage blocked */ } };
@@ -55,7 +55,7 @@ export const SignalToasts: React.FC<{ lang: Language }> = ({ lang }) => {
         known.add(s.id);
         // on the first read only what is very recent is announced (a reload never replays the history)
         if (first && nowSec - s.time > 1800) continue;
-        fresh.push({ id: s.id, symbol: s.symbol ?? '', title: `🎯 ${signalHead(s)}`, body: signalLevels(s) });
+        fresh.push({ id: s.id, symbol: s.symbol ?? '', title: signalLine(s), body: '', setup: s });
       }
       for (const r of j.radar ?? []) {
         if (known.has(r.id)) continue;
@@ -66,12 +66,12 @@ export const SignalToasts: React.FC<{ lang: Language }> = ({ lang }) => {
       seen.current = known;
       saveSeen(known);
       if (fresh.length) {
-        // my own lot under each new signal (from MY risk; never anyone else's)
-        await Promise.all(fresh.filter(f => !f.radar).map(async f => {
+        // my own lot in the same line (from MY risk; never anyone else's)
+        await Promise.all(fresh.filter(f => f.setup).map(async f => {
           try {
-            const z = await apiJson<{ status: string; lots?: number; riskUsd?: number }>(`/api/me/sizing/${encodeURIComponent(f.id)}`);
-            if (z.status === 'ok') f.lot = `${t('Your lot', 'Votre lot', 'اللوت ديالك')} ${z.lots} · ${t('risk', 'risque', 'ريسك')} $${z.riskUsd}`;
-          } catch { /* no lot line */ }
+            const z = await apiJson<{ status: string; lots?: number }>(`/api/me/sizing/${encodeURIComponent(f.id)}`);
+            if (z.status === 'ok' && f.setup) f.title = signalLine(f.setup, z.lots);
+          } catch { /* no lot */ }
         }));
         if (!alive) return;
         setToasts(x => [...fresh, ...x].slice(0, 4));
@@ -93,9 +93,8 @@ export const SignalToasts: React.FC<{ lang: Language }> = ({ lang }) => {
           {x.radar ? <Radar className="w-4 h-4 mt-0.5 shrink-0 text-sky-300" aria-hidden="true" /> : <Target className="w-4 h-4 mt-0.5 shrink-0 text-emerald-300" aria-hidden="true" />}
           <button type="button" className="min-w-0 flex-1 text-start cursor-pointer"
             onClick={() => { window.dispatchEvent(new CustomEvent('ld-open-symbol', { detail: x.symbol })); setToasts(v => v.filter(y => y.id !== x.id)); }}>
-            <p className="text-xs font-semibold text-white truncate">{x.title}</p>
-            <p className="text-[11px] font-mono text-slate-300 leading-snug">{x.body}</p>
-            {x.lot && <p className="text-[11px] font-mono text-gold-200">{x.lot}</p>}
+            <p className="text-xs font-semibold text-white leading-snug">{x.title}</p>
+            {x.body && <p className="text-[11px] font-mono text-slate-300 leading-snug">{x.body}</p>}
           </button>
           <button type="button" onClick={() => setToasts(v => v.filter(y => y.id !== x.id))} aria-label={t('Dismiss', 'Fermer', 'سد')}
             className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer">

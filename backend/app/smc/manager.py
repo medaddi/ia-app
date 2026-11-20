@@ -24,14 +24,6 @@ from . import playbook
 from .desk import BY_SYMBOL, LIVE
 
 DONE = {"WIN", "LOSS", "BE", "TIME", "EXPIRED", "MISSED", "CLOSED"}
-WORDS = {
-    "FILLED": ("🟢 FILLED", "Limit order filled: the trade is on, SL and TP locked"),
-    "TP": ("🏆 TP_HIT", "the Set & Forget target is hit"),
-    "STOP": ("🔴 SL_HIT", "the structural stop is hit"),
-    "TIME": ("⏱️ CLOSED", "held 60 days: closed at market for the books"),
-    "EXPIRED": ("⏱️ EXPIRED", "the limit order is cancelled"),
-    "MISSED": ("⏱️ EXPIRED", "price reached the target before the entry: the order is cancelled"),
-}
 SILENT = {"BE"}  # run() logs the stop move next to TP1: one message says both
 
 
@@ -59,15 +51,27 @@ def follow(p: dict, m5, cost: float, news: list[int] | None = None) -> tuple[lis
     return events, out
 
 
-def message(pair: str, p: dict, kind: str, price: float, out: dict) -> str:
-    """One short line: the step, the trade, the price or the result."""
+WORD = {"FILLED": "🟢 Filled", "TP": "🏆 TP hit", "STOP": "🔴 SL hit", "TIME": "⏱️ Closed (60 days)", "EXPIRED": "⏱️ Expired",
+        "MISSED": "⏱️ Expired"}
+
+
+def line(pair: str, p: dict, kind: str, price: float, out: dict) -> str:
+    """The trade's step on ONE line, the same on Telegram and on the phone: pair, side, what happened, the result."""
     dec = BY_SYMBOL[pair]["decimals"]
-    head = WORDS.get(kind, (kind, ""))[0]
+    word = WORD.get(kind, kind)
     if kind in ("TP", "STOP", "BE_STOP", "TIME") and "r" in out:
-        tail = f" ({out['r']:+.2f}R)"
+        tail = f" · {out['r']:+.2f}R"
+    elif kind == "FILLED":
+        tail = f" at {price:.{dec}f}"
     else:
-        tail = f" at <code>{price:.{dec}f}</code>"
-    return f"{head} · <b>{pair} {p['direction']}</b>{tail}"
+        tail = ""
+    return f"{pair} {p['direction']} · {word}{tail}"
+
+
+def message(pair: str, p: dict, kind: str, price: float, out: dict) -> str:
+    """The Telegram text: the one line, the pair and side in bold."""
+    head = f"{pair} {p['direction']}"
+    return f"<b>{html.escape(head)}</b>" + html.escape(line(pair, p, kind, price, out)[len(head):])
 
 
 async def manage_all(send) -> dict:
@@ -93,8 +97,7 @@ async def manage_all(send) -> dict:
             if kind in SILENT or (kind == "FILLED" and p.get("market")):  # a market order: on at its signal, no FILLED line
                 continue
             new.append(kind)
-            await send(pair, message(pair, p, kind, price, out), f"{WORDS.get(kind, (kind, ''))[0]} · {p['direction']} {pair}",
-                       WORDS.get(kind, ("", kind))[1], f"ld-{sid}-{kind}")
+            await send(pair, message(pair, p, kind, price, out), line(pair, p, kind, price, out), "", f"ld-{sid}-{kind}")
         state = out.get("state", "PENDING")
         with SessionLocal() as db:
             r = db.get(Signal, sid)

@@ -4,7 +4,7 @@ import { apiJson } from '../api';
 import { testPush } from '../notifications';
 import { tr } from './ui';
 import type { Language } from '../types';
-import { radarHead, radarLine, signalHead, signalLevels, type RadarAlert, type TeamSetup } from '../smcTeam';
+import { radarHead, radarLine, signalLine, type RadarAlert, type TeamSetup } from '../smcTeam';
 
 /**
  * The in-app notification bell: the live feed of the desk's alerts (Set & Forget signals with their trade results, and
@@ -28,8 +28,7 @@ export const NotificationBell: React.FC<{ lang: Language }> = ({ lang }) => {
     apiJson<{ signals?: TeamSetup[]; radar?: RadarAlert[] }>('/api/smc/signals').then(j => {
       if (!alive) return;
       const sig: Item[] = (j.signals ?? []).map(s => ({ id: s.id, symbol: s.symbol ?? '', time: s.time,
-        title: `🎯 ${signalHead(s)}`,
-        detail: `${signalLevels(s)}${s.resultR != null ? ` · ${s.resultR > 0 ? '+' : ''}${s.resultR}R` : ''}` }));
+        title: `${signalLine(s)}${s.resultR != null ? ` · ${s.resultR > 0 ? '+' : ''}${s.resultR}R` : ''}`, detail: '' }));
       const rad: Item[] = (j.radar ?? []).map(r => ({ id: r.id, symbol: r.symbol ?? '', time: r.at ?? r.time, title: radarHead(r), detail: radarLine(r) }));
       setItems([...sig, ...rad].sort((a, b) => b.time - a.time).slice(0, 20));
     }).catch(() => setItems([]));
@@ -65,8 +64,8 @@ export const NotificationBell: React.FC<{ lang: Language }> = ({ lang }) => {
               <li key={x.id}>
                 <button type="button" onClick={() => { window.dispatchEvent(new CustomEvent('ld-open-symbol', { detail: x.symbol })); setOpen(false); }}
                   className="w-full text-start rounded-lg border border-line bg-white/[0.02] px-2.5 py-1.5 hover:bg-white/[0.05] cursor-pointer">
-                  <p className="text-[11px] font-semibold text-slate-100 truncate">{x.title}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{x.detail}</p>
+                  <p className="text-[11px] font-semibold text-slate-100 leading-snug">{x.title}</p>
+                  {x.detail && <p className="text-[10px] text-slate-400 truncate">{x.detail}</p>}
 
                 </button>
               </li>

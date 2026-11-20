@@ -28,7 +28,6 @@ from ..telegram import bot
 from .desk import BY_SYMBOL, PAIRS, summary, team
 from .skill import portfolio
 
-RULE = "━━━━━━━━━━━━━━━━━━"
 TRADE_UPDATES = True  # the trade's end is told (FILLED for a limit, TP, SL, expired); False keeps the manager silent
 READ_AT_ONCE = 8  # the spec: 29 teams read 8 at a time (asyncio.Semaphore(8))
 
@@ -37,54 +36,49 @@ def _f(v: float, dec: int) -> str:
     return f"{v:.{dec}f}"
 
 
-def head(s: dict, pair: str) -> str:
-    """The first line, the same everywhere (Telegram, push, the app's toast and bell): pair, side, timeframe, UTC time."""
-    t = datetime.fromtimestamp(int(s["time"]), timezone.utc).strftime("%H:%M")
-    return f"{pair} {s['direction']} · {s.get('etf') or 'H1'} · {t} UTC"
+def side(s: dict) -> str:
+    """BUY / SELL, with LIMIT when the entry waits for a pullback."""
+    limit = s.get("orderType") == "LIMIT_PULLBACK" or s.get("market") is False
+    return f"{s['direction']} LIMIT" if limit else s["direction"]
 
 
-def levels(s: dict, dec: int) -> str:
-    return f"Entry {_f(s['entry'], dec)} · SL {_f(s['sl'], dec)} · TP {_f(s['tp'], dec)} · 1:{s['rr']:.1f}"
+def line(s: dict, pair: str, dec: int, lot: Optional[str] = None) -> str:
+    """The trade on ONE line (the phone notification, the app's toast and bell): pair, side, entry, SL, TP and the lot."""
+    dot = "🟢" if s["direction"] == "BUY" else "🔴"
+    out = f"{dot} {pair} {side(s)} · Entry {_f(s['entry'], dec)} · SL {_f(s['sl'], dec)} · TP {_f(s['tp'], dec)}"
+    return out + (f" · Lot {lot}" if lot else "")
 
 
 def message(s: dict, pair: str, dec: int) -> str:
-    """The trade: pair, side, grade and score, the order, entry, stop, target, R:R, the SoS and engulfing timeframes, the
-    alignment, the confluences that scored, the Set & Forget lock and the order id. A private chat adds its owner's own
-    lot (sizing.py) just above the last line."""
-    e = html.escape
-    d = 1 if s["direction"] == "BUY" else -1
-    score = s.get("score") or s.get("gpa")
-    limit = s.get("orderType") == "LIMIT_PULLBACK" or not s.get("market")
-    br = s.get("breakdown") or {}
-    pid = ((s.get("proposal") or {}).get("client_order_id")) or "—"
-    lines = [f"🎯 <b>FX ALEX G SET &amp; FORGET — {e(pair)} {s['direction']} (GRADE {e(str(s.get('grade')))} · {score}%)</b>",
-             RULE,
-             (f"📈 <b>Order:</b> {'LIMIT (50 % pullback, 6 h)' if limit else 'MARKET'} @ <code>{_f(s['entry'], dec)}</code>"),
-             f"🛑 <b>SL</b> <code>{_f(s['sl'], dec)}</code> <i>(-{s.get('slPips')} pips)</i> · 💰 <b>TP</b> <code>{_f(s['tp'], dec)}</code> "
-             f"<i>(+{s.get('tpPips')} pips)</i> · <b>R:R</b> <code>1 : {s['rr']:.2f}</code>",
-             f"🧭 {e(s.get('setupName') or s.get('name') or '')} · SoS {e(str(s.get('sosTf') or ''))} · Engulfing {e(str(s.get('etf') or ''))}",
-             "🧩 " + e(" · ".join(f"{k} +{v}%" for k, v in br.items())) if br else "🧩 —",
-             f"🔒 Set &amp; Forget: SL and TP locked (no break-even, no partial) · risk {s.get('riskPct', 0):g}% · id <code>{pid}</code>",
-             "<i>Signal only — no order placed. Research software, not advice.</i>"]
-    return "\n".join(lines)
+    """The Telegram trade, only what is needed to place it: pair, side, entry, SL, TP. A private chat adds its owner's own
+    lot (sizing.py) as the last line."""
+    dot = "🟢" if s["direction"] == "BUY" else "🔴"
+    return "\n".join([f"{dot} <b>{html.escape(pair)} · {side(s)}</b>",
+                      f"Entry <code>{_f(s['entry'], dec)}</code>",
+                      f"SL <code>{_f(s['sl'], dec)}</code>",
+                      f"TP <code>{_f(s['tp'], dec)}</code>"])
+
+
+async def user_lot(db, u, sig_id: str) -> Optional[str]:
+    """This user's own lot for the trade, from their own USD risk; None when they have no risk set or it cannot be sized."""
+    from .sizing import size_for, valid_risk
+    sig = db.get(Signal, sig_id)
+    if not u or not sig or valid_risk(u.risk_usd) is None:
+        return None
+    z = await size_for(db, u, sig, source="notify")
+    return f"{z['lots']:g}" if z.get("status") == "ok" else None
 
 
 async def personal_line(db, chat: str, sig_id: str) -> Optional[str]:
-    """The lot of THE user this private chat is linked to, from that user's own USD risk (saved as their snapshot).
-    None for a group, a channel or a chat no account owns: a shared chat never sees anyone's risk or lot."""
+    """The lot line of THE user this private chat is linked to. None for a group, a channel or a chat no account owns: a
+    shared chat never sees anyone's risk or lot."""
     if not chat or str(chat).startswith("-"):  # groups and channels have negative ids
         return None
     u = bot.account_of(db, str(chat))
-    sig = db.get(Signal, sig_id)
-    if not u or not sig:
+    if not u:
         return None
-    from .sizing import size_for, valid_risk
-    if valid_risk(u.risk_usd) is None:
-        return "👤 Your lot: set your risk with /risk 50 (or in the app)"
-    z = await size_for(db, u, sig, source="telegram")
-    if z.get("status") != "ok":
-        return "👤 Your lot: unavailable (see the app)"
-    return f"👤 Your lot <code>{z['lots']:g}</code> · risk ${z['riskUsd']:g}"
+    lot = await user_lot(db, u, sig_id)
+    return f"Lot <code>{lot}</code>" if lot else "Lot: set your risk with /risk 50"
 
 
 def _app_link(pair: str) -> str:
@@ -92,8 +86,8 @@ def _app_link(pair: str) -> str:
 
 
 async def broadcast(pair: str, text: str, title: str, body: str, tag: str, signal: Optional[dict] = None) -> dict:
-    """One message to every chat linked to an approved account (+ the admin chat) and a push to every approved account's
-    devices. With `signal`: in each linked PRIVATE chat (not the admin chat) that user's own lot."""
+    """One message to every chat linked to an approved account (+ the admin chat) and a one-line push to every approved
+    account's devices. With `signal`: each linked PRIVATE chat, and each account's push, gets that user's own lot."""
     url = _app_link(pair)
     public = None if ("localhost" in url or "127.0.0.1" in url) else url
     markup = {"inline_keyboard": [[{"text": "📈 Open in the app", "url": public}]]} if public else None
@@ -108,23 +102,26 @@ async def broadcast(pair: str, text: str, title: str, body: str, tag: str, signa
             admin_chat = str(cfg.get("chatId") or "")
             for chat in chats:
                 mine = await personal_line(db, chat, signal["id"]) if signal and chat != admin_chat else None
-                if mine:  # the owner's lot goes just above the last line
-                    body, _, last = text.rpartition("\n")
-                    out = await bot.send_message(token, chat, f"{body}\n{mine}\n{last}", markup)
-                else:
-                    out = await bot.send_message(token, chat, text, markup)
+                out = await bot.send_message(token, chat, text + "\n" + mine if mine else text, markup)
                 tg_sent += bool(out.get("success"))
         rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
                           .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()
-        if rows:
-            pushed = await send_push(db, list(rows), {"title": title, "body": body, "tag": tag, "symbol": pair})
+        by_user: dict[int, list] = {}
+        for r in rows:
+            by_user.setdefault(r.user_id, []).append(r)
+        for uid, subs in by_user.items():
+            t = title
+            if signal:
+                lot = await user_lot(db, db.get(User, uid), signal["id"])
+                if lot:
+                    t = f"{title} · Lot {lot}"
+            pushed += await send_push(db, subs, {"title": t, "body": body, "tag": tag, "symbol": pair})
     return {"telegram": tg_sent, "push": pushed}
 
 
 async def _send(pair: str, s: dict) -> dict:
     dec = BY_SYMBOL[pair]["decimals"]
-    return await broadcast(pair, message(s, pair, dec), f"🎯 {head(s, pair)} · {s.get('grade')} {s.get('score') or s.get('gpa')}%",
-                           levels(s, dec), f"ld-{s['id']}", s)
+    return await broadcast(pair, message(s, pair, dec), line(s, pair, dec), "", f"ld-{s['id']}", s)
 
 
 def recent_radar() -> list[dict]:

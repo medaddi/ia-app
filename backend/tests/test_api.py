@@ -81,8 +81,9 @@ def test_telegram_link_code(client, admin, monkeypatch):
     monkeypatch.setattr(bot.settings, "public_app_url", "http://localhost:3000")  # the invitation link comes in the text
     say = lambda text: asyncio.run(bot.handle_update("T", {"message": {"text": text, "chat": {"id": 4242}, "from": {"first_name": "L"}}})) or sent[-1]  # noqa: E731
 
-    # Not linked: account commands ask to connect; typed text (old codes included) gets no answer
+    # Not linked: account and trade commands ask to connect; typed text (old codes included) gets no answer
     assert "Connect your app account first" in say("/status")
+    assert all("Connect your app account first" in say(c) for c in ("/trades", "/history", "/pairs"))
     n = len(sent)
     asyncio.run(bot.handle_update("T", {"message": {"text": "EXU-ABC123-DEF4", "chat": {"id": 4242}, "from": {"first_name": "L"}}}))
     assert len(sent) == n
@@ -95,7 +96,12 @@ def test_telegram_link_code(client, admin, monkeypatch):
     with SessionLocal() as db:
         assert db.scalar(__import__("sqlalchemy").select(User).where(User.username == "linker")).telegram_chat_id == "4242"
         assert "4242" in {x.chat_id for x in bot.active_subscribers(db)}
-    assert "Account: <b>linker</b>" in say("/status")
+    assert "👤 <b>linker</b>" in say("/status") and "Risk per trade" in say("/account")
+    # the commands mirror the app: the trades running, the history and win rate, the pairs waiting (short answers)
+    assert say("/trades").startswith("📈 <b>Trades running")
+    assert say("/history").startswith("📊 <b>History</b>") and "Win rate" in sent[-1]
+    assert say("/pairs").startswith("⏳ <b>Pairs waiting")
+    assert "/trades · Trades running now" in say("/help")
     assert client.delete("/api/me/telegram-link", headers=me).json()["user"]["telegramLinked"] is False
 
 

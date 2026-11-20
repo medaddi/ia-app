@@ -57,6 +57,13 @@ export const signalLevels = (s: TeamSetup) => {
   const d = decOf(s.symbol);
   return `Entry ${s.entry.toFixed(d)} · SL ${s.sl.toFixed(d)} · TP ${s.tp.toFixed(d)} · 1:${s.rr.toFixed(1)}`;
 };
+/** The trade on ONE line, the same as the phone notification: pair, side, entry, SL, TP (and my lot when known). */
+export const signalLine = (s: TeamSetup, lot?: number | string | null) => {
+  const d = decOf(s.symbol);
+  const limit = (s as TeamSetup & { orderType?: string }).orderType === 'LIMIT_PULLBACK' || s.market === false;
+  const head = `${s.direction === 'BUY' ? '🟢' : '🔴'} ${s.symbol ?? ''} ${s.direction}${limit ? ' LIMIT' : ''}`;
+  return `${head} · Entry ${s.entry.toFixed(d)} · SL ${s.sl.toFixed(d)} · TP ${s.tp.toFixed(d)}${lot != null && lot !== '' ? ` · Lot ${lot}` : ''}`;
+};
 /** A radar alert's two lines, the same as Telegram's first and last: pair, side, the SoS level. */
 export const radarHead = (r: RadarAlert) => `📡 ${r.symbol ?? ''} ${r.direction} watch · ${r.tf} AOI`;
 export const radarLine = (r: RadarAlert) => {

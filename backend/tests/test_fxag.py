@@ -551,12 +551,25 @@ def _clean():
         db.commit()
 
 
-def test_the_trade_message_and_no_radar():
-    t = notify.message(_sig("SMC-GBPUSD-M1-1-B", T0), "GBP/USD", 5).split("\n")
-    assert t[0] == "🎯 <b>FX ALEX G SET &amp; FORGET — GBP/USD BUY (GRADE A · 85%)</b>" and t[2] == "📈 <b>Order:</b> MARKET @ <code>1.25120</code>"
-    assert "R:R</b> <code>1 : 3.10</code>" in t[3] and "SoS M30 · Engulfing H4" in t[4] and "C1 +25%" in t[5]
-    assert "no break-even" in t[6] and "abc123" in t[6] and t[-1].startswith("<i>Signal only")
+def test_the_trade_message_is_short_and_no_radar():
+    s = _sig("SMC-GBPUSD-M1-1-B", T0)
+    t = notify.message(s, "GBP/USD", 5).split(chr(10))
+    assert t == ["🟢 <b>GBP/USD · BUY</b>", "Entry <code>1.25120</code>", f"SL <code>{s['sl']:.5f}</code>", f"TP <code>{s['tp']:.5f}</code>"]
+    one = notify.line(s, "GBP/USD", 5, "0.25")
+    assert chr(10) not in one and one == f"🟢 GBP/USD BUY · Entry 1.25120 · SL {s['sl']:.5f} · TP {s['tp']:.5f} · Lot 0.25"
+    assert notify.line({**s, "direction": "SELL", "orderType": "LIMIT_PULLBACK"}, "GBP/USD", 5).startswith("🔴 GBP/USD SELL LIMIT · Entry")
     assert notify.recent_radar() == [] and not hasattr(notify, "radar_message")
+
+
+def test_telegram_trades_command_lists_the_running_trade_on_one_line():
+    from app.telegram import bot
+    _clean()
+    assert bot._trades_text() == "📈 <b>Trades running</b>\nNone right now."
+    assert notify._claim("GBP/USD", _sig("SMC-GBPUSD-M1-7-B", T0))
+    t = bot._trades_text().split("\n")
+    assert t == ["📈 <b>Trades running (1)</b>", "🟢 <b>GBP/USD BUY</b> · Entry 1.25120 · SL 1.24780 · TP 1.26175"]
+    assert "Trades 1 · running 1" in bot._history_text()
+    _clean()
 
 
 def test_trade_followed_to_its_end_without_break_even(monkeypatch):
@@ -575,7 +588,7 @@ def test_trade_followed_to_its_end_without_break_even(monkeypatch):
     async def send(pair, text, title, body, tag):
         msgs.append(title)
     out = asyncio.run(manager.manage_all(send))
-    assert out[s["id"]] == ["TP"] and msgs[0].startswith("🏆 TP_HIT") and not any("BREAKEVEN" in m for m in msgs)
+    assert out[s["id"]] == ["TP"] and msgs[0] == "GBP/USD BUY · 🏆 TP hit · +3.10R" and not any("BREAKEVEN" in m for m in msgs)
     assert abs(manager.results()["all"]["totalR"] - 3.1) < 0.01
 
 

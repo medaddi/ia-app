@@ -188,10 +188,10 @@ def test_the_shared_telegram_message_carries_no_risk_and_a_private_chat_gets_its
     group_text = sent["-100777"][0]
     # the admin group: market data only (the spec's generic "lots per $10k", never anyone's own risk or lot)
     assert "Your lot" not in group_text and "$250" not in group_text and "$40" not in group_text
-    assert "Your lot <code>0.24</code> · risk $250" in sent["1001"][0] and "$40" not in sent["1001"][0]  # alice: hers only
-    assert "Your lot <code>0.03</code> · risk $40" in sent["1002"][0] and "$250" not in sent["1002"][0]  # bob: his only
-    lines = sent["1001"][0].splitlines()  # her lot just above the last line (the research note)
-    assert lines[-1].startswith("<i>Signal only") and lines[-2].startswith("👤 Your lot") and lines[0].startswith("🎯 <b>FX ALEX G SET")
+    assert "Lot " not in group_text
+    assert sent["1001"][0].splitlines()[-1] == "Lot <code>0.24</code>"  # alice: her lot only, as the last line
+    assert sent["1002"][0].splitlines()[-1] == "Lot <code>0.03</code>"  # bob: his only
+    assert sent["1001"][0].splitlines()[0] == "🟢 <b>XAU/USD · BUY</b>" and len(sent["1001"][0].splitlines()) == 5
     with SessionLocal() as db:
         set_setting(db, "telegram", {})
         for u in db.query(User).filter(User.username.in_(["alice", "bob"])):
@@ -303,8 +303,8 @@ def test_three_pairs_find_a_trade_in_the_same_minute_and_all_three_arrive_with_e
     want = {"XAU/USD": ("2350.40", "2357.10", "2330.30"), "EUR/USD": ("1.10123", "1.09923", "1.10623"), "GBP/JPY": ("190.123", "189.623", "191.623")}
     for pair, text, title, body in sent:
         e, sl, tp = want[pair]
-        assert f"@ <code>{e}</code>" in text and f"<b>SL</b> <code>{sl}</code>" in text and f"<b>TP</b> <code>{tp}</code>" in text  # Telegram
-        assert f"Entry {e} · SL {sl} · TP {tp}" in body and title.startswith(f"🎯 {pair} {found[pair]['direction']} · {found[pair]['etf']}")  # push
+        assert f"Entry <code>{e}</code>" in text and f"SL <code>{sl}</code>" in text and f"TP <code>{tp}</code>" in text  # Telegram
+        assert f"{pair} {found[pair]['direction']}" in title and f"Entry {e} · SL {sl} · TP {tp}" in title and body == ""  # push: one line
     feed = {x["symbol"]: x for x in notify.recent()}  # what the app's toast and bell read
     for pair, s in found.items():
         assert (feed[pair]["entry"], feed[pair]["sl"], feed[pair]["tp"], feed[pair]["etf"], feed[pair]["time"]) == (s["entry"], s["sl"], s["tp"], s["etf"], T)
