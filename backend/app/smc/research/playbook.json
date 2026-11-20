@@ -10,9 +10,14 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 1,
+  "grades": {
+   "C": 1
+  },
+  "blockedBy": {
+   "SCORE_TOO_LOW": 1,
+   "SESSION_BLACKOUT": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -47,8 +52,8 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -85,8 +90,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -123,10 +128,10 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -174,47 +179,94 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 14,
+  "grades": {
+   "A": 2,
+   "C": 1,
+   "A+": 11
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 7,
+   "SCORE_TOO_LOW": 1,
+   "SL_TOO_WIDE": 1,
+   "SESSION_BLACKOUT": 2
+  },
   "all": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 4,
+   "wins": 1,
+   "winRate": 25,
+   "totalR": -0.74,
+   "expectancyR": -0.185,
+   "grossWinR": 2.342,
+   "grossLossR": 3.08
   },
   "in": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.03,
+   "expectancyR": -1.029,
+   "grossWinR": 0,
+   "grossLossR": 1.029
   },
   "out": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 3,
+   "wins": 1,
+   "winRate": 33,
+   "totalR": 0.29,
+   "expectancyR": 0.097,
+   "grossWinR": 2.342,
+   "grossLossR": 2.052
   },
-  "pf": null,
+  "pf": 0.76,
   "exits": {
-   "tp": 0,
+   "tp": 1,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 3
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 11,
+    "all": {
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -0.74,
+     "expectancyR": -0.185,
+     "grossWinR": 2.342,
+     "grossLossR": 3.08
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.03,
+     "expectancyR": -1.029,
+     "grossWinR": 0,
+     "grossLossR": 1.029
+    },
+    "out": {
+     "trades": 3,
+     "wins": 1,
+     "winRate": 33,
+     "totalR": 0.29,
+     "expectancyR": 0.097,
+     "grossWinR": 2.342,
+     "grossLossR": 2.052
+    },
+    "pf": 0.76,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 0,
+     "sl": 3
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -249,48 +301,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -338,17 +352,26 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 13,
+  "grades": {
+   "C": 3,
+   "A+": 8,
+   "A": 2
+  },
+  "blockedBy": {
+   "SCORE_TOO_LOW": 3,
+   "WEEKLY_TRAP": 9,
+   "SESSION_BLACKOUT": 5,
+   "NEWS_BLACKOUT": 1
+  },
   "all": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": 0.96,
+   "expectancyR": 0.482,
+   "grossWinR": 2.008,
+   "grossLossR": 1.045
   },
   "in": {
    "trades": 0,
@@ -360,25 +383,25 @@
    "grossLossR": 0.0
   },
   "out": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": 0.96,
+   "expectancyR": 0.482,
+   "grossWinR": 2.008,
+   "grossLossR": 1.045
   },
-  "pf": null,
+  "pf": 1.92,
   "exits": {
-   "tp": 0,
+   "tp": 1,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -413,18 +436,18 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 8,
     "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 0.96,
+     "expectancyR": 0.482,
+     "grossWinR": 2.008,
+     "grossLossR": 1.045
     },
     "in": {
      "trades": 0,
@@ -436,25 +459,25 @@
      "grossLossR": 0.0
     },
     "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 0.96,
+     "expectancyR": 0.482,
+     "grossWinR": 2.008,
+     "grossLossR": 1.045
     },
-    "pf": null,
+    "pf": 1.92,
     "exits": {
-     "tp": 0,
+     "tp": 1,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 3,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -502,47 +525,52 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 1,
+  "triggers": 9,
   "grades": {
-   "B": 1
+   "A": 3,
+   "A+": 6
   },
-  "blockedBy": {},
+  "blockedBy": {
+   "SL_TOO_WIDE": 1,
+   "WEEKLY_TRAP": 1,
+   "SESSION_BLACKOUT": 1
+  },
   "all": {
-   "trades": 1,
-   "wins": 0,
-   "winRate": 0,
-   "totalR": -1.01,
-   "expectancyR": -1.011,
-   "grossWinR": 0,
-   "grossLossR": 1.011
+   "trades": 7,
+   "wins": 2,
+   "winRate": 29,
+   "totalR": 1.67,
+   "expectancyR": 0.238,
+   "grossWinR": 6.743,
+   "grossLossR": 5.077
   },
   "in": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 5,
+   "wins": 2,
+   "winRate": 40,
+   "totalR": 3.69,
+   "expectancyR": 0.739,
+   "grossWinR": 6.743,
+   "grossLossR": 3.05
   },
   "out": {
-   "trades": 1,
+   "trades": 2,
    "wins": 0,
    "winRate": 0,
-   "totalR": -1.01,
-   "expectancyR": -1.011,
+   "totalR": -2.03,
+   "expectancyR": -1.013,
    "grossWinR": 0,
-   "grossLossR": 1.011
+   "grossLossR": 2.027
   },
-  "pf": 0.0,
+  "pf": 1.33,
   "exits": {
-   "tp": 0,
+   "tp": 2,
    "be_after_1_5R": 0,
-   "sl": 1
+   "sl": 5
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 1,
     "all": {
@@ -550,9 +578,9 @@
      "wins": 0,
      "winRate": 0,
      "totalR": -1.01,
-     "expectancyR": -1.011,
+     "expectancyR": -1.014,
      "grossWinR": 0,
-     "grossLossR": 1.011
+     "grossLossR": 1.014
     },
     "in": {
      "trades": 0,
@@ -568,9 +596,9 @@
      "wins": 0,
      "winRate": 0,
      "totalR": -1.01,
-     "expectancyR": -1.011,
+     "expectancyR": -1.014,
      "grossWinR": 0,
-     "grossLossR": 1.011
+     "grossLossR": 1.014
     },
     "pf": 0.0,
     "exits": {
@@ -579,27 +607,27 @@
      "sl": 1
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 6,
     "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -0.78,
+     "expectancyR": -0.196,
+     "grossWinR": 2.268,
+     "grossLossR": 3.05
     },
     "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 4,
+     "wins": 1,
+     "winRate": 25,
+     "totalR": -0.78,
+     "expectancyR": -0.196,
+     "grossWinR": 2.268,
+     "grossLossR": 3.05
     },
     "out": {
      "trades": 0,
@@ -610,49 +638,49 @@
      "grossWinR": 0.0,
      "grossLossR": 0.0
     },
-    "pf": null,
+    "pf": 0.74,
     "exits": {
-     "tp": 0,
+     "tp": 1,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 3
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 2,
+     "wins": 1,
+     "winRate": 50,
+     "totalR": 3.46,
+     "expectancyR": 1.731,
+     "grossWinR": 4.476,
+     "grossLossR": 1.013
     },
     "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 4.48,
+     "expectancyR": 4.476,
+     "grossWinR": 4.476,
+     "grossLossR": 0
     },
     "out": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.01,
+     "expectancyR": -1.013,
+     "grossWinR": 0,
+     "grossLossR": 1.013
     },
-    "pf": null,
+    "pf": 4.42,
     "exits": {
-     "tp": 0,
+     "tp": 1,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    }
   }
@@ -668,9 +696,13 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 2,
+  "grades": {
+   "A": 2
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 2
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -705,8 +737,8 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -743,8 +775,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -781,10 +813,10 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -832,9 +864,14 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 1,
+  "grades": {
+   "A+": 1
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 1,
+   "SESSION_BLACKOUT": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -869,8 +906,46 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 1,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -907,46 +982,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -996,17 +1033,23 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 8,
+  "grades": {
+   "A+": 6,
+   "A": 2
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 5,
+   "DATA_OR_SPREAD_UNSAFE": 1
+  },
   "all": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.02,
+   "expectancyR": -1.023,
+   "grossWinR": 0,
+   "grossLossR": 1.023
   },
   "in": {
    "trades": 0,
@@ -1018,25 +1061,63 @@
    "grossLossR": 0.0
   },
   "out": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.02,
+   "expectancyR": -1.023,
+   "grossWinR": 0,
+   "grossLossR": 1.023
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 3,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.02,
+     "expectancyR": -1.023,
+     "grossWinR": 0,
+     "grossLossR": 1.023
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.02,
+     "expectancyR": -1.023,
+     "grossWinR": 0,
+     "grossLossR": 1.023
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 4,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -1071,48 +1152,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -1160,47 +1203,91 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 8,
+  "grades": {
+   "A": 2,
+   "A+": 6
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 5,
+   "PAIR_LOCKED": 1
+  },
   "all": {
-   "trades": 0,
+   "trades": 2,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -2.09,
+   "expectancyR": -1.047,
+   "grossWinR": 0,
+   "grossLossR": 2.093
   },
   "in": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.07,
+   "expectancyR": -1.065,
+   "grossWinR": 0,
+   "grossLossR": 1.065
   },
   "out": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.03,
+   "expectancyR": -1.028,
+   "grossWinR": 0,
+   "grossLossR": 1.028
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 2
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 5,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.03,
+     "expectancyR": -1.028,
+     "grossWinR": 0,
+     "grossLossR": 1.028
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.03,
+     "expectancyR": -1.028,
+     "grossWinR": 0,
+     "grossLossR": 1.028
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -1235,27 +1322,27 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.07,
+     "expectancyR": -1.065,
+     "grossWinR": 0,
+     "grossLossR": 1.065
     },
     "in": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.07,
+     "expectancyR": -1.065,
+     "grossWinR": 0,
+     "grossLossR": 1.065
     },
     "out": {
      "trades": 0,
@@ -1266,49 +1353,11 @@
      "grossWinR": 0.0,
      "grossLossR": 0.0
     },
-    "pf": null,
+    "pf": 0.0,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    }
   }
@@ -1324,9 +1373,15 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 2,
+  "grades": {
+   "A": 1,
+   "A+": 1
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 2,
+   "SESSION_BLACKOUT": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -1361,8 +1416,8 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -1399,10 +1454,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -1437,10 +1492,10 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -1488,9 +1543,16 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 2,
+  "grades": {
+   "C": 1,
+   "A+": 1
+  },
+  "blockedBy": {
+   "SCORE_TOO_LOW": 1,
+   "SL_TOO_WIDE": 1,
+   "WEEKLY_TRAP": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -1525,8 +1587,46 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 1,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -1563,48 +1663,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -1652,17 +1714,25 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 6,
+  "grades": {
+   "C": 1,
+   "A": 3,
+   "A+": 2
+  },
+  "blockedBy": {
+   "SCORE_TOO_LOW": 1,
+   "WEEKLY_TRAP": 3,
+   "PAIR_LOCKED": 1
+  },
   "all": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.04,
+   "expectancyR": -1.04,
+   "grossWinR": 0,
+   "grossLossR": 1.04
   },
   "in": {
    "trades": 0,
@@ -1674,23 +1744,23 @@
    "grossLossR": 0.0
   },
   "out": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.04,
+   "expectancyR": -1.04,
+   "grossWinR": 0,
+   "grossLossR": 1.04
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -1727,18 +1797,18 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 4,
     "all": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.04,
+     "grossWinR": 0,
+     "grossLossR": 1.04
     },
     "in": {
      "trades": 0,
@@ -1750,25 +1820,25 @@
      "grossLossR": 0.0
     },
     "out": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.04,
+     "grossWinR": 0,
+     "grossLossR": 1.04
     },
-    "pf": null,
+    "pf": 0.0,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -1816,17 +1886,23 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 4,
+  "grades": {
+   "A": 1,
+   "A+": 3
+  },
+  "blockedBy": {
+   "SESSION_BLACKOUT": 2,
+   "WEEKLY_TRAP": 1
+  },
   "all": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.04,
+   "expectancyR": -1.039,
+   "grossWinR": 0,
+   "grossLossR": 1.039
   },
   "in": {
    "trades": 0,
@@ -1838,25 +1914,25 @@
    "grossLossR": 0.0
   },
   "out": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.04,
+   "expectancyR": -1.039,
+   "grossWinR": 0,
+   "grossLossR": 1.039
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -1891,18 +1967,18 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 3,
     "all": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.039,
+     "grossWinR": 0,
+     "grossLossR": 1.039
     },
     "in": {
      "trades": 0,
@@ -1914,23 +1990,23 @@
      "grossLossR": 0.0
     },
     "out": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.039,
+     "grossWinR": 0,
+     "grossLossR": 1.039
     },
-    "pf": null,
+    "pf": 0.0,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -1980,45 +2056,50 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 5,
+  "grades": {
+   "A+": 2,
+   "A": 3
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 3
+  },
   "all": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 2,
+   "wins": 1,
+   "winRate": 50,
+   "totalR": 3.24,
+   "expectancyR": 1.622,
+   "grossWinR": 4.294,
+   "grossLossR": 1.05
   },
   "in": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.05,
+   "expectancyR": -1.05,
+   "grossWinR": 0,
+   "grossLossR": 1.05
   },
   "out": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 4.29,
+   "expectancyR": 4.294,
+   "grossWinR": 4.294,
+   "grossLossR": 0
   },
-  "pf": null,
+  "pf": 4.09,
   "exits": {
-   "tp": 0,
+   "tp": 1,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -2055,27 +2136,27 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.05,
+     "expectancyR": -1.05,
+     "grossWinR": 0,
+     "grossLossR": 1.05
     },
     "in": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.05,
+     "expectancyR": -1.05,
+     "grossWinR": 0,
+     "grossLossR": 1.05
     },
     "out": {
      "trades": 0,
@@ -2086,25 +2167,25 @@
      "grossWinR": 0.0,
      "grossLossR": 0.0
     },
-    "pf": null,
+    "pf": 0.0,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 4,
     "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 4.29,
+     "expectancyR": 4.294,
+     "grossWinR": 4.294,
+     "grossLossR": 0
     },
     "in": {
      "trades": 0,
@@ -2116,17 +2197,17 @@
      "grossLossR": 0.0
     },
     "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 4.29,
+     "expectancyR": 4.294,
+     "grossWinR": 4.294,
+     "grossLossR": 0
     },
     "pf": null,
     "exits": {
-     "tp": 0,
+     "tp": 1,
      "be_after_1_5R": 0,
      "sl": 0
     }
@@ -2144,30 +2225,33 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 3,
+  "triggers": 9,
   "grades": {
-   "B": 3
+   "A+": 8,
+   "A": 1
   },
   "blockedBy": {
-   "ERR_OUTSIDE_SESSION": 2
+   "WEEKLY_TRAP": 7,
+   "SESSION_BLACKOUT": 1,
+   "SL_TOO_WIDE": 1
   },
   "all": {
-   "trades": 0,
+   "trades": 2,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -2.08,
+   "expectancyR": -1.038,
+   "grossWinR": 0,
+   "grossLossR": 2.075
   },
   "in": {
-   "trades": 0,
+   "trades": 2,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -2.08,
+   "expectancyR": -1.038,
+   "grossWinR": 0,
+   "grossLossR": 2.075
   },
   "out": {
    "trades": 0,
@@ -2178,53 +2262,15 @@
    "grossWinR": 0.0,
    "grossLossR": 0.0
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 2
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 1,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 2,
     "all": {
@@ -2261,10 +2307,48 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 6,
+    "all": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.08,
+     "expectancyR": -1.038,
+     "grossWinR": 0,
+     "grossLossR": 2.075
+    },
+    "in": {
+     "trades": 2,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -2.08,
+     "expectancyR": -1.038,
+     "grossWinR": 0,
+     "grossLossR": 2.075
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 2
+    }
+   },
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -2312,17 +2396,25 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 5,
+  "grades": {
+   "A+": 2,
+   "C": 2,
+   "A": 1
+  },
+  "blockedBy": {
+   "SESSION_BLACKOUT": 3,
+   "SCORE_TOO_LOW": 2,
+   "WEEKLY_TRAP": 2
+  },
   "all": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 2.05,
+   "expectancyR": 2.045,
+   "grossWinR": 2.045,
+   "grossLossR": 0
   },
   "in": {
    "trades": 0,
@@ -2334,25 +2426,25 @@
    "grossLossR": 0.0
   },
   "out": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 2.05,
+   "expectancyR": 2.045,
+   "grossWinR": 2.045,
+   "grossLossR": 0
   },
   "pf": null,
   "exits": {
-   "tp": 0,
+   "tp": 1,
    "be_after_1_5R": 0,
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -2387,10 +2479,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 3,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -2425,18 +2517,18 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 2.05,
+     "expectancyR": 2.045,
+     "grossWinR": 2.045,
+     "grossLossR": 0
     },
     "in": {
      "trades": 0,
@@ -2448,17 +2540,17 @@
      "grossLossR": 0.0
     },
     "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 2.05,
+     "expectancyR": 2.045,
+     "grossWinR": 2.045,
+     "grossLossR": 0
     },
     "pf": null,
     "exits": {
-     "tp": 0,
+     "tp": 1,
      "be_after_1_5R": 0,
      "sl": 0
     }
@@ -2476,26 +2568,33 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 6,
+  "grades": {
+   "A+": 5,
+   "C": 1
+  },
+  "blockedBy": {
+   "SESSION_BLACKOUT": 2,
+   "SCORE_TOO_LOW": 1,
+   "WEEKLY_TRAP": 3
+  },
   "all": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.02,
+   "expectancyR": -1.018,
+   "grossWinR": 0,
+   "grossLossR": 1.018
   },
   "in": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.02,
+   "expectancyR": -1.018,
+   "grossWinR": 0,
+   "grossLossR": 1.018
   },
   "out": {
    "trades": 0,
@@ -2506,15 +2605,53 @@
    "grossWinR": 0.0,
    "grossLossR": 0.0
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 4,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.02,
+     "expectancyR": -1.018,
+     "grossWinR": 0,
+     "grossLossR": 1.018
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.02,
+     "expectancyR": -1.018,
+     "grossWinR": 0,
+     "grossLossR": 1.018
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -2551,48 +2688,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -2640,17 +2739,23 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 3,
+  "grades": {
+   "C": 2,
+   "A": 1
+  },
+  "blockedBy": {
+   "SCORE_TOO_LOW": 2,
+   "WEEKLY_TRAP": 1
+  },
   "all": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.06,
+   "expectancyR": -1.059,
+   "grossWinR": 0,
+   "grossLossR": 1.059
   },
   "in": {
    "trades": 0,
@@ -2662,23 +2767,23 @@
    "grossLossR": 0.0
   },
   "out": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.06,
+   "expectancyR": -1.059,
+   "grossWinR": 0,
+   "grossLossR": 1.059
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -2715,8 +2820,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -2753,18 +2858,18 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 3,
     "all": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.06,
+     "expectancyR": -1.059,
+     "grossWinR": 0,
+     "grossLossR": 1.059
     },
     "in": {
      "trades": 0,
@@ -2776,19 +2881,19 @@
      "grossLossR": 0.0
     },
     "out": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.06,
+     "expectancyR": -1.059,
+     "grossWinR": 0,
+     "grossLossR": 1.059
     },
-    "pf": null,
+    "pf": 0.0,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    }
   }
@@ -2804,9 +2909,13 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 1,
+  "grades": {
+   "A": 1
+  },
+  "blockedBy": {
+   "SESSION_BLACKOUT": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -2841,8 +2950,8 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -2879,8 +2988,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -2917,10 +3026,10 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -2968,9 +3077,16 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 5,
+  "grades": {
+   "A": 2,
+   "A+": 3
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 5,
+   "SESSION_BLACKOUT": 2,
+   "SL_TOO_WIDE": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -3005,8 +3121,8 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -3043,10 +3159,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 4,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3081,10 +3197,10 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3132,9 +3248,16 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 9,
+  "grades": {
+   "A+": 7,
+   "A": 2
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 8,
+   "SESSION_BLACKOUT": 2,
+   "SL_TOO_WIDE": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -3169,10 +3292,10 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 4,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3207,10 +3330,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3245,10 +3368,10 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 4,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3296,48 +3419,73 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 4,
+  "grades": {
+   "A+": 2,
+   "A": 2
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 1,
+   "SESSION_BLACKOUT": 1,
+   "SL_TOO_WIDE": 1
+  },
   "all": {
-   "trades": 0,
+   "trades": 2,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -2.08,
+   "expectancyR": -1.041,
+   "grossWinR": 0,
+   "grossLossR": 2.082
   },
   "in": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.04,
+   "expectancyR": -1.039,
+   "grossWinR": 0,
+   "grossLossR": 1.039
   },
   "out": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.04,
+   "expectancyR": -1.044,
+   "grossWinR": 0,
+   "grossLossR": 1.044
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 2
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.039,
+     "grossWinR": 0,
+     "grossLossR": 1.039
+    },
+    "in": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.039,
+     "grossWinR": 0,
+     "grossLossR": 1.039
+    },
+    "out": {
      "trades": 0,
      "wins": 0,
      "winRate": null,
@@ -3345,6 +3493,26 @@
      "expectancyR": null,
      "grossWinR": 0.0,
      "grossLossR": 0.0
+    },
+    "pf": 0.0,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 1
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 1,
+    "all": {
+     "trades": 1,
+     "wins": 0,
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.044,
+     "grossWinR": 0,
+     "grossLossR": 1.044
     },
     "in": {
      "trades": 0,
@@ -3356,63 +3524,25 @@
      "grossLossR": 0.0
     },
     "out": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.044,
+     "grossWinR": 0,
+     "grossLossR": 1.044
     },
-    "pf": null,
+    "pf": 0.0,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3460,26 +3590,32 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 5,
+  "grades": {
+   "A+": 4,
+   "A": 1
+  },
+  "blockedBy": {
+   "SESSION_BLACKOUT": 2,
+   "WEEKLY_TRAP": 2
+  },
   "all": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 3.06,
+   "expectancyR": 3.057,
+   "grossWinR": 3.057,
+   "grossLossR": 0
   },
   "in": {
-   "trades": 0,
-   "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "trades": 1,
+   "wins": 1,
+   "winRate": 100,
+   "totalR": 3.06,
+   "expectancyR": 3.057,
+   "grossWinR": 3.057,
+   "grossLossR": 0
   },
   "out": {
    "trades": 0,
@@ -3492,13 +3628,51 @@
   },
   "pf": null,
   "exits": {
-   "tp": 0,
+   "tp": 1,
    "be_after_1_5R": 0,
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 4,
+    "all": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 3.06,
+     "expectancyR": 3.057,
+     "grossWinR": 3.057,
+     "grossLossR": 0
+    },
+    "in": {
+     "trades": 1,
+     "wins": 1,
+     "winRate": 100,
+     "totalR": 3.06,
+     "expectancyR": 3.057,
+     "grossWinR": 3.057,
+     "grossLossR": 0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 1,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -3535,48 +3709,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 1,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3624,17 +3760,26 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 6,
+  "grades": {
+   "A": 3,
+   "A+": 2,
+   "C": 1
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 2,
+   "SESSION_BLACKOUT": 2,
+   "PAIR_LOCKED": 1,
+   "SCORE_TOO_LOW": 1
+  },
   "all": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.03,
+   "expectancyR": -1.028,
+   "grossWinR": 0,
+   "grossLossR": 1.028
   },
   "in": {
    "trades": 0,
@@ -3646,23 +3791,23 @@
    "grossLossR": 0.0
   },
   "out": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.03,
+   "expectancyR": -1.028,
+   "grossWinR": 0,
+   "grossLossR": 1.028
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -3699,8 +3844,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -3737,18 +3882,18 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 6,
     "all": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.03,
+     "expectancyR": -1.028,
+     "grossWinR": 0,
+     "grossLossR": 1.028
     },
     "in": {
      "trades": 0,
@@ -3760,19 +3905,19 @@
      "grossLossR": 0.0
     },
     "out": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.03,
+     "expectancyR": -1.028,
+     "grossWinR": 0,
+     "grossLossR": 1.028
     },
-    "pf": null,
+    "pf": 0.0,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    }
   }
@@ -3788,9 +3933,17 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 10,
+  "grades": {
+   "A": 3,
+   "A+": 6,
+   "C": 1
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 7,
+   "SL_TOO_WIDE": 2,
+   "SCORE_TOO_LOW": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -3825,10 +3978,10 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 4,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3863,10 +4016,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 2,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3901,10 +4054,10 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 4,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -3952,9 +4105,17 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 13,
+  "grades": {
+   "C": 1,
+   "A": 6,
+   "A+": 6
+  },
+  "blockedBy": {
+   "SCORE_TOO_LOW": 1,
+   "WEEKLY_TRAP": 13,
+   "SESSION_BLACKOUT": 1
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -3989,8 +4150,8 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4027,8 +4188,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4065,10 +4226,10 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 13,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -4153,8 +4314,8 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4191,8 +4352,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4229,8 +4390,8 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4280,30 +4441,31 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 1,
+  "triggers": 5,
   "grades": {
-   "B": 1
+   "A+": 5
   },
   "blockedBy": {
-   "ERR_OUTSIDE_SESSION": 1
+   "WEEKLY_TRAP": 4,
+   "SESSION_BLACKOUT": 1
   },
   "all": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.04,
+   "expectancyR": -1.04,
+   "grossWinR": 0,
+   "grossLossR": 1.04
   },
   "in": {
-   "trades": 0,
+   "trades": 1,
    "wins": 0,
-   "winRate": null,
-   "totalR": 0.0,
-   "expectancyR": null,
-   "grossWinR": 0.0,
-   "grossLossR": 0.0
+   "winRate": 0,
+   "totalR": -1.04,
+   "expectancyR": -1.04,
+   "grossWinR": 0,
+   "grossLossR": 1.04
   },
   "out": {
    "trades": 0,
@@ -4314,17 +4476,17 @@
    "grossWinR": 0.0,
    "grossLossR": 0.0
   },
-  "pf": null,
+  "pf": 0.0,
   "exits": {
    "tp": 0,
    "be_after_1_5R": 0,
-   "sl": 0
+   "sl": 1
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 1,
+    "setups": 2,
     "all": {
      "trades": 0,
      "wins": 0,
@@ -4359,27 +4521,27 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 3,
     "all": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.04,
+     "grossWinR": 0,
+     "grossLossR": 1.04
     },
     "in": {
-     "trades": 0,
+     "trades": 1,
      "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
+     "winRate": 0,
+     "totalR": -1.04,
+     "expectancyR": -1.04,
+     "grossWinR": 0,
+     "grossLossR": 1.04
     },
     "out": {
      "trades": 0,
@@ -4390,15 +4552,15 @@
      "grossWinR": 0.0,
      "grossLossR": 0.0
     },
-    "pf": null,
+    "pf": 0.0,
     "exits": {
      "tp": 0,
      "be_after_1_5R": 0,
-     "sl": 0
+     "sl": 1
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4485,8 +4647,8 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4523,8 +4685,8 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4561,8 +4723,8 @@
      "sl": 0
     }
    },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4612,9 +4774,15 @@
   "entryTfs": [
    "H1"
   ],
-  "triggers": 0,
-  "grades": {},
-  "blockedBy": {},
+  "triggers": 4,
+  "grades": {
+   "A": 3,
+   "A+": 1
+  },
+  "blockedBy": {
+   "WEEKLY_TRAP": 2,
+   "SESSION_BLACKOUT": 2
+  },
   "all": {
    "trades": 0,
    "wins": 0,
@@ -4649,8 +4817,46 @@
    "sl": 0
   },
   "strategies": {
-   "SYNC": {
-    "name": "Full Sync Swing (W + D + 4H)",
+   "M1": {
+    "name": "Full Sync (W + D + 4H)",
+    "claimed": "the spec gives no benchmark; see the measured test",
+    "setups": 1,
+    "all": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "in": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "out": {
+     "trades": 0,
+     "wins": 0,
+     "winRate": null,
+     "totalR": 0.0,
+     "expectancyR": null,
+     "grossWinR": 0.0,
+     "grossLossR": 0.0
+    },
+    "pf": null,
+    "exits": {
+     "tp": 0,
+     "be_after_1_5R": 0,
+     "sl": 0
+    }
+   },
+   "M2": {
+    "name": "HTF Retracement (W + D, 4H against)",
     "claimed": "the spec gives no benchmark; see the measured test",
     "setups": 0,
     "all": {
@@ -4687,48 +4893,10 @@
      "sl": 0
     }
    },
-   "RETRACE": {
-    "name": "HTF Retracement (W + D, 4H pulling back)",
+   "M3": {
+    "name": "Daily Swing / Counter-Weekly (D + 4H)",
     "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
-    "all": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "in": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "out": {
-     "trades": 0,
-     "wins": 0,
-     "winRate": null,
-     "totalR": 0.0,
-     "expectancyR": null,
-     "grossWinR": 0.0,
-     "grossLossR": 0.0
-    },
-    "pf": null,
-    "exits": {
-     "tp": 0,
-     "be_after_1_5R": 0,
-     "sl": 0
-    }
-   },
-   "COUNTER": {
-    "name": "Daily Counter-Trend Swing (D + 4H vs W)",
-    "claimed": "the spec gives no benchmark; see the measured test",
-    "setups": 0,
+    "setups": 3,
     "all": {
      "trades": 0,
      "wins": 0,

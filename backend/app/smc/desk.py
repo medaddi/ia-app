@@ -72,7 +72,7 @@ def _setup_json(pair: str, cfg: dict, s: dict) -> dict:
             "state": s["result"]["state"], "pass": s["pass"], "checklist": [{"q": a, "ok": ok, "detail": det} for a, ok, det in s["checklist"]],
             "steps": [{"step": a, "ok": ok, "detail": det} for a, ok, det in s["steps"]], "lots": lots, "riskPct": rk,
             "grade": s.get("grade"), "gpa": s.get("gpa"), "consensus": s.get("consensus"), "setupType": s.get("setupType"), "etf": s.get("etf"),
-            "family": "counter-trend" if s.get("setupType") == "COUNTER" else "trend-following", "invalidation": invalidation,
+            "family": "counter-trend" if s.get("setupType") == "M3" else "trend-following", "invalidation": invalidation,
             "score": s.get("score"), "sos": s.get("sos"), "struct": s.get("struct"), "spreadPct": s.get("spreadPct"), "lots10k": s.get("lots10k"),
             "newsChecked": s.get("newsChecked"), "sosTf": s.get("sosTf"), "orderType": s.get("orderType"), "breakdown": s.get("breakdown"),
             "alignmentStrength": s.get("alignmentStrength"), "sosInfo": s.get("sosInfo"), "proposal": s.get("proposal"), "audit": s.get("audit"),
@@ -98,7 +98,7 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
     pr = (PLAY_RESULTS.get(key) or {}).get("strategies", {})
     r = rep["read"]
     rows = []
-    for sid in playbook.STRATEGIES[key]:  # SYNC, RETRACE, COUNTER
+    for sid in playbook.STRATEGIES[key]:  # M1, M2, M3
         row = {"id": sid, "name": playbook.NAMES[key][sid], "status": "IDLE", "setup": None, "watch": None,
                "claimed": playbook.CLAIMED[(key, sid)], "measured": (pr.get(sid) or {}).get("all")}
         mine_good = [s for s in good if s["sid"] == sid]
@@ -107,7 +107,7 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
             row.update(status="SIGNAL", setup=_setup_json(pair, cfg, mine_good[-1]))
         elif mine_live and now - mine_live[-1]["time"] <= 6 * 3600:
             row.update(status="BLOCKED", setup=_setup_json(pair, cfg, mine_live[-1]))
-        elif r["aligned"] and fx.SID.get(r["align"]["kind"]) == sid and r["tier"] in ("TIER_1_SOS_CONFIRMED", "AWAIT_PULLBACK_LIMIT"):
+        elif r["aligned"] and r["align"]["scenario"] == sid and r["tier"] in ("TIER_1_SOS_CONFIRMED", "AWAIT_PULLBACK_LIMIT"):
             row.update(status="WATCHING", watch={"time": r["sos"]["time"], "direction": "BUY" if r["dir"] > 0 else "SELL", "steps": [
                 {"step": r["align"]["label"], "ok": True, "detail": ""},
                 {"step": f"At {r['zone']['kind']} AOI ({r['zone']['touches']} touches)", "ok": True, "detail": ""},

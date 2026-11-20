@@ -498,3 +498,17 @@ first: radar without notifications, only the trade sent, short alerts, each user
   visited, 1,413 at a broken AOI, 618 under the score, 278 without a SoS, 12 under R:R 2.0, 2 approved. The spec's
   frequency benchmark (1-2 trades a week) is NOT reached on this data.
 
+## v5.0 · 2026-11-20 · FX Alex G Set & Forget v2 (the blueprint), Phases 1-4
+- The owner's "fx_alex_g_set_forget_v2_blueprint_complet_..." replaces the first 8-agent specification's rules inside the
+  same 2-agent layout (fxag/strategy, fxag/risk). Phase 1: config (5 volatility groups, lambda_p, the "500" step, 4 shards S0-S3),
+  types. Phase 2 (Agent 1): True Elbows with alpha x ATR14, ER12 + overlap chop, ATH/ATL filter, the M1-M4 alignment matrix and
+  Pos_leg, ATR-adaptive AOIs (3 body touches, or 2 with a flip / 2 wicks), W+D fusion, the 500 level, suspension and flip,
+  C1..C8 confluences over the AOI window, grades A+ >= 85 / A >= 75 / B+ >= 68 (full sync, R:R >= 2.5), the three entry models E1 / E2 / E3,
+  the final gates (veto codes), NY 17:00 sessions. Phase 3 (Agent 2): SL on the anchor pivot with the dynamic buffer, major D / W target,
+  WEEKLY_TRAP 1.85, R:R >= 2.0, the grade x season multiplier (December 0.5) in each user's lot, the S15 currency cap. PairActor
+  `evaluate()` is the one function behind both the replay and the live read.
+- Phases 5-6 (incremental cache, 2-speed cron, chart builder, chart toggles) are NOT started: the blueprint forbids it until its backtest gates are green.
+- Tests: 153 backend tests pass (113 in test_fxag.py: the 16 scenarios, no look-ahead, the 29 pair configs, resilience).
+- Measured (smc/FXAG_V2_REPORT.md): 59 trades in the last ~70 days (was 0), win 36 %, expectancy +0.19R, PF 1.28; the blueprint's
+  targets (win >= 55 %, PF >= 2.0, E >= +0.55R) are NOT met. Not deployed.
+

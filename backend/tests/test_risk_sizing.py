@@ -376,7 +376,7 @@ def test_an_open_trade_on_one_pair_never_stops_another_pairs_trade(monkeypatch):
     read.clear()
     res = asyncio.run(notify.tick())
     assert sent == ["XAU/USD", "EUR/USD"]  # EUR/USD sent; the second gold trade is not (gold's first one still runs)
-    assert "BLOCKED" in res["XAU/USD"] and "duplicate" in res["XAU/USD"]
+    assert "BLOCKED" in res["XAU/USD"] and "PAIR_LOCKED" in res["XAU/USD"]
     assert len(set(read)) == len(desk.PAIRS)  # every pair was analysed again at this pass
 
 

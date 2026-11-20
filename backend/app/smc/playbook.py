@@ -16,8 +16,8 @@ M5S, M15S, H1S, H4S, DAY = 300, 900, 3600, 14400, 86400
 NEWS_MIN = 30  # the spec: no entry and no pending limit within 30 min of a high-impact release of the pair's currencies
 
 ALEXG_PAIRS = ["XAUUSD", *(p.replace("/", "") for p in _FX)]  # gold + the 28 forex pairs
-SETUP_NAMES = {"SYNC": "Full Sync Swing (W + D + 4H)", "RETRACE": "HTF Retracement (W + D, 4H pulling back)",
-               "COUNTER": "Daily Counter-Trend Swing (D + 4H vs W)"}
+SETUP_NAMES = {"M1": "Full Sync (W + D + 4H)", "M2": "HTF Retracement (W + D, 4H against)",
+               "M3": "Daily Swing / Counter-Weekly (D + 4H)"}
 STRATEGIES = {k: list(SETUP_NAMES) for k in ALEXG_PAIRS}
 STRATEGY_NAME = "FX Alex G Set & Forget"
 NAMES = {k: dict(SETUP_NAMES) for k in ALEXG_PAIRS}

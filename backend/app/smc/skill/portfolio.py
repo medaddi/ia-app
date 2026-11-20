@@ -3,6 +3,8 @@ The check before a found trade is sent. Since 2026-11-13 the owner wants every p
 cross-pair limits (5 a day, 3 % total risk, 2 bets the same way per currency, the correlation caps) are gone. One rule
 stays: ONE live trade per pair, so a pair never sends a second trade while its first one can still run.
 
+(The 2026-11-20 blueprint v2 adds S15: no 4th trade the same net way on one currency.)
+
 A setup is "live" from its signal until its `liveUntil` (the last moment the trade can still run), or for an older
 setup its limit's end plus 4 hours. A setup the trade manager closed (or that expired) no longer counts. Each user sizes
 their own lot from their own USD risk (sizing.py), so the risk across pairs is the user's own choice.
@@ -11,6 +13,7 @@ their own lot from their own USD risk (sizing.py), so the risk across pairs is t
 from typing import Iterable, Optional
 
 HOLD_SEC = 4 * 3600
+CURRENCY_CAP = 3  # the blueprint, step 4 (S15)
 ENDED = {"CLOSED", "EXPIRED", "MISSED"}
 
 
@@ -31,5 +34,13 @@ def check(symbol: str, setup: dict, sent: list[dict], now: int, limits: Optional
     PASS unless this pair already has a live trade."""
     open_ = live(sent, now)
     mine = [s for s in open_ if s["symbol"] == symbol]
-    reasons = [f"duplicate: a {symbol} trade is still live (one trade per pair at a time)"] if mine else []
+    reasons = [f"PAIR_LOCKED: a {symbol} trade is still live (one trade per pair at a time)"] if mine else []
+    # the blueprint's S15: 3 trades already open the same net way on one currency (3 x long USD) -> CURRENCY_EXPOSURE_CAP
+    net: dict[str, int] = {}
+    for s in open_:
+        for c, v in exposure(s["symbol"], s["direction"]).items():
+            net[c] = net.get(c, 0) + v
+    for c, v in exposure(symbol, setup["direction"]).items():
+        if net.get(c, 0) * v >= CURRENCY_CAP:
+            reasons.append(f"CURRENCY_EXPOSURE_CAP: {abs(net[c])} open trades already the same way on {c}")
     return {"verdict": "BLOCK" if reasons else "PASS", "reasons": reasons, "live": len(open_), "riskPct": 1.0, "notes": []}

@@ -132,10 +132,13 @@ async def size_for(db: Session, user: User, sig: Signal, source: str = "app") ->
     cfg = BY_SYMBOL.get(sig.symbol)
     if not cfg:
         return {"status": "unavailable", "reason": f"{sig.symbol} is not a pair of the app", "signalId": sig.id}
-    risk = valid_risk(user.risk_usd)
+    base = valid_risk(user.risk_usd)
+    mult = float((sig.payload or {}).get("riskMult") or 1.0)  # the blueprint 3.3: R_eff = R_u x m_grade x m_season (B+ 0.75, December 0.5)
+    risk = round(base * mult, 2) if base is not None and mult > 0 else base
     conv = await conversion(sig.symbol) if risk is not None else {}
     out = compute(cfg, sig.entry, sig.sl, risk, conv)
     out["signalId"] = sig.id
+    out["riskMult"] = mult
     if out["status"] != "ok":
         return {**out, "saved": False}
     row = UserSignalSize(user_id=user.id, signal_id=sig.id, source=source, risk_usd=risk, lots=out["lots"], est_loss_usd=out["estLossUsd"],

@@ -82,22 +82,21 @@ def in_session(t: int) -> bool:
 
 
 def blackout(t: int) -> str | None:
-    """The reason no new entry may open at t: the rollover 20:45-23:15, Friday after 16:00, the Sunday open 22:00-23:30."""
+    """Step 4, S12: no new entry in the rollover 21:00-23:30 UTC, on Friday after 19:00 UTC, or in the weekend (the Sunday open
+    included until 23:30 UTC)."""
     d = datetime.fromtimestamp(t, UTC)
     h = _hm(t)
-    if d.weekday() == 5 or (d.weekday() == 6 and h < 22):
-        return "ERR_WEEKEND"
-    if d.weekday() == 6 and 22 <= h < 23.5:
-        return "ERR_SUNDAY_OPEN"
-    if d.weekday() == 4 and h >= 16:
-        return "ERR_FRIDAY_CUTOFF"
-    if 20.75 <= h < 23.25:
-        return "ERR_ROLLOVER_BLACKOUT"
+    if d.weekday() == 5 or (d.weekday() == 6 and h < 23.5):
+        return "SESSION_BLACKOUT"
+    if d.weekday() == 4 and h >= 19:
+        return "SESSION_BLACKOUT"
+    if 21 <= h < 23.5:
+        return "SESSION_BLACKOUT"
     return None
 
 
 def news_block(t: int, news: list[int] | None) -> int | None:
-    """A red-folder release of the pair's currencies with t in [T - 45 min, T + 30 min], or None."""
+    """A red-folder release of the pair's currencies (BOTH legs) with t in [T - 45 min, T + 30 min], or None."""
     for n in news or []:
         if n - 45 * 60 <= t <= n + 30 * 60:
             return n

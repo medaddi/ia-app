@@ -13,14 +13,19 @@ def setup(symbol, direction, t=NOW - 600):
 
 def test_one_trade_per_pair_at_a_time():
     chk = portfolio.check("EUR/USD", {"direction": "BUY"}, [setup("EUR/USD", "SELL")], NOW)
-    assert chk["verdict"] == "BLOCK" and any(r.startswith("duplicate") for r in chk["reasons"])
+    assert chk["verdict"] == "BLOCK" and any(r.startswith("PAIR_LOCKED") for r in chk["reasons"])
 
 
-def test_no_cross_pair_limit_any_more():
-    sent = [setup(p, "BUY") for p in ("EUR/USD", "GBP/USD", "AUD/CAD", "EUR/CHF", "XAU/USD", "AUD/USD")]  # 6 live, same way on USD
-    for pair, side in (("NZD/USD", "BUY"), ("AUD/CHF", "BUY"), ("GBP/JPY", "SELL")):
-        assert portfolio.check(pair, {"direction": side}, sent, NOW)["verdict"] == "PASS"  # every pair's trade is sent
-    assert portfolio.check("GBP/USD", {"direction": "SELL"}, sent, NOW)["riskPct"] == 1.0  # no risk split either
+def test_only_the_currency_exposure_cap_limits_across_pairs():
+    """The broad caps (5 a day, 3 % risk, correlation) are gone; the blueprint v2 (2026-11-20, S15) keeps ONE: no 4th trade the
+    same net way on one currency."""
+    sent = [setup(p, "BUY") for p in ("EUR/USD", "GBP/USD", "AUD/CAD", "EUR/CHF", "XAU/USD", "AUD/USD")]  # 4 live short USD
+    for pair, side in (("AUD/CHF", "BUY"), ("GBP/JPY", "SELL")):
+        assert portfolio.check(pair, {"direction": side}, sent, NOW)["verdict"] == "PASS"  # no capped currency in common
+    capped = portfolio.check("NZD/USD", {"direction": "BUY"}, sent, NOW)  # a 5th trade short USD
+    assert capped["verdict"] == "BLOCK" and any(r.startswith("CURRENCY_EXPOSURE_CAP") for r in capped["reasons"])
+    assert portfolio.check("USD/CAD", {"direction": "BUY"}, sent, NOW)["verdict"] == "PASS"  # long USD: the other way
+    assert portfolio.check("GBP/USD", {"direction": "SELL"}, [setup("EUR/USD", "SELL")], NOW)["riskPct"] == 1.0  # no risk split
 
 
 def test_a_trade_stays_live_until_its_live_until():
@@ -62,7 +67,7 @@ def test_a_blocked_setup_is_saved_and_never_sent(monkeypatch):
     monkeypatch.setattr(notify, "market_session_status", lambda p: {"isOpen": True})
     monkeypatch.setattr(notify.time, "time", lambda: 1790001400)
     res = asyncio.run(notify.tick())
-    assert sent == [first["id"]] and "BLOCKED by the portfolio check: duplicate" in res["EUR/USD"]
+    assert sent == [first["id"]] and "BLOCKED by the portfolio check: PAIR_LOCKED" in res["EUR/USD"]
     assert all(x["id"] != again["id"] for x in notify.recent())  # a blocked setup is not listed as sent
     asyncio.run(notify.tick())
     assert sent == [first["id"]]  # and it is never checked or sent again

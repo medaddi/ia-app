@@ -14,9 +14,9 @@ import { SizeLine, useMySizing } from './RiskSizing';
  */
 const AGENT_ICON = { strategy: Crosshair, risk: Shield };
 const GRADE_TONE: Record<string, string> = { 'A+': 'bg-emerald-500/20 text-emerald-200 ring-emerald-500/40', A: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30',
-  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', C: 'bg-amber-500/10 text-amber-200 ring-amber-500/25', D: 'bg-white/[0.04] text-slate-400 ring-line',
+  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', 'B+': 'bg-gold-500/15 text-gold-200 ring-gold-500/30', C: 'bg-amber-500/10 text-amber-200 ring-amber-500/25', D: 'bg-white/[0.04] text-slate-400 ring-line',
   WAIT: 'bg-white/[0.04] text-slate-400 ring-line' };
-const BAR_MAX = 120;  // the bar shows 0 → 120 %: the 80 % (Grade B) and 100 % (A+) lines inside it, a higher score fills it
+const BAR_MAX = 100;  // the bar shows 0 → 100 %: the grade lines B+ 68, A 75, A+ 85
 const TONE = { SIGNAL: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30', BLOCKED: 'bg-amber-500/10 text-amber-200 ring-amber-500/25',
   WATCHING: 'bg-sky-500/10 text-sky-200 ring-sky-500/25', IDLE: 'bg-white/[0.03] text-slate-500 ring-line', OFF: 'bg-white/[0.02] text-slate-600 ring-line' };
 const hm = (t: number) => new Date(t * 1000).toISOString().slice(11, 16);
@@ -38,8 +38,8 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
   const agentName = (k: string) => ({ strategy: t('Strategy & confirmation', 'Stratégie & confirmation', 'الستراتيجية والتأكيد'),
     risk: t('SL · TP · lot', 'SL · TP · lot', 'الستوب · الهدف · اللوت') } as Record<string, string>)[k] ?? k;
   const statusWord = (s: TeamAgent['status']) => ({ ok: t('OK', 'OK', 'مزيان'), warn: t('Caution', 'Attention', 'انتباه'), wait: t('Waiting', 'En attente', 'كيتسنا'), veto: t('Veto', 'Veto', 'فيتو') })[s];
-  const setupName = (id: string, name: string) => ({ SYNC: t('Full sync · W + D + 4H', 'Sync complet · W + D + 4H', 'تزامن كامل · W + D + 4H'),
-    RETRACE: t('Retracement · W + D', 'Retracement · W + D', 'تصحيح · W + D'), COUNTER: t('Counter-trend · D + 4H', 'Contre-tendance · D + 4H', 'عكس الويكلي · D + 4H'),
+  const setupName = (id: string, name: string) => ({ M1: t('Full sync · W + D + 4H', 'Sync complet · W + D + 4H', 'تزامن كامل · W + D + 4H'),
+    M2: t('Retracement · W + D', 'Retracement · W + D', 'تصحيح · W + D'), M3: t('Counter-weekly · D + 4H', 'Contre-weekly · D + 4H', 'عكس الويكلي · D + 4H'),
     SF_DAY: t('Day · D1 + H4', 'Day · D1 + H4', 'داي · D1 + H4') } as Record<string, string>)[id] ?? name;
   const rowStatus = (s: string) => ({ SIGNAL: t('Signal', 'Signal', 'إشارة'), BLOCKED: t('Blocked', 'Bloqué', 'محبوس'), WATCHING: t('Watching', 'En veille', 'كيراقب'), IDLE: t('Nothing', 'Rien', 'والو'), OFF: t('Off', 'Désactivée', 'مطفية') } as Record<string, string>)[s];
   const verdict = ({
@@ -119,14 +119,15 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
               <ChevronDown className={`ms-auto w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${open === 'gpa' ? 'rotate-180' : ''}`} aria-hidden="true" />
             </div>
             <div className="relative mt-2 h-1.5 rounded-full bg-white/[0.06]" role="meter" aria-valuemin={0} aria-valuemax={160} aria-valuenow={score}
-              aria-label={t('Confluence score, a trade needs 80 %', 'Score de confluence, un trade demande 80 %', 'سكور التوافقات، التريد خاصو 80 %')}>
-              <div className={`h-full rounded-full ${score >= 100 ? 'bg-emerald-400' : score >= 80 ? 'bg-emerald-500/80' : score >= 65 ? 'bg-amber-400' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, (score / BAR_MAX) * 100)}%` }} />
-              <span className="absolute -top-1 h-3.5 w-px bg-gold-300" style={{ insetInlineStart: `${(80 / BAR_MAX) * 100}%` }} title="80 % · B" aria-hidden="true" />
-              <span className="absolute -top-1 h-3.5 w-px bg-emerald-300/70" style={{ insetInlineStart: `${(100 / BAR_MAX) * 100}%` }} title="100 % · A+" aria-hidden="true" />
+              aria-label={t('Confluence score, a trade needs 68 %', 'Score de confluence, un trade demande 80 %', 'سكور التوافقات، التريد خاصو 80 %')}>
+              <div className={`h-full rounded-full ${score >= 85 ? 'bg-emerald-400' : score >= 75 ? 'bg-emerald-500/80' : score >= 68 ? 'bg-gold-400' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, (score / BAR_MAX) * 100)}%` }} />
+              <span className="absolute -top-1 h-3.5 w-px bg-gold-300" style={{ insetInlineStart: `${(68 / BAR_MAX) * 100}%` }} title="68 % · B+" aria-hidden="true" />
+              <span className="absolute -top-1 h-3.5 w-px bg-emerald-300/50" style={{ insetInlineStart: `${(75 / BAR_MAX) * 100}%` }} title="75 % · A" aria-hidden="true" />
+              <span className="absolute -top-1 h-3.5 w-px bg-emerald-300/80" style={{ insetInlineStart: `${(85 / BAR_MAX) * 100}%` }} title="85 % · A+" aria-hidden="true" />
             </div>
             <div className="relative mt-1 h-3 text-[9px] font-mono text-slate-500" aria-hidden="true">
-              <span className="absolute -translate-x-1/2" style={{ insetInlineStart: `${(80 / BAR_MAX) * 100}%` }}>80 B</span>
-              <span className="absolute -translate-x-1/2" style={{ insetInlineStart: `${(100 / BAR_MAX) * 100}%` }}>100 A+</span>
+              <span className="absolute -translate-x-1/2" style={{ insetInlineStart: `${(68 / BAR_MAX) * 100}%` }}>68 B+</span>
+              <span className="absolute -translate-x-1/2" style={{ insetInlineStart: `${(85 / BAR_MAX) * 100}%` }}>85 A+</span>
             </div>
           </button>
           {open === 'gpa' && (

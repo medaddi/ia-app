@@ -1,58 +1,52 @@
 """
-The PairActor (spec 5.1): one pair, isolated (it reads only its own candles), as a finite state machine. Its state at a
-candle close is DERIVED from the closed candles every time (a deterministic replay: a restart can never lose or invent
-a state), in the spec's order: Agent 1 snapshot -> 2 structure and alignment -> 3 zones -> 4 score -> 5 SoS + engulfing
--> 6 plan -> 7 audit -> 8 locked order.
+The PairActor (blueprint step 1 and 5): one pair, isolated (it reads only its own candles), as a state machine whose state is
+DERIVED from the closed candles at every read (a restart can never lose or invent a state). `evaluate()` is the ONE pure
+function behind both the backtest (engine.scan) and the live read (engine.live): nothing is duplicated.
 
-  TIER_3_DORMANT        no two consecutive HTFs aligned (or the Daily consolidating)
-  TIER_2_WATCHLIST      aligned, price not yet at an eligible AOI with enough confluence
-  TIER_1_SNIPER_AOI     at an eligible AOI (<= 5 lambda pips, visited in the last 24 H1 candles and within 15 pips) and
-                        the score with the mandatory entry sequence >= 80 % (CHOICE, see `tier1_ok`)
-  TIER_1_SOS_CONFIRMED  a valid body-close SoS (12 h) is in
-  AWAIT_PULLBACK_LIMIT  a huge engulfing: the 50 % limit waits (6 h)
-  SIGNAL_EMITTED        the engulfing closed and the auditor approved
+  TIER_3_DORMANT        W / D / 4H misaligned (M4), a consolidation (CHOP_MARKET) or an extreme (EXTREME_LEVEL)
+  TIER_2_WATCHLIST      aligned (M1 / M2 / M3), price not in contact with a valid AOI yet
+  TIER_1_SNIPER_AOI     in contact with a valid AOI (within delta_prox) and a score that can still reach a grade
+  TIER_1_SOS_CONFIRMED  a body-close SoS on M15 / M30 / H1 is in
+  AWAIT_PULLBACK_LIMIT  a huge engulfing: the 50 % limit waits (8 h)
+  SIGNAL_EMITTED        a clean engulfing closed and the final gates approved
 """
 
-from .strategy.data import health, snapshot
-from .strategy.structure import Structure, alignment, extreme
-from .strategy.zones import dist_pips, polarity_ok, suspended, zone_map
-from .strategy.confluence import score
-from .strategy.entry import best_sos, engulf_at, order
-from .risk.levels import plan, risk_pct
-from .strategy.checks import audit
+from .config import GRADE_BP, K, W_C8, meta
+from .risk.levels import plan, risk_mult
 from .risk.order import proposal
-from .config import PROX_PIPS, W_ENTRY, meta
+from .strategy.alignment import chasing, matrix
+from .strategy.checks import audit
+from .strategy.confluence import grade_of, score
+from .strategy.data import health, snapshot
+from .strategy.entry import best_sos, order, prox, triggers
+from .strategy.structure import Structure, extreme
+from .strategy.zones import dist_pips, polarity_ok, suspended, zone_map
 
 TIERS = ["TIER_3_DORMANT", "TIER_2_WATCHLIST", "TIER_1_SNIPER_AOI", "TIER_1_SOS_CONFIRMED", "AWAIT_PULLBACK_LIMIT", "SIGNAL_EMITTED"]
-
-
-def tier1_ok(pre: int) -> bool:
-    """CHOICE (the spec is self-contradictory here): Tier 1 asks "S_total >= 80 %" before the entry, but S_total holds the
-    mandatory SoS + Engulfing weight (+10); read literally before the entry no Grade B could ever exist. Tier 1 therefore
-    counts the gatekeeper weight as present: pre-entry score + 10 >= 80."""
-    return pre + W_ENTRY >= 80
+SCENARIO_KIND = {"M1": "full", "M2": "retrace", "M3": "counter"}
 
 
 class Ctx:
-    """One pair's snapshot and the structure of its 7 timeframes (built once per new set of candles)."""
+    """One pair's snapshot and the structure of its 7 timeframes, built once per new set of candles."""
 
     def __init__(self, key: str, m5, h1, d_hist=None, spread: float | None = None):
         self.key, self.m = key, meta(key)
         self.pip, self.lam = self.m["pip"], self.m["lam"]
-        self.spread_median = self.m["spread_pips"] * self.pip
-        self.spread = spread if spread else self.spread_median
+        self.spread_typ = self.m["spread_pips"] * self.pip
+        self.spread = spread if spread else self.spread_typ
         self.snap = snapshot(m5, h1, d_hist)
         self.m5, self.h1 = m5, h1
-        self.st = {tf: Structure(self.snap[tf], self.pip, chop=tf in ("W", "D")) for tf in ("W", "D", "H4", "H2", "H1", "M30", "M15")}
+        self.st = {tf: Structure(self.snap[tf], self.pip, chop=tf in ("D", "H4")) for tf in K}
         self._zones: dict = {}
 
     def idx(self, T: int) -> dict:
         return {tf: self.snap[tf].idx(T) for tf in self.st}
 
-    def zones(self, iw: int, id_: int) -> list[dict]:
-        if (iw, id_) not in self._zones:
-            self._zones[(iw, id_)] = zone_map(self.st["W"], self.st["D"], iw, id_, self.pip, self.lam, self.m["step500"])
-        return self._zones[(iw, id_)]
+    def zones(self, idx: dict, with_h4: bool) -> list[dict]:
+        k = (idx["W"], idx["D"], idx["H4"] if with_h4 else -2, with_h4)
+        if k not in self._zones:
+            self._zones[k] = zone_map(self.st, idx, self.pip, self.lam, self.m["step500"], with_h4)
+        return self._zones[k]
 
 
 _ctx: dict = {}
@@ -66,74 +60,108 @@ def context(key: str, m5, h1, d_hist=None, spread=None) -> Ctx:
     return _ctx[key][1]
 
 
-def evaluate(cx: Ctx, T: int, d: int, price: float | None = None, news: list[int] | None = None, need_engulf: bool = True) -> dict:
-    """The pair's full read for direction d at the close T (price: the live price; default the last H1 close)."""
+def evaluate(cx: Ctx, T: int, d: int, price: float | None = None, news: list[int] | None = None, locked: bool = False,
+             exposure: dict | None = None) -> dict:
+    """The pair's full read for direction d at the close T, from candles closed at T only."""
     pip, lam, st = cx.pip, cx.lam, cx.st
     idx = cx.idx(T)
     bw, bd, b4 = st["W"].biased(idx["W"]), st["D"].biased(idx["D"]), st["H4"].biased(idx["H4"])
-    al = alignment(bw, bd, b4)
+    al = matrix(bw, bd, b4, d)
     h1 = st["H1"]
     P = price if price is not None else (h1.C[idx["H1"]] if idx["H1"] >= 0 else None)
-    r = {"dir": d, "T": T, "bias": {"W": bw, "D": bd, "H4": b4}, "align": al, "aligned": al["dir"] == d, "price": P, "tier": "TIER_3_DORMANT",
-         "zone": None, "zones": [], "conf": None, "sos": None, "engulf": None, "plan": None, "audit": None, "proposal": None,
-         "chop": {"W": st["W"].chop[idx["W"]] if idx["W"] >= 0 else False, "D": st["D"].chop[idx["D"]] if idx["D"] >= 0 else False},
-         "extreme": extreme(st["W"], idx["W"], d), "health": health(cx.h1, cx.m5, T)}
-    if P is None or idx["W"] < 0 or idx["D"] < 0:
+    chop = {"D": bool(idx["D"] >= 0 and st["D"].chop[idx["D"]]), "H4": bool(idx["H4"] >= 0 and st["H4"].chop[idx["H4"]])}
+    r = {"key": cx.key, "dir": d, "T": T, "bias": {"W": bw, "D": bd, "H4": b4}, "align": {**al, "dir": d if al["scenario"] != "M4" else 0,
+         "strength": {"M1": 5, "M2": 5, "M3": 4}.get(al["scenario"], 0), "kind": SCENARIO_KIND.get(al["scenario"])},
+         "aligned": al["scenario"] != "M4", "price": P, "tier": "TIER_3_DORMANT", "zone": None, "zones": [], "conf": None, "sos": None,
+         "engulf": None, "plan": None, "audit": None, "proposal": None, "vetoes": [], "chop": chop, "health": health(cx.h1, cx.m5, T),
+         "extreme": False, "suspended": False}
+    if P is None or idx["W"] < 0 or idx["D"] < 0 or idx["H4"] < 0 or idx["H1"] < 0:
+        r["vetoes"].append("NO_DATA")
         return r
-    zones = cx.zones(idx["W"], idx["D"])
-    r["zones"] = zones
-    counter = al["kind"] == "counter"
-    ok = [z for z in zones if polarity_ok(z, d) and (not counter or "D" in z["tfs"])]
     if not r["aligned"]:
-        r["near"] = min(ok, key=lambda z: dist_pips(P, z, pip)) if ok else None
+        r["vetoes"].append("HTF_MISALIGNED")
+        return r
+    if chop["D"] and chop["H4"]:
+        r["vetoes"].append("CHOP_MARKET")
+        return r
+    r["extreme"] = extreme(st["W"], idx["W"], d)
+    if r["extreme"]:
+        r["vetoes"].append("EXTREME_LEVEL")
         return r
     r["tier"] = "TIER_2_WATCHLIST"
-    m = PROX_PIPS * lam * pip
-    recent = h1.c[max(0, idx["H1"] - 23):idx["H1"] + 1]
-    visited = [z for z in ok if any(x.low <= z["hi"] + m and x.high >= z["lo"] - m for x in recent) and dist_pips(P, z, pip) <= 15 * lam]
-    near = min(ok, key=lambda z: dist_pips(P, z, pip)) if ok else None
-    r["near"] = near
-    if not visited:
+    zones = cx.zones(idx, al["scenario"] == "M3")
+    r["zones"] = zones
+    dprox = prox(h1, idx["H1"], pip, lam)
+    ok = [z for z in zones if polarity_ok(z, d) and (al["scenario"] != "M3" or "D" in z["tfs"] or z["kind"] == "H4")]
+    r["near"] = min(ok, key=lambda z: dist_pips(P, z, pip)) if ok else None
+    recent = h1.c[max(0, idx["H1"] - 11):idx["H1"] + 1]
+    contact = [z for z in ok if any(x.low <= z["hi"] + dprox and x.high >= z["lo"] - dprox for x in recent)]
+    live = []
+    for z in contact:
+        if suspended(z, d, st["D"], idx["D"], st["H4"], idx["H4"], pip):
+            r["suspended"] = True
+        else:
+            live.append(z)
+    if not live:
         return r
-    z = min(visited, key=lambda q: (dist_pips(P, q, pip), q["kind"] != "W+D_MERGED"))
-    r["zone"] = z
-    r["zoneDist"] = dist_pips(P, z, pip)
-    r["suspended"] = suspended(z, d, st["D"], idx["D"], st["W"], idx["W"], pip, lam)
-    conf = score(st, idx, z, d, al["kind"], pip, lam)
-    r["conf"] = conf
-    if r["suspended"] or not tier1_ok(conf["pre"]) or r["zoneDist"] > PROX_PIPS * lam and not any(
-            x.low <= z["hi"] + m and x.high >= z["lo"] - m for x in recent[-3:]):
+    z = min(live, key=lambda q: (dist_pips(P, q, pip), q["kind"] != "W+D"))
+    r["zone"], r["zoneDist"], r["suspended"] = z, dist_pips(P, z, pip), False
+    leg_tf = "H4" if al["scenario"] == "M3" else "D"
+    lst, li = st[leg_tf], idx[leg_tf]
+    lo_hi = (lst.hl[li], lst.hh[li]) if d > 0 else (lst.ll[li], lst.lh[li])
+    if lo_hi[0] and lo_hi[1] and not z["flip"]:
+        ch = chasing(P, min(lo_hi[0][0], lo_hi[1][0]), max(lo_hi[0][0], lo_hi[1][0]), d)
+        if ch:
+            r["vetoes"].append(ch)
+            return r
+    sc = score(st, idx, z, d, al["scenario"], pip, lam, None, dprox)
+    r["conf"] = sc
+    if sc["pre"] + W_C8["E1"] < GRADE_BP:
         return r
     r["tier"] = "TIER_1_SNIPER_AOI"
-    sos = best_sos(st, T, z, d, pip, lam)
+    sos = best_sos(st, T, z, d, dprox)
     r["sos"] = sos
-    if not sos:
+    if sos:
+        r["tier"] = "TIER_1_SOS_CONFIRMED"
+    trs = triggers(st, T, z, d, dprox)
+    if not trs:
         return r
-    r["tier"] = "TIER_1_SOS_CONFIRMED"
-    eng = engulf_at(st, T, d, pip, lam, sos["time"])
-    r["engulf"] = eng
-    if not eng:
+    best = None
+    for tr in trs:
+        anchor = min(tr["sos"]["extreme"], tr["candle"].low) if d > 0 else max(tr["sos"]["extreme"], tr["candle"].high)
+        plan_at = lambda e, _a=anchor: plan(e, d, z, _a, zones, st, idx, pip, lam, cx.spread, al["scenario"])  # noqa: E731
+        o = order(tr, d, plan_at, 0)
+        if o.get("reject") or o.get("tp") is None:
+            best = best or {"tr": tr, "o": None, "reject": o.get("reject") or "RR_BELOW_MIN"}
+            continue
+        conf = score(st, idx, z, d, al["scenario"], pip, lam, o["model"], dprox)
+        grade = grade_of(conf["total"], al["scenario"], o["rr"])
+        h4a = st["H4"].atr[idx["H4"]] or 0
+        ext = (min(abs(o["entry"] - z["hi"]), abs(o["entry"] - z["lo"])) if not (z["lo"] <= o["entry"] <= z["hi"]) else 0.0) / h4a if h4a else 0.0
+        cand = {"grade": grade, "score": conf["total"], "rr": o["rr"], "model": o["model"], "ext_atr": ext, "slWide": o["slWide"], "trap": o["trap"],
+                "side": "BUY" if d > 0 else "SELL", "side_of": {}, "slPips": round(o["risk"] / pip, 1), "entry": o["entry"], "sl": o["sl"],
+                "tp": o["tp"], "orderType": o["orderType"], "entryTf": tr["eng_tf"], "sosTf": tr["sos"]["tf"], "time": T,
+                "riskMult": risk_mult(T, grade), "early": [], "scenario": al["scenario"]}
+        cur = {"tr": tr, "o": o, "conf": conf, "cand": cand}
+        a = audit(cand, T, news, news is not None, cx.spread, cx.spread_typ, pip, r["health"], locked, exposure, tuple(cx.m["currencies"]))
+        cur["audit"] = a
+        if best is None or best.get("o") is None or (a["verdict"] == "APPROVE" and best["audit"]["verdict"] != "APPROVE"):
+            best = cur
+        if a["verdict"] == "APPROVE":
+            break
+    if best is None:
         return r
-    plan_at = lambda e: plan(e, d, z, sos["extreme"], eng["candle"], zones, st, idx, pip, lam, cx.spread, counter)  # noqa: E731
-    o = order(eng, z, d, plan_at, pip, lam)
-    r["order"] = o
-    conf = score(st, idx, z, d, al["kind"], pip, lam, entry_ok=True)
-    r["conf"] = conf
-    if not o or o.get("reject"):
-        r["reject"] = (o or {}).get("reject") or "ERR_NO_STRUCTURAL_TARGET"
+    tr = best["tr"]
+    r["engulf"], r["sos"] = {"tf": tr["eng_tf"], "candle": tr["candle"], "model": tr["model"], "time": T}, tr["sos"]
+    if best.get("o") is None:
+        r["reject"] = best["reject"]
+        r["vetoes"].append(best["reject"])
         return r
-    r["plan"] = o
-    if not o["market"]:
-        r["tier"] = "AWAIT_PULLBACK_LIMIT"
-    g = conf["grade"]
-    p = {"score": conf["total"], "grade": g, "sos": True, "engulf": True, "rr": o["rr"], "orderType": o["orderType"],
-         "entryDistPips": dist_pips(o["entry"], z, pip), "trap": o["trap"], "suspended": r["suspended"], "extreme": r["extreme"],
-         "slPips": round(o["risk"] / pip, 1), "entry": o["entry"], "sl": o["sl"], "tp": o["tp"], "entryTf": eng["tf"], "sosTf": sos["tf"],
-         "time": T, "riskPct": risk_pct(T, g)}
-    r["candidate"] = p
-    r["audit"] = audit(p, T, news, news is not None, cx.spread, cx.spread_median, pip, lam, r["health"])
-    if r["audit"]["verdict"] == "APPROVE":
-        r["proposal"] = proposal(cx.m["symbol"], d, p)
-        if o["market"]:
+    r["plan"], r["conf"], r["candidate"], r["audit"] = best["o"], best["conf"], best["cand"], best["audit"]
+    r["tier"] = "AWAIT_PULLBACK_LIMIT" if not best["o"]["market"] else r["tier"]
+    if best["audit"]["verdict"] == "APPROVE":
+        c = best["cand"]
+        r["proposal"] = proposal(cx.m["symbol"], d, {**c, "grade": c["grade"], "score": c["score"], "riskPct": c["riskMult"]})
+        if best["o"]["market"]:
             r["tier"] = "SIGNAL_EMITTED"
     return r

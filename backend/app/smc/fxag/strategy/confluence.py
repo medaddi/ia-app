@@ -1,216 +1,218 @@
 """
-Agent 4 · ConfluenceScorer (spec 3.4, 3.6): the live confluences at the active AOI (only the last 0, 1, 2 closed bars
-count: a historical touch weighs exactly 0), the candlestick table, the classical patterns, the weighted score and the
-grade. The round "500" level counts once.
+Agent 1 · confluence (blueprint 2.5): the Perfect Trade Checklist scored out of 100 over the AOI interaction window
+W_AOI (from the last valid contact with the AOI, at most 12 H1 / 6 H4 candles back, to the trigger): 8 independent criteria
+C1..C8, then the grade A+ (>= 85), A (75-84), B+ (68-74: only in the full sync with R:R >= 2.5), below 68: rejected.
 """
 
-from .structure import bm, bp
-from ..config import (EMA_AOI_PIPS, EMA_EPS_PIPS, GAP_PIPS, LIVE_K, PROX_PIPS, PSYCH_TOUCH_PIPS, W_AOI_D, W_AOI_W, W_ALIGN, W_EMA,
-                     W_ENTRY, W_H4_CANDLE, W_HTF_CANDLE, W_PATTERN, W_PREV, W_PSYCH)
+from ..config import (EMA_CLOSE_ATR, EMA_TOL_ATR, ENG_BODY_ATR, ENG_BODY_RANGE, ENG_OPP_WICK, ENG_TOL_BODY, GRADE_A, GRADE_A_PLUS, GRADE_BP,
+                      PATTERN_GAP, PATTERN_TOL_ATR, PREV_TOL_ATR, PSYCH_PIPS, REJ_WICK, W_C1, W_C2_H4, W_C2_MERGED, W_C2_STRONG, W_C3,
+                      W_C4, W_C5, W_C6, W_C7, W_C8)
 
 
 def body(x) -> float:
     return abs(x.close - x.open)
 
 
-# ---- 3.4.4 the candlestick table (t = x, t-1 = p, t-2 = a)
-def engulfing(p, x, d: int, gap: float) -> bool:
-    if d > 0:
-        return p.close < p.open and x.close > x.open and x.open <= p.close + gap and x.close > p.open and body(x) > body(p)
-    return p.close > p.open and x.close < x.open and x.open >= p.close - gap and x.close < p.open and body(x) > body(p)
+def bp(x) -> float:
+    return max(x.open, x.close)
 
 
-def pin(x, d: int, atr: float) -> bool:
-    r = x.high - x.low
-    up, dn = x.high - bp(x), bm(x) - x.low
-    if d > 0:
-        return dn >= 2.0 * body(x) and up <= 0.30 * r and r >= 0.5 * atr
-    return up >= 2.0 * body(x) and dn <= 0.30 * r and r >= 0.5 * atr
+def bm(x) -> float:
+    return min(x.open, x.close)
 
 
-def doji(x, d: int) -> bool:
-    r = x.high - x.low
-    if r <= 0 or body(x) > 0.12 * r:
+# ---- 2.6 a clean engulfing
+def engulfing(c: list, j: int, d: int, atr: float) -> bool:
+    """Candle j engulfs in body the previous candle (or the two previous candles of a pause: a multi-bar engulfing), with the
+    0.15-body gap tolerance, a momentum body (>= 0.55 ATR14 and >= 50 % of its range) and no massive opposite wick (<= 30 %)."""
+    if j < 2 or not atr:
         return False
-    return (bm(x) - x.low >= 0.65 * r) if d > 0 else (x.high - bp(x) >= 0.65 * r)
-
-
-def star(a, p, x, d: int, atr: float) -> bool:
-    if body(a) < 0.6 * atr or body(p) > 0.35 * body(a):
+    x = c[j]
+    rg = x.high - x.low
+    if rg <= 0 or (d > 0 and x.close <= x.open) or (d < 0 and x.close >= x.open):
         return False
-    mid = (a.open + a.close) / 2
-    return (a.close < a.open and x.close > x.open and x.close > mid) if d > 0 else (a.close > a.open and x.close < x.open and x.close < mid)
-
-
-def tweezer(p, x, d: int, tol: float) -> bool:
-    if d > 0:
-        return p.close < p.open and x.close > x.open and abs(x.low - p.low) <= tol
-    return p.close > p.open and x.close < x.open and abs(x.high - p.high) <= tol
-
-
-def inside_break(a, p, x, d: int) -> bool:
-    """Inside bar / harami (p inside a) with the next close (x) breaking out in direction d (CHOICE: beyond p's range)."""
-    return p.high <= a.high and p.low >= a.low and ((x.close > p.high) if d > 0 else (x.close < p.low))
-
-
-def pattern_at(c: list, j: int, d: int, atr: float, pip: float, lam: float) -> str | None:
-    if j < 2:
-        return None
-    a, p, x = c[j - 2], c[j - 1], c[j]
-    gap, tol = GAP_PIPS * lam * pip, 3 * lam * pip
-    for name, ok in (("Engulfing", engulfing(p, x, d, gap)), ("Pin bar", pin(x, d, atr)), ("Doji", doji(x, d)),
-                     ("Morning star" if d > 0 else "Evening star", star(a, p, x, d, atr)), ("Tweezer", tweezer(p, x, d, tol)),
-                     ("Inside bar break", inside_break(a, p, x, d))):
-        if ok:
-            return name
-    return None
-
-
-def touches_zone(x, z: dict, pip: float, lam: float) -> bool:
-    m = PROX_PIPS * lam * pip
-    return x.low <= z["hi"] + m and x.high >= z["lo"] - m
-
-
-def live_rejection(st, i: int, z: dict, d: int, pip: float, lam: float) -> str | None:
-    """A rejection pattern on one of the last 3 closed candles that touches the AOI (+-5 lambda pips)."""
-    for j in range(i, max(i - LIVE_K, 2) - 1, -1):
-        if touches_zone(st.c[j], z, pip, lam):
-            n = pattern_at(st.c, j, d, st.atr[j] or 0, pip, lam)
-            if n:
-                return n
-    return None
-
-
-def ema_rejection(st, i: int, z: dict, d: int, pip: float, lam: float) -> bool:
-    """3.4.1: within the last 0-2 candles L <= EMA + eps and C > EMA (buy), and the EMA now inside the AOI or within 15
-    lambda pips of its edge."""
-    if i < 1 or st.e50[i] is None:
+    if body(x) < ENG_BODY_ATR * atr or body(x) / rg < ENG_BODY_RANGE:
         return False
-    e = st.e50[i]
-    near = EMA_AOI_PIPS * lam * pip
-    if not (z["lo"] - near <= e <= z["hi"] + near):
+    if d > 0 and (x.high - bp(x)) / rg > ENG_OPP_WICK or d < 0 and (bm(x) - x.low) / rg > ENG_OPP_WICK:
         return False
-    eps = EMA_EPS_PIPS * lam * pip
-    for j in range(i, max(i - LIVE_K, 0) - 1, -1):
-        ej, x = st.e50[j], st.c[j]
-        if ej is None:
+    for n in (1, 2):  # the previous candle, or the last two (a multi-bar engulfing)
+        prev = c[j - n:j]
+        if n == 1 and ((d > 0 and prev[0].close > prev[0].open) or (d < 0 and prev[0].close < prev[0].open)):
             continue
-        if (d > 0 and x.low <= ej + eps and x.close > ej) or (d < 0 and x.high >= ej - eps and x.close < ej):
+        hi, lo = max(bp(q) for q in prev), min(bm(q) for q in prev)
+        tol = ENG_TOL_BODY * body(prev[-1])
+        if d > 0 and x.close > hi and x.open <= lo + tol:
+            return True
+        if d < 0 and x.close < lo and x.open >= hi - tol:
             return True
     return False
 
 
-def prev_structure(sts: dict, idx: dict, z: dict, d: int, pip: float, lam: float) -> str | None:
-    """3.4.3: the prior W / D / H4 structure point (the "second elbow") inside the AOI +-5 lambda pips, rejected live
-    (CHOICE: one of the last 3 candles reaches it within 5 lambda pips and closes beyond it on the trade's side)."""
-    m = PROX_PIPS * lam * pip
-    for tf in ("W", "D", "H4"):
+def pin(x, d: int) -> bool:
+    rg = x.high - x.low
+    if rg <= 0:
+        return False
+    return ((bm(x) - x.low) / rg >= REJ_WICK and body(x) <= rg / 3) if d > 0 else ((x.high - bp(x)) / rg >= REJ_WICK and body(x) <= rg / 3)
+
+
+def doji_rej(x, d: int) -> bool:
+    rg = x.high - x.low
+    return rg > 0 and body(x) <= 0.12 * rg and ((bm(x) - x.low) / rg >= 0.5 if d > 0 else (x.high - bp(x)) / rg >= 0.5)
+
+
+def window_start(h1, i: int, z: dict, d: int, prox: float) -> int | None:
+    """W_AOI: the index of the first of the last 12 H1 candles from which the price stayed in contact with the AOI up to the
+    last valid contact (None when no candle of the last 12 touched it within prox)."""
+    lo = max(0, i - 11)
+    contact = [j for j in range(lo, i + 1) if h1.c[j].low <= z["hi"] + prox and h1.c[j].high >= z["lo"] - prox]
+    return contact[0] if contact else None
+
+
+def tf_candles(st, t_from: int, i: int, n_min: int = 2) -> list[int]:
+    """The candles of a timeframe that overlap the window: those closing after t_from, and at least the last n_min."""
+    out = [j for j in range(max(0, i - 12), i + 1) if st.s.tc[j] > t_from]
+    return out if len(out) >= n_min else list(range(max(0, i - n_min + 1), i + 1))
+
+
+def c3_ema(sts, idx, t_from, z, d, atr_by) -> str | None:
+    """EMA50 rejection on W, D, H4 or H1: BUY L <= EMA + 0.25 ATR and C >= EMA - 0.15 ATR (the EMA flat or rising)."""
+    for tf in ("W", "D", "H4", "H1"):
         st, i = sts[tf], idx[tf]
-        e = st.prev_structure(i, d)
-        if not e or not (z["lo"] - m <= e[2] <= z["hi"] + m):
-            continue
-        for j in range(i, max(i - LIVE_K, 0) - 1, -1):
+        for j in tf_candles(st, t_from, i):
+            e, a = st.e50[j], st.atr[j]
+            if e is None or not a or j < 1 or st.e50[j - 1] is None:
+                continue
             x = st.c[j]
-            if (d > 0 and x.low <= e[2] + m and x.close > e[2]) or (d < 0 and x.high >= e[2] - m and x.close < e[2]):
+            slope_ok = (e >= st.e50[j - 1] - 0.05 * a) if d > 0 else (e <= st.e50[j - 1] + 0.05 * a)
+            if d > 0 and x.low <= e + EMA_TOL_ATR * a and x.close >= e - EMA_CLOSE_ATR * a and slope_ok:
+                return tf
+            if d < 0 and x.high >= e - EMA_TOL_ATR * a and x.close <= e + EMA_CLOSE_ATR * a and slope_ok:
                 return tf
     return None
 
 
-def psych_live(h1, i: int, z: dict, pip: float, lam: float) -> bool:
-    """3.4.2.2: price touches the level now (CHOICE: one of the last 3 H1 candles within 3 lambda pips of it)."""
-    L = z.get("psych")
-    if L is None or i < 0:
-        return False
-    tol = PSYCH_TOUCH_PIPS * lam * pip
-    return any(h1.c[j].low - tol <= L <= h1.c[j].high + tol for j in range(i, max(i - LIVE_K, 0) - 1, -1))
-
-
-def h4_structure(h4, i: int, z: dict, d: int, pip: float, lam: float) -> bool:
-    """The 4H HL (buy) / LH (sell) confirmation at the AOI (CHOICE: the active one formed inside the AOI +-5 lambda pips
-    in the last 12 H4 candles)."""
-    if i < 0 or h4.bias[i] != d:
-        return False
-    lv = h4.hl[i] if d > 0 else h4.lh[i]
-    m = PROX_PIPS * lam * pip
-    return bool(lv) and i - lv[1] <= 12 and z["lo"] - m <= lv[0] <= z["hi"] + m
-
-
-def chart_pattern(st, i: int, z: dict, d: int, pip: float, lam: float) -> str | None:
-    """3.4.5: double bottom / top and (inverse) head & shoulders on body swings, the neckline inside the AOI (+-5 lambda
-    pips), a body close beyond it and a retest. CHOICE: read on the last 60 candles, the break within the last 30."""
-    m = PROX_PIPS * lam * pip
-    sw = [(j, p) for j, kind, p in st.swings if kind == -d and i - 60 <= j and j + st.k <= i]
-    a14 = st.atr[i] or 0
-
-    def neck(j1, j2):
-        if j2 - j1 < 2:
-            return None
-        return max(st.B[j1 + 1:j2]) if d > 0 else min(st.Bm[j1 + 1:j2])
-
-    def confirmed(n, j_from):
-        brk = next((q for q in range(j_from + 1, i + 1) if (st.C[q] > n if d > 0 else st.C[q] < n)), None)
-        if brk is None or i - brk > 30:
-            return False
-        return any((st.c[q].low <= n + m) if d > 0 else (st.c[q].high >= n - m) for q in range(brk + 1, i + 1))
-    for t in range(len(sw) - 1, 1, -1):  # head & shoulders: three consecutive swings
-        (a, sl), (b, hd), (c_, sr) = sw[t - 2], sw[t - 1], sw[t]
-        n = neck(a, c_)
-        if n is None or not (z["lo"] - m <= n <= z["hi"] + m):
-            continue
-        head = hd < min(sl, sr) if d > 0 else hd > max(sl, sr)
-        if head and abs(sl - sr) <= 0.5 * abs(n - hd) and confirmed(n, c_):
-            return "Inverse H&S" if d > 0 else "H&S"
-    for t in range(len(sw) - 1, 0, -1):
-        (a, l1), (b, l2) = sw[t - 1], sw[t]
-        n = neck(a, b)
-        if 5 <= b - a <= 30 and abs(l1 - l2) <= 0.35 * a14 and n is not None and z["lo"] - m <= n <= z["hi"] + m and confirmed(n, b):
-            return "Double bottom" if d > 0 else "Double top"
+def c4_prev(sts, idx, z, d) -> str | None:
+    """C4: the AOI is an old structure pivot, broken and retested (old HH -> new HL for a buy, old LL -> new LH for a sell)
+    within 0.35 ATR14(D). The pivot is a high elbow (low for a sell) of D or W that price has since closed beyond."""
+    st = sts["D"]
+    i = idx["D"]
+    a = st.atr[i] or 0
+    tol = PREV_TOL_ATR * a
+    for tf in ("D", "W"):
+        s2, i2 = sts[tf], idx[tf]
+        for j, kind, p in s2.elbows_at(i2):
+            if kind != d or not (z["lo"] - tol <= p <= z["hi"] + tol):
+                continue
+            later = s2.C[j + 1:i2 + 1]
+            if later and ((max(later) > p) if d > 0 else (min(later) < p)):
+                return tf
     return None
 
 
-def grade_of(score: int) -> str:
-    """3.6: A+ >= 100, A 90-99, B 80-89; below 80: C / D (CHOICE: C 60-79, D under 60)."""
-    return "A+" if score >= 100 else "A" if score >= 90 else "B" if score >= 80 else "C" if score >= 60 else "D"
+def c6_rejection(sts, idx, t_from, z, d) -> str | None:
+    """C6: on H4 / H2 / H1 inside the window: a rejection wick >= 45 % of the range, a pin bar, a rejection doji, or a liquidity
+    sweep (the wick pierces the AOI far edge, the close is back inside or beyond)."""
+    for tf in ("H4", "H2", "H1"):
+        st, i = sts[tf], idx[tf]
+        for j in tf_candles(st, t_from, i):
+            x = st.c[j]
+            rg = x.high - x.low
+            if rg <= 0:
+                continue
+            wick = (bm(x) - x.low) if d > 0 else (x.high - bp(x))
+            if wick / rg >= REJ_WICK and ((x.close >= x.open) if d > 0 else (x.close <= x.open)):
+                return f"{tf} wick"
+            if pin(x, d) or doji_rej(x, d):
+                return f"{tf} pin"
+            if (d > 0 and x.low < z["lo"] and x.close >= z["lo"]) or (d < 0 and x.high > z["hi"] and x.close <= z["hi"]):
+                return f"{tf} sweep"
+    return None
 
 
-def score(sts: dict, idx: dict, z: dict, d: int, align_kind: str | None, pip: float, lam: float, entry_ok: bool = False) -> dict:
-    """ConfluenceReport: the breakdown (factor -> % weight, the TRUE ones only), the pre-entry score (what Tier 1 needs),
-    the total with the entry sequence, and the grade."""
-    br: dict[str, int] = {}
-    detail: dict[str, str] = {}
-    if align_kind:
-        br[{"full": "W + D + 4H full sync", "retrace": "W + D sync (4H retracing)", "counter": "D + 4H sync (counter-weekly)"}[align_kind]] = W_ALIGN[align_kind]
-    if "W" in z["tfs"]:
-        br["At Weekly AOI"] = W_AOI_W
-    if "D" in z["tfs"]:
-        br["At Daily AOI"] = W_AOI_D
-    for tf in ("W", "D", "H4"):
-        if ema_rejection(sts[tf], idx[tf], z, d, pip, lam):
-            br[f"Live {tf} 50 EMA rejection"] = W_EMA
-    ps = prev_structure(sts, idx, z, d, pip, lam)
-    if ps:
-        br["Previous structure point"] = W_PREV
-        detail["prev"] = ps
-    if psych_live(sts["H1"], idx["H1"], z, pip, lam):
-        br["Round 500 level"] = W_PSYCH
-    for tf in ("W", "D"):
-        n = live_rejection(sts[tf], idx[tf], z, d, pip, lam)
-        if n:
-            br["HTF candle rejection"] = W_HTF_CANDLE
-            detail["htf_candle"] = f"{tf} {n}"
-            break
-    n4 = live_rejection(sts["H4"], idx["H4"], z, d, pip, lam)
-    if n4 or h4_structure(sts["H4"], idx["H4"], z, d, pip, lam):
-        br["4H rejection / structure"] = W_H4_CANDLE
-        detail["h4"] = n4 or ("4H HL" if d > 0 else "4H LH")
+def c7_pattern(sts, idx, z, d, pip) -> str | None:
+    """C7: a double bottom / top (two pivots 4-35 candles apart inside the AOI, within 0.40 ATR) or a (inverse) head & shoulders
+    whose neckline meets the AOI, on D, H4 or H1, with a body close beyond the neckline."""
     for tf in ("D", "H4", "H1"):
-        n = chart_pattern(sts[tf], idx[tf], z, d, pip, lam)
-        if n:
-            br["Chart pattern at AOI"] = W_PATTERN
-            detail["pattern"] = f"{tf} {n}"
-            break
+        st, i = sts[tf], idx[tf]
+        a = st.atr[i] or 0
+        if not a:
+            continue
+        m = PATTERN_TOL_ATR * a
+        sw = [(j, p) for j, kind, p in st.elbows_at(i) if kind == -d and i - 80 <= j]
+        for t in range(len(sw) - 1, 0, -1):
+            (a1, p1), (b1, p2) = sw[t - 1], sw[t]
+            if not (PATTERN_GAP[0] <= b1 - a1 <= PATTERN_GAP[1]) or abs(p1 - p2) > m:
+                continue
+            if not (z["lo"] - m <= p1 <= z["hi"] + m or z["lo"] - m <= p2 <= z["hi"] + m):
+                continue
+            mid = st.B[a1 + 1:b1] if d > 0 else st.Bm[a1 + 1:b1]
+            if not mid:
+                continue
+            neck = max(mid) if d > 0 else min(mid)
+            if any((st.C[q] > neck) if d > 0 else (st.C[q] < neck) for q in range(b1 + 1, i + 1)):
+                return f"{tf} {'Double bottom' if d > 0 else 'Double top'}"
+        for t in range(len(sw) - 1, 1, -1):
+            (a1, s1), (b1, hd), (c1, s2) = sw[t - 2], sw[t - 1], sw[t]
+            head = hd < min(s1, s2) if d > 0 else hd > max(s1, s2)
+            if not head:
+                continue
+            mid = st.B[a1 + 1:c1] if d > 0 else st.Bm[a1 + 1:c1]
+            if not mid:
+                continue
+            neck = max(mid) if d > 0 else min(mid)
+            if abs(s1 - s2) <= 0.5 * abs(neck - hd) and z["lo"] - m <= neck <= z["hi"] + m and \
+                    any((st.C[q] > neck) if d > 0 else (st.C[q] < neck) for q in range(c1 + 1, i + 1)):
+                return f"{tf} {'Inverse H&S' if d > 0 else 'H&S'}"
+    return None
+
+
+def c5_psych(z, h1, i, win_start, pip, lam) -> bool:
+    """C5: a valid "500" level in the AOI (or within 5 lambda pips), counted once."""
+    return z.get("psych") is not None
+
+
+def grade_of(total: int, scenario: str | None = None, rr: float | None = None) -> str:
+    """A+ >= 85, A 75-84, B+ 68-74 only in the full sync (M1) with R:R >= 2.5 (given), else C (rejected)."""
+    if total >= GRADE_A_PLUS:
+        return "A+"
+    if total >= GRADE_A:
+        return "A"
+    if total >= GRADE_BP:
+        return "B+" if (scenario == "M1" and (rr is None or rr >= 2.5)) else "C"
+    return "C" if total >= 50 else "D"
+
+
+def score(sts: dict, idx: dict, z: dict, d: int, scenario: str, pip: float, lam: float, model: str | None = None, prox: float = 0.0) -> dict:
+    """The Perfect Trade Checklist: C1..C8 (points), the detail of each, the total /100 and the pre-entry total (C1..C7)."""
+    h1, i1 = sts["H1"], idx["H1"]
+    ws = window_start(h1, i1, z, d, prox) if i1 >= 0 else None
+    t_from = h1.s.tc[ws] - 3600 if ws is not None else (h1.s.tc[i1] - 12 * 3600 if i1 >= 0 else 0)
+    br: dict[str, int] = {}
+    det: dict[str, str] = {}
+    if scenario in W_C1:
+        br["C1"] = W_C1[scenario]
+    if "W" in z["tfs"] and "D" in z["tfs"]:
+        br["C2"], det["C2"] = W_C2_MERGED, "W+D merged"
+    elif z["kind"] in ("W", "D") and (z["touches"] >= 3 or z["flip"]):
+        br["C2"], det["C2"] = W_C2_STRONG, f"{z['kind']} {z['touches']} touches" + (" · flip" if z["flip"] else "")
+    elif z["kind"] == "H4" and z["touches"] >= 2:
+        br["C2"], det["C2"] = W_C2_H4, "D/H4 2 touches"
+    e = c3_ema(sts, idx, t_from, z, d, None)
+    if e:
+        br["C3"], det["C3"] = W_C3, f"{e} 50 EMA"
+    p = c4_prev(sts, idx, z, d)
+    if p:
+        br["C4"], det["C4"] = W_C4, f"{p} old structure"
+    if c5_psych(z, h1, i1, ws, pip, lam):
+        br["C5"], det["C5"] = W_C5, f"500 level {z['psych']}"
+    r = c6_rejection(sts, idx, t_from, z, d)
+    if r:
+        br["C6"], det["C6"] = W_C6, r
+    pt = c7_pattern(sts, idx, z, d, pip)
+    if pt:
+        br["C7"], det["C7"] = W_C7, pt
     pre = sum(br.values())
-    if entry_ok:
-        br["LTF SoS + Engulfing"] = W_ENTRY
+    if model:
+        br["C8"], det["C8"] = W_C8[model], model
     total = sum(br.values())
-    return {"breakdown": br, "detail": detail, "pre": pre, "total": total, "grade": grade_of(total)}
+    return {"breakdown": br, "detail": det, "pre": pre, "total": total, "window": ws, "grade": grade_of(total, scenario)}

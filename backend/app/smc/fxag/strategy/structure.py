@@ -4,7 +4,7 @@ all-time-extreme filters, and the W / D / H4 alignment matrix. Wicks never make 
 """
 
 from ...playbook import atr, ema
-from ..config import CHOP_RANGE_ATR, ER_MAX, GAMMA, K, N_CHOP
+from ..config import ALPHA, ATH_ATR_W, CHOP_ER, CHOP_N, CHOP_OVERLAP, EPS_PIPS, K
 
 
 def bp(x) -> float:
@@ -35,6 +35,7 @@ class Structure:
     def __init__(self, series, pip: float, chop: bool = False):
         c = series.c
         self.s, self.c, self.pip = series, c, pip
+        self.eps = EPS_PIPS * pip
         self.k = K[series.name]
         n = len(c)
         self.B, self.Bm, self.C = [bp(x) for x in c], [bm(x) for x in c], [x.close for x in c]
@@ -59,7 +60,7 @@ class Structure:
                 self.els[-1] = sw
         else:
             a = self.atr[i] or 0
-            if abs(p - self.els[-1][2]) >= GAMMA * a:
+            if abs(p - self.els[-1][2]) >= ALPHA[self.s.name] * a:  # 2.2 B: delta = alpha_tau x ATR14
                 self.els.append(sw)
 
     # Step 3: the trend state machine on body closes
@@ -91,7 +92,7 @@ class Structure:
                     tr, lh, ll, pull = -1, (B[q], q), (x, i), False
                     self.events.append((i, "SHIFT", -1, lo[2]))
             elif tr == 1:
-                if x < hl[0]:                       # C_t < HL: bearish
+                if x < hl[0] - self.eps:            # C_k < HL - eps: bearish (2.2 C)
                     self.events.append((i, "SHIFT", -1, hl[0]))
                     q = max(range(hl[1], i + 1), key=lambda u: B[u])
                     tr, lh, ll, pull = -1, (B[q], q), (x, i), False
@@ -102,7 +103,7 @@ class Structure:
                         self.events.append((i, "BOS", 1, hh[0]))
                     hh = (x, i)
             else:
-                if x > lh[0]:                       # C_t > LH: bullish
+                if x > lh[0] + self.eps:            # C_k > LH + eps: bullish
                     self.events.append((i, "SHIFT", 1, lh[0]))
                     q = min(range(lh[1], i + 1), key=lambda u: Bm[u])
                     tr, hl, hh, pull = 1, (Bm[q], q), (x, i), False
@@ -117,21 +118,18 @@ class Structure:
             if kind == "SHIFT":
                 self.shift_at[i] = (d, lv)
 
-    # Step 4.1: consolidation
+    # 2.2 D: the Kaufman efficiency ratio over the last 12 closes and the share of bodies overlapping the range median
     def _chop(self, i: int) -> bool:
-        """CHOICE: the "rolling range" is the body range of the 20 candles before the last 20; chop when none of the last
-        20 closes leaves it, ER20 < 0.20 and the last 20 bodies span < 3.5 ATR14."""
-        n0 = i - 2 * N_CHOP + 1
-        if n0 < 1 or not self.atr[i]:
+        n = CHOP_N
+        if i < n + 1:
             return False
-        hi, lo = max(self.B[n0:i - N_CHOP + 1]), min(self.Bm[n0:i - N_CHOP + 1])
-        win = range(i - N_CHOP + 1, i + 1)
-        if any(self.C[j] > hi or self.C[j] < lo for j in win):
-            return False
+        win = range(i - n + 1, i + 1)
         path = sum(abs(self.C[j] - self.C[j - 1]) for j in win)
-        er = abs(self.C[i] - self.C[i - N_CHOP]) / path if path else 0.0
-        span = max(self.B[j] for j in win) - min(self.Bm[j] for j in win)
-        return er < ER_MAX and span / self.atr[i] < CHOP_RANGE_ATR
+        er = abs(self.C[i] - self.C[i - n]) / path if path else 0.0
+        hi, lo = max(self.c[j].high for j in win), min(self.c[j].low for j in win)
+        med = (hi + lo) / 2
+        overlap = sum(1 for j in win if self.Bm[j] <= med <= self.B[j]) / n
+        return er < CHOP_ER and overlap > CHOP_OVERLAP
 
     # readers
     def biased(self, i: int) -> int:
@@ -155,27 +153,8 @@ class Structure:
 
 
 def extreme(w: Structure, i: int, d: int) -> bool:
-    """Step 4.2: price at / beyond the weekly body extreme of all the history before this week: no buy above the high,
-    no sell below the low (EXTREME_NO_DATA)."""
-    if i < 1:
+    """2.2 D.2: EXTREME_ATH for a buy within 0.5 ATR14(W) of the weekly high of the whole history, EXTREME_ATL for a sell."""
+    if i < 1 or not w.atr[i]:
         return False
-    return w.C[i] >= max(w.B[:i]) if d > 0 else w.C[i] <= min(w.Bm[:i])
-
-
-ALIGN = {(1, 1, 1): ("full", 5, "Full Sync Swing"), (1, 1, -1): ("retrace", 5, "Valid HTF Retracement"),
-         (-1, 1, 1): ("counter", 4, "Daily Counter-Trend Swing")}
-
-
-def alignment(bw: int, bd: int, b4: int) -> dict:
-    """3.2: the trade direction, the allowed AOI anchor, the class and its strength from (Bias_W, Bias_D, Bias_H4).
-    (+1, +1, 0) / H4 not yet structured counts as a retracement (CHOICE: H4 "re-aligning at the AOI")."""
-    if bd == 0:
-        return {"dir": 0, "kind": None, "strength": 0, "anchor": None, "label": "Daily Consolidation — DISCARD"}
-    for d in (1, -1):
-        v = (bw * d, bd * d, b4 * d)
-        if v == (1, 1, 0):
-            v = (1, 1, -1)
-        if v in ALIGN:
-            kind, st, label = ALIGN[v]
-            return {"dir": d, "kind": kind, "strength": st, "anchor": "D" if kind == "counter" else "WD", "label": label}
-    return {"dir": 0, "kind": None, "strength": 0, "anchor": None, "label": "No Consecutive Alignment — WAIT / SET ALERTS"}
+    a = ATH_ATR_W * w.atr[i]
+    return w.C[i] > max(x.high for x in w.c[:i + 1]) - a if d > 0 else w.C[i] < min(x.low for x in w.c[:i + 1]) + a
