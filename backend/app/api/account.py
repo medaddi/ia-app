@@ -273,6 +273,17 @@ class UserPatch(BaseModel):
     accessCode: Optional[str] = Field(None, min_length=6)
 
 
+@router.post("/admin/import-old-db")
+def admin_import_old_db(dry_run: bool = True, _: User = Depends(admin_user)):
+    """Copies the previous database (Neon) into the active one (Supabase). dry_run=true (the default) only counts the rows;
+    dry_run=false REPLACES the active rows with the old ones."""
+    from ..db_import import import_old
+    out = import_old(dry_run=dry_run)
+    if not out.get("ok"):
+        raise HTTPException(503, out.get("error") or "The previous database is not reachable")
+    return {"success": True, **out}
+
+
 @router.get("/users")
 def users_list(_: User = Depends(admin_user), db: Session = Depends(get_db)):
     out = []
