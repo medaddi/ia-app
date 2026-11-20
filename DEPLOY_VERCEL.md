@@ -9,9 +9,18 @@ This repository deploys as two Vercel projects that share the same Git repositor
 
 ## 1. Create a persistent database
 
-In Vercel, open the **backend project → Storage/Marketplace → Neon → Install**, select the Free plan if available, choose a nearby region, and connect the database to the backend project. Marketplace integrations can inject their connection variables into the project. The backend reads `DATABASE_URL` or `POSTGRES_URL`; use a pooled connection URL for serverless traffic (Neon URLs with `-pooler` and `sslmode=require`). If no variable was injected, add the pooled connection string as `DATABASE_URL` in the backend project's Production environment, then redeploy. Vercel's function filesystem is temporary, so do not use SQLite for deployed data.
+The app runs on a free **Supabase** Postgres database (project `liquiditydissection-db`, us-east-1, since 2026-11-20; it
+replaced Neon, whose free quota ran out). It is connected with Supabase's Vercel integration (Supabase → Project Settings →
+Integrations → Vercel → the backend project), which injects `POSTGRES_URL` and the other variables; no password is typed by
+hand. The backend reads, in this order: `APP_DATABASE_URL`, `POSTGRES_URL`, `DATABASE_URL`, `DATABASE_POSTGRES_URL`
+(`app/config.py`). Vercel's function filesystem is temporary, so never use SQLite for deployed data.
 
-The app creates its tables from `backend/app/models.py` on first startup and safely serializes schema setup if Vercel starts multiple functions at once. Do not import the root `database_schema.sql`: it is a legacy MySQL schema from an older version and does not match this backend. The local `backend/data/exunu.db` is not uploaded or migrated automatically.
+The app creates its tables from `backend/app/models.py` on startup, adds missing columns, and turns on Row Level Security on
+every table (Supabase's public REST API then sees nothing; the app connects as the tables' owner and is not affected). The
+local `backend/data/exunu.db` is never uploaded.
+
+The old Neon data can be copied in once Neon accepts connections again: as admin, `POST /api/admin/import-old-db` counts
+the rows (dry run), and `POST /api/admin/import-old-db?dry_run=false` replaces the active rows with the old ones.
 
 ## 2. Configure and deploy the backend
 
@@ -21,15 +30,15 @@ Add these Production environment variables to the backend project:
 
 | Variable | Value |
 | --- | --- |
-| `DATABASE_URL` | Hosted PostgreSQL connection URL |
+| `POSTGRES_URL` | set by the Supabase integration (section 1) |
 | `ADMIN_USERNAME` | `admin` |
-| `ADMIN_ACCESS_CODE` | `admin1234` |
+| `ADMIN_ACCESS_CODE` | a strong code of your own (the first admin's password on an empty database) |
 | `CORS_ORIGINS` | `https://liquiditydissection.app` |
 | `CRON_SECRET` | A long, random secret used by the scheduler request |
 | `SCHEDULER_ENABLED` | `false` |
 | `TELEGRAM_POLLING` | `false` |
 
-Use `https://ia-app-tawny.vercel.app` as the Production Domain. On an empty database, the app creates the admin account from `ADMIN_USERNAME` and `ADMIN_ACCESS_CODE`. If the configured admin row already exists with an older password hash, signing in with `admin1234` updates that row's stored hash.
+Use `https://ia-app-tawny.vercel.app` as the Production Domain. On an empty database, the app creates the admin account from `ADMIN_USERNAME` and `ADMIN_ACCESS_CODE`.
 
 After deploying, `https://ia-app-tawny.vercel.app/api/health` should return JSON with `"status":"ok"` and `"database":"ok"`. This confirms the API can reach PostgreSQL. To confirm writes persist, create a test user or trade in the app, reload it, and confirm the record remains.
 
@@ -84,4 +93,11 @@ When an admin connects a bot in the app, the backend registers this webhook with
 
 ## Login
 
-On a fresh database, sign in with username `admin` and access code `admin1234`. This is the requested bootstrap credential; anyone who can reach the public login page can try it, so change it after the first login if the app will be shared publicly.
+On a fresh database, sign in with username `admin` and the value of `ADMIN_ACCESS_CODE`. Without that variable the code
+falls back to a known default, so always set it in production.
+
+## Telegram bot and phone notifications after a new database
+
+The bot token, the linked Telegram chats and the phones' push subscriptions live in the database. On a new database:
+paste the bot token again in the app (admin → Telegram), relink each Telegram with `/start`, and turn notifications on
+again on each phone (the push keys are new).

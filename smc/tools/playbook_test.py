@@ -4,9 +4,9 @@ the result in R with costs, the profit factor, on the whole period, its first 60
 smc/PLAYBOOK.md and backend/app/smc/research/playbook.json (the app shows these numbers).
 
   PYTHONPATH=. python smc/tools/playbook_test.py feed        the app's own feed: H1 (2 years) and D1 (5 years) per pair
-  PYTHONPATH=. python smc/tools/playbook_test.py dukascopy   stored candles in smc/pairs/<PAIR>/data/dukascopy (M5 + H1)
+  PYTHONPATH=. python smc/tools/playbook_test.py feed CACHE.pkl   the same from a saved pickle {pair: (H1 rows, D1 rows)}
 
-A trade counts only when the SetupAuditor approves (two HTFs aligned, score >= 80 %, body-close SoS + Engulfing,
+A trade counts only when the SetupAuditor approves (two HTFs aligned, grade A+ / A / B+, body-close SoS + Engulfing,
 R:R >= 2.0, session, news T-45 / +30 min, spread), one trade per pair at a time (the owner). Set & Forget: the SL and TP
 never move (no break-even, no partial); the stop before the target inside a candle; spread + slippage included.
 
@@ -147,27 +147,5 @@ async def main_feed() -> None:
           "The SoS is read on H1 only (no M15 / M30 history) and every trade is followed on H1 candles (a candle reaching both the stop and the target counts as the stop).")
 
 
-def main_stored(source: str) -> None:
-    from smc.engine.candles import load
-    events = load_events()
-    out = {}
-    for p in playbook.ALEXG_PAIRS:
-        dd = ROOT / "pairs" / p / "data" / source if source else ROOT / "pairs" / p / "data"
-        if not (dd / "M5.csv").exists():
-            continue
-        cfg = json.loads((ROOT / "pairs" / p / "config.json").read_text(encoding="utf-8"))
-        m5, h1 = load(dd / "M5.csv"), load(dd / "H1.csv")
-        out[p] = pair_result(p, m5, h1, playbook.resample(m5, playbook.DAY), cfg, events, fxcfg.ENTRY_TFS, source or "stored")
-        print(p, out[p]["all"], flush=True)
-    if out:
-        write(out, f"the stored {source or 'yahoo'}", "Every trade followed on M5.")
-    else:
-        print("no stored candles")
-
-
 if __name__ == "__main__":
-    arg = sys.argv[1] if len(sys.argv) > 1 else "feed"
-    if arg == "feed":
-        asyncio.run(main_feed())
-    else:
-        main_stored(arg)
+    asyncio.run(main_feed())
