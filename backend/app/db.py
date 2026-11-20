@@ -47,6 +47,11 @@ def init_db() -> None:
             conn.execute(text("SELECT pg_advisory_xact_lock(72830102026)"))
         Base.metadata.create_all(conn)
         _add_missing_columns(conn)
+        if conn.dialect.name == "postgresql":
+            # Row Level Security on every table, no policy: Supabase's public REST API (anon key) sees nothing, while the
+            # app, which connects as the tables' owner, is not affected. Idempotent, so a new table gets it too.
+            for name in Base.metadata.tables:
+                conn.execute(text(f'ALTER TABLE "{name}" ENABLE ROW LEVEL SECURITY'))
 
 
 def _add_missing_columns(conn) -> None:
