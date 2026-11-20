@@ -70,14 +70,16 @@ export function PairsOverview({ lang, onOpenChart }: { lang: Language; onOpenCha
   const tone = (d?: string) => ({ EXECUTE: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/40', WAIT_FOR_TRIGGER: 'bg-sky-500/10 text-sky-200 ring-sky-500/30',
     WATCH_ONLY: 'bg-white/[0.04] text-slate-300 ring-line', VETOED: 'bg-white/[0.02] text-slate-500 ring-line' } as Record<string, string>)[d ?? ''] ?? 'bg-white/[0.02] text-slate-500 ring-line';
   const isTrade = (p: PairSummary) => !!p.signal || p.decision === 'EXECUTE';
+  // a waiting pair may also carry a watch note: it counts once, under "waiting"
+  const isWatch = (p: PairSummary) => !isTrade(p) && p.decision !== 'WAIT_FOR_TRIGGER' && (p.decision === 'WATCH_ONLY' || !!p.watching);
   const counts = {
     trade: pairs.filter(isTrade).length,
     wait: pairs.filter(p => !isTrade(p) && p.decision === 'WAIT_FOR_TRIGGER').length,
-    watch: pairs.filter(p => !isTrade(p) && (p.decision === 'WATCH_ONLY' || !!p.watching)).length,
+    watch: pairs.filter(isWatch).length,
   };
   const shown = useMemo(() => [...pairs]
     .filter(p => filter === 'all' || (filter === 'trade' ? isTrade(p) : filter === 'wait' ? !isTrade(p) && p.decision === 'WAIT_FOR_TRIGGER'
-      : !isTrade(p) && (p.decision === 'WATCH_ONLY' || !!p.watching)))
+      : isWatch(p)))
     .sort((a, b) => (isTrade(b) ? 1 : 0) - (isTrade(a) ? 1 : 0) || (RANK[a.decision ?? ''] ?? 9) - (RANK[b.decision ?? ''] ?? 9) || (b.gpa ?? 0) - (a.gpa ?? 0)),
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [pairs, filter]);
