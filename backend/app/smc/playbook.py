@@ -1,7 +1,8 @@
 """
 The shared pieces of the desk: candles and indicators, the trade followed on M5 (run), and the registry of what each
 pair's team trades. Since 2026-11-10 (the user's spec "FXAlexG Set & Forget — redesigned 5-agent architecture") every
-instrument runs ONE engine, alexg.py; every earlier strategy and the 7-agent team were purged (git history keeps them).
+instrument runs ONE engine, fxag/ (FX Alex G Set & Forget, the 8 agents of the 2026-11-20 spec); every earlier strategy
+and team was removed (git history keeps them).
 
 Every trade is followed on M5, the stop before the target inside a candle, spread + slippage included.
 """
@@ -15,9 +16,10 @@ M5S, M15S, H1S, H4S, DAY = 300, 900, 3600, 14400, 86400
 NEWS_MIN = 30  # the spec: no entry and no pending limit within 30 min of a high-impact release of the pair's currencies
 
 ALEXG_PAIRS = ["XAUUSD", *(p.replace("/", "") for p in _FX)]  # gold + the 28 forex pairs
-SETUP_NAMES = {"SF_SWING": "S&F-SWING — W1 + D1 in sync", "SF_DAY": "S&F-DAY — D1 + H4 in sync"}
+SETUP_NAMES = {"SYNC": "Full Sync Swing (W + D + 4H)", "RETRACE": "HTF Retracement (W + D, 4H pulling back)",
+               "COUNTER": "Daily Counter-Trend Swing (D + 4H vs W)"}
 STRATEGIES = {k: list(SETUP_NAMES) for k in ALEXG_PAIRS}
-STRATEGY_NAME = "FXAlexG Set & Forget"
+STRATEGY_NAME = "FX Alex G Set & Forget"
 NAMES = {k: dict(SETUP_NAMES) for k in ALEXG_PAIRS}
 CLAIMED = {(k, s): "the spec gives no benchmark; see the measured test" for k in ALEXG_PAIRS for s in SETUP_NAMES}
 
@@ -201,9 +203,3 @@ def _make(key, sid, d, m5, k0, entry, sl, tp1, tp, part, market, expiry_m5, hold
          "rr": abs(tp - entry) / risk, "zone": zone or (entry, entry), "steps": steps, "geo": geo, "beOff": be_off, "missPx": miss_px}
     s["result"] = run(m5, k0, d, entry, sl, tp1, tp, s["part"], market, expiry_m5, hold_until, cost, None, None, None, be_off, miss_px)
     return s
-
-
-def scan(key: str, m5, h1, cost: float, events=None, d1=None, research=None, spread: Optional[float] = None) -> tuple[list, list]:
-    """The pair's FXAlexG setups on its candles: (setups with their result and checklist, what is forming)."""
-    from . import alexg
-    return alexg.scan(key, m5, h1, cost, events, d1, research, spread)

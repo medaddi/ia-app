@@ -49,4 +49,4 @@ async def smc_overview(_=Depends(current_user)):
 
 @router.get("/smc/signals")
 def smc_signals(_=Depends(current_user)):
-    return {"success": True, "signals": recent(), "radar": recent_radar()}  # the live feed: the sent setups and the radar alerts
+    return {"success": True, "signals": recent(), "radar": recent_radar()}  # the live feed: the sent trades (no radar any more)

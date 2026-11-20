@@ -33,7 +33,7 @@ export interface TeamStrategy { id: string; name: string; status: 'SIGNAL' | 'BL
   watch: { time: number; direction: string; steps: Step[] } | null }
 export interface TeamChart extends SmcDrawing { trend: 'BULLISH' | 'BEARISH' | 'UNDEFINED'; premium: boolean }
 /** One of the 5 FXAlexG agents (backend smc/alexg.py squad): its badge, status, score 0-100, weight and details. */
-export interface TeamAgent { key: 'trend' | 'aoi' | 'confluence' | 'trigger' | 'risk'; id?: string; name?: string; badge?: string; details?: string[]; role: string; status: 'ok' | 'warn' | 'wait' | 'veto'; finding: string; score?: number; weight?: number; lines: string[] }
+export interface TeamAgent { key: 'strategy' | 'risk'; id?: string; name?: string; badge?: string; details?: string[]; role: string; status: 'ok' | 'warn' | 'wait' | 'veto'; finding: string; score?: number; weight?: number; lines: string[] }
 /** The pair's strategies from the guide; each row of `strategies` carries what the guide claims and what the test measured (smc/PLAYBOOK.md). */
 export interface TeamPlaybook { name: string; source?: string | null; from?: number | null; to?: number | null }
 export interface Team { success: boolean; symbol: string; at: number; lastCandle: number | null; marketOpen?: boolean; source?: string; error?: string;
@@ -42,6 +42,8 @@ export interface Team { success: boolean; symbol: string; at: number; lastCandle
   /** FXAlexG: the live read's S_AlexG (0-160 %), grade (A+ / A / B / WAIT), the 5 agents' consensus, the decision, the 18 confluences */
   grade?: string; gpa?: number; consensus?: number; decision?: 'EXECUTE' | 'WAIT_FOR_TRIGGER' | 'WATCH_ONLY' | 'VETOED'; direction?: 'BUY' | 'SELL';
   setupType?: string | null; checklist?: Confluence[]; radar?: RadarAlert | null;
+  /** the PairActor's state (spec 5.1) and the W / D / H4 alignment class */
+  tier?: string; alignment?: { dir: number; kind: string | null; strength: number; label: string };
   /** what the validation can say about this pair's strategy (smc/tools/validate.py): never "profitable" from a few trades */
   evidence?: Evidence; family?: 'swing' | 'day' | null; params?: { minRr: number; counterMinGpa: number; version: string } }
 export interface Evidence { state: 'insufficient data' | 'experimental' | 'validated for research'; oosTrades: number; needed: number; trades: number;

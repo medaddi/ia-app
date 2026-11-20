@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Check, ChevronDown, Crosshair, Gauge, Hourglass, Info, MapPin, OctagonX, Shield, TrendingUp, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Crosshair, Hourglass, Info, OctagonX, Shield, Users, X } from 'lucide-react';
 import { tr } from './ui';
 import type { Language } from '../types';
 import type { Team, TeamAgent, TeamSetup } from '../smcTeam';
@@ -7,14 +7,15 @@ import { NotificationBell } from './NotificationBell';
 import { SizeLine, useMySizing } from './RiskSizing';
 
 /**
- * The pair's FXAlexG team under its chart, kept short: one verdict (no trade / watching / waiting / signal) with the grade
- * badge and the confluence bar (0 → 100 %+, the 80 % Grade B line), the 5 agents as compact tiles (tap one for its
- * details), the 2 setups (S&F-SWING, S&F-DAY) as short rows (a signal opens its plan), and the rules folded behind
- * "How it works". Words stay few: the details are one tap away. Research signals, never orders.
+ * The pair's FX Alex G Set & Forget desk under its chart, kept short: the verdict and the PairActor's tier, the grade
+ * badge and the confluence bar (0 → 100 %+, the 80 % Grade B line), the 2 agents (strategy & confirmation; stop loss,
+ * take profit & lot) as tiles (tap one for its checklist), the 3 setup classes (full sync, HTF retracement, daily counter-trend) as short rows (a signal opens its
+ * plan), and the rules folded behind "How it works". Research signals, never orders.
  */
-const AGENT_ICON = { trend: TrendingUp, aoi: MapPin, confluence: Gauge, trigger: Crosshair, risk: Shield };
+const AGENT_ICON = { strategy: Crosshair, risk: Shield };
 const GRADE_TONE: Record<string, string> = { 'A+': 'bg-emerald-500/20 text-emerald-200 ring-emerald-500/40', A: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30',
-  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', WAIT: 'bg-white/[0.04] text-slate-400 ring-line' };
+  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', C: 'bg-amber-500/10 text-amber-200 ring-amber-500/25', D: 'bg-white/[0.04] text-slate-400 ring-line',
+  WAIT: 'bg-white/[0.04] text-slate-400 ring-line' };
 const BAR_MAX = 120;  // the bar shows 0 → 120 %: the 80 % (Grade B) and 100 % (A+) lines inside it, a higher score fills it
 const TONE = { SIGNAL: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30', BLOCKED: 'bg-amber-500/10 text-amber-200 ring-amber-500/25',
   WATCHING: 'bg-sky-500/10 text-sky-200 ring-sky-500/25', IDLE: 'bg-white/[0.03] text-slate-500 ring-line', OFF: 'bg-white/[0.02] text-slate-600 ring-line' };
@@ -34,10 +35,11 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
   const toggle = (k: string) => setOpen(o => (o === k ? null : k));
   const f = (v: number) => v.toFixed(decimals);
   // short names: a word each, the full role shows in the details
-  const agentName = (k: string) => ({ trend: t('Trend', 'Tendance', 'الترند'), aoi: t('Zone', 'Zone', 'المنطقة'), confluence: t('Score', 'Score', 'السكور'),
-    trigger: t('Trigger', 'Entrée', 'الزناد'), risk: t('Risk', 'Risque', 'الريسك') } as Record<string, string>)[k] ?? k;
+  const agentName = (k: string) => ({ strategy: t('Strategy & confirmation', 'Stratégie & confirmation', 'الستراتيجية والتأكيد'),
+    risk: t('SL · TP · lot', 'SL · TP · lot', 'الستوب · الهدف · اللوت') } as Record<string, string>)[k] ?? k;
   const statusWord = (s: TeamAgent['status']) => ({ ok: t('OK', 'OK', 'مزيان'), warn: t('Caution', 'Attention', 'انتباه'), wait: t('Waiting', 'En attente', 'كيتسنا'), veto: t('Veto', 'Veto', 'فيتو') })[s];
-  const setupName = (id: string, name: string) => ({ SF_SWING: t('Swing · W1 + D1', 'Swing · W1 + D1', 'سوينغ · W1 + D1'),
+  const setupName = (id: string, name: string) => ({ SYNC: t('Full sync · W + D + 4H', 'Sync complet · W + D + 4H', 'تزامن كامل · W + D + 4H'),
+    RETRACE: t('Retracement · W + D', 'Retracement · W + D', 'تصحيح · W + D'), COUNTER: t('Counter-trend · D + 4H', 'Contre-tendance · D + 4H', 'عكس الويكلي · D + 4H'),
     SF_DAY: t('Day · D1 + H4', 'Day · D1 + H4', 'داي · D1 + H4') } as Record<string, string>)[id] ?? name;
   const rowStatus = (s: string) => ({ SIGNAL: t('Signal', 'Signal', 'إشارة'), BLOCKED: t('Blocked', 'Bloqué', 'محبوس'), WATCHING: t('Watching', 'En veille', 'كيراقب'), IDLE: t('Nothing', 'Rien', 'والو'), OFF: t('Off', 'Désactivée', 'مطفية') } as Record<string, string>)[s];
   const verdict = ({
@@ -65,7 +67,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
         ))}
       </dl>
       <div className="mt-1.5"><MySize id={s.id} lang={lang} /></div>
-      {s.tp1 != null && <p className="mt-0.5 text-[11px] text-slate-400">+1.5R <span className="font-mono text-slate-200">{f(s.tp1)}</span>: {t('stop to entry, 25 % banked', 'stop à l’entrée, 25 % encaissés', 'الستوب للدخول، 25 % مضمونة')}</p>}
+      <p className="mt-0.5 text-[11px] text-slate-400">{t('Set & Forget: SL and TP locked, no break-even, no partial', 'Set & Forget : SL et TP verrouillés, ni break-even ni partiel', 'Set & Forget: SL و TP مقفولين، بلا break-even وبلا جزئي')}</p>
       {!s.market && s.zone && <p className="mt-0.5 text-[11px] text-slate-400">{t('Limit zone', 'Zone limite', 'منطقة الليميت')} <span className="font-mono text-slate-200">{f(s.zone[0])} – {f(s.zone[1])}</span></p>}
       <ul className="mt-1.5 grid sm:grid-cols-2 gap-x-3 gap-y-0.5">
         {s.checklist.map(c => (
@@ -81,7 +83,11 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
   const agents = team?.success ? team.agents ?? [] : [];
   const picked = agents.find(a => open === `agent-${a.key}`);
   const score = team?.gpa ?? 0;
-  const grade = team?.grade ?? 'WAIT';
+  const grade = team?.grade ?? 'D';
+  const tierWord = (x?: string) => ({ TIER_3_DORMANT: t('Dormant', 'En sommeil', 'ناعس'), TIER_2_WATCHLIST: t('Watchlist', 'Liste de veille', 'تحت المراقبة'),
+    TIER_1_SNIPER_AOI: t('Tier 1 · at the zone', 'Tier 1 · sur la zone', 'Tier 1 · ف المنطقة'), TIER_1_SOS_CONFIRMED: t('Tier 1 · SoS in', 'Tier 1 · SoS confirmé', 'Tier 1 · SoS تأكد'),
+    AWAIT_PULLBACK_LIMIT: t('Limit waiting', 'Limite en attente', 'ليميت كتسنا'), SIGNAL_EMITTED: t('Signal', 'Signal', 'إشارة'),
+    SET_AND_FORGET_LOCKED: t('Locked trade', 'Trade verrouillé', 'صفقة مقفولة') } as Record<string, string>)[x ?? ''] ?? '';
   const checklist = team?.checklist ?? [];
 
   return (
@@ -109,6 +115,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
               <span className="font-mono text-xs text-slate-200">{score}%</span>
               {team.direction && <span className={`text-[11px] font-semibold ${team.direction === 'BUY' ? 'text-emerald-300' : 'text-rose-300'}`}>{team.direction}</span>}
               {team.badge && <span className="hidden sm:inline font-mono text-[11px] text-slate-500 truncate">{team.badge.split(' · ')[0]}</span>}
+              {team.tier && <span className="px-1.5 py-0.5 rounded bg-surface-2 text-[10px] text-slate-300 whitespace-nowrap">{tierWord(team.tier)}</span>}
               <ChevronDown className={`ms-auto w-3.5 h-3.5 shrink-0 text-slate-500 transition-transform ${open === 'gpa' ? 'rotate-180' : ''}`} aria-hidden="true" />
             </div>
             <div className="relative mt-2 h-1.5 rounded-full bg-white/[0.06]" role="meter" aria-valuemin={0} aria-valuemax={160} aria-valuenow={score}
@@ -138,7 +145,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
       {/* the 5 agents: a tile each (icon, one word, its status); tap one for what it found */}
       {agents.length > 0 && (
         <>
-          <ul className="mt-3 grid grid-cols-5 gap-1.5" aria-label={t('The team’s agents', 'Les agents de l’équipe', 'الوكلاء ديال الفريق')}>
+          <ul className="mt-3 grid grid-cols-2 gap-1.5" aria-label={t('The team’s agents', 'Les agents de l’équipe', 'الوكلاء ديال الفريق')}>
             {agents.map(a => {
               const Icon = AGENT_ICON[a.key as keyof typeof AGENT_ICON] ?? Shield;
               const on = open === `agent-${a.key}`;
@@ -171,7 +178,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
         </>
       )}
 
-      {/* the 2 setups: a short row each; a signal opens its plan */}
+      {/* the 3 setup classes: a short row each; a signal opens its plan */}
       {team?.success && team.strategies.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {team.strategies.map(s => {
@@ -222,9 +229,9 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
       </div>
       {open === 'how' && (
         <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
-          {t('A radar alert comes when price is at a W1 / D1 zone with the trend in sync, 65 %+ confluence and the H1 / M30 / M15 shift of structure. The trade is sent once when the engulfing closes: 80 %+ (Grade B), at least 1:2.5, no veto, no news within 30 min. At +1.5R the stop goes to the entry and 25 % is banked. Your lot comes from your own USD risk (My account). The app never places an order.',
-            'Une alerte radar arrive quand le prix est sur une zone W1 / D1 avec la tendance alignée, 65 %+ de confluence et le changement de structure H1 / M30 / M15. Le trade est envoyé une fois à la clôture de l’engulfing : 80 %+ (Grade B), au moins 1:2,5, aucun veto, pas de news à 30 min. À +1,5R le stop passe à l’entrée et 25 % sont encaissés. Votre lot vient de votre propre risque en USD (Mon compte). L’app ne passe jamais d’ordre.',
-            'تنبيه الرادار كيجي ملي الثمن كيكون ف منطقة W1 / D1 والترند متزامن، 65 %+ توافقات وكسر الهيكلة ف H1 / M30 / M15. الصفقة كتتصيفط مرة وحدة ملي كتسد شمعة الابتلاع: 80 %+ (Grade B)، على الأقل 1:2.5، حتى فيتو، حتى خبر ف 30 دقيقة. ف +1.5R الستوب كيمشي للدخول و25 % كتتضمن. اللوت ديالك كيجي من الريسك ديالك بالدولار (حسابي). التطبيق عمرو ما كيدير أمر.')}
+          {t('2 agents: the strategy agent checks the trend, the zone, the score and the confirmation; the risk agent sets the stop loss, the take profit and the lot. On closed candles: the W / D / 4H trend (body closes only), the W / D zone with 3+ touches, the live confluences. At the zone (within 5 pips), a body-close shift of structure on M15 / M30 / H1 then an engulfing on H1 / H2 / H4 fire the trade, when the score is 80 %+ (Grade B), R:R at least 1:2, in session and away from news. Set & Forget: SL and TP never move. Your lot comes from your own $ risk. The app never places an order.',
+            '2 agents : l’agent stratégie vérifie la tendance, la zone, le score et la confirmation ; l’agent risque fixe le stop, le take profit et le lot. Sur bougies clôturées : la tendance W / D / 4H (corps seulement), la zone W / D à 3+ touches, les confluences en direct. Sur la zone (à 5 pips), un changement de structure en clôture de corps sur M15 / M30 / H1 puis un engulfing en H1 / H2 / H4 déclenchent le trade, si le score est de 80 %+ (Grade B), R:R au moins 1:2, en session et loin des news. Set & Forget : SL et TP ne bougent jamais. Votre lot vient de votre propre risque en $. L’app ne passe jamais d’ordre.',
+            '2 agents: agent الستراتيجية كيشوف الترند، المنطقة، السكور والتأكيد؛ و agent الريسك كيحدد الستوب، الهدف واللوت. على شموع مسدودة: الترند W / D / 4H (الأجسام فقط)، منطقة W / D فيها 3+ لمسات، والتوافقات الحية. ف المنطقة (5 بيبس)، كسر الهيكلة بإغلاق الجسم ف M15 / M30 / H1 من بعد شمعة ابتلاعية ف H1 / H2 / H4 كيعطيو الصفقة، إلا كان السكور 80 %+ (Grade B)، R:R على الأقل 1:2، ف السيشن وبعيد على الأخبار. Set & Forget: الستوب والهدف ما كيتحركوش. اللوت ديالك من الريسك ديالك بالدولار. التطبيق عمرو ما كيدير أمر.')}
         </p>
       )}
     </section>

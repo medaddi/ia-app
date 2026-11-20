@@ -1,15 +1,13 @@
 """
-The notifier (the FXAlexG spec of 2026-11-19, section 5; the owner chose "follow the md exactly"): every minute the 29
-teams are read again and three kinds of alerts go out, each to Telegram (every chat linked to an approved account and
-the active subscribers, plus the admin chat), as a web push to every approved account's devices, and into the app's
-live feed (/api/smc/signals):
+The notifier (FX Alex G Set & Forget, the owner's specification of 2026-11-20; the owner's choice: "the trade and its
+end"): every minute the 29 pairs are read again and, to Telegram (every chat linked to an approved account, plus the
+admin chat), as a web push to every approved account's devices and into the app's live feed (/api/smc/signals):
 
-  1 · RADAR_WATCH     trend_director ok, aoi_architect ok, S_AlexG >= 65 %, the LTF SoS just confirmed (trigger_sniper
-                      warn): only the engulfing is missing. Once per AOI visit (a watermark keeps it from repeating).
-  2 · SIGNAL_EXECUTE  the full Set & Forget trade, once: the desk executes and the portfolio check agrees.
-  3 · TRADE_MANAGER   every step of a sent trade (manager.py): FILLED, BREAKEVEN (+1.5R), TP_HIT, SL_HIT, BE_CLOSED, EXPIRED.
+  SIGNAL     an approved trade (the SetupAuditor's APPROVE), once, locked Set & Forget (Agent 8: signal only)
+  UPDATES    the trade manager (manager.py): FILLED (a limit), TP_HIT, SL_HIT, EXPIRED. Set & Forget: no break-even,
+             no partial, no trailing, no early close.
 
-Research, not advice: every message says so. Nothing here places an order.
+No radar alert. Research, not advice: every message says so. Nothing here places an order.
 """
 
 import asyncio
@@ -23,7 +21,7 @@ from sqlalchemy import or_, select
 from ..config import settings
 from ..db import SessionLocal
 from ..market.data import market_session_status
-from ..models import PushSubscription, Signal, User, Watermark
+from ..models import PushSubscription, Signal, User
 from ..push import send_push
 from ..store import get_setting, set_setting
 from ..telegram import bot
@@ -31,8 +29,7 @@ from .desk import BY_SYMBOL, PAIRS, summary, team
 from .skill import portfolio
 
 RULE = "━━━━━━━━━━━━━━━━━━"
-TRADE_UPDATES = True  # the spec 5.3: the trade manager tells every step (False keeps them silent, the results still saved)
-RADAR_KEEP = 30
+TRADE_UPDATES = True  # the trade's end is told (FILLED for a limit, TP, SL, expired); False keeps the manager silent
 READ_AT_ONCE = 8  # the spec: 29 teams read 8 at a time (asyncio.Semaphore(8))
 
 
@@ -50,62 +47,26 @@ def levels(s: dict, dec: int) -> str:
     return f"Entry {_f(s['entry'], dec)} · SL {_f(s['sl'], dec)} · TP {_f(s['tp'], dec)} · 1:{s['rr']:.1f}"
 
 
-AGENT_NAMES = {"trend": "Trend Director", "aoi": "AOI Architect", "confluence": "Confluence Grader", "trigger": "Trigger Sniper",
-               "risk": "Risk Guardian"}
-
-
-def _zone_tf(zi: dict) -> str:
-    return "D1+W1" if zi.get("overlap") else "+".join(t for t in ("D1", "W1") if t in (zi.get("tfs") or [])) or "D1"
-
-
 def message(s: dict, pair: str, dec: int) -> str:
-    """Stage 2 · SIGNAL_EXECUTE, the spec's 5.2 example: pair, side, grade and score, the order, entry (and its zone),
-    stop, the break-even step at +1.5R, the target, risk and lots per $10k, R:R, the confluence breakdown and the 5
-    agents' verdicts. A private chat adds its owner's own lot (sizing.py) just above the last line."""
-    d = 1 if s["direction"] == "BUY" else -1
+    """The trade: pair, side, grade and score, the order, entry, stop, target, R:R, the SoS and engulfing timeframes, the
+    alignment, the confluences that scored, the Set & Forget lock and the order id. A private chat adds its owner's own
+    lot (sizing.py) just above the last line."""
     e = html.escape
-    zi = s.get("zoneInfo") or {}
-    zone = s.get("zone") or [s["entry"], s["entry"]]
-    pip = BY_SYMBOL[pair]["pip"]
-    order = f"{s['direction']} MARKET" if s.get("market") else f"{s['direction']} LIMIT"
-    tp_r = abs(s["tp"] - s["entry"]) / abs(s["entry"] - s["sl"]) if s["entry"] != s["sl"] else 0
-    struct = s.get("struct")
-    tp_why = "pre-structure" if struct is not None and abs(s["tp"] - (struct - d * 5 * pip)) < pip else "3.5R cap"
-    lots = s.get("lots10k")
-    if lots is None:
-        lots = (s.get("lots") or {}).get("10000") or 0
-    news = "Clear News" if s.get("newsClear") else "News not checked" if not s.get("newsChecked") else "News"
+    d = 1 if s["direction"] == "BUY" else -1
     score = s.get("score") or s.get("gpa")
-    lines = [f"🎯 <b>FXAlexG SET &amp; FORGET — {e(pair)} {'LONG' if d > 0 else 'SHORT'} (GRADE {e(str(s.get('grade')))} · {score}%)</b>",
+    limit = s.get("orderType") == "LIMIT_PULLBACK" or not s.get("market")
+    br = s.get("breakdown") or {}
+    pid = ((s.get("proposal") or {}).get("client_order_id")) or "—"
+    lines = [f"🎯 <b>FX ALEX G SET &amp; FORGET — {e(pair)} {s['direction']} (GRADE {e(str(s.get('grade')))} · {score}%)</b>",
              RULE,
-             f"📈 <b>Action:</b> {order} @ <code>{_f(s['entry'], dec)}</code>" + ("" if s.get("market") else
-                 f" <i>(Entry Zone: <code>{_f(min(zone), dec)}</code> – <code>{_f(max(zone), dec)}</code>)</i>"),
-             f"🛑 <b>Stop Loss:</b> <code>{_f(s['sl'], dec)}</code> <i>(-{s.get('slPips')} pips · {'below' if d > 0 else 'above'} {_zone_tf(zi)} AOI)</i>"]
-    if s.get("tp1") is not None:
-        lines.append(f"🛡️ <b>Break-Even Trigger (+1.5R):</b> <code>{_f(s['tp1'], dec)}</code> <i>(+{s.get('bePips')} pips)</i>")
-    lines += [f"💰 <b>Take Profit (+{tp_r:.1f}R):</b> <code>{_f(s['tp'], dec)}</code> <i>(+{s.get('tpPips')} pips · {tp_why})</i>",
-              f"⚖️ <b>Risk / Sizing:</b> <code>{s.get('riskPct', 1.0):g}%</code> (<code>{lots:g} Lots</code> per $10k) · <b>R:R:</b> <code>1 : {s['rr']:.2f}</code>",
-              RULE, f"🧩 <b>Confluence Breakdown ({score}% — Grade {e(str(s.get('grade')))}):</b>"]
-    lines += [f"✅ {e(c['label'])} (<code>+{c['pts']}%</code>)" for c in s.get("checklistGpa") or [] if c.get("ok")]
-    lines += [RULE, "🤖 <b>5-Agent Desk Verdict:</b>"]
-    lines += [f"• <b>{AGENT_NAMES.get(a['key'], a['key'])}:</b> <code>{a['status'].upper()}</code> {e(a['badge'])}" for a in s.get("desk") or []]
-    lines.append(f"<i>Research software — does not place orders. Spread {s.get('spreadPct')}% of SL · {news}.</i>")
+             (f"📈 <b>Order:</b> {'LIMIT (50 % pullback, 6 h)' if limit else 'MARKET'} @ <code>{_f(s['entry'], dec)}</code>"),
+             f"🛑 <b>SL</b> <code>{_f(s['sl'], dec)}</code> <i>(-{s.get('slPips')} pips)</i> · 💰 <b>TP</b> <code>{_f(s['tp'], dec)}</code> "
+             f"<i>(+{s.get('tpPips')} pips)</i> · <b>R:R</b> <code>1 : {s['rr']:.2f}</code>",
+             f"🧭 {e(s.get('setupName') or s.get('name') or '')} · SoS {e(str(s.get('sosTf') or ''))} · Engulfing {e(str(s.get('etf') or ''))}",
+             "🧩 " + e(" · ".join(f"{k} +{v}%" for k, v in br.items())) if br else "🧩 —",
+             f"🔒 Set &amp; Forget: SL and TP locked (no break-even, no partial) · risk {s.get('riskPct', 0):g}% · id <code>{pid}</code>",
+             "<i>Signal only — no order placed. Research software, not advice.</i>"]
     return "\n".join(lines)
-
-
-def radar_message(pair: str, r: dict, dec: int) -> str:
-    """Stage 1 · RADAR_WATCH, the spec's 5.1 example."""
-    d = 1 if r["direction"] == "BUY" else -1
-    side = "Bullish" if d > 0 else "Bearish"
-    loc = f"Inside {r['tf'].replace('W1+D1', 'D1+W1')} AOI (<code>{_f(r['low'], dec)} – {_f(r['high'], dec)}</code>)"
-    if r.get("psych") is not None:
-        loc += f" + Psych <code>{_f(r['psych'], dec)}</code>"
-    return "\n".join([f"📡 <b>SET &amp; FORGET RADAR — {html.escape(pair)} ({r['direction']} WATCH)</b>",
-                      f"• <b>Trend Sync:</b> {' + '.join((r.get('trend') or 'D1').split('+'))} {side}",
-                      f"• <b>Location:</b> {loc}",
-                      f"• <b>Status:</b> {r['etf']} Shift of Structure (SoS) confirmed at <code>{_f(r['sosLevel'], dec)}</code> — "
-                      f"Waiting for Retest &amp; {side} Engulfing trigger.",
-                      f"<i>S_AlexG {r.get('score')}% · research software — does not place orders.</i>"])
 
 
 async def personal_line(db, chat: str, sig_id: str) -> Optional[str]:
@@ -166,24 +127,9 @@ async def _send(pair: str, s: dict) -> dict:
                            levels(s, dec), f"ld-{s['id']}", s)
 
 
-def _radar_new(pair: str, r: dict) -> bool:
-    """True the first time this radar (pair, side, zone, SoS wave: one AOI visit) is seen: a watermark row remembers it,
-    and the app's live feed keeps the last 30."""
-    with SessionLocal() as db:
-        if db.scalar(select(Watermark).where(Watermark.ref == "RADAR", Watermark.signal_id == r["id"][:80])):
-            return False
-        db.add(Watermark(ref="RADAR", chat_id="*", signal_id=r["id"][:80], symbol=pair, offset=0.0))
-        db.commit()
-        feed = get_setting(db, "radar").get("items") or []
-        feed.insert(0, {**r, "symbol": pair, "at": int(time.time())})
-        set_setting(db, "radar", {"items": feed[:RADAR_KEEP]})
-        return True
-
-
 def recent_radar() -> list[dict]:
-    """The last radar alerts (the app's live feed)."""
-    with SessionLocal() as db:
-        return get_setting(db, "radar").get("items") or []
+    """No radar alerts any more (the owner, 2026-11-20): the app's feed carries the trades only."""
+    return []
 
 
 def _claim(pair: str, s: dict, state: str = "PENDING") -> bool:
@@ -243,13 +189,7 @@ async def tick() -> dict:
             continue
         summaries[pair] = summary(pair, t)
         notes = []
-        rd = t.get("radar")
-        if rd and _radar_new(pair, rd):  # stage 1, once per AOI visit
-            dec = BY_SYMBOL[pair]["decimals"]
-            out = await broadcast(pair, radar_message(pair, rd, dec), f"📡 Radar · {pair} {rd['direction']} watch",
-                                  f"{rd['etf']} SoS at {_f(rd['sosLevel'], dec)} · awaiting the engulfing", f"ld-{rd['id']}")
-            notes.append(f"radar {rd['direction']} → telegram {out['telegram']} · push {out['push']}")
-        for s in t["signals"]:  # stage 2
+        for s in t["signals"]:
             if _seen(s["id"]):
                 continue
             chk = portfolio.check(pair, s, sent_setups(), int(time.time()))

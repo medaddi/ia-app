@@ -1,22 +1,22 @@
 """
-FXAlexG Set & Forget (backend/app/smc/alexg.py, the owner's md of 2026-11-19) on history: how many trades, the win rate,
+FX Alex G Set & Forget (backend/app/smc/fxag/, the owner's specification of 2026-11-20) on history: how many trades, the win rate,
 the result in R with costs, the profit factor, on the whole period, its first 60 % and its last 40 %. Writes
 smc/PLAYBOOK.md and backend/app/smc/research/playbook.json (the app shows these numbers).
 
   PYTHONPATH=. python smc/tools/playbook_test.py feed        the app's own feed: H1 (2 years) and D1 (5 years) per pair
   PYTHONPATH=. python smc/tools/playbook_test.py dukascopy   stored candles in smc/pairs/<PAIR>/data/dukascopy (M5 + H1)
 
-A trade counts only when the desk executes (sync, S_AlexG >= 80 %, SoS + Engulfing, R:R >= 2.5, no veto), one trade
-per pair at a time. News: the stored calendar smc/news/high_impact.csv (ForexFactory high impact); no entry within 30
-min of a release of the pair's currencies. At +1.5 R the stop goes to the entry and 25 % is banked; the stop before the
-target inside a candle; spread + slippage included. The portfolio check is not applied (each pair alone).
+A trade counts only when the SetupAuditor approves (two HTFs aligned, score >= 80 %, body-close SoS + Engulfing,
+R:R >= 2.0, session, news T-45 / +30 min, spread), one trade per pair at a time (the owner). Set & Forget: the SL and TP
+never move (no break-even, no partial); the stop before the target inside a candle; spread + slippage included.
 
-"feed" mode: the trigger is read on H1 only (the feed keeps M30 / M15 for 60 days, too short to test), and every
-trade is followed on H1 candles, not M5 (a candle that reaches both the stop and the target counts as the stop).
+"feed" mode: the SoS is read on H1 only (the feed keeps M30 / M15 for 60 days, too short to test), the engulfing on
+H1 / H2 / H4, and every trade is followed on H1 candles (a candle reaching both the stop and the target counts as the stop).
 """
 
 import asyncio
 import csv
+import pickle
 import json
 import sys
 from datetime import datetime, timezone
@@ -26,7 +26,8 @@ _backend = str(Path(__file__).resolve().parents[2] / "backend")
 if _backend not in sys.path:
     sys.path.insert(0, _backend)
 
-from app.smc import alexg, playbook  # noqa: E402
+from app.smc import playbook  # noqa: E402
+from app.smc.fxag import config as fxcfg, engine as fx  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,13 +57,13 @@ def exits(ss: list[dict]) -> dict:
     out = {"tp": 0, "be_after_1_5R": 0, "sl": 0}
     for s in ss:
         r = s["result"]["r"]
-        out["tp" if r > 1.0 else "be_after_1_5R" if r > 0 else "sl"] += 1
+        out["tp" if r > 0.05 else "be_after_1_5R" if r > -0.05 else "sl"] += 1  # no break-even any more: the middle stays 0
     return out
 
 
 def pair_result(p: str, follow, h1, d1, cfg: dict, events: list, entry_tfs: tuple, source: str) -> dict:
     cost = (cfg["spread_pips"] + cfg["slippage_pips"]) * cfg["pip"]
-    setups, _ = alexg.scan(p, follow, h1, cost, events or None, d1, entry_tfs=entry_tfs)
+    setups, _ = fx.scan(p, follow if follow is not h1 else [], h1, cost, events or None, d1, follow=follow)
     split = follow[0].time + int((follow[-1].time - follow[0].time) * 0.6)
     kept = [s for s in setups if s["pass"] and "r" in s["result"]]
     rs = [s["result"]["r"] for s in kept]
@@ -96,11 +97,11 @@ def write(out: dict, source: str, note: str) -> None:
     tin = [r for x in out.values() for r in x["_in"]]
     tout = [r for x in out.values() for r in x["_out"]]
     first = next(iter(out.values()))
-    lines = ["# FXAlexG Set & Forget, measured", "",
+    lines = ["# FX Alex G Set & Forget, measured", "",
              f"VERIFIED from {source} candles, {d(first['from'])} → {d(first['to'])} (split at 60 %), {len(out)} pairs. {note} "
-             "At +1.5 R the stop goes to the entry and 25 % is banked (+0.375 R); spread + slippage included. 1R = the risk of one trade.", "",
-             "A win = a result above +0.05 R (a break-even close after +1.5 R is a small win). Exits: full targets / break-even after +1.5 R / stops.", "",
-             "| pair | two-step triggers at an AOI | executed (S&F-SWING · S&F-DAY) | win rate | result | PF | first 60 % | last 40 % | exits (TP / BE / SL) |",
+             "Set & Forget: SL and TP never move; spread + slippage included. 1R = the risk of one trade.", "",
+             "A win = a result above +0.05 R. Exits: targets / flat / stops (Set & Forget: no break-even).", "",
+             "| pair | approved or vetoed entries at an AOI | executed (SYNC · RETRACE · COUNTER) | win rate | result | PF | first 60 % | last 40 % | exits (TP / flat / SL) |",
              "|---|---|---|---|---|---|---|---|---|"]
     for p, x in out.items():
         a, e = x["all"], x["exits"]
@@ -112,7 +113,7 @@ def write(out: dict, source: str, note: str) -> None:
               f"First 60 %: {f(agg(tin))}. Last 40 %: {f(agg(tout))}.", "",
               "The spec's target is PF > 1.5 and a win rate >= 50 %: "
               + (("met" if (pf(t) or 0) > 1.5 and (t["winRate"] or 0) >= 50 else "NOT met") + " on this sample." if t["trades"] else "no trade to judge."),
-              "Under 30 trades a win rate can still be luck. The portfolio check is not applied here (each pair alone)."]
+              "Under 30 trades a win rate can still be luck. One trade per pair at a time (the owner's rule)."]
     (ROOT / "PLAYBOOK.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     dest = ROOT.parent / "backend" / "app" / "smc" / "research" / "playbook.json"
     dest.write_text(json.dumps({p: {k: v for k, v in x.items() if not k.startswith("_")} for p, x in out.items()}, indent=1), encoding="utf-8")
@@ -123,21 +124,27 @@ async def main_feed() -> None:
     from app.market.data import fetch_candle_series
     events = load_events()
     out = {}
+    cache = Path(sys.argv[2]) if len(sys.argv) > 2 else None  # optional: a pickle {pair: (H1 rows, D1 rows)} from an earlier fetch
+    data = pickle.loads(cache.read_bytes()) if cache and cache.exists() else None
     for key in playbook.ALEXG_PAIRS:
-        cfg = alexg.config(key)
+        cfg = fxcfg.meta(key)
         sym = cfg["symbol"]
-        h1s, ds = await asyncio.gather(fetch_candle_series(sym, "1H", 13000), fetch_candle_series(sym, "1D", 1600))
-        if h1s.get("isSynthetic") or ds.get("isSynthetic"):
-            print(key, "no feed data", flush=True)
-            continue
-        h1, d1 = h1s["candles"][:-1], ds["candles"][:-1]  # the last candle may be forming
-        x = await asyncio.to_thread(pair_result, key, h1, h1, d1, cfg, events, ("H1",), h1s.get("source") or "feed")
+        if data:
+            h1, d1 = ([playbook._Bar(*x) for x in rows] for rows in data[key][:2])
+        else:
+            h1s, ds = await asyncio.gather(fetch_candle_series(sym, "1H", 13000), fetch_candle_series(sym, "1D", 1600))
+            if h1s.get("isSynthetic") or ds.get("isSynthetic"):
+                print(key, "no feed data", flush=True)
+                continue
+            h1, d1 = h1s["candles"][:-1], ds["candles"][:-1]  # the last candle may be forming
+        cfg = {**cfg, "pip": cfg["pip"]}
+        x = await asyncio.to_thread(pair_result, key, h1, h1, d1, cfg, events, ("H1",), "feed")
         out[key] = x
         a = x["all"]
         print(key, len(h1), "H1 /", len(d1), "D1 | triggers", x["triggers"], x["grades"], "| passed", a["trades"], "win", a["winRate"], "R", a["totalR"],
               "PF", x["pf"], x["exits"], "| blocked", x["blockedBy"], flush=True)
     write(out, "the app's feed (Yahoo Finance forex, COMEX GC=F adjusted to spot for gold)",
-          "The trigger is read on H1 only and every trade is followed on H1 candles (a candle reaching both the stop and the target counts as the stop).")
+          "The SoS is read on H1 only (no M15 / M30 history) and every trade is followed on H1 candles (a candle reaching both the stop and the target counts as the stop).")
 
 
 def main_stored(source: str) -> None:
@@ -150,7 +157,7 @@ def main_stored(source: str) -> None:
             continue
         cfg = json.loads((ROOT / "pairs" / p / "config.json").read_text(encoding="utf-8"))
         m5, h1 = load(dd / "M5.csv"), load(dd / "H1.csv")
-        out[p] = pair_result(p, m5, h1, playbook.resample(m5, playbook.DAY), cfg, events, alexg.ENTRY_TFS, source or "stored")
+        out[p] = pair_result(p, m5, h1, playbook.resample(m5, playbook.DAY), cfg, events, fxcfg.ENTRY_TFS, source or "stored")
         print(p, out[p]["all"], flush=True)
     if out:
         write(out, f"the stored {source or 'yahoo'}", "Every trade followed on M5.")

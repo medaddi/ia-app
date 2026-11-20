@@ -474,3 +474,27 @@ first: radar without notifications, only the trade sent, short alerts, each user
   checked on the last 40 %: none passes (the chosen one: PF 0.70 on the last 40 %); none made money on both halves.
 - alexg.VARIANT: the research switches, at the md's values (the live app is unchanged). Tests: 63 pass.
 
+## v4.0 · 2026-11-20 · FX Alex G Set & Forget: the 8-agent specification, rebuilt from scratch
+- The owner's "fx_alex_g_set_forget_ai_multi_agent_quantitative_specification.md", applied to the letter. The old engine
+  (alexg.py: 5 agents, S&F-SWING / S&F-DAY, break-even at +1.5R) and its research tools are removed.
+- backend/app/smc/fxag/: config (29 pairs, pip, lambda_s, shards, "every 500" steps, every threshold), time_utils (NY 17:00
+  daily close, DST-aware W / D / H4 / H2, UTC sessions and blackouts, news T-45 / +30 min), and the 8 agents: DataGuard,
+  StructureEngine (body swings, alternating True Elbows >= 1.0 ATR, HH/HL state machine, chop and all-time-extreme
+  filters, the W / D / H4 alignment matrix), ZoneArchitect (W 150 / D 250 AOIs, >= 3 touches 3 bars apart, <= 60 lambda
+  pips, 80 % capture, polarity, W+D merge or nest, 500 snap, 5-pip proximity, break suspension, No-Trap runway),
+  ConfluenceScorer (live-only confluences, the candle table, chart patterns, weights, A+ / A / B / C / D),
+  EntrySniper (M15 / M30 / H1 SoS by clarity Phi, 12 h; H4 / H2 / H1 engulfing, body >= 55 %; huge engulfing -> 6 h
+  50 % limit), RiskGovernor (SL, structural TP, W-AOI cap, R:R >= 2.0, seasonal risk x grade, lot formula, ranking),
+  SetupAuditor (veto codes), OrderExecutor (idempotent id, SET_AND_FORGET_LOCKED, signal only); pair_actor.py (the tier
+  state machine, derived from the candles at every read) and engine.py (replay, live read, chart).
+- The owner's choices: signals only (no broker); every pair's trade, one per pair (no currency / weekly / drawdown limits,
+  no cooldown); each user's own $ risk sizes the lot; only the trade and its end are notified (no radar, no break-even).
+- Set & Forget: the manager no longer moves the stop or banks a partial; it tells FILLED (limits), TP, SL, expired.
+- App: the team card shows the 8 agents, the tier, grades A+ / A / B / C / D and the 3 classes (full sync, HTF
+  retracement, daily counter-trend).
+- Tests: 61 pass (tests/test_fxag.py: the agents and the spec's 18 edge cases).
+- Measured (VERIFIED): 2 years, 29 pairs, H1 SoS only: 1 trade (-1.01R). Last 60 days with M15 / M30: 1 candidate, vetoed
+  (outside the session), 0 trades. 6 pairs over 2 years: of 15,989 engulfing closes, 10,408 not aligned, 3,256 with no AOI
+  visited, 1,413 at a broken AOI, 618 under the score, 278 without a SoS, 12 under R:R 2.0, 2 approved. The spec's
+  frequency benchmark (1-2 trades a week) is NOT reached on this data.
+

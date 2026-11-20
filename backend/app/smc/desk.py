@@ -1,10 +1,11 @@
 """
 Each pair's team, live, on the pair's latest closed candles with the pair's own config (configs/<PAIR>.json).
-Every team runs FXAlexG Set & Forget (alexg.py: S&F-SWING and S&F-DAY) with its 5 agents: trend_director,
-aoi_architect, confluence_grader, trigger_sniper, risk_guardian. Each setup type says one of:
-  SIGNAL    a setup the desk executes (sync, S_AlexG >= 80 %, SoS + Engulfing, R:R >= 2.5, no veto), its trade running
+Every team runs FX Alex G Set & Forget (the owner's specification of 2026-11-20, package fxag/) with its 8 agents:
+DataGuard, StructureEngine, ZoneArchitect, ConfluenceScorer, EntrySniper, RiskGovernor, SetupAuditor, OrderExecutor.
+Each setup class (SYNC, RETRACE, COUNTER) says one of:
+  SIGNAL    an approved trade (score >= 80 %, SoS + Engulfing, R:R >= 2.0, the auditor's APPROVE), locked Set & Forget
   BLOCKED   a recent two-step trigger that failed the gate (the failed lines are given)
-  WATCHING  inside the AOI with the SoS, the engulfing close awaited (the radar)
+  WATCHING  Tier 1 at the AOI with the SoS confirmed, the H1 / H2 / H4 engulfing awaited
   IDLE      nothing forming
 Research, not advice: a SIGNAL is a setup the rules found, never a guarantee. The app places no order.
 """
@@ -16,12 +17,13 @@ from pathlib import Path
 
 from ..market.data import fetch_candle_series, fetch_live_price, market_session_status
 from ..market.pairs import PAIRS as FX_PAIRS
-from . import alexg, playbook
+from . import playbook
+from .fxag import engine as fx
 
 CONFIGS = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in sorted((Path(__file__).parent / "configs").glob("*.json"))}
 BY_SYMBOL = {c["symbol"]: c for c in CONFIGS.values()}
 PAIRS = ["XAU/USD", *FX_PAIRS]  # FXAlexG's watchlist: gold + the 28 forex pairs
-M5_BARS, H1_BARS, D1_BARS = 2000, 4000, 900  # H1 4000 so H4 has 1000 bars; D1 900 so W1 (resampled) has 120+ weeks
+M5_BARS, H1_BARS, D1_BARS = 2000, 6600, 1600  # H1 6600: 270+ NY-aligned D candles (250 for the D AOIs); D1 1600: the W memory (150 weeks)
 TTL = 60
 FRESH_SEC = 20 * 60  # CHOICE: a market entry is alerted only within 20 minutes of its trigger candle (never a stale price)
 _cache: dict[str, tuple[float, dict]] = {}
@@ -70,32 +72,33 @@ def _setup_json(pair: str, cfg: dict, s: dict) -> dict:
             "state": s["result"]["state"], "pass": s["pass"], "checklist": [{"q": a, "ok": ok, "detail": det} for a, ok, det in s["checklist"]],
             "steps": [{"step": a, "ok": ok, "detail": det} for a, ok, det in s["steps"]], "lots": lots, "riskPct": rk,
             "grade": s.get("grade"), "gpa": s.get("gpa"), "consensus": s.get("consensus"), "setupType": s.get("setupType"), "etf": s.get("etf"),
-            "family": "swing" if s.get("setupType") == "SF_SWING" else "day", "invalidation": invalidation,
+            "family": "counter-trend" if s.get("setupType") == "COUNTER" else "trend-following", "invalidation": invalidation,
             "score": s.get("score"), "sos": s.get("sos"), "struct": s.get("struct"), "spreadPct": s.get("spreadPct"), "lots10k": s.get("lots10k"),
-            "newsClear": s.get("newsClear"), "newsChecked": s.get("newsChecked"), "syncKind": s.get("syncKind"), "confirmations": s.get("confirmations"),
+            "newsChecked": s.get("newsChecked"), "sosTf": s.get("sosTf"), "orderType": s.get("orderType"), "breakdown": s.get("breakdown"),
+            "alignmentStrength": s.get("alignmentStrength"), "sosInfo": s.get("sosInfo"), "proposal": s.get("proposal"), "audit": s.get("audit"),
+            "target": s.get("target"), "capped": s.get("capped"),
             "checklistGpa": s.get("checklistGpa"), "desk": s.get("desk"), "zoneInfo": s.get("zoneInfo"), "slPips": s.get("slPips"),
             "tpPips": s.get("tpPips"), "bePips": s.get("bePips"), "psychTp": s.get("psychTp"), "fridayExit": s.get("fridayExit"),
             "draw": {"entry": s["entry"], "sl": s["sl"], "tp": s["tp"], "zone": [min(s["zone"]), max(s["zone"])], "zones": zones, "from": s["time"]}}
 
 
 def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = None, d1=None) -> dict:
-    """The team's answer from closed candles (W1 / D1 / H4 / H1 / M30 / M15 decide; M5 only follows the trades)."""
+    """The 8 agents' answer from closed candles (W / D / H4 / H2 / H1 / M30 / M15 decide; M5 follows the trades)."""
     key = pair.replace("/", "")
     cost = (cfg["spread_pips"] + cfg["slippage_pips"]) * cfg["pip"]
     spread = cfg.get("live_spread") or None
-    d1 = d1 if d1 else playbook.resample(h1, playbook.DAY)
-    setups, _ = alexg.scan(key, m5, h1, cost, news, d1, PLAY_RESULTS.get(key), spread)
-    LIVE[pair] = (m5, cost, alexg.news_times(key, news) if news is not None else None)
-    rep = alexg.report(key, m5, h1, now, setups, news, d1, cfg.get("pip_value_usd_per_lot"), spread)
-    for s in setups:  # only the setup the desk executes stays a signal
+    setups, _ = fx.scan(key, m5, h1, cost, news, d1, spread)
+    LIVE[pair] = (m5, cost, fx.news_times(key, news) if news is not None else None)
+    rep = fx.report(key, m5, h1, now, setups, news, d1, spread)
+    for s in setups:  # only the trade the desk shows as running stays a signal
         if s["pass"] and rep["candidate"] is not s:
             s["pass"] = False
     live = [s for s in setups if s["result"]["state"] in ("PENDING", "ACTIVE")]
     good = [s for s in live if s["pass"]]
     pr = (PLAY_RESULTS.get(key) or {}).get("strategies", {})
-    radar = rep["radar"]
+    r = rep["read"]
     rows = []
-    for sid in playbook.STRATEGIES[key]:  # SF_SWING, SF_DAY
+    for sid in playbook.STRATEGIES[key]:  # SYNC, RETRACE, COUNTER
         row = {"id": sid, "name": playbook.NAMES[key][sid], "status": "IDLE", "setup": None, "watch": None,
                "claimed": playbook.CLAIMED[(key, sid)], "measured": (pr.get(sid) or {}).get("all")}
         mine_good = [s for s in good if s["sid"] == sid]
@@ -104,34 +107,33 @@ def read_team(pair: str, cfg: dict, m5, h1, now: int, news: list[dict] | None = 
             row.update(status="SIGNAL", setup=_setup_json(pair, cfg, mine_good[-1]))
         elif mine_live and now - mine_live[-1]["time"] <= 6 * 3600:
             row.update(status="BLOCKED", setup=_setup_json(pair, cfg, mine_live[-1]))
-        elif radar and radar.get("setup") == sid:
-            row.update(status="WATCHING", watch={"time": radar["time"], "direction": radar["direction"], "steps": [
-                {"step": f"{radar['trend']} in sync", "ok": True, "detail": ""},
-                {"step": f"Inside {radar['tf']} AOI ({radar['touches']} touches)", "ok": True, "detail": ""},
-                {"step": f"{radar['etf']} Shift of Structure", "ok": True, "detail": ""},
-                {"step": "LTF Engulfing close", "ok": False, "detail": "awaited"}]})
+        elif r["aligned"] and fx.SID.get(r["align"]["kind"]) == sid and r["tier"] in ("TIER_1_SOS_CONFIRMED", "AWAIT_PULLBACK_LIMIT"):
+            row.update(status="WATCHING", watch={"time": r["sos"]["time"], "direction": "BUY" if r["dir"] > 0 else "SELL", "steps": [
+                {"step": r["align"]["label"], "ok": True, "detail": ""},
+                {"step": f"At {r['zone']['kind']} AOI ({r['zone']['touches']} touches)", "ok": True, "detail": ""},
+                {"step": f"{r['sos']['tf']} Shift of Structure", "ok": True, "detail": ""},
+                {"step": "H1 / H2 / H4 Engulfing close", "ok": False, "detail": "awaited"}]})
         rows.append(row)
     shown = next((r_["setup"] for r_ in rows if r_["status"] == "SIGNAL"), None)
-    r = rep["read"]
-    h4 = r["S"]["H4"]
-    chart = {"trend": "BULLISH" if h4 > 0 else "BEARISH" if h4 < 0 else "UNDEFINED", "premium": False, "windows": [],
-             **alexg.draw_objects(key, m5, h1, d1, now, lambda v: round(v, cfg["decimals"]), spread, r["zone"] or r["near"]), "trade": None}
+    b4 = r["bias"]["H4"]
+    chart = {"trend": "BULLISH" if b4 > 0 else "BEARISH" if b4 < 0 else "UNDEFINED", "premium": False, "windows": [],
+             **fx.draw_objects(key, m5, h1, now, lambda v: round(v, cfg["decimals"]), d1, spread, r.get("zone")), "trade": None}
     signals = []
     if shown:
         d = 1 if shown["direction"] == "BUY" else -1
         chart["trade"] = {"from": shown["time"], "to": max(shown["time"] + 24 * 3600, now + 6 * 3600), "entry": shown["entry"], "zone": shown["zone"],
-                          "sl": shown["sl"], "tp": shown["tp"], "dir": d, "rr": shown["rr"], "tp1": shown["tp1"],
+                          "sl": shown["sl"], "tp": shown["tp"], "dir": d, "rr": shown["rr"], "tp1": None,
                           "label": f"{shown['direction']} · {shown['setupType']} · {shown.get('etf') or ''} · grade {shown['grade']} (signal)"}
         if now - shown["time"] <= FRESH_SEC:  # a market entry is alerted only while its price is fresh
             signals = [shown]
     c = rep["contract"]
-    arrows = " ".join(f"{n} {'↑' if r['S'][n] > 0 else '↓' if r['S'][n] < 0 else '·'}" for n in ("W1", "D1", "H4"))
+    arrows = " ".join(f"{n} {'↑' if r['bias'][n] > 0 else '↓' if r['bias'][n] < 0 else '·'}" for n in ("W", "D", "H4"))
     return {"success": True, "symbol": pair, "at": now, "lastCandle": m5[-1].time if m5 else None, "strategies": rows, "signals": signals,
             "chart": chart, "playbook": {"name": playbook.STRATEGY_NAME, "source": (PLAY_RESULTS.get(key) or {}).get("source"),
                                          "from": (PLAY_RESULTS.get(key) or {}).get("from"), "to": (PLAY_RESULTS.get(key) or {}).get("to")},
-            "badge": f"{arrows} · S_AlexG {c['gpa_score']}% ({c['grade']})", "grade": c["grade"], "gpa": c["gpa_score"], "consensus": c["consensus_score"],
+            "badge": f"{arrows} · Score {c['gpa_score']}% ({c['grade']})", "grade": c["grade"], "gpa": c["gpa_score"], "consensus": c["consensus_score"],
             "decision": c["final_decision"], "direction": c["direction"], "setupType": c["setup_type"], "checklist": c["checklist"],
-            "radar": radar, "news": news, "pairReport": c, "agents": rep["agents"]}
+            "tier": rep["tier"], "alignment": c["alignment"], "radar": None, "news": news, "pairReport": c, "agents": rep["agents"]}
 
 
 _ARROW = {"↑": 1, "↓": -1}
@@ -145,14 +147,14 @@ def summary(pair: str, t: dict) -> dict:
     for tok in (t.get("badge") or "").split(" · ")[0].split():
         if tok in _ARROW and trend.get("_k"):
             trend[trend.pop("_k")] = _ARROW[tok]
-        elif tok in ("W1", "D1", "H4"):
-            trend["_k"] = tok
+        elif tok in ("W", "D", "H4", "W1", "D1"):
+            trend["_k"] = {"W": "W1", "D": "D1"}.get(tok, tok)
     trend.pop("_k", None)
     # the pair's current trade: the setup row the desk executes (a trade still running, even once its alert is no longer fresh)
     sig = next((r["setup"] for r in t.get("strategies") or [] if r.get("status") == "SIGNAL" and r.get("setup")), None) or (t.get("signals") or [None])[0]
     watching = next((r["id"] for r in t.get("strategies") or [] if r.get("status") == "WATCHING"), None)
     live = LIVE.get(pair)
-    return {"symbol": pair, "at": t.get("at"), "decision": t.get("decision"), "direction": t.get("direction"), "grade": t.get("grade"),
+    return {"symbol": pair, "at": t.get("at"), "decision": t.get("decision"), "direction": t.get("direction"), "grade": t.get("grade"), "tier": t.get("tier"),
             "gpa": t.get("gpa"), "consensus": t.get("consensus"), "setupType": t.get("setupType"), "trend": trend,
             "agents": [a.get("status") for a in t.get("agents") or []], "watching": watching, "marketOpen": t.get("marketOpen"),
             "price": live[0][-1].close if live and live[0] else None, "decimals": BY_SYMBOL[pair]["decimals"],

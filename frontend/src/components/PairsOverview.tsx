@@ -26,7 +26,8 @@ const CACHE_MS = 24 * 3600 * 1000;
 const POLL_MS = 30000;
 const DOT: Record<string, string> = { ok: 'bg-emerald-400', warn: 'bg-amber-400', wait: 'bg-slate-500', veto: 'bg-rose-400' };
 const GRADE_TONE: Record<string, string> = { 'A+': 'bg-emerald-500/20 text-emerald-200 ring-emerald-500/40', A: 'bg-emerald-500/15 text-emerald-200 ring-emerald-500/30',
-  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', WAIT: 'bg-white/[0.04] text-slate-400 ring-line' };
+  B: 'bg-gold-500/15 text-gold-200 ring-gold-500/30', C: 'bg-amber-500/10 text-amber-200 ring-amber-500/25', D: 'bg-white/[0.04] text-slate-400 ring-line',
+  WAIT: 'bg-white/[0.04] text-slate-400 ring-line' };
 
 function Price({ p }: { p: PairSummary }) {
   const live = useLivePrice(p.symbol);
@@ -97,7 +98,7 @@ export function PairsOverview({ lang, onOpenChart }: { lang: Language; onOpenCha
   );
   const scoreCell = (p: PairSummary) => (
     <span className="inline-flex items-center gap-2 min-w-0">
-      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ring-1 ring-inset ${GRADE_TONE[p.grade ?? 'WAIT'] ?? GRADE_TONE.WAIT}`}>{p.grade ?? 'WAIT'}</span>
+      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ring-1 ring-inset ${GRADE_TONE[p.grade ?? 'D'] ?? GRADE_TONE.D}`}>{p.grade ?? 'D'}</span>
       <span className="relative h-1.5 w-14 rounded-full bg-white/[0.06]" aria-hidden="true">
         <span className={`absolute inset-y-0 start-0 rounded-full ${(p.gpa ?? 0) >= 100 ? 'bg-emerald-400' : (p.gpa ?? 0) >= 80 ? 'bg-emerald-500/80' : (p.gpa ?? 0) >= 65 ? 'bg-amber-400' : 'bg-slate-500'}`}
           style={{ width: `${Math.min(100, ((p.gpa ?? 0) / 120) * 100)}%` }} />
@@ -106,7 +107,7 @@ export function PairsOverview({ lang, onOpenChart }: { lang: Language; onOpenCha
     </span>
   );
   const agentsCell = (p: PairSummary) => (
-    <span className="inline-flex items-center gap-1" title={t('The 5 agents: trend, zone, score, trigger, risk', 'Les 5 agents : tendance, zone, score, entrée, risque', '5 agents: الترند، المنطقة، السكور، الزناد، الريسك')}>
+    <span className="inline-flex items-center gap-1" title={t('The 2 agents: strategy & confirmation, then stop loss / take profit / lot', 'Les 2 agents : stratégie & confirmation, puis stop / take profit / lot', '2 agents: الستراتيجية والتأكيد، والستوب / الهدف / اللوت')}>
       {(p.agents ?? []).map((s, i) => <span key={i} className={`w-1.5 h-1.5 rounded-full ${DOT[s] ?? 'bg-slate-600'}`} />)}
     </span>
   );

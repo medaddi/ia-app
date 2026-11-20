@@ -187,11 +187,11 @@ def test_the_shared_telegram_message_carries_no_risk_and_a_private_chat_gets_its
     asyncio.run(notify.broadcast("XAU/USD", notify.message(s, "XAU/USD", 2), "t", "b", "x", s))
     group_text = sent["-100777"][0]
     # the admin group: market data only (the spec's generic "lots per $10k", never anyone's own risk or lot)
-    assert "Your lot" not in group_text and "$250" not in group_text and "$40" not in group_text and "per $10k" in group_text
+    assert "Your lot" not in group_text and "$250" not in group_text and "$40" not in group_text
     assert "Your lot <code>0.24</code> · risk $250" in sent["1001"][0] and "$40" not in sent["1001"][0]  # alice: hers only
     assert "Your lot <code>0.03</code> · risk $40" in sent["1002"][0] and "$250" not in sent["1002"][0]  # bob: his only
     lines = sent["1001"][0].splitlines()  # her lot just above the last line (the research note)
-    assert lines[-1].startswith("<i>Research software") and lines[-2].startswith("👤 Your lot") and lines[0].startswith("🎯 <b>FXAlexG SET")
+    assert lines[-1].startswith("<i>Signal only") and lines[-2].startswith("👤 Your lot") and lines[0].startswith("🎯 <b>FX ALEX G SET")
     with SessionLocal() as db:
         set_setting(db, "telegram", {})
         for u in db.query(User).filter(User.username.in_(["alice", "bob"])):
@@ -257,13 +257,13 @@ def test_a_slow_price_provider_never_holds_a_screen(monkeypatch):
     data._price_cache.pop("EUR/USD", None)
 
 
-def test_the_three_stages_are_on_radar_signal_and_trade_updates():
-    """The spec 5 (the owner chose "follow the md exactly"): the radar, the signal and the trade manager's updates are sent."""
+def test_the_trade_and_its_end_are_sent_no_radar():
+    """The owner (2026-11-20): the trade and its end only (FILLED for a limit, TP, SL, expired); no radar."""
     assert notify.TRADE_UPDATES is True
     assert asyncio.run(notify._quiet("XAU/USD", "text", "t", "b", "tag")) == {"telegram": 0, "push": 0}
     import inspect
     src = inspect.getsource(notify.tick)
-    assert "manage_all(broadcast if TRADE_UPDATES else _quiet)" in src and "radar_message(" in src and "_radar_new(" in src
+    assert "manage_all(broadcast if TRADE_UPDATES else _quiet)" in src and "radar" not in src and not hasattr(notify, "radar_message")
 
 
 def test_three_pairs_find_a_trade_in_the_same_minute_and_all_three_arrive_with_exact_numbers(monkeypatch):
@@ -303,7 +303,7 @@ def test_three_pairs_find_a_trade_in_the_same_minute_and_all_three_arrive_with_e
     want = {"XAU/USD": ("2350.40", "2357.10", "2330.30"), "EUR/USD": ("1.10123", "1.09923", "1.10623"), "GBP/JPY": ("190.123", "189.623", "191.623")}
     for pair, text, title, body in sent:
         e, sl, tp = want[pair]
-        assert f"@ <code>{e}</code>" in text and f"Stop Loss:</b> <code>{sl}</code>" in text and f"</b> <code>{tp}</code>" in text  # Telegram
+        assert f"@ <code>{e}</code>" in text and f"<b>SL</b> <code>{sl}</code>" in text and f"<b>TP</b> <code>{tp}</code>" in text  # Telegram
         assert f"Entry {e} · SL {sl} · TP {tp}" in body and title.startswith(f"🎯 {pair} {found[pair]['direction']} · {found[pair]['etf']}")  # push
     feed = {x["symbol"]: x for x in notify.recent()}  # what the app's toast and bell read
     for pair, s in found.items():
