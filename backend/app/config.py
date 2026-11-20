@@ -35,7 +35,9 @@ class Settings:
     data_dir: str = os.environ.get("DATA_DIR", "/tmp/exunu" if ON_VERCEL else str(BACKEND_DIR / "data"))
     # SQLite file locally; set DATABASE_URL to a Postgres URL (Neon / Supabase) in production.
     # The Vercel Neon integration may add a prefix (POSTGRES_URL, DATABASE_POSTGRES_URL, STORAGE_URL…): accept those too.
-    database_url: str = next((os.environ[k] for k in ("DATABASE_URL", "POSTGRES_URL", "DATABASE_POSTGRES_URL", "STORAGE_URL", "STORAGE_POSTGRES_URL")
+    # APP_DATABASE_URL comes first: it points the app at another database (Supabase, since 2026-11-20) without touching
+    # the variables an integration manages.
+    database_url: str = next((os.environ[k] for k in ("APP_DATABASE_URL", "DATABASE_URL", "POSTGRES_URL", "DATABASE_POSTGRES_URL", "STORAGE_URL", "STORAGE_POSTGRES_URL")
                               if os.environ.get(k)), "")
     cors_origins: list[str] = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",") if o.strip()]
     admin_username: str = os.environ.get("ADMIN_USERNAME", "admin")
