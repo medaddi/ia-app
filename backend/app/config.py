@@ -35,9 +35,9 @@ class Settings:
     data_dir: str = os.environ.get("DATA_DIR", "/tmp/exunu" if ON_VERCEL else str(BACKEND_DIR / "data"))
     # SQLite file locally; set DATABASE_URL to a Postgres URL (Neon / Supabase) in production.
     # The Vercel Neon integration may add a prefix (POSTGRES_URL, DATABASE_POSTGRES_URL, STORAGE_URL…): accept those too.
-    # APP_DATABASE_URL comes first: it points the app at another database (Supabase, since 2026-11-20) without touching
-    # the variables an integration manages.
-    database_url: str = next((os.environ[k] for k in ("APP_DATABASE_URL", "DATABASE_URL", "POSTGRES_URL", "DATABASE_POSTGRES_URL", "STORAGE_URL", "STORAGE_POSTGRES_URL")
+    # APP_DATABASE_URL comes first, then POSTGRES_URL (what the Supabase Vercel integration sets; the Neon one sets
+    # DATABASE_URL / DATABASE_POSTGRES_URL): the app moved to a free Supabase database on 2026-11-20 (Neon quota exceeded).
+    database_url: str = next((os.environ[k] for k in ("APP_DATABASE_URL", "POSTGRES_URL", "DATABASE_URL", "POSTGRES_URL", "DATABASE_POSTGRES_URL", "STORAGE_URL", "STORAGE_POSTGRES_URL")
                               if os.environ.get(k)), "")
     cors_origins: list[str] = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",") if o.strip()]
     admin_username: str = os.environ.get("ADMIN_USERNAME", "admin")
@@ -78,6 +78,11 @@ class Settings:
         # Render / Heroku style URLs
         if url.startswith("postgres://"):
             url = "postgresql://" + url[len("postgres://"):]
+        # Supabase's pooler URL carries a "supa=..." query parameter that libpq (psycopg2) rejects: drop it
+        if "?" in url:
+            base, q = url.split("?", 1)
+            keep = [x for x in q.split("&") if x and not x.startswith("supa=")]
+            url = base + ("?" + "&".join(keep) if keep else "")
         return url
 
 
