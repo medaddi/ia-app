@@ -5,7 +5,8 @@
       "src": "app/main.py",
       "use": "@vercel/python",
       "config": {
-        "maxDuration": 60
+        "maxDuration": 60,
+        "excludeFiles": "{tests/**,data/**,**/__pycache__/**,**/*.pyc,.pytest_cache/**,.venv/**}"
       }
     }
   ],

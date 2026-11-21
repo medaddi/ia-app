@@ -251,3 +251,15 @@ def test_the_analysis_and_the_trades_are_gone(client, admin):
                  "/api/dashboard", "/api/trades", "/api/stats", "/api/backtest", "/api/cot", "/api/sentiment"):
         assert client.get(path, headers=admin).status_code in (404, 405), path
     assert "/api/exunu/candles" in {r.path for r in client.app.routes}  # the clean chart's candles stay
+
+
+def test_public_data_is_edge_cached_but_private_routes_are_not(client, monkeypatch):
+    from app.api import market as m
+
+    async def fake_news():
+        return []
+    monkeypatch.setattr(m, "news_items", fake_news)
+    r = client.get("/api/news")
+    assert r.status_code == 200 and "s-maxage=300" in r.headers["cache-control"]
+    r = client.get("/api/smc/signals")  # needs login: never cached at the edge
+    assert "s-maxage" not in r.headers.get("cache-control", "")

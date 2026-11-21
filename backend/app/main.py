@@ -120,6 +120,27 @@ async def ensure_prepared(request: Request, call_next):
     return await call_next(request)
 
 
+# Public data, the same for every viewer: Vercel's CDN keeps a copy for a few seconds, so many viewers cost one function
+# run and get it from the nearest edge (stale-while-revalidate: the copy is refreshed in the background, nobody waits).
+# Never on a logged-in route: those depend on who asks.
+EDGE_CACHE = {
+    "/api/news": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+    "/api/market/candles": "public, max-age=0, s-maxage=15, stale-while-revalidate=60",
+    "/api/market/assets": "public, max-age=0, s-maxage=2, stale-while-revalidate=10",
+    "/api/market/prices": "public, max-age=0, s-maxage=2, stale-while-revalidate=10",
+    "/api/market/ticker": "public, max-age=0, s-maxage=2, stale-while-revalidate=10",
+}
+
+
+@app.middleware("http")
+async def edge_cache(request: Request, call_next):
+    response = await call_next(request)
+    rule = EDGE_CACHE.get(request.url.path)
+    if rule and request.method == "GET" and response.status_code == 200 and "force" not in request.query_params:
+        response.headers["Cache-Control"] = rule
+    return response
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_error(_: Request, exc: StarletteHTTPException):
     msg = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
