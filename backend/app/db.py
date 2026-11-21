@@ -49,9 +49,15 @@ def init_db() -> None:
         _add_missing_columns(conn)
         if conn.dialect.name == "postgresql":
             # Row Level Security on every table, no policy: Supabase's public REST API (anon key) sees nothing, while the
-            # app, which connects as the tables' owner, is not affected. Idempotent, so a new table gets it too.
+            # app, which connects as the tables' owner, is not affected. Only on a table that lacks it (a new table):
+            # ALTER TABLE locks the table completely, and running it on every cold start deadlocked with a user's
+            # request reading that table (users, 2026-11-21 11:11 UTC, 500 on /api/me/risk and /api/smc/team).
+            enabled = {r[0] for r in conn.execute(text(
+                "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = current_schema() AND c.relkind = 'r' AND c.relrowsecurity"))}
             for name in Base.metadata.tables:
-                conn.execute(text(f'ALTER TABLE "{name}" ENABLE ROW LEVEL SECURITY'))
+                if name not in enabled:
+                    conn.execute(text(f'ALTER TABLE "{name}" ENABLE ROW LEVEL SECURITY'))
 
 
 def _add_missing_columns(conn) -> None:

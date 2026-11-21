@@ -126,9 +126,9 @@ async def ensure_prepared(request: Request, call_next):
 EDGE_CACHE = {
     "/api/news": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
     "/api/market/candles": "public, max-age=0, s-maxage=15, stale-while-revalidate=60",
-    "/api/market/assets": "public, max-age=0, s-maxage=2, stale-while-revalidate=10",
-    "/api/market/prices": "public, max-age=0, s-maxage=2, stale-while-revalidate=10",
-    "/api/market/ticker": "public, max-age=0, s-maxage=2, stale-while-revalidate=10",
+    "/api/market/assets": "public, max-age=0, s-maxage=1, stale-while-revalidate=10",
+    "/api/market/prices": "public, max-age=0, s-maxage=1, stale-while-revalidate=10",
+    "/api/market/ticker": "public, max-age=0, s-maxage=1, stale-while-revalidate=10",
 }
 
 
