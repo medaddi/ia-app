@@ -1,0 +1,125 @@
+/**
+ * A pair's team (backend /api/smc/team): the pair's strategies from the guide with their status, and the setups that passed the guide's checklist.
+ * One pair at a time: a switch aborts the old request, an answer for another pair is dropped.
+ */
+import { useEffect, useState } from 'react';
+import { apiFetch } from './api';
+import { readCache, writeCache } from './cache';
+import type { SmcDrawing } from './chart/smcDrawing';
+
+export interface Check { q: string; ok: boolean; detail: string }
+export interface Step { step: string; ok: boolean; detail: string }
+export interface TeamSetup {
+  id: string; strategy: string; name: string; direction: 'BUY' | 'SELL'; time: number; entry: number; sl: number; tp: number;
+  rr: number; zone?: [number, number]; rrBest?: number; riskPct?: number; validUntil: number; tp1?: number | null; part?: number; market?: boolean; liveUntil?: number; state: string; pass: boolean; checklist: Check[]; steps: Step[]; lots: { '1000': number; '10000': number };
+  draw: { entry: number; sl: number; tp: number; zones: { label: string; top: number; bottom: number; from: number }[]; from: number };
+  symbol?: string; sentAt?: string | null;
+  // FXAlexG: the setup's grade, its S_AlexG score and its live confluences
+  grade?: string; gpa?: number; consensus?: number; setupType?: string; checklistGpa?: Confluence[];
+  /** the plan's details: the confirmation timeframe, trend-following or counter-trend, what invalidates it, distances in pips */
+  etf?: string; family?: 'swing' | 'day' | null; invalidation?: string | null; slPips?: number; tpPips?: number; bePips?: number;
+  score?: number; lots10k?: number | null; spreadPct?: number;
+  // set once sent, by the trade manager (backend smc/manager.py)
+  status?: 'PENDING' | 'OPEN' | 'CLOSED' | 'EXPIRED' | 'MISSED'; outcome?: 'WIN' | 'LOSS' | 'BREAKEVEN' | null; resultR?: number | null; events?: string[];
+}
+/** One of the 18 FXAlexG confluences: its weight in % and whether it is live at the AOI. */
+export interface Confluence { key: string; label: string; pts: number; ok: boolean }
+/** A radar alert (stage 1 of the spec): trend and AOI ok, S_AlexG >= 65 %, the LTF SoS in, only the engulfing missing.
+ * Sent once per AOI visit to Telegram and web push, and shown in the app (toast and bell, from /api/smc/signals). */
+export interface RadarAlert { id: string; symbol?: string; direction: 'BUY' | 'SELL'; tf: string; touches: number; low: number; high: number; psych?: number | null; etf: string; gpa: number; score?: number; grade: string; time: number; setup?: string | null; at?: number; sosLevel?: number; trend?: string }
+export interface Measured { trades: number; wins: number; winRate: number | null; totalR: number }
+export interface TeamStrategy { id: string; name: string; status: 'SIGNAL' | 'BLOCKED' | 'WATCHING' | 'IDLE' | 'OFF'; setup: TeamSetup | null;
+  claimed?: string; measured?: Measured | null;
+  watch: { time: number; direction: string; steps: Step[] } | null }
+export interface TeamChart extends SmcDrawing { trend: 'BULLISH' | 'BEARISH' | 'UNDEFINED'; premium: boolean }
+/** One of the 5 FXAlexG agents (backend smc/alexg.py squad): its badge, status, score 0-100, weight and details. */
+export interface TeamAgent { key: 'strategy' | 'risk'; id?: string; name?: string; badge?: string; details?: string[]; role: string; status: 'ok' | 'warn' | 'wait' | 'veto'; finding: string; score?: number; weight?: number; lines: string[] }
+/** The pair's strategies from the guide; each row of `strategies` carries what the guide claims and what the test measured (smc/PLAYBOOK.md). */
+export interface TeamPlaybook { name: string; source?: string | null; from?: number | null; to?: number | null }
+export interface Team { success: boolean; symbol: string; at: number; lastCandle: number | null; marketOpen?: boolean; source?: string; error?: string;
+  strategies: TeamStrategy[]; signals: TeamSetup[]; chart?: TeamChart; agents?: TeamAgent[]; playbook?: TeamPlaybook;
+  /** the pair profile's H1 badge (e.g. "H1 range · Z -1.8σ · discount 18 %") */ badge?: string;
+  /** FXAlexG: the live read's S_AlexG (0-160 %), grade (A+ / A / B / WAIT), the 5 agents' consensus, the decision, the 18 confluences */
+  grade?: string; gpa?: number; consensus?: number; decision?: 'EXECUTE' | 'WAIT_FOR_TRIGGER' | 'WATCH_ONLY' | 'VETOED'; direction?: 'BUY' | 'SELL';
+  setupType?: string | null; checklist?: Confluence[]; radar?: RadarAlert | null;
+  /** the PairActor's state (spec 5.1) and the W / D / H4 alignment class */
+  tier?: string; alignment?: { dir: number; kind: string | null; strength: number; label: string };
+  /** what the validation can say about this pair's strategy (smc/tools/validate.py): never "profitable" from a few trades */
+  evidence?: Evidence; family?: 'swing' | 'day' | null; params?: { minRr: number; counterMinGpa: number; version: string } }
+export interface Evidence { state: 'insufficient data' | 'experimental' | 'validated for research'; oosTrades: number; needed: number; trades: number;
+  expectancyR?: number | null; ci95?: [number, number] | null; source?: string | null; date?: string }
+
+const decOf = (sym = '') => (sym.startsWith('XAU') ? 2 : sym.endsWith('JPY') ? 3 : 5);
+/** A signal's first line, the same as Telegram's: pair, side, timeframe, UTC time. */
+export const signalHead = (s: TeamSetup) => `${s.symbol ?? ''} ${s.direction} · ${s.etf ?? 'H1'} · ${new Date(s.time * 1000).toISOString().slice(11, 16)} UTC`;
+/** Its levels, the same as Telegram's: entry, stop, target, R:R. */
+export const signalLevels = (s: TeamSetup) => {
+  const d = decOf(s.symbol);
+  return `Entry ${s.entry.toFixed(d)} · SL ${s.sl.toFixed(d)} · TP ${s.tp.toFixed(d)} · 1:${s.rr.toFixed(1)}`;
+};
+/** The trade on ONE line, the same as the phone notification: pair, side, entry, SL, TP (and my lot when known). */
+export const signalLine = (s: TeamSetup, lot?: number | string | null) => {
+  const d = decOf(s.symbol);
+  const limit = (s as TeamSetup & { orderType?: string }).orderType === 'LIMIT_PULLBACK' || s.market === false;
+  const head = `${s.direction === 'BUY' ? '🟢' : '🔴'} ${s.symbol ?? ''} ${s.direction}${limit ? ' LIMIT' : ''}`;
+  return `${head} · Entry ${s.entry.toFixed(d)} · SL ${s.sl.toFixed(d)} · TP ${s.tp.toFixed(d)}${lot != null && lot !== '' ? ` · Lot ${lot}` : ''}`;
+};
+/** A radar alert's two lines, the same as Telegram's first and last: pair, side, the SoS level. */
+export const radarHead = (r: RadarAlert) => `📡 ${r.symbol ?? ''} ${r.direction} watch · ${r.tf} AOI`;
+export const radarLine = (r: RadarAlert) => {
+  const d = decOf(r.symbol);
+  return `${r.etf} SoS ${r.sosLevel != null ? `at ${r.sosLevel.toFixed(d)} ` : ''}· awaiting the engulfing · ${r.score ?? r.gpa}%`;
+};
+
+// Each pair's last good team read, kept for the whole session: a switch shows THAT pair's last read at once (never another
+// pair's: the key is the pair, and the read carries its own symbol), and the fresh read replaces it a moment later.
+const teams = new Map<string, Team>();
+const TEAM_CACHE_MS = 6 * 3600 * 1000;
+const keep = (t: Team) => { if (t.success) { teams.set(t.symbol, t); writeCache('team', t.symbol, t); } };
+/** This pair's last read: in memory, else the one this device kept from an earlier visit (shown at once, refreshed after). */
+const lastRead = (symbol: string): Team | null => {
+  const hit = teams.get(symbol);
+  if (hit) return hit;
+  const kept = readCache<Team>('team', symbol, TEAM_CACHE_MS);
+  if (kept && kept.symbol === symbol) { teams.set(symbol, kept); return kept; }
+  return null;
+};
+/** Every pair's last read in memory (the Sunday Swings watchlist ranks them). */
+export const cachedTeams = (): Team[] => [...teams.values()];
+
+/** Reads the teams of `symbols` that are not in memory yet, one after the other (the chart page warms the other pairs). */
+export async function prefetchTeams(symbols: readonly string[], signal?: AbortSignal): Promise<void> {
+  for (const s of symbols) {
+    if (signal?.aborted) return;
+    if (teams.has(s)) continue;
+    try {
+      const r = await apiFetch(`/api/smc/team?symbol=${encodeURIComponent(s)}`, { cache: 'no-store', signal });
+      const j = await r.json();
+      if (j.symbol === s) keep(j);
+    } catch { /* the pair loads when it is opened */ }
+  }
+}
+
+export function useSmcTeam(symbol: string, ms = 30000): Team | null {
+  const [st, setSt] = useState<Team | null>(() => lastRead(symbol));
+  useEffect(() => {
+    let alive = true;
+    const ctrl = new AbortController();
+    setSt(lastRead(symbol));  // this pair's last read at once (memory or this device), or nothing: never the previous pair's
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const load = async () => {
+      if (document.hidden) return;
+      let ok = false;
+      try {
+        const r = await apiFetch(`/api/smc/team?symbol=${encodeURIComponent(symbol)}`, { cache: 'no-store', signal: ctrl.signal });
+        const j = await r.json();
+        if (alive && j.symbol === symbol) { keep(j); setSt(j.success ? j : lastRead(symbol) ?? j); ok = !!j.success; }
+      } catch { /* retried below */ }
+      if (!ok && alive) retry = setTimeout(load, 5000);  // a failed read (server waking up, feed down) is retried soon
+    };
+    load();
+    const id = setInterval(load, ms);
+    return () => { alive = false; ctrl.abort(); clearInterval(id); if (retry) clearTimeout(retry); };
+  }, [symbol, ms]);
+  return st && st.symbol === symbol ? st : null;
+}
