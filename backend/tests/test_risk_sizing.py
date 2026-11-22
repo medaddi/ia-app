@@ -296,6 +296,7 @@ def test_three_pairs_find_a_trade_in_the_same_minute_and_all_three_arrive_with_e
     monkeypatch.setattr(notify, "team", fake_team)
     monkeypatch.setattr(notify, "broadcast", fake_broadcast)
     monkeypatch.setattr(notify, "market_session_status", lambda p: {"isOpen": True})
+    monkeypatch.setattr(notify, "weekly_due", lambda now=None: None)  # whatever day the tests run, no weekly summary here
     res = asyncio.run(notify.tick())
     asyncio.run(notify.tick())  # the next minute: nothing again
     assert sorted(p for p, *_ in sent) == ["EUR/USD", "GBP/JPY", "XAU/USD"] and len(sent) == 3

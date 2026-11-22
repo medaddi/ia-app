@@ -15,6 +15,7 @@ when the trade ends: the app's history and win rate come from here. It places no
 
 import html
 import time
+from typing import Optional
 
 from sqlalchemy import select
 
@@ -176,6 +177,71 @@ def calendar() -> dict:
         trades = [{"id": r.id, "symbol": r.symbol, "direction": r.direction, "outcome": r.outcome, "r": r.r_multiple,
                    "pips": trade_pips(r.symbol, r.entry, r.sl, r.r_multiple), "exitTime": r.exit_time} for r in rows]
     return {"since": CALENDAR_FROM, "trades": trades}
+
+
+def week_start(now: float) -> int:
+    """Monday 00:00 UTC of the week `now` is in."""
+    from datetime import datetime, timedelta, timezone
+    d = datetime.fromtimestamp(now, timezone.utc)
+    return int((d - timedelta(days=d.weekday())).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+
+
+def week_summary(now: Optional[float] = None) -> dict:
+    """The week so far (Monday 00:00 UTC → now): the trades closed in it, their net pips (won − lost), won / lost / break
+    even, the best and the worst pair by pips, and the trades still running. What Friday's summary and /week tell."""
+    now = time.time() if now is None else now
+    start = max(week_start(now), CALENDAR_FROM)
+    with SessionLocal() as db:
+        rows = db.scalars(select(Signal).where(Signal.id.like("SMC-%"), Signal.state == "CLOSED", Signal.exit_time >= start,
+                                               Signal.exit_time <= now)).all()
+        running = db.query(Signal).filter(Signal.id.like("SMC-%"), Signal.state.in_(("PENDING", "OPEN"))).count()
+        closed = [(r.symbol, r.outcome, trade_pips(r.symbol, r.entry, r.sl, r.r_multiple)) for r in rows]
+    by_pair: dict[str, float] = {}
+    for sym, _, pips in closed:
+        by_pair[sym] = round(by_pair.get(sym, 0.0) + pips, 1)
+    ranked = sorted(by_pair.items(), key=lambda kv: kv[1], reverse=True)
+    wins = sum(1 for _, o, _ in closed if o == "WIN")
+    losses = sum(1 for _, o, _ in closed if o == "LOSS")
+    return {"from": week_start(now), "to": int(now), "trades": len(closed), "wins": wins, "losses": losses,
+            "breakeven": len(closed) - wins - losses, "pips": round(sum(p for _, _, p in closed), 1),
+            "winRate": round(100 * wins / (wins + losses)) if wins + losses else None,
+            "best": ranked[0] if ranked else None, "worst": ranked[-1] if len(ranked) > 1 and ranked[-1][1] < 0 else None,
+            "running": running}
+
+
+def _pips(v: float) -> str:
+    return f"{v:+,.1f}".replace(".0", "") + " pips"
+
+
+def week_line(w: dict) -> str:
+    """The week on ONE line (the phone notification)."""
+    if not w["trades"]:
+        return "📊 This week: no trade closed"
+    best = f" · best {w['best'][0]}" if w["best"] and w["best"][1] > 0 else ""
+    return f"📊 This week: {_pips(w['pips'])} · {w['wins']} won · {w['losses']} lost{best}"
+
+
+def week_message(w: dict, title: str = "Weekly summary") -> str:
+    """The week for Telegram: net pips first, then won / lost and the win rate, the best and worst pair, what still runs."""
+    from datetime import datetime, timezone
+    a = datetime.fromtimestamp(w["from"], timezone.utc)
+    b = datetime.fromtimestamp(w["to"], timezone.utc)
+    span = f"{a.day}–{b.day} {b.strftime('%b')}" if a.month == b.month else f"{a.day} {a.strftime('%b')} – {b.day} {b.strftime('%b')}"
+    out = [f"📊 <b>{title}</b> · {span}"]
+    if not w["trades"]:
+        out.append("No trade closed this week.")
+    else:
+        out.append(f"This week: <b>{_pips(w['pips'])}</b>")
+        wr = f" · win rate {w['winRate']}%" if w["winRate"] is not None else ""
+        be = f" · {w['breakeven']} BE" if w["breakeven"] else ""
+        out.append(f"✅ {w['wins']} won · ❌ {w['losses']} lost{be}{wr}")
+        if w["best"] and w["best"][1] > 0:
+            out.append(f"🏆 Best: {w['best'][0]} {_pips(w['best'][1])}")
+        if w["worst"]:
+            out.append(f"🔻 Worst: {w['worst'][0]} {_pips(w['worst'][1])}")
+    if w["running"]:
+        out.append(f"⏳ Still running: {w['running']} trade{'s' if w['running'] > 1 else ''}")
+    return "\n".join(out)
 
 
 def results(limit: int = 200) -> dict:

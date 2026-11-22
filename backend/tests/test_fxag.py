@@ -606,3 +606,78 @@ def test_pips_of_a_closed_trade_use_the_pair_pip_size():
     assert trade_pips("EUR/USD", 1.1000, 1.0980, 2.2) == 44.0     # 20-pip stop, +2.2R
     assert trade_pips("USD/JPY", 150.00, 150.30, -1.0) == -30.0   # JPY pip 0.01
     assert trade_pips("XAU/USD", 3500.0, 3510.0, 1.5) == 150.0    # gold pip 0.10
+
+
+def _utc(*a) -> float:
+    from datetime import datetime, timezone
+    return datetime(*a, tzinfo=timezone.utc).timestamp()
+
+
+def test_weekly_summary_is_due_after_the_friday_close_in_new_york_time():
+    from app.smc.notify import weekly_due
+
+    assert weekly_due(_utc(2026, 11, 25, 12, 0)) is None                    # Wednesday
+    assert weekly_due(_utc(2026, 11, 27, 21, 30)) is None                   # Friday 16:30 New York: still open
+    assert weekly_due(_utc(2026, 11, 27, 22, 10)) == "2026-11-27"           # Friday 17:10 New York (winter)
+    assert weekly_due(_utc(2026, 11, 28, 9, 0)) == "2026-11-27"             # Saturday: a missed Friday still goes
+    assert weekly_due(_utc(2026, 11, 29, 21, 0)) == "2026-11-27"            # Sunday 16:00 New York
+    assert weekly_due(_utc(2026, 11, 29, 22, 30)) is None                   # Sunday 17:30 New York: a new week
+    assert weekly_due(_utc(2026, 7, 10, 21, 10)) == "2026-07-10"            # Friday 17:10 New York (summer time)
+
+
+def test_weekly_summary_counts_the_week_in_pips_and_is_sent_once(monkeypatch):
+    import asyncio
+    from app.db import SessionLocal
+    from app.models import Signal
+    from app.smc import notify
+    from app.db import init_db
+    from app.smc.manager import week_line, week_message, week_summary
+
+    init_db()
+    now = _utc(2027, 3, 5, 22, 10)  # Friday after the close, a week no other test uses
+    base = dict(setup="M1", entry_type="LIMIT", tp1=0, tp3=0, rr_tp2=2.2, score=80, state="CLOSED", params={}, payload={})
+    trades = [("wk-1", "GBP/AUD", 1.9700, 1.9740, "WIN", 2.4, 1), ("wk-2", "EUR/USD", 1.1000, 1.0980, "WIN", 2.2, 2),
+              ("wk-3", "USD/JPY", 150.00, 150.30, "LOSS", -1.0, 3), ("wk-4", "EUR/USD", 1.1000, 1.0980, "WIN", 2.0, 3),
+              ("wk-old", "EUR/USD", 1.1000, 1.0980, "WIN", 2.0, -3)]  # closed the week before: not counted
+    with SessionLocal() as db:
+        for sid, sym, entry, sl, out, r, day in trades:
+            t = int(_utc(2027, 3, 1, 12, 0)) + day * 86400 - 86400
+            db.add(Signal(id=f"SMC-{sid}", symbol=sym, direction="SELL", entry=entry, sl=sl, tp2=entry, signal_time=t - 3600,
+                          exit_time=t, outcome=out, r_multiple=r, **base))
+        db.commit()
+    w = week_summary(now)
+    assert (w["trades"], w["wins"], w["losses"], w["winRate"]) == (4, 3, 1, 75)
+    assert w["pips"] == 96.0 + 44.0 - 30.0 + 40.0 and w["best"] == ("GBP/AUD", 96.0) and w["worst"] == ("USD/JPY", -30.0)
+    assert week_line(w) == "📊 This week: +150 pips · 3 won · 1 lost · best GBP/AUD"
+    msg = week_message(w)
+    assert "📊 <b>Weekly summary</b> · 1–5 Mar" in msg and "This week: <b>+150 pips</b>" in msg
+    assert "✅ 3 won · ❌ 1 lost · win rate 75%" in msg and "🏆 Best: GBP/AUD +96 pips" in msg and "🔻 Worst: USD/JPY -30 pips" in msg
+
+    sent = []
+
+    async def fake_broadcast(pair, text, title, body, tag, signal=None):
+        sent.append((text, title, tag))
+        return {"telegram": 2, "push": 1}
+    monkeypatch.setattr(notify, "broadcast", fake_broadcast)
+    first = asyncio.run(notify.weekly_summary(now))
+    again = asyncio.run(notify.weekly_summary(now + 600))  # the next minute's pass
+    assert first == {"week": "2027-03-05", "telegram": 2, "push": 1} and again is None
+    assert len(sent) == 1 and sent[0][1] == "📊 This week: +150 pips · 3 won · 1 lost · best GBP/AUD" and sent[0][2] == "ld-week-2027-03-05"
+    assert asyncio.run(notify.weekly_summary(_utc(2027, 3, 3, 12, 0))) is None  # a Wednesday: nothing
+
+
+def test_week_message_when_no_trade_closed():
+    from app.smc.manager import week_line, week_message
+
+    w = {"from": int(_utc(2027, 4, 5)), "to": int(_utc(2027, 4, 9, 22)), "trades": 0, "wins": 0, "losses": 0, "breakeven": 0,
+         "pips": 0.0, "winRate": None, "best": None, "worst": None, "running": 2}
+    assert week_line(w) == "📊 This week: no trade closed"
+    assert week_message(w) == "📊 <b>Weekly summary</b> · 5–9 Apr\nNo trade closed this week.\n⏳ Still running: 2 trades"
+
+
+def test_no_weekly_summary_for_a_week_before_the_count_began(monkeypatch):
+    import asyncio
+    from app.smc import notify
+
+    monkeypatch.setattr(notify, "broadcast", lambda *a, **k: (_ for _ in ()).throw(AssertionError("nothing is sent")))
+    assert asyncio.run(notify.weekly_summary(_utc(2026, 11, 22, 12, 0))) is None  # Sunday 22 Nov: the count starts Monday 23

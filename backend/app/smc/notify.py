@@ -205,6 +205,12 @@ async def tick() -> dict:
             results["manager"] = "; ".join(f"{k.split('-')[1]} {'/'.join(v)}" for k, v in steps.items())
     except Exception as err:  # managing never stops the teams
         results["manager"] = f"error: {err!r}"
+    try:  # Friday after the close: the week's summary, once
+        sent = await weekly_summary()
+        if sent:
+            results["weekly"] = f"{sent['week']} → telegram {sent['telegram']} · push {sent['push']}"
+    except Exception as err:  # the summary never stops the teams
+        results["weekly"] = f"error: {err!r}"
     try:
         with SessionLocal() as db:
             prev = get_setting(db, "engine")
@@ -214,6 +220,37 @@ async def tick() -> dict:
     except Exception as err:  # the heartbeat never breaks a tick
         print(f"[smc] heartbeat: {err!r}")
     return results
+
+
+def weekly_due(now: Optional[float] = None) -> Optional[str]:
+    """The Friday whose weekly summary is due now, or None: after the week's close (Friday 17:05 New York, summer time
+    followed) until the market reopens (Sunday 17:00 New York), so a summary missed on Friday (server down) still goes."""
+    from datetime import datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+    ny = datetime.fromtimestamp(time.time() if now is None else now, timezone.utc).astimezone(ZoneInfo("America/New_York"))
+    minutes = ny.hour * 60 + ny.minute
+    wd = ny.weekday()  # Monday 0 … Friday 4, Saturday 5, Sunday 6
+    if (wd == 4 and minutes >= 17 * 60 + 5) or wd == 5 or (wd == 6 and minutes < 17 * 60):
+        return (ny.date() - timedelta(days=wd - 4)).isoformat()
+    return None
+
+
+async def weekly_summary(now: Optional[float] = None) -> Optional[dict]:
+    """Friday after the close: the week's summary to every linked chat (+ the admin chat) and a one-line push, ONCE per
+    week (claimed in the settings before sending, so two passes at once never send it twice). None when not due."""
+    from .manager import week_line, week_message, week_summary
+    from datetime import datetime, timezone
+    from .manager import CALENDAR_FROM
+    friday = weekly_due(now)
+    if not friday or friday < datetime.fromtimestamp(CALENDAR_FROM, timezone.utc).date().isoformat():
+        return None  # not due, or a week before the count began (the first summary is the first counted week's)
+    with SessionLocal() as db:
+        if get_setting(db, "weeklySummary").get("sent") == friday:
+            return None
+        set_setting(db, "weeklySummary", {"sent": friday, "at": int(time.time())})
+    w = week_summary(now)
+    out = await broadcast("", week_message(w), week_line(w), "", f"ld-week-{friday}")
+    return {"week": friday, **out}
 
 
 def _save_overview(db, summaries: dict) -> None:

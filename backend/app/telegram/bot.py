@@ -225,6 +225,7 @@ SECTIONS = [
     ("📈 Trades", [
         ("trades", "Trades running now"),
         ("history", "History and win rate"),
+        ("week", "This week: pips, won and lost, best pair"),
         ("pairs", "Pairs waiting for their trigger"),
     ]),
     ("👤 My account", [
@@ -376,6 +377,9 @@ async def handle_update(token: str, upd: dict) -> None:
             reply = _trades_text()
         elif cmd == "/history":
             reply = _history_text()
+        elif cmd == "/week":  # the week so far, as Friday's summary tells it
+            from ..smc.manager import week_message, week_summary
+            reply = week_message(week_summary(), "This week so far")
         elif cmd == "/pairs":
             reply = _pairs_text()
         elif cmd == "/risk":  # this linked account's own USD risk per trade: each signal then shows its own lot
