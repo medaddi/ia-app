@@ -1,0 +1,74 @@
+"""SQLAlchemy engine and session. SQLite file locally, Postgres when DATABASE_URL is set."""
+
+from collections.abc import Iterator
+
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+from .config import settings
+
+_url = settings.db_url
+_serverless_postgres = settings.on_vercel and _url.startswith("postgresql")
+_engine_options = {"pool_pre_ping": True}
+if _url.startswith("sqlite"):
+    _engine_options["connect_args"] = {"check_same_thread": False}
+elif _serverless_postgres:
+    # A warm Vercel function serves several requests at once (Fluid compute), and one request can hold two sessions (the
+    # login check's and the route's own): one connection made them queue and time out (QueuePool limit of size 1, seen
+    # on 2026-11-19 on /api/smc/signals, /overview, /results, /market/assets and the cron tick). A small pool per
+    # function, on Neon's pooled endpoint (pgbouncer) that takes thousands of client connections.
+    _engine_options.update(pool_size=3, max_overflow=7, pool_timeout=20, pool_recycle=300)
+engine = create_engine(
+    _url,
+    **_engine_options,
+)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db() -> Iterator[Session]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def init_db() -> None:
+    from . import models  # noqa: F401  (registers the tables)
+
+    # Vercel may start several cold functions together. Serialize the idempotent schema setup
+    # so they do not race while creating tables or adding columns in the shared Postgres DB.
+    with engine.begin() as conn:
+        if conn.dialect.name == "postgresql":
+            conn.execute(text("SELECT pg_advisory_xact_lock(72830102026)"))
+        Base.metadata.create_all(conn)
+        _add_missing_columns(conn)
+        if conn.dialect.name == "postgresql":
+            # Row Level Security on every table, no policy: Supabase's public REST API (anon key) sees nothing, while the
+            # app, which connects as the tables' owner, is not affected. Only on a table that lacks it (a new table):
+            # ALTER TABLE locks the table completely, and running it on every cold start deadlocked with a user's
+            # request reading that table (users, 2026-11-21 11:11 UTC, 500 on /api/me/risk and /api/smc/team).
+            enabled = {r[0] for r in conn.execute(text(
+                "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = current_schema() AND c.relkind = 'r' AND c.relrowsecurity"))}
+            for name in Base.metadata.tables:
+                if name not in enabled:
+                    conn.execute(text(f'ALTER TABLE "{name}" ENABLE ROW LEVEL SECURITY'))
+
+
+def _add_missing_columns(conn) -> None:
+    """create_all() never alters existing tables: add columns introduced after the first deploy."""
+    added = {"users": {"default_lot": "FLOAT", "daily_loss_limit": "FLOAT", "risk_usd": "FLOAT",
+                       "telegram_link_code": "VARCHAR(16)", "telegram_link_expires": "INTEGER",
+                       "status": "VARCHAR(16) DEFAULT 'approved'", "first_name": "VARCHAR(64)", "last_name": "VARCHAR(64)"},
+             "subscribers": {"muted": "BOOLEAN DEFAULT FALSE", "risk_usd": "FLOAT"}}
+    insp = inspect(conn)
+    for table, cols in added.items():
+        have = {c["name"] for c in insp.get_columns(table)}
+        for name, sql_type in cols.items():
+            if name not in have:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))

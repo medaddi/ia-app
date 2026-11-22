@@ -1,0 +1,3 @@
+# the candles are 26 MB and re-downloadable: python smc/tools/fetch_data.py (DATA_LOG.md stays)
+pairs/*/data/*.csv
+__pycache__/
