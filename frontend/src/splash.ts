@@ -1,12 +1,12 @@
-// The intro (index.html #splash) is the logo video: it always plays in full at every opening of the app (the owner's
-// request of 2026-11-22), while the app gathers its data underneath. It fades out once BOTH the video has ended (the
-// 'ld-intro-end' event of index.html's player, which also covers a phone refusing to play it) AND the first real screen
-// is ready, never waiting for data more than MAX_MS (a slow server must not trap the user: the screen then fills in).
+// The intro (index.html #splash) is the logo drawn in animated vector (10 s): it always plays in full at every opening of
+// the app (the owner's request of 2026-11-22), while the app gathers its data underneath. It fades out once BOTH the
+// animation has ended (the 'ld-intro-end' event of index.html's timer) AND the first real screen is ready, never waiting
+// for data more than MAX_MS (a slow server must not trap the user: the screen then fills in).
 const MAX_MS = 4000;
 let done = false;
 let dataReady = false;
 let appReady = false;
-let introOver = !!(window as any).__ldIntroDone || !document.getElementById('intro');
+let introOver = !!(window as any).__ldIntroDone || !document.getElementById('ld-logo');
 let waiting: (() => void) | null = null;
 
 function fade() {

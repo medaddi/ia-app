@@ -26,15 +26,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      /* The intro: the logo video (brand/intro-*.mp4, 10 s) plays in full at every opening of the app, on a phone (square cut)
-         as on a computer (16:9), on the video's own background; src/splash.ts fades it out once it has ended AND the
-         app is ready underneath. */
+      /* The intro (10 s, at every opening of the app): the logo drawn in vector, like its video: a gold streak crosses the
+         screen along the slash, each piece of the logo draws itself in gold line, fills with gold, a spark lights the tip
+         of the slash, a light sweeps over the metal, and it rests glowing until 10 s. index.html's script then tells
+         src/splash.ts, which fades it out once the app is ready underneath. */
       html, body { margin: 0; background: #07090D; height: 100%; overscroll-behavior: none; }
       #splash { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
         background: #0B1018; transition: opacity .8s ease-in-out, visibility .8s; }  /* the logo's own background */
       #splash.fade-out { opacity: 0; visibility: hidden; }
-      #splash video { width: 100%; height: 100%; object-fit: cover; display: block; background: #0B1018; }
-      #splash video.is-square { object-fit: contain; }
+      #splash svg { width: min(56vw, 38vh); height: auto; overflow: visible; }
+      .ld-halo { opacity: 0; transform-origin: center; transform-box: fill-box; animation: ld-halo 7s 3s ease-in-out forwards; }
+      .ld-streak { stroke-width: 7; stroke-linecap: round; stroke-dasharray: .22 1.3; stroke-dashoffset: 1.25;
+        animation: ld-streak 1.5s .25s cubic-bezier(.55, 0, .3, 1) forwards; }
+      .ld-p { fill: url(#ld-gold); fill-opacity: 0; stroke: #E8C46C; stroke-width: 3.5; stroke-linejoin: round;
+        stroke-dasharray: 1; stroke-dashoffset: 1;
+        animation: ld-draw 1.6s calc(1.2s + var(--i) * .22s) cubic-bezier(.65, 0, .35, 1) forwards,
+                   ld-fill 1.3s 3.3s ease-out forwards; }
+      .ld-shapes { animation: ld-glow 2.2s 4.3s ease-in-out forwards; }
+      .ld-spark { pointer-events: none; }
+      @keyframes ld-streak { to { stroke-dashoffset: -.3; } }
+      @keyframes ld-draw { to { stroke-dashoffset: 0; } }
+      @keyframes ld-fill { 0% { fill-opacity: 0; } 70% { stroke-opacity: 1; } 100% { fill-opacity: 1; stroke-opacity: 0; } }
+      @keyframes ld-glow { 0% { filter: none; } 45% { filter: drop-shadow(0 0 22px rgba(247, 220, 134, .75)) brightness(1.18); }
+        100% { filter: drop-shadow(0 0 10px rgba(214, 174, 87, .35)); } }
+      @keyframes ld-halo { 0% { opacity: 0; transform: scale(.85); } 30% { opacity: 1; transform: scale(1); } 65% { opacity: .7; transform: scale(1.04); } 100% { opacity: 1; transform: scale(1); } }
       @keyframes ld-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
       /* the loaders inside the app (same logo, smaller, spinning gold arc) */
       .ld-logo-loader { position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; }
@@ -51,25 +66,29 @@
   </head>
   <body>
     <div id="root"></div>
-    <div id="splash" role="status" aria-label="Loading"><video id="intro" muted playsinline autoplay preload="auto" disablepictureinpicture disableremoteplayback aria-hidden="true"></video></div>
+    <div id="splash" role="status" aria-label="Loading">
+      <svg id="ld-logo" viewBox="0 0 972 1253" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="ld-gold" gradientUnits="userSpaceOnUse" x1="0" y1="1253" x2="972" y2="0">
+            <stop offset="0" stop-color="#A8771F"/><stop offset=".3" stop-color="#D9AE52"/><stop offset=".5" stop-color="#F7DC86"/>
+            <stop offset=".7" stop-color="#DDB257"/><stop offset="1" stop-color="#A87A26"/></linearGradient>
+          <linearGradient id="ld-shine" gradientUnits="userSpaceOnUse" x1="-620" y1="0" x2="-220" y2="150"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/><stop offset=".45" stop-color="#FFFDF2" stop-opacity=".95"/><stop offset=".55" stop-color="#FFFDF2" stop-opacity=".95"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/><animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="2000 0" begin="6.1s" dur="1.8s" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".45 0 .25 1"/></linearGradient>
+          <linearGradient id="ld-streak" gradientUnits="userSpaceOnUse" x1="-1400" y1="2813" x2="2372" y2="-1560">
+            <stop offset="0" stop-color="#F7DC86" stop-opacity="0"/><stop offset=".5" stop-color="#FFF3C4"/><stop offset="1" stop-color="#F7DC86" stop-opacity="0"/></linearGradient>
+          <radialGradient id="ld-halo"><stop offset="0" stop-color="#D6AE57" stop-opacity=".22"/><stop offset="1" stop-color="#D6AE57" stop-opacity="0"/></radialGradient>
+        </defs>
+        <ellipse class="ld-halo" cx="486" cy="626" rx="923" ry="1002" fill="url(#ld-halo)"/>
+        <line class="ld-streak" pathLength="1" x1="-1400" y1="2813" x2="2372" y2="-1560" stroke="url(#ld-streak)"/>
+        <g class="ld-shapes"><path class="ld-p" style="--i:0" pathLength="1" d="M703 147 L433 147 L433 592 L548 482 L549 258 L654 258 L713 315 L789 237 Z"/><path class="ld-p" style="--i:1" pathLength="1" d="M319 20 L297 20 L297 145 L250 147 L250 765 L366 658 L366 149 L319 144 Z"/><path class="ld-p" style="--i:2" pathLength="1" d="M952 117 L520 555 L203 855 L177 828 L172 152 L61 276 L61 874 L156 974 L20 1146 L383 776 L755 360 L803 409 L803 827 L695 943 L760 1037 L915 877 L916 361 L829 271 Z"/><path class="ld-p" style="--i:3" pathLength="1" d="M548 646 L433 771 L433 869 L548 869 Z"/><path class="ld-p" style="--i:4" pathLength="1" d="M200 1015 L233 1052 L296 1054 L297 1162 L320 1162 L321 1053 L432 1053 L433 1108 L478 1109 L478 1233 L503 1233 L503 1110 L548 1108 L550 1052 L695 1053 L621 941 L289 942 L279 934 Z"/></g>
+        <g class="ld-shine" fill="url(#ld-shine)"><path d="M952 117 L520 555 L203 855 L177 828 L172 152 L61 276 L61 874 L156 974 L20 1146 L383 776 L755 360 L803 409 L803 827 L695 943 L760 1037 L915 877 L916 361 L829 271 Z"/><path d="M200 1015 L233 1052 L296 1054 L297 1162 L320 1162 L321 1053 L432 1053 L433 1108 L478 1109 L478 1233 L503 1233 L503 1110 L548 1108 L550 1052 L695 1053 L621 941 L289 942 L279 934 Z"/><path d="M319 20 L297 20 L297 145 L250 147 L250 765 L366 658 L366 149 L319 144 Z"/><path d="M548 646 L433 771 L433 869 L548 869 Z"/><path d="M703 147 L433 147 L433 592 L548 482 L549 258 L654 258 L713 315 L789 237 Z"/></g>
+        <g class="ld-spark" transform="translate(950 122)"><g class="ld-spark-in" opacity="0" transform="scale(0)"><animate attributeName="opacity" values="0;1;0" keyTimes="0;.35;1" begin="4.6s" dur="1.6s" fill="freeze"/><animateTransform attributeName="transform" type="rotate" values="0;45;120" keyTimes="0;.35;1" begin="4.6s" dur="1.6s" fill="freeze"/><animateTransform attributeName="transform" type="scale" additive="sum" values="0;1.15;.4" keyTimes="0;.35;1" begin="4.6s" dur="1.6s" fill="freeze"/>
+          <circle r="26" fill="#FFF3C4" opacity=".95"/><circle r="70" fill="#F7DC86" opacity=".25"/>
+          <path d="M0 -170 L9 -9 L170 0 L9 9 L0 170 L-9 9 L-170 0 L-9 -9 Z" fill="#FFF8E0"/></g></g>
+      </svg>
+    </div>
     <script>
-      // The intro video: the square cut on a tall screen (a phone), the 16:9 one otherwise. Muted + playsinline so phones
-      // play it by themselves. It ends the intro when it ends; if the phone refuses to play it (power saving) or it cannot
-      // load, the intro ends soon after, and never later than 16 s (a slow network must not trap anyone).
-      (function () {
-        var v = document.getElementById('intro');
-        var end = function () { if (window.__ldIntroDone) return; window.__ldIntroDone = true; window.dispatchEvent(new Event('ld-intro-end')); };
-        if (!v) { end(); return; }
-        var cut = window.innerHeight > window.innerWidth * 1.05 ? 'square' : 'wide';
-        v.className = 'is-' + cut;
-        v.poster = '/brand/intro-' + cut + '.jpg';
-        v.src = '/brand/intro-' + cut + '.mp4';
-        v.addEventListener('ended', end);
-        v.addEventListener('error', function () { setTimeout(end, 1500); });
-        var p = v.play();
-        if (p && p.catch) p.catch(function () { setTimeout(end, 2500); });
-        setTimeout(end, 16000);
-      })();
+      // The intro lasts 10 s, at every opening; then it tells src/splash.ts (which waits for the app too)
+      setTimeout(function () { window.__ldIntroDone = true; window.dispatchEvent(new Event('ld-intro-end')); }, 10000);
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
