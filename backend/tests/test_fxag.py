@@ -598,3 +598,11 @@ def test_a_limit_missed_bus_is_cancelled_s07():  # S07
     ev = []
     out = run(m5, 0, 1, 1.1050, 1.1000, None, 1.1150, 1.0, False, 96, T0 + 86400, 0.0, ev, None, None, None, 1.1100)  # miss_px: half way to the TP
     assert out["state"] == "MISSED" and [k for _, k, _ in ev] == ["MISSED"]
+
+
+def test_pips_of_a_closed_trade_use_the_pair_pip_size():
+    from app.smc.manager import trade_pips
+
+    assert trade_pips("EUR/USD", 1.1000, 1.0980, 2.2) == 44.0     # 20-pip stop, +2.2R
+    assert trade_pips("USD/JPY", 150.00, 150.30, -1.0) == -30.0   # JPY pip 0.01
+    assert trade_pips("XAU/USD", 3500.0, 3510.0, 1.5) == 150.0    # gold pip 0.10

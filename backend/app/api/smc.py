@@ -50,3 +50,11 @@ async def smc_overview(_=Depends(current_user)):
 @router.get("/smc/signals")
 def smc_signals(_=Depends(current_user)):
     return {"success": True, "signals": recent(), "radar": recent_radar()}  # the live feed: the sent trades (no radar any more)
+
+
+@router.get("/smc/calendar")
+def smc_calendar(_=Depends(current_user)):
+    """The pips calendar: every trade closed since it began, its result in pips (grouped by day, week and month in the app)."""
+    from ..smc.manager import calendar
+
+    return {"success": True, **calendar()}

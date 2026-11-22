@@ -17,6 +17,7 @@ import { GoldLoader, LogoLoader } from './components/GoldLoader';
 import { hideSplash } from './splash';
 import type { AppUser } from './components/AccountView';
 const AccountView = lazy(() => import('./components/AccountView').then(m => ({ default: m.AccountView })));
+const StatsView = lazy(() => import('./components/StatsView').then(m => ({ default: m.StatsView })));
 const AdminView = lazy(() => import('./components/AdminView').then(m => ({ default: m.AdminView })));
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -359,6 +360,19 @@ export default function App() {
 
 
 
+
+          {activeTab === 'stats' && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+            >
+              <InternalPageTemplate subtitle={isFr ? 'Les pips de chaque jour, semaine et mois : gagnés moins perdus.' : isAr ? 'البيبس ديال كل نهار، سيمانة وشهر: الربح ناقص الخسارة.' : 'Pips per day, week and month: won minus lost.'}>
+                <StatsView lang={lang} />
+              </InternalPageTemplate>
+            </motion.div>
+          )}
 
           {activeTab === 'news' && (
             <motion.div

@@ -155,6 +155,29 @@ def history(limit: int = 500) -> dict:
     return {"since": since, "summary": summary, "curve": curve, "items": items}
 
 
+# The pips calendar starts on Monday 2026-11-23 00:00 UTC (the forex week) (the owner, 2026-11-22: "count from next week").
+CALENDAR_FROM = 1795392000
+
+
+def trade_pips(symbol: str, entry: float, sl: float, r: float) -> float:
+    """A closed trade's result in pips: its R times its stop distance in pips (0.01 for JPY pairs, 0.10 for gold)."""
+    from .fxag.config import pip_size
+
+    risk = abs((entry or 0.0) - (sl or 0.0)) / pip_size(symbol.replace("/", ""))
+    return round((r or 0.0) * risk, 1)
+
+
+def calendar() -> dict:
+    """Every trade closed since the calendar began, with its result in pips and when it closed: the app groups them by
+    day, week and month in the viewer's own time zone (net pips = pips won minus pips lost)."""
+    with SessionLocal() as db:
+        rows = db.scalars(select(Signal).where(Signal.id.like("SMC-%"), Signal.state == "CLOSED", Signal.exit_time >= CALENDAR_FROM)
+                          .order_by(Signal.exit_time)).all()
+        trades = [{"id": r.id, "symbol": r.symbol, "direction": r.direction, "outcome": r.outcome, "r": r.r_multiple,
+                   "pips": trade_pips(r.symbol, r.entry, r.sl, r.r_multiple), "exitTime": r.exit_time} for r in rows]
+    return {"since": CALENDAR_FROM, "trades": trades}
+
+
 def results(limit: int = 200) -> dict:
     """The teams' real results from the trades they sent and followed since the history began: win rate, R, per pair
     (VERIFIED from the log)."""

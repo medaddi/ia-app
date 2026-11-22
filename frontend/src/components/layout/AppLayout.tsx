@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bell, BellOff, CalendarRange, ChartCandlestick, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, LayoutGrid,
+  Bell, BellOff, CalendarCheck, CalendarRange, ChartCandlestick, Check, ChevronDown, ChevronLeft, ChevronRight, Flame, Languages, LayoutGrid,
   LogOut, Menu, Search, Send, UserRoundCog, WalletCards, Workflow, X,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
@@ -44,6 +44,7 @@ const T = {
   performance: ['Signal results', 'Résultats des signaux', 'نتائج الإشارات'],
   pairPerf: ['Pair performance', 'Performance des paires', 'أداء الأزواج'],
   news: ['News & calendar', 'Actualités & calendrier', 'الأخبار والأجندة'],
+  stats: ['Pips calendar', 'Calendrier des pips', 'أجندة البيبس'],
   account: ['My account', 'Mon compte', 'حسابي'],
   admin: ['Users', 'Utilisateurs', 'المستخدمون'],
   assistant: ['AI assistant', 'Assistant IA', 'المساعد الذكي'],
@@ -167,6 +168,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       { id: 'chart', label: 'chart', icon: ChartCandlestick, count: activeSignalsCount },
     ] },
     { title: 'gResults', items: [
+      { id: 'stats', label: 'stats', icon: CalendarCheck },
       { id: 'news', label: 'news', icon: CalendarRange },
     ] },
     { title: 'gAccount', items: [

@@ -263,3 +263,22 @@ def test_public_data_is_edge_cached_but_private_routes_are_not(client, monkeypat
     assert r.status_code == 200 and "s-maxage=300" in r.headers["cache-control"]
     r = client.get("/api/smc/signals")  # needs login: never cached at the edge
     assert "s-maxage" not in r.headers.get("cache-control", "")
+
+
+def test_pips_calendar_lists_trades_closed_since_it_began(client, admin):
+    from app.db import SessionLocal
+    from app.models import Signal
+    from app.smc.manager import CALENDAR_FROM
+
+    base = dict(setup="M1", entry_type="LIMIT", tp1=0, tp3=0, rr_tp2=2.2, score=80, state="CLOSED", params={}, payload={})
+    with SessionLocal() as db:
+        db.add(Signal(id="SMC-cal-1", symbol="EUR/USD", direction="SELL", entry=1.1000, sl=1.1020, tp2=1.0956,
+                      signal_time=CALENDAR_FROM + 3600, exit_time=CALENDAR_FROM + 7200, outcome="WIN", r_multiple=2.2, **base))
+        db.add(Signal(id="SMC-cal-old", symbol="EUR/USD", direction="SELL", entry=1.1000, sl=1.1020, tp2=1.0956,
+                      signal_time=CALENDAR_FROM - 9000, exit_time=CALENDAR_FROM - 3600, outcome="LOSS", r_multiple=-1.0, **base))
+        db.commit()
+    j = client.get("/api/smc/calendar", headers=admin).json()
+    ids = {t["id"]: t for t in j["trades"]}
+    assert j["since"] == CALENDAR_FROM and "SMC-cal-old" not in ids  # closed before the calendar began: not counted
+    assert ids["SMC-cal-1"]["pips"] == 44.0 and ids["SMC-cal-1"]["exitTime"] == CALENDAR_FROM + 7200
+    assert client.get("/api/smc/calendar").status_code == 401
