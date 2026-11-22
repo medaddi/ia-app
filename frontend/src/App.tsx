@@ -11,7 +11,7 @@ import { InternalPageTemplate } from './components/layout/InternalPageTemplate';
 const ExunuTerminalView = lazy(() => import('./components/ExunuTerminalView').then(m => ({ default: m.ExunuTerminalView })));
 import { DashboardView } from './components/DashboardView';
 import { SignalToasts } from './components/SignalToasts';
-import { isInstrument } from './instruments';
+import { INSTRUMENT_LABELS, isInstrument } from './instruments';
 import { notifyEnabled, subscribePush } from './notifications';
 import { GoldLoader, LogoLoader } from './components/GoldLoader';
 import { hideSplash } from './splash';
@@ -183,7 +183,13 @@ export default function App() {
   const [assets, setAssets] = useState<MarketAsset[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('XAU/USD');
   const [news, setNews] = useState<NewsItem[]>([]);
-  const selectedAsset = assets.find(a => a.symbol === selectedSymbol) || assets[0] || null;
+  // The pair on screen: its own price row when /api/market/assets has it (a few pairs), otherwise any of the app's 29 pairs
+  // on a forex row (the menu and the search open every pair; the header shows the pair itself, never gold instead)
+  const baseAsset = assets.find(a => a.symbol === 'EUR/USD') || assets[0];
+  const selectedAsset = assets.find(a => a.symbol === selectedSymbol)
+    || (baseAsset && isInstrument(selectedSymbol)
+      ? { ...baseAsset, id: selectedSymbol.replace('/', '').toLowerCase(), symbol: selectedSymbol, name: INSTRUMENT_LABELS[selectedSymbol] }
+      : baseAsset) || null;
 
   // Telegram modal & mobile drawer
   const [isTelegramOpen, setIsTelegramOpen] = useState<boolean>(false);
@@ -314,6 +320,7 @@ export default function App() {
         onToggleTheme={toggleTheme}
         selectedAsset={selectedAsset}
         onSelectAsset={(sym) => {
+          if (isInstrument(sym)) { setSelectedSymbol(sym); return; }  // every pair of the app, not only the priced few
           const found = assets.find(a => a.symbol === sym || a.symbol.includes(sym));
           if (found) setSelectedSymbol(found.symbol);
         }}
