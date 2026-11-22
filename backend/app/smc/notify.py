@@ -69,7 +69,7 @@ async def user_lot(db, u, sig_id: str) -> Optional[str]:
     return f"{z['lots']:g}" if z.get("status") == "ok" else None
 
 
-async def chat_lot(db, chat: str, sig_id: str) -> tuple[Optional[str], Optional[str]]:
+async def personal(db, chat: str, sig_id: str) -> tuple[Optional[str], Optional[str]]:
     """(the lot line, the lot) of THE user this private chat is linked to. (None, None) for a group, a channel or a chat no
     account owns: a shared chat never sees anyone's risk or lot."""
     if not chat or str(chat).startswith("-"):  # groups and channels have negative ids
@@ -82,19 +82,18 @@ async def chat_lot(db, chat: str, sig_id: str) -> tuple[Optional[str], Optional[
 
 
 async def personal_line(db, chat: str, sig_id: str) -> Optional[str]:
-    """The lot line of THE user this private chat is linked to (see chat_lot)."""
-    return (await chat_lot(db, chat, sig_id))[0]
+    return (await personal(db, chat, sig_id))[0]
 
 
-def copy_buttons(s: dict, dec: int, lot: Optional[str] = None) -> list[list[dict]]:
-    """Under a trade, one tap copies each number to paste into MetaTrader (Telegram's copy_text buttons): Entry and SL,
-    then TP and, in a private chat whose owner set a risk, the lot."""
+def copy_keyboard(s: dict, dec: int, lot: Optional[str], app_url: Optional[str]) -> dict:
+    """The trade's buttons: one tap on Entry, SL, TP or Lot copies that number (Telegram's copy_text), ready to paste in
+    MetaTrader; the app link under them."""
     def b(label: str, v: str) -> dict:
         return {"text": f"📋 {label} {v}", "copy_text": {"text": v}}
-    rows = [[b("Entry", _f(s["entry"], dec)), b("SL", _f(s["sl"], dec))], [b("TP", _f(s["tp"], dec))]]
-    if lot:
-        rows[1].append(b("Lot", lot))
-    return rows
+    rows = [[b("Entry", _f(s["entry"], dec)), b("SL", _f(s["sl"], dec))], [b("TP", _f(s["tp"], dec))] + ([b("Lot", lot)] if lot else [])]
+    if app_url:
+        rows.append([{"text": "📈 Open in the app", "url": app_url}])
+    return {"inline_keyboard": rows}
 
 
 def _app_link(pair: str) -> str:
@@ -118,13 +117,12 @@ async def broadcast(pair: str, text: str, title: str, body: str, tag: str, signa
             admin_chat = str(cfg.get("chatId") or "")
             dec = BY_SYMBOL[pair]["decimals"] if signal and pair in BY_SYMBOL else None
             for chat in chats:
-                mine, lot = await chat_lot(db, chat, signal["id"]) if signal and chat != admin_chat else (None, None)
-                keys = markup
-                if dec is not None:  # a trade: its numbers as copy buttons, then the app
-                    keys = {"inline_keyboard": copy_buttons(signal, dec, lot) + (markup["inline_keyboard"] if markup else [])}
-                out = await bot.send_message(token, chat, text + "\n" + mine if mine else text, keys)
-                if not out.get("success") and keys is not markup:  # a client or API refusing the buttons never loses the trade
-                    out = await bot.send_message(token, chat, text + "\n" + mine if mine else text, markup)
+                mine, lot = await personal(db, chat, signal["id"]) if signal and chat != admin_chat else (None, None)
+                body_text = text + "\n" + mine if mine else text
+                keys = copy_keyboard(signal, dec, lot, public) if dec is not None else markup
+                out = await bot.send_message(token, chat, body_text, keys)
+                if not out.get("success") and keys is not markup:  # a Telegram that refuses the copy buttons still gets the trade
+                    out = await bot.send_message(token, chat, body_text, markup)
                 tg_sent += bool(out.get("success"))
         rows = db.scalars(select(PushSubscription).join(User, User.id == PushSubscription.user_id)
                           .where(User.active.is_(True), or_(User.status.is_(None), User.status != "pending"))).all()

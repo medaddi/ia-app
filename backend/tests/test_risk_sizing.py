@@ -192,11 +192,20 @@ def test_the_shared_telegram_message_carries_no_risk_and_a_private_chat_gets_its
     assert sent["1001"][0].splitlines()[-1] == "Lot <code>0.24</code>"  # alice: her lot only, as the last line
     assert sent["1002"][0].splitlines()[-1] == "Lot <code>0.03</code>"  # bob: his only
     assert sent["1001"][0].splitlines()[0] == "🟢 <b>XAU/USD · BUY</b>" and len(sent["1001"][0].splitlines()) == 5
-    # under each trade, one tap copies each number (Telegram copy_text buttons): her own lot in her chat, none in the group
-    copies = lambda chat: [(k["text"], k["copy_text"]["text"]) for row in sent[chat][1]["inline_keyboard"] for k in row if "copy_text" in k]  # noqa: E731
-    assert copies("1001") == [("📋 Entry 2350.40", "2350.40"), ("📋 SL 2340.40", "2340.40"), ("📋 TP 2380.40", "2380.40"), ("📋 Lot 0.24", "0.24")]
-    assert copies("1002")[-1] == ("📋 Lot 0.03", "0.03")
-    assert copies("-100777") == [("📋 Entry 2350.40", "2350.40"), ("📋 SL 2340.40", "2340.40"), ("📋 TP 2380.40", "2380.40")]
+    # one tap copies each number: alice's buttons carry her own lot, the group's carry no lot
+    copies = lambda chat: {b["text"].split()[1]: b["copy_text"]["text"] for row in sent[chat][1]["inline_keyboard"] for b in row if "copy_text" in b}
+    assert copies("1001") == {"Entry": "2350.40", "SL": "2340.40", "TP": "2380.40", "Lot": "0.24"}
+    assert copies("1002")["Lot"] == "0.03"
+    assert copies("-100777") == {"Entry": "2350.40", "SL": "2340.40", "TP": "2380.40"}
+    # a Telegram that refuses the copy buttons still gets the trade (sent again without them)
+    tries = []
+
+    async def picky_send(token, chat, text, markup=None, protect=False):
+        tries.append(markup)
+        return {"success": not (markup and any("copy_text" in b for row in markup["inline_keyboard"] for b in row))}
+    monkeypatch.setattr("app.telegram.bot.send_message", picky_send)
+    out = asyncio.run(notify.broadcast("XAU/USD", notify.message(s, "XAU/USD", 2), "t", "b", "x2", s))
+    assert out["telegram"] == 3 and len(tries) == 6
     with SessionLocal() as db:
         set_setting(db, "telegram", {})
         for u in db.query(User).filter(User.username.in_(["alice", "bob"])):
@@ -400,25 +409,3 @@ def test_a_trade_on_the_board_that_was_not_sent_still_gets_my_lot(client, users)
     assert a["status"] == b["status"] == "ok" and not a["saved"] and a["riskUsd"] != b["riskUsd"]
     assert a["lots"] == int(a["riskUsd"] / 1030 * 100) / 100 and b["lots"] == int(b["riskUsd"] / 1030 * 100) / 100  # $10 stop on 100 oz + $30 costs
     assert client.get("/api/me/sizing/SMC-XAUUSD-SF_BR-1-S", headers=users["bob"]).json()["status"] == "unavailable"
-
-
-def test_a_trade_still_goes_out_if_telegram_refuses_the_copy_buttons(client, users, monkeypatch):
-    from app.db import SessionLocal
-    from app.store import set_setting
-    t = int(time.time()) - 200
-    sid = f"SMC-EURUSD-SF_BR-{t}-S"
-    _signal(sid, "EUR/USD", "SELL", 1.10000, 1.10200, 1.09560, t)
-    with SessionLocal() as db:
-        set_setting(db, "telegram", {"botToken": "123:TEST", "chatId": "-100888", "enabled": True})
-    calls = []
-
-    async def picky_send(token, chat, text, markup=None, protect=False):
-        has_copy = any("copy_text" in k for row in (markup or {}).get("inline_keyboard", []) for k in row)
-        calls.append(has_copy)
-        return {"success": not has_copy, "error": "Bad Request: can't parse inline keyboard button" if has_copy else None}
-    monkeypatch.setattr("app.telegram.bot.send_message", picky_send)
-    s = {"id": sid, "direction": "SELL", "entry": 1.1, "sl": 1.102, "tp": 1.0956}
-    out = asyncio.run(notify.broadcast("EUR/USD", notify.message(s, "EUR/USD", 5), "t", "", "x", s))
-    assert out["telegram"] == 1 and calls == [True, False]  # refused with the buttons, sent without them
-    with SessionLocal() as db:
-        set_setting(db, "telegram", {})
