@@ -192,6 +192,20 @@ def test_the_shared_telegram_message_carries_no_risk_and_a_private_chat_gets_its
     assert sent["1001"][0].splitlines()[-1] == "Lot <code>0.24</code>"  # alice: her lot only, as the last line
     assert sent["1002"][0].splitlines()[-1] == "Lot <code>0.03</code>"  # bob: his only
     assert sent["1001"][0].splitlines()[0] == "🟢 <b>XAU/USD · BUY</b>" and len(sent["1001"][0].splitlines()) == 5
+    # one tap copies each number: alice's buttons carry her own lot, the group's carry no lot
+    copies = lambda chat: {b["text"].split()[1]: b["copy_text"]["text"] for row in sent[chat][1]["inline_keyboard"] for b in row if "copy_text" in b}
+    assert copies("1001") == {"Entry": "2350.40", "SL": "2340.40", "TP": "2380.40", "Lot": "0.24"}
+    assert copies("1002")["Lot"] == "0.03"
+    assert copies("-100777") == {"Entry": "2350.40", "SL": "2340.40", "TP": "2380.40"}
+    # a Telegram that refuses the copy buttons still gets the trade (sent again without them)
+    tries = []
+
+    async def picky_send(token, chat, text, markup=None, protect=False):
+        tries.append(markup)
+        return {"success": not (markup and any("copy_text" in b for row in markup["inline_keyboard"] for b in row))}
+    monkeypatch.setattr("app.telegram.bot.send_message", picky_send)
+    out = asyncio.run(notify.broadcast("XAU/USD", notify.message(s, "XAU/USD", 2), "t", "b", "x2", s))
+    assert out["telegram"] == 3 and len(tries) == 6
     with SessionLocal() as db:
         set_setting(db, "telegram", {})
         for u in db.query(User).filter(User.username.in_(["alice", "bob"])):

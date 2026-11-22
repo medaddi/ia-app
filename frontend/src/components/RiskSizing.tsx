@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Scale } from 'lucide-react';
 import { apiJson } from '../api';
 import type { Language } from '../types';
-import { Button, Card, Field, Notice, inputCls, tr } from './ui';
+import { Button, Card, Field, Notice, inputCls, tr, useCopy } from './ui';
 
 /**
  * My USD risk per trade and my lot for a signal. Everything here is the signed-in user's own: the backend scopes every route
@@ -56,12 +56,16 @@ export function RiskCard({ isLight, lang }: { isLight: boolean; lang: Language }
 /** One line: my lot for a signal, or why there is none. */
 export function SizeLine({ s, lang, decimals }: { s: Sizing | null; lang: Language; decimals?: number }) {
   const t = (en: string, fr: string, ar: string) => tr(lang, en, fr, ar);
+  const [copied, copy] = useCopy();
   if (!s) return <p className="text-[11px] text-slate-500">{t('Your size: loading…', 'Votre taille : chargement…', 'الحجم ديالك: كيتحمل…')}</p>;
   if (s.status !== 'ok') return <p className="text-[11px] text-amber-300">{t('Size unavailable', 'Taille indisponible', 'الحجم ما متوفرش')}: <span className="text-slate-400">{s.reason}</span></p>;
   const m = s.meta;
   return (
     <p className="text-[11px] text-slate-300" title={m ? `${m.contractSize} units/lot · ${m.quoteCcy}→USD ${m.quoteToUsd.toFixed(6)}${m.conversion?.pair ? ` (${m.conversion.pair})` : ''} · costs $${m.costsPerLotUsd}/lot · $${m.riskPerLotUsd}/lot at the stop · step ${m.lotStep}, min ${m.minLot}` : undefined}>
-      {t('Your size', 'Votre taille', 'الحجم ديالك')}: <span className="font-mono font-semibold text-gold-200">{s.lots} lot</span>
+      {t('Your size', 'Votre taille', 'الحجم ديالك')}:{' '}
+      <button type="button" onClick={() => copy('lot', String(s.lots))} title={t('Tap to copy', 'Touchez pour copier', 'كليكي باش تكوبي')}
+        className="font-mono font-semibold text-gold-200 underline decoration-dotted underline-offset-2 hover:text-gold-100">{s.lots} lot</button>
+      {copied === 'lot' && <span className="text-emerald-300"> ✓ {t('Copied', 'Copié', 'تكوبا')}</span>}
       {' · '}{t('your risk', 'votre risque', 'الريسك ديالك')} ${s.riskUsd}{' · '}{t('loss at the stop', 'perte au stop', 'الخسارة ف الستوب')} ≈ ${s.estLossUsd}
       {m && <span className="text-slate-500"> ({m.stopPips} pips, {t('costs included', 'coûts inclus', 'بالتكاليف')})</span>}
       {s.saved && <span className="text-slate-500"> · {t('saved', 'enregistrée', 'مسجل')}</span>}

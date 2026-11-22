@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Language } from '../types';
 
 /** Small shared building blocks in the app's token palette (index.css). */
@@ -66,3 +66,23 @@ export const fmtPct = (v: number | null | undefined) => (v === null || v === und
 export const fmtMoney = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v < 0 ? '-' : ''}$${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}`);
 export const fmtR = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${v}R`);
 export const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).toISOString().slice(0, 16).replace('T', ' ') : '—');
+
+/** Copies a trade number (entry, SL, TP, lot) to paste in MetaTrader; `copied` is true for 1.2 s after (a "✓ Copied" mark). */
+export function useCopy(): [string | null, (key: string, value: string) => void] {
+  const [copied, setCopied] = useState<string | null>(null);
+  const copy = (key: string, value: string) => {
+    const done = () => { setCopied(key); setTimeout(() => setCopied(c => (c === key ? null : c)), 1200); };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(value).then(done, () => fallback(value) && done());
+    else if (fallback(value)) done();
+  };
+  return [copied, copy];
+}
+
+/** Older phones / non-secure pages: copy through a hidden text field. */
+function fallback(value: string): boolean {
+  try {
+    const el = document.createElement('textarea');
+    el.value = value; el.setAttribute('readonly', ''); el.style.position = 'fixed'; el.style.opacity = '0';
+    document.body.appendChild(el); el.select(); const ok = document.execCommand('copy'); el.remove(); return ok;
+  } catch { return false; }
+}

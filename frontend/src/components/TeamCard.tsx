@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Check, ChevronDown, Crosshair, Hourglass, Info, OctagonX, Shield, Users, X } from 'lucide-react';
-import { tr } from './ui';
+import { AlertTriangle, Check, ChevronDown, Copy, Crosshair, Hourglass, Info, OctagonX, Shield, Users, X } from 'lucide-react';
+import { tr, useCopy } from './ui';
 import type { Language } from '../types';
 import type { Team, TeamAgent, TeamSetup } from '../smcTeam';
 import { NotificationBell } from './NotificationBell';
@@ -34,6 +34,7 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
   const [open, setOpen] = useState<string | null>(null);
   const toggle = (k: string) => setOpen(o => (o === k ? null : k));
   const f = (v: number) => v.toFixed(decimals);
+  const [copied, copy] = useCopy();
   // short names: a word each, the full role shows in the details
   const agentName = (k: string) => ({ strategy: t('Strategy & confirmation', 'Stratégie & confirmation', 'الستراتيجية والتأكيد'),
     risk: t('SL · TP · lot', 'SL · TP · lot', 'الستوب · الهدف · اللوت') } as Record<string, string>)[k] ?? k;
@@ -58,14 +59,21 @@ export const TeamCard: React.FC<{ team: Team | null; symbol: string; decimals: n
         {s.market != null && <span className="px-1.5 py-0.5 rounded bg-surface-2 text-[10px] font-semibold text-slate-300">{s.market ? t('Market', 'Marché', 'ماركت') : t('Limit', 'Limite', 'ليميت')}</span>}
         <span className="ms-auto font-mono text-[11px] text-slate-500">{hm(s.time)} UTC</span>
       </p>
-      <dl className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono text-xs">
-        {[[t('Entry', 'Entrée', 'الدخول'), f(s.entry), 'text-gold-300'], ['SL', f(s.sl), 'text-rose-300'], ['TP', f(s.tp), 'text-emerald-300'], ['R:R', `1:${s.rr}`, 'text-slate-400']].map(([k, v, c]) => (
-          <div key={k} className="rounded-md bg-white/[0.03] px-2 py-1.5">
-            <dt className={`text-[10px] uppercase tracking-wider ${c}`}>{k}</dt>
-            <dd className="text-slate-100">{v}</dd>
-          </div>
+      <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono text-xs">
+        {[[t('Entry', 'Entrée', 'الدخول'), f(s.entry), 'text-gold-300'], ['SL', f(s.sl), 'text-rose-300'], ['TP', f(s.tp), 'text-emerald-300']].map(([k, v, c]) => (
+          // a tap copies the number, to paste in MetaTrader
+          <button key={k} type="button" onClick={() => copy(`${s.id}-${k}`, v)} title={t('Tap to copy', 'Touchez pour copier', 'كليكي باش تكوبي')}
+            className="rounded-md bg-white/[0.03] px-2 py-1.5 text-start hover:bg-white/[0.07] active:scale-[0.98] transition">
+            <span className={`flex items-center justify-between text-[10px] uppercase tracking-wider ${c}`}>{k}
+              {copied === `${s.id}-${k}` ? <span className="normal-case tracking-normal text-emerald-300">✓ {t('Copied', 'Copié', 'تكوبا')}</span> : <Copy className="w-3 h-3 text-slate-500" aria-hidden="true" />}</span>
+            <span className="block text-slate-100">{v}</span>
+          </button>
         ))}
-      </dl>
+        <div className="rounded-md bg-white/[0.03] px-2 py-1.5">
+          <span className="block text-[10px] uppercase tracking-wider text-slate-400">R:R</span>
+          <span className="block text-slate-100">1:{s.rr}</span>
+        </div>
+      </div>
       <div className="mt-1.5"><MySize id={s.id} lang={lang} /></div>
       <p className="mt-0.5 text-[11px] text-slate-400">{t('Set & Forget: SL and TP locked, no break-even, no partial', 'Set & Forget : SL et TP verrouillés, ni break-even ni partiel', 'Set & Forget: SL و TP مقفولين، بلا break-even وبلا جزئي')}</p>
       {!s.market && s.zone && <p className="mt-0.5 text-[11px] text-slate-400">{t('Limit zone', 'Zone limite', 'منطقة الليميت')} <span className="font-mono text-slate-200">{f(s.zone[0])} – {f(s.zone[1])}</span></p>}
